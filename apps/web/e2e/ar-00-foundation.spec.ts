@@ -33,9 +33,9 @@ test('autorig.* ids load the rig-workspace chunk on first run and refuse as stub
   // D4 landed `autorig.rig`: without an open Quick Rig session it refuses with its own poll
   await expectRefused(page, 'autorig.rig', 'Place the markers first (Quick Rig is not open)', { straighten: true });
   await expect.poll(() => loaded(scripts, 'ekza-rig-workspace')).toBe(true);
-  // D1 landed `autorig.navigate` (the host's navigation port), D3 the ① compositions, D4 the ③ ones: without arguments
-  // (or without a Quick Rig session, a running bind) each refuses with its own poll; the others are stubs until their
-  // owners land them.
+  // D1 landed `autorig.navigate` (the host's navigation port), D3 the ① compositions, D4 the ③ ones, D5 the ④ one:
+  // without arguments (or without a Quick Rig session, a running bind) each refuses with its own poll; the others are
+  // stubs until their owners land them.
   const landed: Readonly<Record<string, string>> = {
     'autorig.rig': 'Place the markers first (Quick Rig is not open)',
     'autorig.cancel': 'No skinning is running',
@@ -44,6 +44,8 @@ test('autorig.* ids load the rig-workspace chunk on first run and refuse as stub
     'autorig.intake': 'expects { bytes, name }',
     'autorig.inspect': 'expects { meshes }',
     'autorig.fix': 'expects { fix: center | face | standUp | scale | freeze, meshes }',
+    // D5 landed the ④ composition
+    'autorig.clip.add': 'expects { character, clip, params, replace? }',
   };
   for (const op of WIZARD_IDS) await expectRefused(page, op, landed[op] ?? 'Arrives with Auto-Rig');
   // the moved M6b stubs: A0 landed them (E2E-AR-A0); without a character they refuse with their own reason

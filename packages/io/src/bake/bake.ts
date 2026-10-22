@@ -73,8 +73,12 @@ interface TrackPlan {
  */
 type Reader = (pose: PoseBuffers, node: number, path: TrackPath, out: Float64Array, frame: Frame) => void;
 
-/** X/Z travel of the in-place node over the range, removed linearly by root motion 'in-place'. */
-interface Travel {
+/**
+ * X/Z travel of the in-place node over the range, removed linearly by root motion 'in-place'. Exported (with
+ * `travelBetween` and `travelAt`) as the one travel-removal helper: Auto-Rig's *In place* clip parameter
+ * (`library/params.ts`, AUTORIG-SPEC §5.5.3) removes a library clip's travel with it, in seconds instead of frames.
+ */
+export interface Travel {
   readonly start: Frame;
   readonly span: number;
   readonly x: number;
@@ -82,7 +86,7 @@ interface Travel {
 }
 
 /** Travel removed at clip frame `frame` along canonical axis 0 (x) or 2 (z). */
-function travelAt(travel: Travel | null, frame: Frame, axis: 0 | 2): number {
+export function travelAt(travel: Travel | null, frame: Frame, axis: 0 | 2): number {
   if (travel === null || !(travel.span > 0)) return 0;
   const u = (frame - travel.start) / travel.span;
   return (axis === 0 ? travel.x : travel.z) * u;
@@ -105,10 +109,21 @@ function measureTravel(source: PoseSource, opts: BakeOptions, humanoid: boolean)
     if (node === null) return [pose.hipsPosition[0] as number, pose.hipsPosition[2] as number];
     return [pose.boneWorld[node * 16 + 12] as number, pose.boneWorld[node * 16 + 14] as number];
   };
-  const [x0, z0] = xz(start);
-  const [x1, z1] = xz(end);
-  const x = x1 - x0;
-  const z = z1 - z0;
+  return travelBetween(start, end, xz(start), xz(end));
+}
+
+/**
+ * The travel from X/Z `first` at `start` to X/Z `last` at `end` (frames, or any time unit `travelAt` is then called
+ * with); null when it is within TRAVEL_EPSILON on both axes (nothing is removed).
+ */
+export function travelBetween(
+  start: Frame,
+  end: Frame,
+  first: readonly [number, number],
+  last: readonly [number, number],
+): Travel | null {
+  const x = last[0] - first[0];
+  const z = last[1] - first[1];
   if (!(Math.abs(x) > TRAVEL_EPSILON) && !(Math.abs(z) > TRAVEL_EPSILON)) return null;
   return { start, span: end - start, x, z };
 }

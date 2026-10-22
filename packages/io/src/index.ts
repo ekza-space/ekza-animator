@@ -72,7 +72,30 @@ export {
   vrmcMetaOf,
 } from './vrm/meta';
 export { renderCharacterThumbnail, THUMBNAIL_SIZE } from './vrm/thumbnail';
-export { parseStarterPackManifest, retargetUalClip, UAL_BONE_MAP, writeHumanoidVrma } from './library';
+export {
+  applyClipParams,
+  CLIP_ARM_SPACE_RANGE,
+  CLIP_SPEED_RANGE,
+  clipParamsProblem,
+  deriveHumanoidVrma,
+  type HumanoidClipParams,
+  IDENTITY_HUMANOID_CLIP_PARAMS,
+  isFullTrim,
+  isIdentityClipParams,
+  mirrorBone,
+  parseStarterPackManifest,
+  ROM_FPS,
+  ROM_FRAMES_PER_POSE,
+  ROM_POSES,
+  type RomPose,
+  retargetUalClip,
+  romClip,
+  romFrameOf,
+  romRotation,
+  romVrma,
+  UAL_BONE_MAP,
+  writeHumanoidVrma,
+} from './library';
 export { VRM_LINT_RULES } from './lint/vrm';
 export {
   type DocVertices,

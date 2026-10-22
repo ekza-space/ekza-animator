@@ -338,7 +338,7 @@ describe('WIZARD_OPERATORS in the rig-workspace chunk (AUTORIG-SPEC §4.5, §7.0
     });
     // D1 landed `autorig.navigate`: without a host navigation port (Node) it refuses with its own reason. D3 landed
     // the ① compositions: without arguments each refuses with its own argument poll. D4 landed the ③ ones: without a
-    // Quick Rig session / a running bind they refuse with their own reasons.
+    // Quick Rig session / a running bind they refuse with their own reasons. D5 landed the ④ one (argument poll).
     const landed: Readonly<Record<string, string>> = {
       'autorig.rig': NO_MARKERS,
       'autorig.cancel': NOTHING_TO_CANCEL,
@@ -347,6 +347,8 @@ describe('WIZARD_OPERATORS in the rig-workspace chunk (AUTORIG-SPEC §4.5, §7.0
       'autorig.intake': 'expects { bytes, name }',
       'autorig.inspect': 'expects { meshes }',
       'autorig.fix': 'expects { fix: center | face | standUp | scale | freeze, meshes }',
+      // D5 landed `autorig.clip.add`: without arguments it refuses with its own argument poll.
+      'autorig.clip.add': 'expects { character, clip, params, replace? }',
     };
     expect(reasons).toEqual(WIZARD_IDS.map((id) => landed[id] ?? ARRIVES_WITH_AUTORIG));
     // A0 replaced the moved M6b stubs: they poll for real (test/autorig-a0/ runs them), one undo step, listed.
