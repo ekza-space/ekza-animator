@@ -4,7 +4,7 @@
 // and the From Studio card. The footer's primary is *Next: Markers* (an already rigged avatar: *Next: Animations*).
 // The first visit loads only the drop zone (AR-D3-4): the ① actions (`./flow`), the report (`./Report`) and the cards
 // a fresh profile never shows (Continue, the rigged-other choice, a project's characters: `./Extras`) are lazy chunks.
-import type { AutoRigFix } from '@ekza-studio/editor-core';
+import type { AutoRigFix, AutosaveSlotInfo } from '@ekza-studio/editor-core';
 import { buttonClass, cn } from '@ekza-studio/ui';
 import { type JSX, lazy, Suspense, useCallback, useEffect, useRef } from 'react';
 import { formatNumber, messages } from '../../i18n';
@@ -87,9 +87,11 @@ function Samples(props: { readonly ctx: WizardContext }): JSX.Element {
 
 const Extras = lazy(() => import('./Extras'));
 
-/** §4.4 Continue where you left off: shown when an autosave slot exists, the document is empty and no handoff came. */
-function ContinueCard(props: { readonly ctx: WizardContext }): JSX.Element | null {
-  const { ctx } = props;
+/**
+ * §4.4 Continue where you left off: the newest autosave slot while the document is empty and no handoff came (the
+ * card's and, AR-D9-10, the footer primary's), else undefined.
+ */
+function useContinueSlot(ctx: WizardContext): AutosaveSlotInfo | undefined {
   const recovery = useAppSession(
     ctx.app,
     useCallback((s) => s.recovery, []),
@@ -99,7 +101,14 @@ function ContinueCard(props: { readonly ctx: WizardContext }): JSX.Element | nul
     () => ctx.app.store.list('characters').length + ctx.app.store.list('meshes').length === 0,
   );
   const slot = [...recovery].sort((a, b) => b.savedAt - a.savedAt)[0];
-  if (slot === undefined || !empty || ctx.host.params.handoff !== null) return null;
+  return slot === undefined || !empty || ctx.host.params.handoff !== null ? undefined : slot;
+}
+
+/** §4.4 Continue where you left off: shown when an autosave slot exists, the document is empty and no handoff came. */
+function ContinueCard(props: { readonly ctx: WizardContext }): JSX.Element | null {
+  const { ctx } = props;
+  const slot = useContinueSlot(ctx);
+  if (slot === undefined) return null;
   return (
     <Suspense fallback={null}>
       <Extras ctx={ctx} show="continue" slot={slot} />
@@ -206,8 +215,21 @@ function useModelFooter(ctx: WizardContext): void {
   const handed = useSmall(ctx.ui, selectFromStudio);
   const progress = useProgress(ctx);
   const uniform = useDocument(ctx.app, () => transformsUniform(ctx, subject.meshes));
+  const resume = useContinueSlot(ctx);
   useEffect(() => {
     if (step !== 'model') return;
+    // After a reload the Continue card is the step's primary (and `Mod+Enter`'s; AR-D9-10).
+    if (resume !== undefined && handed === null && !progress.done.model && ui.loading === null) {
+      ctx.setFooter({
+        status: t().hintContinue,
+        tone: 'info',
+        primary: {
+          label: t().continue,
+          run: () => withFlow(ctx, t().loadFailed, (flow) => flow.continueSlot(ctx, resume.id)),
+        },
+      });
+      return;
+    }
     // A Studio hand-over waits on the From Studio card: "Use these" is the step's primary (AR-D8-7).
     if (handed !== null && !progress.done.model && ui.loading === null) {
       ctx.setFooter({
@@ -264,7 +286,7 @@ function useModelFooter(ctx: WizardContext): void {
       },
     };
     ctx.setFooter(footer);
-  }, [ctx, step, intake, model.heavyConfirmed, subject, ui.loading, ui.error, progress, uniform, handed]);
+  }, [ctx, step, intake, model.heavyConfirmed, subject, ui.loading, ui.error, progress, uniform, handed, resume]);
 }
 
 /** Re-reads the report when the document changes under ① (an undo of a fix, an edit in Studio's palette). */

@@ -40,3 +40,22 @@ test('AS-AR-9: a reload after Auto-rig continues on ③ with the same document',
   expect((await wizard(page)).slices['rig']).toMatchObject({ sub: (slices['rig'] as { sub: string }).sub });
   await expect(page.getByTestId('ar-rig-all-good')).toBeVisible();
 });
+
+test('AR-D9-10: after a reload the Continue card is the step’s primary (and Mod+Enter’s)', async ({ page }) => {
+  test.setTimeout(240_000);
+  const ns = `ar-d9-10-${test.info().workerIndex}-${Date.now().toString(36)}`;
+  await openAutoRigReady(page, `&ns=${ns}&platform=mac`);
+  await rigThroughUi(page, 'cube-lad.glb', new Uint8Array(fixtureBytes('cube-lad.glb')));
+  const { character } = await subjectCharacter(page);
+  await page.evaluate(() => window.__EKZA_STUDIO_TEST__?.flushAutosave());
+
+  await page.reload();
+  await waitForTestApi(page);
+  await expect(page.getByTestId('ar-continue')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('ar-primary')).toHaveText(/^Continue/);
+  await expect(page.getByTestId('ar-primary')).toBeEnabled();
+  await expect(page.getByTestId('ar-status')).toContainText('Continue');
+  await page.keyboard.press('Meta+Enter');
+  await onStep(page, 'rig');
+  expect((await wizard(page)).subject.character).toBe(character);
+});
