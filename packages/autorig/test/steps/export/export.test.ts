@@ -62,6 +62,7 @@ describe('the checklist (§5.6.2)', () => {
       ['required-bones', 'ok'],
       ['parents', 'ok'],
       ['tpose', 'ok'],
+      ['height', 'ok'],
       ['skinned', 'ok'],
       ['transforms', 'ok'],
       ['size', 'pending'],
@@ -207,7 +208,14 @@ describe('the checklist (§5.6.2)', () => {
   });
 
   it('per target: GLB has no VRM checks, VRMA only its file checks, an imported avatar waits for its file', () => {
-    expect(checksOf('glb', true).map((c) => c.id)).toEqual(['skeleton', 'tpose', 'skinned', 'transforms', 'read-back']);
+    expect(checksOf('glb', true).map((c) => c.id)).toEqual([
+      'skeleton',
+      'tpose',
+      'height',
+      'skinned',
+      'transforms',
+      'read-back',
+    ]);
     expect(checksOf('vrma', true).map((c) => c.id)).toEqual(['read-back']);
     const asset = checklistOf({ target: 'ekza-vrm', modelCharacter: false, live: [], written: null, measured: null });
     expect(asset.every((item) => item.state === 'pending')).toBe(true);
@@ -221,6 +229,40 @@ describe('the checklist (§5.6.2)', () => {
     });
     expect(glb.find((item) => item.id === 'tpose')?.state).toBe('warning');
     expect(firstError(glb)).toBeNull();
+  });
+});
+
+describe('acceptance round 4 (AR-R4-2, AR-R4-5)', () => {
+  it('a giant or tiny character: the height check warns and never gates the download', () => {
+    const live = [
+      row('skel.height', 'warning', 'The character is 5.83 m tall: a person is 0.3–3 m (Ekza Space uses metres)'),
+    ];
+    for (const target of ['ekza-vrm', 'glb'] as const) {
+      const items = checklistOf({ target, modelCharacter: true, live, written: null, measured: null });
+      const height = items.find((item) => item.id === 'height');
+      expect(height).toMatchObject({ label: 'Human size (0.3–3 m tall)', state: 'warning', check: true });
+      expect(height?.rows[0]?.message).toMatch(/5\.83 m tall/);
+      expect(firstError(items)).toBeNull();
+    }
+  });
+
+  it('a separate part bound to two limbs is its own row, by the label table', () => {
+    const items = checklistOf({
+      target: 'ekza-vrm',
+      modelCharacter: true,
+      live: [
+        row(
+          'skin.cross-limb',
+          'warning',
+          'pCube63 moves with the head, the left arm and the right arm: it stretches between them',
+        ),
+      ],
+      written: null,
+      measured: null,
+    });
+    expect(items.filter((item) => !item.check).map((item) => [item.id, item.label, item.state])).toEqual([
+      ['skin.cross-limb', 'Each part follows one limb', 'warning'],
+    ]);
   });
 });
 

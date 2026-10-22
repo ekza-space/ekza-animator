@@ -78,6 +78,8 @@ const PARENTS: CheckDef = {
   rules: ['skel.parent-map', 'vrm.parent-map', 'skel.multiple-roots', 'vrm.node-tree'],
 };
 const TPOSE: CheckDef = { id: 'tpose', label: () => t().checkTpose, rules: ['skel.tpose'] };
+/** AR-R4-2: a person is 0.3–3 m tall (a warning: Ekza Space places the avatar in metres, OMOBA scales it). */
+const HEIGHT: CheckDef = { id: 'height', label: () => t().checkHeight, rules: ['skel.height'] };
 const SKINNED: CheckDef = {
   id: 'skinned',
   label: () => t().checkSkinned,
@@ -153,12 +155,13 @@ export function checksOf(target: AutoRigExportTarget, modelCharacter: boolean, v
     if (target === 'glb') return [READ_BACK];
     return [vrm0 ? HUMANOID_VRM0 : HUMANOID, REQUIRED, PARENTS, SIZE, NODES, BONES, EXTENSIONS, READ_BACK];
   }
-  if (target === 'glb') return [SKELETON, TPOSE, SKINNED, TRANSFORMS, READ_BACK];
+  if (target === 'glb') return [SKELETON, TPOSE, HEIGHT, SKINNED, TRANSFORMS, READ_BACK];
   return [
     HUMANOID,
     REQUIRED,
     PARENTS,
     TPOSE,
+    HEIGHT,
     SKINNED,
     TRANSFORMS,
     SIZE,
@@ -208,6 +211,7 @@ export function ruleLabel(code: string): string | null {
     'skel.symmetry': m.ruleSymmetry,
     'skel.facing': m.ruleFacing,
     'skel.grounded': m.ruleGrounded,
+    'skel.height': m.checkHeight,
     'skel.orientation-mixed': m.ruleOrientation,
     'skin.unbound': m.checkSkinned,
     'skin.bind': m.checkSkinned,
@@ -220,6 +224,7 @@ export function ruleLabel(code: string): string | null {
     'skin.unweighted-vertex': m.checkSkinned,
     'skin.weight-sum': m.checkSkinned,
     'skin.limb-unweighted': m.checkSkinned,
+    'skin.cross-limb': m.ruleCrossLimb,
     'skin.review': m.ruleReview,
     'xform.scale': m.checkTransforms,
     'xform.not-frozen': m.checkTransforms,

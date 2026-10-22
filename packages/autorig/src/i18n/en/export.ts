@@ -72,6 +72,7 @@ export const exportStep = {
   checkExtensions: 'Allowed extensions only',
   checkReadBack: 'The file reads back the same',
   checkSkeleton: 'Skeleton',
+  checkHeight: 'Human size (0.3–3 m tall)',
   vrmaClips: (clips: number) => (clips === 1 ? '1 clip, one .vrma file' : `${clips} clips, one .vrma file each`),
   // measured rows of a written file (§5.6.2)
   measuredSize: (file: string, json: string) => `File ${file} / 50 MiB · JSON ${json}`,
@@ -90,6 +91,7 @@ export const exportStep = {
   ruleIsland: 'Every mesh part follows a bone',
   ruleReview: 'Weights reviewed',
   ruleRigSync: 'Controls match the skeleton',
+  ruleCrossLimb: 'Each part follows one limb',
   ruleRigMode: 'Rig mode',
   // notes
   omobaNote: 'OMOBA plays its own motion library on your VRM; your clips play in Space.',
