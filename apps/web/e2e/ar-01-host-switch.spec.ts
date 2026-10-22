@@ -1,15 +1,18 @@
 import { expect, test } from '@playwright/test';
-import { autorig, hasTestApi, history, loaded, openAutoRig, SHELL_MARKERS, scriptsOf } from './helpers/autorig';
+import { autorig, hasTestApi, history, loaded, SHELL_MARKERS, scriptsOf } from './helpers/autorig';
 import {
   buildAnimatedCubeLad,
   documentState,
   enterRigWorkspace,
   expectAutoRigShown,
   expectStudioShown,
+  glKept,
   importStatic,
   markPage,
   navigate,
+  openAutoRigReady,
   pageMark,
+  tagGl,
 } from './helpers/ar-host';
 import { hoverViewport } from './helpers/m6b-clip-library';
 import { call, expectKernelStarted, openEditor, renderedFrames } from './helpers/test-api';
@@ -17,11 +20,12 @@ import { call, expectKernelStarted, openEditor, renderedFrames } from './helpers
 // E2E-AR-01 (AUTORIG-SPEC §10 D1; the D1 part of AS-AR-3): one EditorApp per page under the `(studio)` layout. The
 // test API is the host's on both routes; a document built through operators (`mesh.importStatic`,
 // `skel.quickRig.commit`, `skin.bind`, `library.useClip`) survives `/editor` → `/autorig` → `/editor` through the
-// navigation port with its undo history, records, selection, autosave slot and WebGL context — no page load —
+// navigation port with its undo history, store version, records, selection, autosave slot and its very WebGL canvas
+// and context — no page load —
 // and `Mod+Z` in Studio afterwards undoes "Use Clip Walk".
 
 test('the host installs the test API on /autorig: history, records, frames and probes answer', async ({ page }) => {
-  await openAutoRig(page);
+  await openAutoRigReady(page);
   expect(await hasTestApi(page)).toBe(true);
   expect(await history(page)).toEqual({ undo: [], redo: [] });
   expect((await call(page, 'counts'))['characters'] ?? 0).toBe(0);
@@ -43,6 +47,7 @@ test('Studio → Auto-Rig → Studio on one page keeps the document, its undo hi
   const before = await documentState(page);
   expect(before.history.undo.slice(-3)).toEqual(['Create Skeleton', 'Bind Skin', 'Use Clip Walk']);
   await markPage(page);
+  await tagGl(page);
   expect(loaded(scripts, SHELL_MARKERS.autorig)).toBe(false);
 
   // Studio → Auto-Rig (a client navigation: the layout and its host stay).
@@ -52,7 +57,8 @@ test('Studio → Auto-Rig → Studio on one page keeps the document, its undo hi
   expect(await pageMark(page)).toBe('kept');
   expect(await documentState(page)).toEqual(before);
   expect(loaded(scripts, SHELL_MARKERS.autorig)).toBe(true);
-  // The canvas still renders for the same app (one WebGL context per page load).
+  // The same canvas and the same WebGL context (one per page load), still live, and the canvas renders on.
+  expect(await glKept(page)).toEqual({ canvas: true, context: true, lost: false });
   const frames = await renderedFrames(page);
   await call(page, 'state');
   expect(await renderedFrames(page)).toBeGreaterThanOrEqual(frames);
@@ -63,6 +69,7 @@ test('Studio → Auto-Rig → Studio on one page keeps the document, its undo hi
   await expect(page).toHaveURL(/\/editor\?e2e=1&platform=mac&ws=animate&from=autorig$/);
   expect(await pageMark(page)).toBe('kept');
   expect(await documentState(page)).toEqual(before);
+  expect(await glKept(page)).toEqual({ canvas: true, context: true, lost: false });
   await expect.poll(async () => (await call(page, 'state')).workspace).toBe('animate');
   expect((await call(page, 'workspaces')).find((ws) => ws.active)?.id).toBe('animate');
 
@@ -77,7 +84,7 @@ test("the first-run dialog is Studio's only; Studio's operators come back with i
   page,
 }) => {
   // A fresh profile opening Auto-Rig sees no first-run dialog (its prefs stay untouched) …
-  await openAutoRig(page, '&firstRun=1');
+  await openAutoRigReady(page, '&firstRun=1');
   await expect(page.locator(`[data-shell="${SHELL_MARKERS.autorig}"]`)).toBeVisible();
   await page.waitForTimeout(300);
   await expect(page.getByTestId('firstrun-dialog')).toHaveCount(0);

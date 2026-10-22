@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { history, openAutoRig } from './helpers/autorig';
-import { autosaveRows, expectStudioShown, navigate } from './helpers/ar-host';
+import { history } from './helpers/autorig';
+import { autosaveRows, expectStudioShown, navigate, openAutoRigReady } from './helpers/ar-host';
 import { seedSample, seedWaveClip } from './helpers/seed';
 import { call, expectKernelStarted, openEditor, runOk, waitForTestApi } from './helpers/test-api';
 
@@ -27,7 +27,7 @@ test('a new-tab handoff opens a clean document with autosave paused, without the
   await orphan.close();
 
   // The source: Auto-Rig (it never prompts for recovery) with a clean document and autosave paused.
-  await openAutoRig(page, `&ns=${ns}`);
+  await openAutoRigReady(page, `&ns=${ns}`);
   await seedSample(page, 'polybot');
   await runOk(page, 'file.save');
   expect((await call(page, 'state')).dirty).toBe(false);

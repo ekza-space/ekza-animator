@@ -4,7 +4,7 @@
 // (`autorig.navigate`, its palette/script wrapper). `autorig.sample` and `autorig.rig` are stubs at D1's merge.
 import { readFileSync } from 'node:fs';
 import { expect, type Page } from '@playwright/test';
-import { SHELL_MARKERS } from './autorig';
+import { openAutoRig, SHELL_MARKERS } from './autorig';
 import { cubeLadTruth } from './m6b-cube-lad';
 import { call, run, runOk, waitForTestApi } from './test-api';
 
@@ -68,7 +68,43 @@ export async function documentState(page: Page) {
     activeCharacter: state.activeCharacter,
     activeClip: state.activeClip,
     slot: (await call(page, 'autosave')).slot,
+    storeVersion: state.storeVersion,
   };
+}
+
+interface TaggedGl {
+  __arGlTag?: string;
+}
+
+/**
+ * Tags the GL host's canvas and its WebGL context object, so a later `glKept` proves the same canvas and the same
+ * context survived (a remounted `GLHost` would make a new canvas and a new context). `getContext` with the context's
+ * own type returns the existing context.
+ */
+export async function tagGl(page: Page): Promise<void> {
+  const tagged = await page.evaluate(() => {
+    const canvases = document.querySelectorAll<HTMLCanvasElement & TaggedGl>('[data-testid="gl-host"] canvas');
+    const canvas = canvases[0];
+    if (canvases.length !== 1 || canvas === undefined) return `${canvases.length} canvases`;
+    // R3F made a WebGL 2 context: asking for that type returns it (never a new one).
+    const gl: (WebGL2RenderingContext & TaggedGl) | null = canvas.getContext('webgl2');
+    if (gl === null) return 'no webgl2 context';
+    canvas.__arGlTag = 'kept';
+    gl.__arGlTag = 'kept';
+    return 'tagged';
+  });
+  expect(tagged).toBe('tagged');
+}
+
+/** Whether the GL host's canvas and its context are the ones `tagGl` marked, and the context is not lost. */
+export function glKept(page: Page): Promise<{ canvas: boolean; context: boolean; lost: boolean }> {
+  return page.evaluate(() => {
+    const canvases = [...document.querySelectorAll<HTMLCanvasElement & TaggedGl>('[data-testid="gl-host"] canvas')];
+    const canvas = canvases.length === 1 ? canvases[0] : undefined;
+    const tagged = canvas?.__arGlTag === 'kept';
+    const gl: (WebGL2RenderingContext & TaggedGl) | null = tagged ? (canvas?.getContext('webgl2') ?? null) : null;
+    return { canvas: tagged, context: gl?.__arGlTag === 'kept', lost: gl?.isContextLost() ?? true };
+  });
 }
 
 /** Marks the page so a later read proves no page load happened in between. */
@@ -128,6 +164,16 @@ export function autosaveRows(page: Page, ns: string): Promise<{ id: string; snap
       }),
     `ekza-animator-autosave-v1:${ns}`,
   );
+}
+
+/**
+ * Opens `/autorig?e2e=1<query>` and waits for the host's test API and its `ready`. D0's `openAutoRig` returns once
+ * the Auto-Rig shell marker is in the DOM, and the host installs the API after the shell has mounted (through a lazy
+ * chunk), so under load a call right after `openAutoRig` can find no API; every D1 entry to `/autorig` uses this.
+ */
+export async function openAutoRigReady(page: Page, query = ''): Promise<void> {
+  await openAutoRig(page, query);
+  await waitForTestApi(page);
 }
 
 /** Waits for a page's test API after it opened or navigated. */
