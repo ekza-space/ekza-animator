@@ -8,7 +8,7 @@ import type { Disposer } from '@ekza-studio/anim-core';
 import type { AutoRigSampleId, AutoRigSubject, EditorApp } from '@ekza-studio/editor-core';
 import { type HostShell, provideAutoRigTestState } from '@ekza-studio/editor/host';
 import { installSimpleNavigation } from '../nav';
-import { autoRigProgress, checklistLoaded, landingStep, loadChecklist } from '../progress';
+import { autoRigProgress, checklistLoaded, landingStep, loadChecklist, resolveSubject } from '../progress';
 import {
   type AutoRigSessionStore,
   createAutoRigSessionStore,
@@ -189,10 +189,19 @@ export function createWizard(host: HostShell): Wizard {
         );
       };
       wantChecklist();
+      // The subject names the character its meshes went into, whoever made it: the wizard's own run does it
+      // (`adoptSubject`), a palette or MCP run of `autorig.rig` / Create Skeleton on ② or ③ through this (AR-D7-17).
+      const adoptMade = (): void => {
+        const subject = session.getState().subject;
+        if (subject.character !== null || subject.meshes.length === 0) return;
+        const made = resolveSubject(app.store, subject).character;
+        if (made !== null) session.set({ subject: { character: made.id, meshes: subject.meshes } });
+      };
       disposers.push(
         app.store.subscribe(() => {
           bump();
           wantChecklist();
+          adoptMade();
         }),
       );
       disposers.push(session.subscribe(() => bump()));

@@ -10,7 +10,8 @@
 // every `vrm.*` lint clean, read-back ✓, three-vrm plays a VRMA idle on it; 10 Studio's `file.exportCharacter` on the
 // same page writes the same SHA-256. The file goes to `test-results/autorig/` for step 11 (OMOBA's validator, local,
 // D7's record). Step 12 (negative) is the second test: a T-posed Cube Lad with the elbow 8° off the arm line rigs
-// in two steps and shows `skel.tpose` with *Adjust joints* first.
+// in two steps and shows `skel.tpose` with *Adjust joints* first; moving the elbow back in *Adjust joints* clears it
+// (on *Done* the hands turn with their forearms, AR-D7-16) and *Animations ▸* opens.
 import { expect, test } from '@playwright/test';
 import { characterRequest, checkOf, download, keepExport, studioExport } from './helpers/ar-export';
 import { expectStudioShown } from './helpers/ar-host';
@@ -329,7 +330,7 @@ for (const subject of SUBJECTS) {
   });
 }
 
-test('AS-AR-1 step 12 (negative): a T-posed Cube Lad with the elbow 8° off rigs in two steps and shows skel.tpose', async ({
+test('AS-AR-1 step 12 (negative): the elbow 8° off rigs in two steps with skel.tpose; moving it back clears the row', async ({
   page,
 }) => {
   test.setTimeout(240_000);
@@ -396,42 +397,31 @@ test('AS-AR-1 step 12 (negative): a T-posed Cube Lad with the elbow 8° off rigs
   expect(Math.abs((await restOf('rightLowerArm'))[1]! - upper[1]!)).toBeLessThan(0.01);
   await page.getByTestId('ar-rig-done').click();
   await expect.poll(async () => (await history(page)).undo.at(-1), { timeout: 30_000 }).toBe('Bind Skin');
-  // the arm segments are on the line now: no skel.tpose row names an upper or lower arm
-  const tpose = (await rows(page)).find((r) => r.code === 'skel.tpose');
-  expect(JSON.stringify(tpose ?? {})).not.toMatch(/UpperArm|LowerArm/);
+  // moving the elbow back clears it: the arm segments are on the line and the hands turned with their forearms
+  expect((await rows(page)).map((r) => r.code)).not.toContain('skel.tpose');
+  await expect(page.locator('[data-testid="ar-rig-validation"] [data-row="skel.tpose"]')).toHaveCount(0);
+  await expect(page.getByTestId('ar-primary')).toBeEnabled();
+  expect((await wizard(page)).reachable.animations).toBe(true);
+  await expect(page.locator('[data-step="animations"] button')).toBeEnabled();
+  // the mesh never moved (a T-posed input is not straightened)
+  expect(await call(page, 'meshPositions', mesh, undefined, 'local')).toEqual(imported);
 });
 
-// AS-AR-1 step 12's last check — "moving the elbow back in Adjust joints clears it" — fails today: C3's Move Joint
-// leaves the hand's tail on the old forearm line and `skel.tpose` checks hand → tail (AR-D4-T1, DECISIONS-OPEN §M,
-// a ticket for C3's owner). `test.fail` keeps the specified assertion running: it turns red when C3's fix lands, and
-// then this annotation goes.
-test('AS-AR-1 step 12: moving the elbow back clears the skel.tpose row (known gap AR-D4-T1)', async ({ page }) => {
-  test.fail(true, 'AR-D4-T1: Move Joint does not re-aim the hand tail (C3 ticket, DECISIONS-OPEN §M)');
+// AS-AR-1 step 5 by the palette or MCP instead of the button (§4.5: the compositions are registered for every shell):
+// `autorig.rig` run on ② outside the wizard's own flow still makes the wizard's subject the new character (AR-D7-17),
+// so ③ is done and reachable as after *Auto-rig ▸*.
+test('AS-AR-1 step 5 by operator: autorig.rig from the palette on ② adopts the subject character', async ({ page }) => {
   test.setTimeout(180_000);
-  const { openAutoRigReady } = await import('./helpers/ar-host');
-  await openAutoRigReady(page, '&sample=cube-lad');
-  await expect.poll(async () => (await wizard(page)).subject.meshes.length, { timeout: 30_000 }).toBe(1);
-  const meshes = (await wizard(page)).subject.meshes;
-  await runOk(page, 'workspace.set', { workspace: 'rig' });
-  await runOk(page, 'skel.quickRig.start', { meshes });
-  const markers = cubeLadMarkers().markers;
-  const elbow = markers['elbow'] as readonly [number, number, number];
-  const shoulder = markers['shoulder'] as readonly [number, number, number];
-  const drop = Math.tan((8 * Math.PI) / 180) * Math.abs(elbow[0] - shoulder[0]);
-  await runOk(page, 'skel.quickRig.setMarker', { name: 'elbow', point: [elbow[0], shoulder[1] - drop, elbow[2]] });
-  await runOk(page, 'autorig.rig', { straighten: false });
+  await startFromLanding(page);
+  await dropModel(page, 'cube-lad.glb', new Uint8Array(fixtureBytes('cube-lad.glb')));
+  await nextToMarkers(page);
+  expect((await wizard(page)).subject.character).toBeNull();
+  const made = await runOk<{ character: string }>(page, 'autorig.rig', { straighten: false });
+  await expect.poll(async () => (await wizard(page)).subject.character).toBe(made.character);
+  const models = (await call(page, 'characters')).filter((row) => row.id === made.character);
+  expect(models).toHaveLength(1);
+  await expect.poll(async () => (await wizard(page)).done['rig']).toBe(true);
+  expect((await wizard(page)).reachable.rig).toBe(true);
   const { character } = await subjectCharacter(page);
-  expect((await rows(page)).map((row) => row.code)).toContain('skel.tpose');
-  const skeleton = await call(page, 'skeleton', character);
-  const joint = (bone: string) => skeleton?.joints.find((j) => j.humanBone === bone);
-  const upper = joint('rightUpperArm')?.restPosition ?? [];
-  const lower = joint('rightLowerArm');
-  await runOk(page, 'rig.mode', { mode: 'skeleton' });
-  await runOk(page, 'skel.joint.move', {
-    joints: [lower?.id],
-    translateY: (upper[1] ?? 0) - (lower?.restPosition[1] ?? 0),
-    mode: 'joint',
-  });
-  await runOk(page, 'skin.bind', { confirm: true });
-  expect((await rows(page)).map((row) => row.code)).not.toContain('skel.tpose');
+  expect(character).toBe(made.character);
 });

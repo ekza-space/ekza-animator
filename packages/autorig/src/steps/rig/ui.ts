@@ -1,8 +1,9 @@
 // ③'s transient UI state (AUTORIG-SPEC §5.4; D4), shared by ② (which starts `autorig.rig`) and ③: the plan of the
 // running composition (which stages the progress sheet lists), how the last run ended (cancelled during the bind, or
 // interrupted by another change) and its failure, and where *Adjust joints* started (the history top, for Done's
-// rebind). Per wizard (keyed by its session store); never mirrored.
+// rebind, and the forearms, for the hands that follow them). Per wizard (keyed by its session store); never mirrored.
 import type { WizardContext } from '../../shell/context';
+import type { ArmSnapshot } from './hands';
 import { smallStore, type SmallStore } from '../../shell/store';
 
 export interface RigUi {
@@ -14,6 +15,8 @@ export interface RigUi {
   readonly error: string | null;
   /** The history top when *Adjust joints* opened (Done rebinds only after a change). */
   readonly adjustFrom: number | null;
+  /** The forearms when *Adjust joints* opened (Done turns the hands with them, AR-D7-16). */
+  readonly adjustArms: ArmSnapshot | null;
   /** A rebind (Done, Bind again) is running. */
   readonly rebinding: boolean;
   /** *Show weights* in review (Skin mode with the Select tool, C6's greyscale display). */
@@ -30,6 +33,7 @@ export function rigUi(ctx: Pick<WizardContext, 'session'>): SmallStore<RigUi> {
       notice: null,
       error: null,
       adjustFrom: null,
+      adjustArms: null,
       rebinding: false,
       showWeights: false,
     });
