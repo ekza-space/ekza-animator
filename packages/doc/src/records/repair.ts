@@ -7,12 +7,14 @@ import {
   COLOUR_OUTPUTS,
   GROUP_TEMPLATES,
   HANDHELD_LIMITS,
+  JOINT_ROLES,
   MESH_NAME_MAX,
   PRIMITIVE_KINDS,
+  SHAPE_FIELDS,
   SKELETON_PRESETS,
-  SWATCH_SHADERS,
 } from './validate';
-import { SWATCH_SHADER_DEFAULTS } from '../records';
+import { repairVrmMeta } from './vrm';
+import { repairByteTriple, repairSwatchShader } from './swatch';
 
 type Obj = Readonly<Record<string, unknown>>;
 const isObj = (value: unknown): value is Obj => typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -101,46 +103,91 @@ function repairMeshOrGroup(table: 'meshes' | 'groups', record: Obj, problems: st
   return next;
 }
 
-/** A three-integer 0…255 triple, or null when `value` already is one (missing items become `fill`). */
-function repairByteTriple(value: unknown, fill: number): number[] | null {
-  const items: readonly unknown[] = Array.isArray(value) ? value : [];
-  const fixed = [0, 1, 2].map((i) => {
-    const v = items[i];
-    return finite(v) ? clamp(Math.round(v), 0, 255) : fill;
-  });
-  return items.length !== 3 || fixed.some((v, i) => v !== items[i]) ? fixed : null;
+export { repairSwatchShader };
+
+// ---------- M6b schema v4 (M6B-SPEC §4.1 rules table) ----------
+
+/**
+ * The control-key stem of a joint name (`JointRecord.key`, M6B-SPEC §4.1): the name reduced to `[A-Za-z0-9_-]`
+ * (anything else becomes `_`), `node` for an empty name — rig's `sanitizeNodeName`, which doc cannot import.
+ */
+export function jointKeyStem(name: unknown): string {
+  const cleaned = (typeof name === 'string' ? name : '').replace(/[^A-Za-z0-9_-]/g, '_');
+  return cleaned.length === 0 ? 'node' : cleaned;
+}
+
+/** `ControlShape.edited`: absent, or known fields without duplicates (unknown and duplicate entries dropped). */
+function repairShapeEdited(shape: unknown, problems: string[]): unknown {
+  if (!isObj(shape) || !('edited' in shape) || shape['edited'] === undefined) return shape;
+  const edited = shape['edited'];
+  if (!Array.isArray(edited)) {
+    problems.push('shape.edited: not an array, removed');
+    const { edited: _edited, ...rest } = shape;
+    return rest;
+  }
+  const kept: unknown[] = [];
+  for (const field of edited) {
+    if ((SHAPE_FIELDS as readonly unknown[]).includes(field) && !kept.includes(field)) kept.push(field);
+  }
+  if (kept.length === edited.length) return shape;
+  problems.push('shape.edited: unknown and duplicate fields dropped');
+  return { ...shape, edited: kept };
 }
 
 /**
- * The shader fields of a swatch (SHADING-SPEC §2; swatches table version 2): the patch that repairs them, empty when
- * they are fine. Missing fields take `SWATCH_SHADER_DEFAULTS` (the v1 → v2 migration is this repair); an unknown
- * shader becomes 'lambert'; a glossiness is clamped into 0…1 (0.5 when not a finite number); a malformed specular
- * becomes white, a well-formed one is clamped and rounded.
+ * Cross-record repair of `JointRecord.key` (M6B-SPEC §4.1): unique among each skeleton's live joints — a missing or
+ * empty key takes the sanitized name (`jointKeyStem`), and duplicates (in id order, the first keeps its key) take
+ * `#n` suffixes (n = 1, 2, … skipping keys in use). Returns a new table only when something changed.
+ *
+ * Contract (M6B-C0-23): uniqueness is a cross-record rule, so local writes do not check it (the per-record write
+ * validation sees one joint). Every writer of joints (C2's skeleton operators, Quick Rig, char.fromModel) allocates keys
+ * unique among the skeleton's live joints itself, e.g. by running this function over the skeleton's joints plus the new
+ * ones before the write; a duplicate that slips through is repaired on the next load.
  */
-export function repairSwatchShader(record: Obj, problems: string[] = []): Record<string, unknown> {
-  const patch: Record<string, unknown> = {};
-  if (!(SWATCH_SHADERS as readonly unknown[]).includes(record['shader'])) {
-    problems.push(`shader: ${'shader' in record ? 'unknown' : 'missing'}, set to '${SWATCH_SHADER_DEFAULTS.shader}'`);
-    patch['shader'] = SWATCH_SHADER_DEFAULTS.shader;
+export function repairJointKeys(joints: Readonly<Record<string, unknown>>): {
+  readonly joints: Readonly<Record<string, unknown>>;
+  readonly problems: readonly string[];
+} {
+  const problems: string[] = [];
+  const bySkeleton = new Map<string, string[]>();
+  for (const [id, row] of Object.entries(joints)) {
+    if (!isObj(row) || !isLive(row)) continue;
+    const skeleton = String(row['skeleton']);
+    const ids = bySkeleton.get(skeleton);
+    if (ids === undefined) bySkeleton.set(skeleton, [id]);
+    else ids.push(id);
   }
-  const glossiness = record['glossiness'];
-  const gloss = finite(glossiness) ? clamp(glossiness, 0, 1) : SWATCH_SHADER_DEFAULTS.glossiness;
-  if (gloss !== glossiness) {
-    problems.push('glossiness: clamped into 0…1');
-    patch['glossiness'] = gloss;
-  }
-  const specular = record['specular'];
-  if (!Array.isArray(specular) || specular.length !== 3) {
-    problems.push('specular: missing or malformed, set to white');
-    patch['specular'] = [...SWATCH_SHADER_DEFAULTS.specular];
-  } else {
-    const fixed = repairByteTriple(specular, 255);
-    if (fixed !== null) {
-      problems.push('specular: clamped and rounded to three integers 0…255');
-      patch['specular'] = fixed;
+  const keyOf = (row: Obj): string =>
+    typeof row['key'] === 'string' && row['key'].length > 0 ? row['key'] : jointKeyStem(row['name']);
+  const changed = new Map<string, string>();
+  for (const ids of bySkeleton.values()) {
+    ids.sort(codeUnitOrder);
+    const used = new Set<string>();
+    for (const id of ids) used.add(keyOf(joints[id] as Obj));
+    const holders = new Set<string>();
+    for (const id of ids) {
+      const row = joints[id] as Obj;
+      let key = keyOf(row);
+      if (holders.has(key)) {
+        let n = 1;
+        while (used.has(`${key}#${n}`)) n++;
+        const next = `${key}#${n}`;
+        problems.push(`joints/${id}: duplicate key, set to '${next}'`);
+        key = next;
+        used.add(key);
+      }
+      holders.add(key);
+      if (row['key'] !== key) {
+        if (typeof row['key'] !== 'string' || row['key'].length === 0)
+          problems.push(`joints/${id}: key missing, set to '${key}'`);
+        changed.set(id, key);
+      }
     }
   }
-  return patch;
+  if (changed.size === 0) return { joints, problems };
+  const out: Record<string, unknown> = { ...joints };
+  for (const [id, key] of changed) out[id] = { ...(joints[id] as Obj), key };
+  return { joints: out, problems };
 }
 
 /**
@@ -159,6 +206,49 @@ export function repairRecord(table: string, record: unknown): RepairResult {
       if (!isObj(source) && typeof asset === 'string' && asset.length > 0) {
         problems.push("source: missing, set to {kind: 'asset', asset}");
         next = { ...record, source: { kind: 'asset', asset } };
+      }
+      // v4 (M6B-SPEC §4.1): `vrm` is null or a complete VRM meta object.
+      const vrm = record['vrm'];
+      if (!isObj(vrm)) {
+        if (vrm !== null) {
+          problems.push('vrm: missing or not an object, set to null');
+          next = { ...next, vrm: null };
+        }
+      } else {
+        const repaired = repairVrmMeta(vrm, record['name']);
+        if (repaired !== vrm) {
+          problems.push('vrm: fields repaired to the schema defaults');
+          next = { ...next, vrm: repaired };
+        }
+      }
+      break;
+    }
+    case 'joints': {
+      // v4: role and key (key uniqueness per skeleton is the cross-record `repairJointKeys`).
+      const patch: Record<string, unknown> = {};
+      if (!(JOINT_ROLES as readonly unknown[]).includes(record['role'])) {
+        problems.push("role: missing or unknown, set to 'bone'");
+        patch['role'] = 'bone';
+      }
+      if (typeof record['key'] !== 'string' || record['key'].length === 0) {
+        patch['key'] = jointKeyStem(record['name']);
+        problems.push(`key: missing, set to '${String(patch['key'])}'`);
+      }
+      if (Object.keys(patch).length > 0) next = { ...record, ...patch };
+      break;
+    }
+    case 'controls': {
+      // v4: `shape.edited`.
+      const shape = repairShapeEdited(record['shape'], problems);
+      if (shape !== record['shape']) next = { ...record, shape };
+      break;
+    }
+    case 'clips': {
+      // v4: a test clip source must be {kind: 'test', generator: 'rom', version: 1}.
+      const source = record['source'];
+      if (isObj(source) && source['kind'] === 'test' && (source['generator'] !== 'rom' || source['version'] !== 1)) {
+        problems.push("source: unknown test clip generator, set to {kind: 'new'}");
+        next = { ...record, source: { kind: 'new' } };
       }
       break;
     }

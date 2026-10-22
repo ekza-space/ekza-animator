@@ -1,6 +1,6 @@
 # Open owner decisions — defaults chosen
 
-Status: 2026-10-19, M2a merged into `dev` (rev. 8; rev. 8 revised section G after the modeling plan's design review
+Status: 2026-10-22 (rev. 9: section L, the M6b MVP deviations and owner review items); 2026-10-19, M2a merged into `dev` (rev. 8; rev. 8 revised section G after the modeling plan's design review
 (MODELING-PLAN v0.2 §12); rev. 7 added section G: the owner decisions of the modeling
 iteration M6a–M7 planned in [MODELING-PLAN](MODELING-PLAN.md), with defaults; rev. 5 added section F: the M2a build
 deviations, the integration decisions and
@@ -819,3 +819,37 @@ test that fails without it (unit tests in the owning package; real-Chrome e2e in
 |---|---|---|---|
 | M6A-INT-55 | Shift+double-click on an edge of another loop adds only that edge (Maya adds the loop) | M6A-SPEC §5.6 loop table: no common loop with the existing picks → plain Shift toggle | Shift+double-click adds the edge's own loop, as in Maya (B10 loop-table rule) |
 | M6A-INT-56 | In Model, a character's meshes not made editable stay in the posed display while the editable ones show at bind pose | Hide only what mesh-view draws (no duplicate) | Pose the whole display at bind pose in Model (rest bone locals while Model is active) |
+
+## L. M6b MVP deviations (2026-10-22)
+
+The M6b MVP ([M6B-SPEC §0](M6B-SPEC.md#0-mvp-cut-owner-flow-2026-10-22), ADR 0020) was built in nine packages (C0, C1,
+C2, C3, C4, C6 with the C5 subset, C7, C10, C12) on `m6b/<slug>` branches and integrated on `m6b/integration` (INT).
+Each package recorded its interpretations in `docs/wp-notes/m6b-*.md` (IDs `M6B-<package>-<n>`); the integration's
+are in [`wp-notes/m6b-integration.md`](wp-notes/m6b-integration.md) (`M6B-INT-<n>`). All are **accepted as built**
+unless the status says otherwise; the owner may override any of them. Release tag (proposed `v0.4.0`): the owner's
+call.
+
+### Owner review items
+
+| ID | Item | Built | Alternative |
+|---|---|---|---|
+| §0.7 | **AS-MVP-1 by hand** (the owner flow in Chrome, times recorded; step 12 with `node tooling/omoba-validate.mjs <file.vrm>`) | Not run by the owner yet. Its scripted twin E2E-MVP-01 is green and OMOBA's `validate-runtime-vrm` admits its export ("Compatible local humanoid: VRM 1.0, 35 nodes, 33 semantic bones") | — |
+| M6B-INT-9 | **`skel.tpose` tolerance**: the front plane keeps 5° per bone (arms along ±X, shins vertical); out of the plane — the elbow and knee hinge direction — 15° is allowed, so the §0.4.2 minimum bend and a hinge depth set in the side pane do not block the VRM export | Built (`rig/src/validate`, `SKELETON_CHECKS.tposeDepthDegrees`) | 5° in 3D as §5.21 first said (then any side-pane elbow or knee depth beyond ≈ 1° blocks the Ekza export), or a different depth limit |
+| M6B-INT-10 | **AS-MVP-1 step 3**: the front elbow drag is **0.02 m**, not 0.03 m (0.03 m tilts the T-posed upper arm 6° and step 11's export is refused by `skel.tpose`) | §0.7 amended; E2E-MVP-01 drags 0.02 m | Keep 0.03 m and loosen the front-plane tolerance |
+| M6B-INT-11 | **Info rows never gate**: `skin.joint-without-weights` (e.g. the finger joints of box hands) stays as an info row, so the Export dialog shows the row list instead of "Ready to export"; "Validation clean" in the scenarios = no error or warning row | Built as §0.4.5 says (info never gates) | Hide info rows from the Export dialog, or show "Ready to export" above them |
+| M6B-INT-2 | The Component Editor (optional in the MVP) was not built; its scenario step stays `test.fixme('c6-ce')` | Stub panel | Build it after the MVP (§0.3 C6 row) |
+| §0.4.9 | Eager shares of C3 (≈ 508 B) and C10 (≈ 261 B) over their 0 B allowances, approved by INT from the headroom of C0, C1 and C12; the MVP total is +5,940 B ≤ +6,144 B | Approved | Move C3's help-line texts or C10's profile rows lazy |
+| §5.25 | Stroke undo at 10k points 20 ms (≤ 10 ms is report-only until CR-1's weight-only `writeData`) | Report-only miss | CR-1 after the MVP |
+
+### Integration decisions (M6b MVP)
+
+| # | What | Decision | Where |
+|---|---|---|---|
+| M6B-INT-1, -2 | Merge order; READY/`test.fixme` gates | §9.0 order, `--no-ff`; every gate a failure; only `c6-ce` stays `test.fixme` | integration notes |
+| M6B-INT-3 | MVP eager delta over the allowance (+6,151 B) | One eager Rig & Skin viewport hook for C3 and C6 (+5,940 B) | `viewport/src/rig/runtime.ts`, `tools/rig/paint/index.ts` |
+| M6B-INT-4 | First bind's `MeshRef.joints` empty | Fixed (the record names its skeleton first) | `operators/builtin/rig/bind.ts` |
+| M6B-INT-5 | Projected centre through unclosed shells (Polybot's belt) | A slab left open closes at its last exit | `rig/src/quickrig/raster.ts` |
+| M6B-INT-6, -7 | 0-byte influence switch; idle frames | Per-pane joint-overlay buffers uploaded on change; rig runtime and skinned display invalidate only on what they draw | `viewport/src/rig/**` |
+| M6B-INT-8 | Checklist ⑤ after a cold `library.preview` run | The library watcher also attaches on evaluation | `rig/chunk/workspace.ts` |
+| M6B-INT-12 … 16 | Scenario readings (Skeleton mode after Create Skeleton, mesh adoption ids, idle settling, INT test API, E2E-MVP-01 readings) | As in the integration notes | `apps/web/e2e`, `editor/src/test-api/m6b/integration.ts` |
+| M6B-INT-17 | `vrm-validator` for the e2e specs | Web devDependency, allowed in check-deps and the e2e import rule | `apps/web/package.json`, `tooling/check-deps.mjs`, `.oxlintrc.json` |

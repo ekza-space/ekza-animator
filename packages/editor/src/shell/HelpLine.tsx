@@ -24,6 +24,15 @@ const NAV_HINT = {
 
 export const GL_LOST_TEXT = 'Graphics context lost — restoring the 3D view…';
 
+/** M6b (C3): Rig & Skin's Skeleton mode and Quick Rig hints, by viewport tool. */
+const SKELETON_HINT: Readonly<Record<string, string>> = {
+  quickRig: 'Quick Rig: drag markers in the front (X/Y) or side (Z/Y) view · click again to cycle overlapping markers',
+  select: 'Click or marquee to select joints · W move · E rotate',
+  move: 'Drag a joint: moves its children too · hold D to move the joint only',
+  rotate: 'Drag a joint: rotates the rest (bound: a test pose) · hold D to re-orient the joint only',
+  scale: 'Joints keep scale 1 (VRM/glTF)',
+};
+
 const TOOL_HINT: Readonly<Record<string, string>> = {
   select: 'Click or drag a marquee to select controls · S set key',
   move: 'Drag an arrow or plane to move · S set key',
@@ -43,16 +52,26 @@ export function HelpLine(): JSX.Element {
   const glStatus = useShellUi((s) => s.gl.status);
   const busy = useSession((s) => s.busy);
   const tool = useSession((s) => s.tools.viewport);
+  const rigHint = useSession((s) =>
+    s.workspace !== 'rig'
+      ? null
+      : s.rig.quickRig !== null
+        ? 'quickRig'
+        : s.rig.mode === 'skeleton' && SKELETON_HINT[s.tools.viewport] !== undefined
+          ? s.tools.viewport
+          : null,
+  );
   const selected = useSession((s) => s.selection.controls.length);
   const navProfile = usePrefs((p) => p.navProfile);
   const spaceBehaviour = usePrefs((p) => p.spaceBehaviour);
 
   const modelHints = workspace === 'model' ? helpHints(app, hover) : null;
+  const toolHint = rigHint === null ? TOOL_HINT[tool] : SKELETON_HINT[rigHint];
   const hint =
     workspace === 'model'
       ? `${MODE_LABEL[mode]}${modelHints === null ? '' : ` · ${modelHints}`}`
       : hoverKind === PANEL.viewport || hoverKind === null || hoverKind === GLOBAL_SCOPE
-        ? `${NAV_HINT[navProfile]}${TOOL_HINT[tool] === undefined ? '' : ` · ${TOOL_HINT[tool]}`}`
+        ? `${NAV_HINT[navProfile]}${toolHint === undefined ? '' : ` · ${toolHint}`}`
         : `Space: ${spaceBehaviour === 'play' ? 'play / stop' : 'maximize panel'} · ? shortcuts`;
   const count = workspace === 'model' ? objects : selected;
   const what = workspace === 'model' ? (count === 1 ? 'object' : 'objects') : null;

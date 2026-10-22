@@ -8,7 +8,8 @@
 //   Turbopack chunk-list loader of those entries names. The budget bench's `editor route JS` test records the same
 //   set from the network (`e2e/bench/budgets.bench.ts`), and the two totals were cross-checked once (wp-notes).
 // - **lazy groups** — every other Turbopack chunk-list loader (`import()` / `React.lazy` boundaries): the loader's
-//   module id, its target module and the files it fetches that are not initial.
+//   module id, its target module and the files it fetches that are not initial; and every web-worker loader (`new
+//   Worker(new URL(…))`: the skin worker, M6B-SPEC §2.1), whose chunks load only when the worker starts (target −1).
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
@@ -63,6 +64,10 @@ export function htmlScripts(html) {
 const LOADER =
   /,(\d+),\s*\(?(\w+)\)?\s*=>\s*\{\s*\2\.v\(\s*\(?(\w+)\)?\s*=>\s*Promise\.all\(\s*\[([^\]]*)\][^{}]*?\.then\(\s*\(\)\s*=>\s*\3\((\d+)\)\s*\)\s*\)\s*\}/g;
 
+/** A web-worker loader: `,<id>,e=>{e.v(e.r(<n>).default("static/chunks/turbopack-worker-….js",["static/chunks/a.js",…]))}`. */
+const WORKER_LOADER =
+  /,(\d+),\s*\(?(\w+)\)?\s*=>\s*\{\s*\2\.v\(\s*\2\.r\(\d+\)\.default\(\s*"[^"]*turbopack-worker[^"]*"\s*,\s*\[([^\]]*)\]\s*\)\s*\)\s*\}/g;
+
 /**
  * Turbopack chunk-list loaders in a chunk's source: `,<id>,e=>{e.v(t=>Promise.all(["static/chunks/a.js",…]
  * .map(t=>e.l(t))).then(()=>t(<target>)))}` — the module a dynamic `import()` resolves through.
@@ -72,6 +77,10 @@ export function chunkLoaders(source) {
   for (const match of source.matchAll(LOADER)) {
     const files = [...match[4].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
     out.push({ id: Number(match[1]), target: Number(match[5]), files });
+  }
+  for (const match of source.matchAll(WORKER_LOADER)) {
+    const files = [...match[3].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+    out.push({ id: Number(match[1]), target: -1, files });
   }
   return out;
 }

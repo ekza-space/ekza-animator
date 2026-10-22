@@ -1,7 +1,9 @@
 # Ekza Studio — Requirements
 
-Status: v0.4 (2026-10-19: FR-MOD rewritten for the modeling iteration M6a–M8 with [M6A-SPEC](M6A-SPEC.md); FR-SHELL-08,
--09, -11 moved to M6a; v0.3 2026-10-18, M2a integrated: the shipped M2a items are marked ✓). Functional requirements are numbered `FR-<AREA>-NN`, non-functional `NFR-NN`.
+Status: v0.6 (2026-10-22: the M6b MVP integrated — FR-JNT and FR-SKIN rows marked ✓ (MVP) or partial with what follows
+after the MVP, [M6B-SPEC §0.3](M6B-SPEC.md#03-scope-in-and-deferred)); v0.5 (2026-10-19: M6b expanded into the Rig & Skin workspace with [M6B-SPEC](M6B-SPEC.md) — FR-RIG-10 and
+FR-RIG-13 moved from M2c to M6b, FR-MOD-31…34 split into FR-JNT-01…10 and FR-SKIN-01…09, rows aligned with M6B-SPEC v1.1 after its design review; v0.4 2026-10-19: FR-MOD
+rewritten for the modeling iteration M6a–M8 with [M6A-SPEC](M6A-SPEC.md); FR-SHELL-08, -09, -11 moved to M6a; v0.3 2026-10-18, M2a integrated: the shipped M2a items are marked ✓). Functional requirements are numbered `FR-<AREA>-NN`, non-functional `NFR-NN`.
 IDs are stable: a removed requirement is marked *withdrawn*, never renumbered.
 
 **Priority**: `MVP` (milestone M1 core) · `MVP-S` (M1-stretch: built if time remains, MVP-SPEC §1.2) · `V1`
@@ -51,10 +53,10 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | FR-RIG-07 | Generic skinned GLBs get a 1:1 bone-aligned FK rig (t, r, s keyable). | MVP | M1 | Quaternius: one control per skin joint. |
 | FR-RIG-08 | Per-control rotate order (DCC semantics) with defaults per body part (MVP); changing it preserves the pose by resampling at the union of key times and synchronizing the three curves (MVP-S). | MVP-S | M1 | Changing `fk.upperArm.L` from `yxz` to `xyz` with unsynchronized `rx`/`ry` key times keeps bone worlds within 1e-6 at every union time. |
 | FR-RIG-09 | Stateless compiled rig kernel with constraint and solver slots (disabled in the MVP). | MVP | M1 | A constraint record compiles to a disabled op with a warning; evaluation unchanged. |
-| FR-RIG-10 | Constraints: parent, point, orient, aim with weights, maintain offset and blend. | V1 | M2c | R07 §7 formulas; prop follows hand. |
+| FR-RIG-10 | Constraints: parent, point, orient, aim with weights (keyable attributes), maintain offset (rest-derived, stored, snap), skip axes, aim world-up types and blend; Update/Clear Offset, Bake to Keys, Mirror; in Rig & Skin and Animate (moved from M2c 2026-10-19). | V1 | M6b | [M6B-SPEC §5.18–§5.19](M6B-SPEC.md#518-constraints-evaluation-and-compilation-c8a-research-18-39): rest exactness 1e-9; a prop follows an IK hand and is dropped by keyed weights (E2E-CNS-01); bake (E2E-CNS-02); M2a schedules and exports unchanged. |
 | FR-RIG-11 | Two-bone IK controls with pole vector, soft IK, IK/FK blend, match and seamless switch (legs first). | V1 | M2a ✓ | R07 §21.3 IK tests; translating `cog` −5 cm leaves the IK foot world unchanged (1e-6). |
-| FR-RIG-12 | Foot roll and space switching with matching. The simple foot roll (heel/ball/toe pivots, bank, heel and toe twist on the leg IK control) moved to M2a and shipped ✓ ([M2A-SPEC §5.3.1](M2A-SPEC.md#531-foot-roll-simple-variant-r07-12)); space switching stays M5. | V2 | M5 | Heel/ball/toe pivots; space switch without pops. |
-| FR-RIG-13 | Control shape editing (shape picker, size, colour, offset) in a Rig workspace; rig edits never create keys. | V1 | M2c | Shape change undoable; no keys created. |
+| FR-RIG-12 | Foot roll and space switching with matching. The simple foot roll (heel/ball/toe pivots, bank, heel and toe twist on the leg IK control) moved to M2a and shipped ✓ ([M2A-SPEC §5.3.1](M2A-SPEC.md#531-foot-roll-simple-variant-r07-12)); space switching is M6b-stretch as a select-mode parent constraint ([M6B-SPEC §1.2](M6B-SPEC.md#12-m6b-stretch-implement-only-if-time-remains-tests-testfixme-until-done)), else M5. | V2 | M5 | Heel/ball/toe pivots; space switch without pops. |
+| FR-RIG-13 | Control shape editing in the Rig & Skin workspace: shape library (+ arrow, double arrow, gear, double circle), colour, size, line width, `W`/`E`/`R` on the shape offset, CV editing into custom shapes, mirror/copy/paste/reset; edits survive control-rig updates; rig edits never create keys (moved from M2c 2026-10-19). | V1 | M6b | E2E-RIG-07, E2E-CNS-03, -04: undoable, no keys created, no rig recompile; mirror is an involution. |
 | FR-RIG-14 | VRM spring-bone preview during playback (never baked). | V1 | M2c | Toggle per pane; export unchanged by the toggle. |
 | FR-RIG-15 | VRM expressions and lookAt as keyable channels on a face control. | V1 | M2c | Blink keyed and exported to VRMA expressions. |
 | FR-RIG-16 | Full-body IK / assisted posing with pinning. | LATER | M6+ | Research item. |
@@ -253,7 +255,7 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | FR-SHELL-08 | Command palette (`Mod+K`) over all operators, with Blender names as aliases. | V1 | M6a (moved from M2c) | Search runs operators; aliases find Maya-named operators (M6A-SPEC §5.18). |
 | FR-SHELL-09 | Marking menus (W/E/Q/Shift+S/RMB, and the Model RMB/Shift+RMB/Ctrl+RMB/Ctrl+Shift+RMB menus) with flick selection. | V1 | M6a (moved from M2c) | Flick within 250 ms triggers without drawing; slots never move between modes. |
 | FR-SHELL-10 | Hotkey editor with conflict detection. | V1 | M2c | Overrides stored as a diff. |
-| FR-SHELL-11 | Workspace tabs `Model › Rig & Skin › Animate › Review` with status glyphs (Model and Animate in M6a, Rig & Skin in M6b, Review in V1). | V1 | M6a (moved from M2c) | Workspace switch keeps document, object selection, time and pane cameras (M6A-SPEC §5.17). |
+| FR-SHELL-11 | Workspace tabs `Model › Rig & Skin › Animate › Review` with status glyphs (Model and Animate in M6a, Rig & Skin in M6b, Review in V1). | V1 | M6a (moved from M2c); Rig & Skin ✓ (M6b MVP) | Workspace switch keeps document, object selection, time and pane cameras (M6A-SPEC §5.17). |
 
 ### FR-HK — Hotkeys and input
 
@@ -340,12 +342,47 @@ below. Acceptance criteria name the M6a e2e scenarios (`E2E-MOD-NN`) and gates. 
 | FR-MOD-28 | Mesh storage as revision refs over content-addressed chunks (schema v3), autosave and `.ekzanim` with mesh blobs, byte-bounded undo; bit-exact undo and deterministic revisions. | V1 | M6a ✓ | E2E-MOD-14; properties P5, P6, P8; B7 memory bench. |
 | FR-MOD-29 | Make editable for imported meshes (licence-gated) keeping skin weights, morph targets, UVs and colours; export through the surgeon's "replace primitives" step with bake marker v2; edited characters keep MToon outlines and expressions. | V1 | M6a ✓ | E2E-MOD-12, -30, -31. |
 | FR-MOD-30 | Static GLB export (author writer) with the `ekza/omoba-handheld-v1` profile, `mesh.*`/`ekza.*` lints and the `ekza_model_v1` provenance block. | V1 | M6a ✓ | E2E-MOD-13; AS-LP-B. |
-| FR-MOD-31 | VRM humanoid skeleton templates, Joint tool and Quick Rig; Apply Pose as Rest. | V1 | M6b | MODELING-PLAN §5.3 (fitter within 0.03 H). |
-| FR-MOD-32 | Auto-skin "Auto (low-poly)" (rigid islands + bone heat) with ≤ 4 normalized influences. | V1 | M6b | Polybot within one joint on ≥ 98 % of vertices. |
-| FR-MOD-33 | Weight tools (table, paint, mirror, copy/paste, prune/normalize) and the ROM test loop. | V1 | M6b | E2E-SKIN-02, -03. |
-| FR-MOD-34 | VRM 1.0 / GLB character writer from own models; skin surgeon for imported characters. | V1 | M6b | E2E-SKIN-05…07; 0 validator errors. |
+| FR-MOD-31 | *Withdrawn 2026-10-19: split into FR-JNT-01…10 (M6b).* | — | — | — |
+| FR-MOD-32 | *Withdrawn 2026-10-19: now FR-SKIN-01.* | — | — | — |
+| FR-MOD-33 | *Withdrawn 2026-10-19: split into FR-SKIN-02…06 and FR-JNT-08.* | — | — | — |
+| FR-MOD-34 | *Withdrawn 2026-10-19: now FR-SKIN-07 and FR-SKIN-08.* | — | — | — |
 | FR-MOD-35 | UV editor, seams → LSCM unwrap → packing, image textures, decals, ramp swatches. | LATER | M6c | E2E-UV-01…04. |
 | FR-MOD-36 | AI 3D generation through a server gateway (Tripo, Meshy), post chain on the modeling operators, provenance in every export. | V2 | M7 | MODELING-PLAN §7.3. |
+
+### FR-JNT — Skeletons, joints and the Rig & Skin workspace (M6b)
+
+Added 2026-10-19 with [M6B-SPEC](M6B-SPEC.md) (research [17](research/17-maya-rigging-basics.md),
+[19](research/19-rig-workspace-ui.md)); acceptance criteria name the M6b scenarios (`E2E-SKIN-NN`, `E2E-RIG-NN`) and gates.
+
+| ID | Requirement | Pri | M | Acceptance criterion |
+|---|---|---|---|---|
+| FR-JNT-01 | Rig & Skin workspace: four modes (Object, Skeleton, Skin, Shapes), pose view Bind/Test/Clip, Maya's Skeleton/Skin/Constrain/Control menus and marking menus, Rig Toolkit with a setup checklist, Validation panel as the export gate, selection undo; nothing in it creates a key. | V1 | M6b (partial: MVP — Object/Skeleton/Skin modes, Bind/Test views, the Skeleton and Skin menus, the `rig.modes` marking menu, Toolkit checklist, Validation gate, selection undo; Shapes mode, Clip view, Constrain/Control menus and the other marking menus after the MVP) | E2E-RIG-01, -02, -05, -08; `S` never keys in any Rig scope. |
+| FR-JNT-02 | VRM humanoid templates Lite 17 / Core 21 / Standard 33 / Full 52 with rest flexion and a non-deforming `root`, pre-fitted on the generated body; Quick Rig (markers, One-Click guess, guides, projected centre) on T- and A-posed meshes. | V1 | M6b (partial: MVP — four templates, Quick Rig v2 with the One-Click guess on T-posed meshes; the A-pose path after the MVP) | Fitter within 0.03 H on Seed-san and T- and A-posed Polybot; the A-pose path ends `skel.tpose`-clean; E2E-SKIN-01. |
+| FR-JNT-03 | Joint tool (Snap to Projected Center, X symmetry, automatic parent, MMB/`Insert` reposition, `Backspace`, `Enter`/RMB one undo step, `Esc` no step), Insert Joint, Split Bone, Add Chain, Duplicate Joints; user-authored chains get visible controls. | V1 | M6b (after the MVP) | E2E-RIG-03, E2E-SKIN-09. |
+| FR-JNT-04 | Hierarchy editing: Remove Joints (splice), Delete (subtree), Parent/Unparent, rename with mirror rename (control ids kept), Map Humanoid Bone, Set Side, joint roles (deforming, helper, prop) and sockets; required-bone refusals; weights fold into the nearest surviving deforming ancestor; edits never move unselected joints. | V1 | M6b (partial: MVP — rename with control ids kept, Map Humanoid Bone; Remove/Delete/Parent/Unparent/Set Side, roles and sockets after the MVP) | Properties P-J1, P-J6; E2E-SKIN-09, E2E-CNS-01. |
+| FR-JNT-05 | Orient Joint (World / Maya / Blender presets, Maya's options, children, symmetry), with key conversion on bone-aligned controls; deformation and humanoid animation unchanged. | V1 | M6b ✓ (MVP) | Property P-J2 (1e-9); E2E-SKIN-09. |
+| FR-JNT-06 | Mirror Joint across YZ (Orientation / Behavior, name swap, update existing counterparts in place). | V1 | M6b ✓ (MVP) | Involution P-J3; E2E-SKIN-09. |
+| FR-JNT-07 | Joint display: X-ray joints, joint size, side colours, local axes, humanoid labels, missing-bone ghosts. | V1 | M6b ✓ (MVP) | E2E-RIG-03; joint overlay bench. |
+| FR-JNT-08 | Rest edits with Move Skinned Joints semantics; rotating a bound joint or a control is a session test pose (never a key; IK limbs bend in FK for the test); Go to Bind Pose (the constraint-free rest); ROM test clip; Apply Pose as Rest keeping oriented chains' axes. | V1 | M6b (partial: MVP — Move Skinned Joints, test poses incl. IK → FK, Go to Bind Pose; ROM clip and Apply Pose as Rest after the MVP) | E2E-SKIN-04, -10, -14, E2E-RIG-01, -05; property P-J5. |
+| FR-JNT-09 | Characters from own meshes (adoption of scene meshes, Import Static Model); the control rig regenerated inside every skeleton edit keeping control IDs, curves and user shape edits. | V1 | M6b ✓ (MVP) | E2E-SKIN-04; `skeletonFromDoc` ≡ `skeletonFromGltf` of the writer's output. |
+| FR-JNT-10 | Attach Prop: prop joint, rigid bind, prop control and a parent constraint whose weights can be keyed. | V1 | M6b (after the MVP) | E2E-CNS-01; AS-LP-T part C2. |
+
+### FR-SKIN — Binding, weights and character export (M6b)
+
+Added 2026-10-19 with [M6B-SPEC](M6B-SPEC.md) (research [14](research/14-skinning-own-models.md),
+[17](research/17-maya-rigging-basics.md)).
+
+| ID | Requirement | Pri | M | Acceptance criterion |
+|---|---|---|---|---|
+| FR-SKIN-01 | Bind Skin: Auto (low-poly) (rigid islands + bone heat), closest in hierarchy, rigid islands, heat, over deforming joints; joint and point masks; one joint = rigid attach; symmetrize; ≤ 4 normalized influences; worker; adjustable; Auto Weights for Selected Joints for joints added to a bound mesh. | V1 | M6b (partial: MVP — every method, masks, symmetrize, worker; Auto Weights for Selected Joints after the MVP) | Polybot within one joint on ≥ 98 % (exact ≥ 85 %); 10k points × 60 joints ≤ 1 s; deterministic across Node and Chromium; E2E-SKIN-01. |
+| FR-SKIN-02 | Normalization contract with per-user holds on joints (Maya Hold / lock icons). | V1 | M6b ✓ (MVP) | Property P-S1. |
+| FR-SKIN-03 | Paint Skin Weights: Replace/Add/Scale/Smooth, Flood, value/opacity, deterministic stroke rule, surface/volume, X-mirror stroke, sample, pick influence, painting on the posed mesh; one stroke = one undo step. | V1 | M6b ✓ (MVP) | E2E-SKIN-02, -10, E2E-RIG-04; ≤ 4 ms per pointer frame at 10k points. |
+| FR-SKIN-04 | Weight display (greyscale, ramp, influence colours, numbers overlay, Lock-Relative) and the Component Editor weight table with a Hold row and averaged rows. | V1 | M6b (partial: MVP — greyscale, ramp and influence colours with the 0-byte switch; numbers overlay, Lock-Relative and the Component Editor after the MVP) | E2E-SKIN-11; switching the active influence uploads 0 bytes. |
+| FR-SKIN-05 | Weight utilities: assign, rigid islands, Mirror / Copy (inpainting) / Smooth / Hammer Skin Weights, copy/paste vertex weights, Prune, Normalize, Remove Unused Influences, Move Weights. | V1 | M6b (partial: MVP — Mirror, Smooth, Prune, Normalize, Remove Unused Influences; inpainting Copy, Hammer, copy/paste and Move Weights after the MVP) | E2E-SKIN-03, -11; properties P-S3, P-S6. |
+| FR-SKIN-06 | Weights follow every modeling edit; unweighted points after an edit are filled by inpainting with a review flag. | V1 | M6b (partial: MVP — weights follow M6a edits; unweighted points fixed by Bind Unweighted Points, inpainting after the MVP) | E2E-SKIN-12; property P-S8. |
+| FR-SKIN-07 | VRM 1.0 and plain GLB character writer: VRM meta with licence presets, thumbnail, palette materials, `ekza_model_v1`, slot clips, props policy; OMOBA five-clip GLB; deterministic. | V1 | M6b (partial: MVP — VRM 1.0 for Space and OMOBA and a plain GLB through `local/generic`; props after the MVP; the OMOBA five-clip GLB is not offered for model characters, §0.4.6) | E2E-SKIN-05, -06; 0 glTF-Validator and `vrm-validator` errors; byte-identical re-export. |
+| FR-SKIN-08 | Imported characters: weight edits exported through the surgeon (everything else byte-preserved); Make Character Editable with rebind at rest and the licence gate. | V1 | M6b (after the MVP) | E2E-SKIN-07, -13. |
+| FR-SKIN-09 | Validation lints `skel.*`, `skin.*`, `rig.*`, `vrm.*` with severities per export profile; exporter-agnostic `ekza/space-avatar-v1`. | V1 | M6b ✓ (MVP) | E2E-RIG-08; the Export dialog blocks on profile errors. |
 
 ---
 

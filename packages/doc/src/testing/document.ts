@@ -78,6 +78,7 @@ export function makeTestCharacter(fields: {
     placement: { t: [fields.x ?? 0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] },
     order: fields.order,
     deleted: null,
+    vrm: null,
   };
 }
 

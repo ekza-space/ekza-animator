@@ -35,6 +35,7 @@ import { createLayoutPresetStore } from './presets';
 import { createProbeRegistry } from './probes';
 import { type Summarizer, summarizeModel } from './summary';
 import type { ConfirmRequest, HelpMessage, Shell, ShellUiState } from './types';
+import { registerRigShell } from './rig';
 import { createWorkspaceController } from './workspace';
 
 export interface CreateShellOptions {
@@ -153,8 +154,9 @@ export function createShell(opts: CreateShellOptions): Shell {
       notifyError(`${label} failed: ${message}`, result.error.action);
     } else if (result.status === 'cancelled') {
       help(result.reason, 'warning');
-    } else if (op === 'file.export' || op === 'file.exportModel') {
-      // M6a (§4.8): lastExport() reports static-model exports too (contract note, M6A-B8 wp-notes).
+    } else if (op === 'file.export' || op === 'file.exportModel' || op === 'file.exportCharacter') {
+      // M6a (§4.8): lastExport() reports static-model exports too (contract note, M6A-B8 wp-notes); M6b (C10, §4.8):
+      // and character exports (their readBack carries kind 'character').
       const artifacts = asArtifacts(result.value);
       if (artifacts !== null) exports.recordArtifacts(artifacts);
     } else if (op === 'graph.curves.simplify') {
@@ -271,6 +273,10 @@ export function createShell(opts: CreateShellOptions): Shell {
   disposers.push(registerUserPresetMenuItems(app, presets));
   // M6a (B10): the Poly Count HUD and BIND POSE overlays, the RMB mode and Ctrl+RMB convert marking menus.
   disposers.push(registerModelSelectUi(app));
+  // M6b (C7): the Rig & Skin shell UI, loaded on the first entry.
+  disposers.push(
+    registerRigShell(app, { showPanel: (kind) => workspace.showPanel(kind), dockview: () => workspace.dockview }),
+  );
   disposers.push(registerModelTransformUi(app));
 
   let glFrames = 0;

@@ -24,6 +24,7 @@ import {
 import { applyChannelEdits } from '../../edit/channels';
 import { currentClipFrame } from '../../edit/context';
 import { deleteKeys, ensureCurve, writeKeyAt } from '../../edit/keys';
+import { redirectedChannelEdit } from '../../evaluation/rigSource';
 import { activeClipOf } from '../../evaluation/time';
 import { ownerOfControl } from '../../session/location';
 import { type ChannelEditResult, type EditorApp, GLOBAL_SCOPE, type KeyPolicy, type KeyTarget } from '../../types';
@@ -377,6 +378,13 @@ const channelSetValues = defineOperator({
   },
   apply({ app, tx }, args) {
     if (tx === null) throw new EkzaError('internal', 'channel.setValues runs in a transaction');
+    // M6b C7 (§5.17): in Rig & Skin typed values are a test pose (never a key, never the document).
+    const test = redirectedChannelEdit(app, 'Test Pose');
+    if (test !== null) {
+      test.update(args.edits);
+      test.commit();
+      return { keyed: 0, statics: 0, overrides: new Map(), skipped: [] };
+    }
     const result = applyChannelEdits(app, tx, args.edits, { key: args.key ?? 'auto' });
     toastSkipped(app, result);
     return result;

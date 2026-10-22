@@ -34,6 +34,8 @@ export const UI_DIALOGS: readonly UiDialog[] = [
   'imagePlaneImport',
   // Layout presets (docs/LAYOUT-PRESETS.md): save, rename and delete the user's presets.
   'layoutPresets',
+  // M6b (C10, §5.22): VRM Meta… of a character made from a model.
+  'vrmMeta',
 ];
 
 /** Dialogs whose implementation has not landed yet (none since M2a's Recovery dialog). */

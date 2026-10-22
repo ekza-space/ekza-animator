@@ -101,7 +101,18 @@ describe('createTestApi', () => {
       readOnly: false,
     });
     expect(api.counts()).toMatchObject({ characters: 1, clips: 1, curves: 1, keys: 3, controls: 27 });
-    expect(api.characters()).toEqual([{ id: CHARACTER, name: 'Synthetic Humanoid', format: 'vrm1' }]);
+    // M6B-SPEC §3 rule 9: characters() gains the source, the skeleton, the rig and the meshes (§4.8).
+    expect(api.characters()).toEqual([
+      {
+        id: CHARACTER,
+        name: 'Synthetic Humanoid',
+        format: 'vrm1',
+        source: 'asset',
+        skeleton: null,
+        rig: 'rig_SyntheticWave001',
+        meshes: [],
+      },
+    ]);
     const controls = api.controls();
     expect(controls).toHaveLength(27);
     expect(controls.find((c) => c.key === 'fk.lowerArm.L')).toMatchObject({ id: LOWER_ARM, side: 'L', visible: true });
@@ -313,7 +324,8 @@ describe('M6a test API (B0a kernel-level functions)', () => {
     // M6A-SPEC §3 rule 9 literal update (§5.17, B9): the four tabs; disabled ones carry no glyph.
     expect(api.workspaces()).toEqual([
       { id: 'model', label: 'Model', enabled: true, active: false, glyph: 'todo', reasons: ['No editable mesh yet'] },
-      { id: 'rig', label: 'Rig & Skin', enabled: false, active: false, glyph: 'none', reasons: [] },
+      // M6B-SPEC §3 rule 9: Rig & Skin is enabled; C7's glyph is ○ without a skeleton (§5.21).
+      { id: 'rig', label: 'Rig & Skin', enabled: true, active: false, glyph: 'todo', reasons: ['No skeleton yet'] },
       { id: 'animate', label: 'Animate', enabled: true, active: true, glyph: 'done', reasons: [] },
       { id: 'review', label: 'Review', enabled: false, active: false, glyph: 'none', reasons: [] },
     ]);
@@ -415,5 +427,9 @@ describe('placeholder test API (kernel unavailable)', () => {
     expect(() => testApi.api.counts()).toThrow(expect.objectContaining({ code: 'not-implemented' }));
     expect(() => testApi.api.workspaces()).toThrow(expect.objectContaining({ code: 'not-implemented' }));
     expect(() => testApi.api.meshes()).toThrow(expect.objectContaining({ code: 'not-implemented' }));
+    // M6b: the groups throw too, and the degraded API is not a thenable (it may be awaited or returned).
+    expect(() => testApi.api.rigCompiles('c')).toThrow(expect.objectContaining({ code: 'not-implemented' }));
+    expect(() => testApi.api.library()).toThrow(expect.objectContaining({ code: 'not-implemented' }));
+    expect((testApi.api as unknown as { readonly then?: unknown }).then).toBeUndefined();
   });
 });

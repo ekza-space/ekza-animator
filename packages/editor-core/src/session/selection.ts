@@ -5,7 +5,7 @@
 // mode, hilite, per-mesh component selections) and the shipped shape (controls, keys, channels), so an M2a reader and
 // an M6a reader both read it. Restoring sets controls, keys, channels and objects; it never changes the component
 // mode or the hilite (§5.6), and per-mesh component selections go through `app.components.restore`.
-import type { ControlId, GroupId, KeyId, MeshId } from '@ekza-studio/doc';
+import type { ConstraintId, ControlId, GroupId, JointId, KeyId, MeshId } from '@ekza-studio/doc';
 import type {
   ChannelRef,
   ComponentMode,
@@ -63,11 +63,16 @@ export function selectionFromSnapshot(snapshot: unknown): Selection | null {
     keys: Map<KeyId, KeyPartSelection>;
     channels: ChannelRef[];
     objects: SceneObjectId[];
+    joints: JointId[];
+    constraints: ConstraintId[];
   } = {
     controls: [],
     keys: new Map(),
     channels: [],
     objects: [],
+    // M6b: joint and constraint selections are not in shipped snapshots (C7 extends the snapshot, §5.24).
+    joints: [],
+    constraints: [],
   };
   // M6a: shipped snapshots have no `objects` (read as none).
   const objects = snapshot['objects'];
@@ -116,15 +121,19 @@ export function pruneSelection(app: Pick<EditorApp, 'store'>, selection: Selecti
   const keys = new Map([...selection.keys].filter(([id]) => store.get('keys', id) !== undefined));
   const channels = selection.channels.filter((ref) => store.get('controls', ref.control) !== undefined);
   const objects = selection.objects.filter((id) => liveObject(app, id));
+  const joints = selection.joints.filter((id) => store.get('joints', id) !== undefined);
+  const constraints = selection.constraints.filter((id) => store.get('constraints', id) !== undefined);
   if (
     controls.length === selection.controls.length &&
     keys.size === selection.keys.size &&
     channels.length === selection.channels.length &&
-    objects.length === selection.objects.length
+    objects.length === selection.objects.length &&
+    joints.length === selection.joints.length &&
+    constraints.length === selection.constraints.length
   ) {
     return selection;
   }
-  return { controls, keys, channels, objects };
+  return { controls, keys, channels, objects, joints, constraints };
 }
 
 /** A live mesh or group record (M6a scene objects). */

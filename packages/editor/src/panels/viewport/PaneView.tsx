@@ -17,6 +17,7 @@ import { type JSX, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useDocQuery, useSession } from '../../hooks';
 import { PaneOverlays } from '../../overlays/slots';
 import { CameraRadial, type CameraChoice } from './CameraRadial';
+import { ViewportBadges } from './hud/badges';
 import { usePaneState } from './hooks';
 import { PaneMenu, type PaneMenuItem } from './PaneMenu';
 
@@ -408,6 +409,7 @@ function Hud(props: { readonly app: EditorApp; readonly state: PaneState | null 
         ) : null}
       </div>
       <div className="absolute bottom-1.5 right-2 flex items-center gap-2 tabular-nums">
+        <ViewportBadges app={app} paneId={state?.id ?? ''} />
         {feetPinned ? (
           <span className="rounded-sm bg-[var(--bg-pressed,#3a3d46)] px-1 text-fg" data-testid="pane-hud-feet-pinned">
             Feet pinned

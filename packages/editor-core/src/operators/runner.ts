@@ -14,6 +14,7 @@
 import { coerceArgs, EkzaError } from '@ekza-studio/anim-core';
 import type { DocumentStore } from '@ekza-studio/doc';
 import { bindCapture } from '../edit/capture';
+import { rigRunRefusal } from '../evaluation/rigSource';
 import type { CaptureOutcome, DocCapture } from '../history/capture';
 import type { KernelHistory } from '../history/history';
 import { type OverrideLocation, overrideDelta, sameLocation } from '../history/overrides';
@@ -34,7 +35,8 @@ import type {
 import { extrudeAfterRun, extrudeBeforeRun } from './builtin/extrudeSession';
 import { adjustingOperator, attachLastRunTracker, recordLastRun as recordLastRunOf } from './builtin/lastop';
 import { pendingModelOperator } from './builtin/modelOps';
-import { type AnyOperatorDef, operatorContext, unknownOperator } from './registry';
+import { type AnyOperatorDef, beforeDocumentRun, operatorContext, unknownOperator } from './registry';
+import { lazyOperatorChunk } from '../workspaces/rig';
 
 /** Consecutive runs with the same `key` within `ms` merge into one undo step (Channel Box ↑/↓ nudges). */
 export interface OperatorCoalescing {
@@ -209,10 +211,19 @@ export function createOperatorRunner(deps: {
     let applied = false;
     try {
       const args = coerceRunArgs(app, def, rawArgs, ctx);
+      // M6b C7 (§5.17, §5.24): keying and curve edits are refused in Rig & Skin, whichever surface runs them (and
+      // every document edit while the window is narrower than 1024 px).
+      const refused = rigRunRefusal(app, def);
+      if (refused !== null) return cancelled(refused);
       const first = def.poll?.(opCtx, args) ?? true;
       if (first !== true) return cancelled(first.reason);
       // M6a (§5.8; B12b): the extrude session ends at the start of the gesture that ends it, before it reads the mesh.
       extrudeBeforeRun(app, def, args, ctx);
+      // M6b C0 hook (§0.5): before a document run (and edit.undo / edit.redo) the listeners run, e.g. the clip
+      // library stops its preview so a key is never sampled from the preview pose.
+      if (def.flags?.undo === true || def.id === 'edit.undo' || def.id === 'edit.redo') {
+        beforeDocumentRun(deps.registry, def.id);
+      }
       let prepared = def.prepare === undefined ? undefined : def.prepare(opCtx, args);
       if (isThenable(prepared)) prepared = await prepared;
       const second = def.poll?.(opCtx, args) ?? true;
@@ -286,7 +297,22 @@ export function createOperatorRunner(deps: {
     run(id: string, args: unknown, ctx: RunContext | undefined): Promise<OperatorResult<unknown>> {
       if (applying > 0) throw new EkzaError('nested-run', `app.run('${id}') inside an operator's apply`);
       const def = deps.registry.get(id);
-      if (def === undefined) return Promise.resolve(cancelled(unknownOperator(id)));
+      if (def === undefined) {
+        // M6b (§2.1): an id of a lazy chunk (rig-workspace, clip-library) loads its chunk first, then runs.
+        const chunk = lazyOperatorChunk(deps.app(), id);
+        if (chunk === null) return Promise.resolve(cancelled(unknownOperator(id)));
+        return chunk.then(
+          () => {
+            const loaded = deps.registry.get(id);
+            return loaded === undefined ? cancelled(unknownOperator(id)) : execute(loaded, args, ctx);
+          },
+          (error: unknown) =>
+            ({
+              status: 'failed',
+              error: { code: 'unavailable', message: error instanceof Error ? error.message : String(error) },
+            }) as const,
+        );
+      }
       return execute(def, args, ctx);
     },
   };

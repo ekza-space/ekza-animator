@@ -3,16 +3,35 @@
 Ordered queue of what to do next. The plans behind it: [ROADMAP](docs/ROADMAP.md#recommended-order) and
 [MODELING-PLAN](docs/MODELING-PLAN.md) (v0.2, revised after its design review, §12); owner decisions with defaults:
 [DECISIONS-OPEN](docs/DECISIONS-OPEN.md). Sizes are agent-days; "day N" counts working days from the start of B0a.
-Updated 2026-10-20 (M6a built, integrated and merged into `dev`).
+Updated 2026-10-22 (M6b MVP integrated; M6a released as `v0.3.0`, basic shading as `v0.3.1`).
+
+## Now — M6b MVP: Rig & Skin owner flow (integrated 2026-10-22; owner run and tag open)
+
+Binding scope: [M6B-SPEC §0](docs/M6B-SPEC.md#0-mvp-cut-owner-flow-2026-10-22) v1.2, [ADR 0020](docs/adr/0020-m6b-mvp-cut.md).
+Model → Quick Rig markers (front/side) → live VRM skeleton → Create Skeleton → fit joints → Bind Skin (one click) →
+paint fixes → test pose → CC0 clip library preview → Use Clip → Graph Editor → shade → Export VRM 1.0 that OMOBA's
+runtime admits. Integration branch `m6b/mvp` (from `dev`); ≈ 48.5 agent-days + a fix round, critical path ≈ 22 days.
+
+- [x] MVP cut written: M6B-SPEC v1.2 §0 and §9.0, ADR 0020 (2026-10-22).
+- [x] C0 contracts, schema v4 (swatches table stays 2), stubs, lazy chunks incl. `clip-library`, Cube Lad and Polybot fixtures (4.5).
+- [x] After C0, in parallel: C1 character runtime (5), C2 templates + Quick Rig v2 kernel + joint edits (5), C4 auto-skin (4.5), C7 rig shell (5.5), C12 clip library — CC0 UAL starter pack as VRMA, preview, Use Clip (5).
+- [x] Then: C10 VRM 1.0 writer with the OMOBA runtime lints (5, after C1); C3 Quick Rig UI + joint UI (5, after C2 + C7); C6 weights kernel + skin UI (6, after C1 + C4 + C7).
+- [x] INT (3 + fix round): every package merged on `m6b/integration`, every READY/`test.fixme` gate a failure, AS-MVP-1 "Cube Lad comes alive" scripted (E2E-MVP-01) green and OMOBA's `validate-runtime-vrm` admits its export, E2E-RIG-10, budgets ([ROADMAP](docs/ROADMAP.md#m6b-mvp-budgets)), docs, the integration fixes ([wp-notes](docs/wp-notes/m6b-integration.md)).
+- [ ] Owner: AS-MVP-1 by hand in Chrome ([M6B-SPEC §0.7](docs/M6B-SPEC.md#07-acceptance-as-mvp-1-and-the-mvp-e2e-scenarios), times recorded), step 12 with `node tooling/omoba-validate.mjs <file.vrm>`; review [DECISIONS-OPEN §L](docs/DECISIONS-OPEN.md#l-m6b-mvp-deviations-2026-10-22) (AS-MVP-1's elbow drag 0.02 m, `skel.tpose` hinge depth, info rows never gate).
+- [ ] `m6b/mvp` → `dev` with the full gate (INT's last step; see the integration notes for where it stands).
+- [ ] Owner reviews the MVP decisions Q-MVP-1…15 ([M6B-SPEC §0.8](docs/M6B-SPEC.md#08-owner-decisions-taken-for-the-mvp-defaults-the-owner-may-override-any)); release tag is the owner's call (proposed `v0.4.0`).
 
 ## Parked — specs ready, build later (owner decision, 2026-10-20)
 
 Focus is the modeling base (M6a) first. These tracks are fully specified and parked; their code branches are kept.
 
-- [ ] **M6b — Rig & Skin workspace** (joint tool, orient/mirror joints, templates + Quick Rig, bind + auto weights,
-      Paint Skin Weights, Component Editor, constraints, control-shape editing, VRM/GLB export of own models):
-      [M6B-SPEC](docs/M6B-SPEC.md) v1.1, research 17–19. Spec branch `m6b/spec` (also carries plan updates to
-      MODELING-PLAN §5, ROADMAP, REQUIREMENTS — merge them when M6b starts). ≈ 70 agent-days.
+- [ ] **M6b after the MVP** (deferred by the MVP cut, [M6B-SPEC §0.3](docs/M6B-SPEC.md#03-scope-in-and-deferred); spec
+      text kept): C8a/C8b constraints (parent/point/orient/aim, Attach Prop, sockets, bake), C9 control-shape editing,
+      C11 imports recovery (Make Character Editable, skin surgeon edits on imported avatars, fill missing weights by
+      inpainting), the Joint tool / Insert / Split / Remove / Delete / Duplicate / Add Chain, the A-pose path (T-Stance,
+      Apply Pose as Rest), Auto Weights for Selected Joints, the Component Editor (if not built in C6), numbers overlay,
+      Lock-Relative, Copy/Move/Hammer weights, the ROM clip, Rig Outliner variant and marking menus (CR-3, CR-5),
+      CR-1/CR-6/CR-8/CR-9/CR-10, §1.2 stretch items, AS-LP-T "Lowpoly Lad and his sword".
 - [ ] **M-AI — Agent bridge (MCP)**: headless tool layer, `ekza-animator-mcp` server, live bridge with pairing,
       see-tools, analysis, evals: [MCP-SPEC](docs/MCP-SPEC.md) v0.2, [ADR 0018](docs/adr/0018-agent-bridge-mcp.md),
       research 20–22. Spec branch `mcp/spec`; started code branches `mcp/contracts-foundation` (D0),
@@ -76,11 +95,11 @@ items (eager allowance, marquee budget miss, bevel limits, feel check, demo scri
 9d. [ ] M6a owner decisions from fix round 2 (§K M6A-INT-55, 56): Shift+double-click adds the edge's loop (Maya) or keeps the §5.6 toggle; whole character display at bind pose in Model.
 9a. [ ] Owner: AS-LP-A/B by hand, the demo script ([M6A-SPEC §11.3](docs/M6A-SPEC.md#113-owner-demo-script-10-minutes)), the §I review; then tag `v0.3.0` (owner's call).
 
-## Then — characters from own models (M6b, ≈ 43.5; starts when B1, B7, B8, B9 have merged, day ≈ 13.5)
+## Then — M6b remainder (after the MVP; [M6B-SPEC §9.0b](docs/M6B-SPEC.md#90b-full-m6b-work-packages-reference-post-mvp))
 
-10. [ ] Write `docs/M6B-SPEC.md` from [MODELING-PLAN §5](docs/MODELING-PLAN.md#5-m6b--characters-from-own-models-turnkey).
-11. [ ] C0 contracts + minimal character writer + synthesized container (4.5) → C1 skeleton + Quick Rig, C2 auto-skin, C5 VRM/GLB writer, C6 Rig & Skin UI → C3 weights (also needs B6, B10, B12a/B12b) → C4 test loop → C7 imports + T0.
-12. [ ] Turnkey acceptance: E2E-SKIN-01…08 and AS-LP "Lowpoly Lad and his sword" end to end ([§8](docs/MODELING-PLAN.md#8-end-to-end-acceptance-as-lp--lowpoly-lad-and-his-sword)); tag `v0.4.0` — estimated ≈ 40–45 working days after B0a starts.
+10. [x] Write `docs/M6B-SPEC.md` from [MODELING-PLAN §5](docs/MODELING-PLAN.md#5-m6b--rig--skin-workspace-turnkey), expanded on the owner's request into the full Rig & Skin workspace (joint tools, Orient/Mirror Joint, Quick Rig, Bind Skin, Paint Skin Weights, Component Editor, weight utilities, constraints and control-shape editing from M2c, test poses, Validation, VRM 1.0/GLB writer) from research [17](docs/research/17-maya-rigging-basics.md), [18](docs/research/18-constraints-control-shapes.md), [19](docs/research/19-rig-workspace-ui.md). **Done 2026-10-19: [M6B-SPEC](docs/M6B-SPEC.md) v1.1** after its design review; **v1.2 (2026-10-22) adds the MVP cut (§0)**.
+11. [ ] Owner reviews the remaining M6b owner questions ([M6B-SPEC §12.4](docs/M6B-SPEC.md#124-owner-questions-defaults-chosen-the-build-starts-on-them); Q-M6B-1 is superseded by Q-MVP-1) and calibrates the rig marking menus together with Q-MOD-UI-1 before they are built.
+12. [ ] After the MVP: the deferred packages C8a, C8b, C9, C11 and the deferred parts of C2/C3/C5/C6/C7 (Parked list above), then AS-LP-T and the turnkey feel check.
 
 ## Next — Auto-Rig mode (after the M6b MVP; owner request 2026-10-22)
 
@@ -97,8 +116,8 @@ and document). Spec: [AUTORIG-SPEC](docs/AUTORIG-SPEC.md) v0.1 (draft), [ADR 002
 
 ## After the turnkey release
 
-13. [ ] "Publish avatar to Ekza" — the T3 slice of M4a (≈ 2 here + the `studio-upload` scope in the registry repository) ([ROADMAP M4a](docs/ROADMAP.md#m4a--ekza-t1t3--1520-agent-days-in-this-repo--ecosystem-work)).
-14. [ ] M7 G1 AI generation (≈ 22): intake ops, gateway (default deny, auth, server-side caps, the app's first CSP), Tripo + Meshy adapters with a mock server, Generate panel with paid-tier attestation ([§7](docs/MODELING-PLAN.md#7-m7--ai-3d-generation)); re-verify provider prices and models first; written provider confirmations (Q-GEN-4) before BYO on a hosted gateway.
-15. [ ] M7 G2 (≈ 14): self-hosted GPU worker, fal/Hunyuan adapters, OBJ import, voxel binding; M6c UV editor + texturing (≈ 18) in parallel if wanted ([§6](docs/MODELING-PLAN.md#6-m6c--uv-editor-and-texturing-basics-optional)).
-16. [ ] M2b adoption (FBX/BVH/Mixamo) and the rest of M2c → **V1** release ([ROADMAP](docs/ROADMAP.md#m2c--breadth-and-polish--v1-release--3040-agent-days)).
-17. [ ] M4a T1 typed animation assets, then M3 collaboration (incl. mesh-chunk transport, mesh claims and the conflicted-copy flow on `data.base`), M4b, M5, M8 splines ([ROADMAP §Recommended order](docs/ROADMAP.md#recommended-order)).
+16. [ ] "Publish avatar to Ekza" — the T3 slice of M4a (≈ 2 here + the `studio-upload` scope in the registry repository) ([ROADMAP M4a](docs/ROADMAP.md#m4a--ekza-t1t3--1520-agent-days-in-this-repo--ecosystem-work)).
+17. [ ] M7 G1 AI generation (≈ 22): intake ops, gateway (default deny, auth, server-side caps, the app's first CSP), Tripo + Meshy adapters with a mock server, Generate panel with paid-tier attestation ([§7](docs/MODELING-PLAN.md#7-m7--ai-3d-generation)); re-verify provider prices and models first; written provider confirmations (Q-GEN-4) before BYO on a hosted gateway.
+18. [ ] M7 G2 (≈ 14): self-hosted GPU worker, fal/Hunyuan adapters, OBJ import, voxel binding; M6c UV editor + texturing (≈ 18) in parallel if wanted ([§6](docs/MODELING-PLAN.md#6-m6c--uv-editor-and-texturing-basics-optional)).
+19. [ ] M2b adoption (FBX/BVH/Mixamo) and the rest of M2c → **V1** release ([ROADMAP](docs/ROADMAP.md#m2c--breadth-and-polish--v1-release--3040-agent-days)).
+20. [ ] M4a T1 typed animation assets, then M3 collaboration (incl. mesh-chunk transport, mesh claims and the conflicted-copy flow on `data.base`), M4b, M5, M8 splines ([ROADMAP §Recommended order](docs/ROADMAP.md#recommended-order)).

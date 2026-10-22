@@ -14,7 +14,7 @@ import {
   type TableDef,
   type TableName,
 } from '../records';
-import { repairSwatchShader } from '../records/repair';
+import { repairSwatchShader } from '../records/swatch';
 import { validateBuiltin } from '../records/validate';
 import type { RigId, SkeletonId } from '../ids';
 

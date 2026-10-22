@@ -71,7 +71,26 @@ export const BOUNDARIES = [
   // Model menu items, the op descriptors) loads on the first Model entry; B10's selection service with the kernel.
   { id: 'model-operators', label: 'Model operators', markers: ['Works on edges: enter edge mode first'] },
   { id: 'component-selection', label: 'component selection service', markers: ['is not open for component edits'] },
+  // M6B-SPEC §2.1, §0.4.9 (C0): the Rig & Skin workspace (rig operators, panels, tools, overlays), the skin worker,
+  // the runtime of model-sourced characters and the clip library each load lazily; their markers are referenced by
+  // their entry modules only.
+  { id: 'rig-workspace', label: 'Rig & Skin workspace', markers: ['ekza-rig-workspace'] },
+  { id: 'skin-worker', label: 'skin worker (bind solvers)', markers: ['ekza-skin-worker'] },
+  {
+    id: 'character-runtime',
+    label: 'character runtime (model-sourced characters)',
+    markers: ['ekza-character-runtime'],
+  },
+  { id: 'clip-library', label: 'clip library (panel, preview, Use Clip)', markers: ['ekza-clip-library'] },
 ];
+
+/** M6B-SPEC §0.4.9: warning thresholds of the M6b lazy chunks (gzip -9, decimal bytes). */
+export const M6B_CHUNK_WARN_BYTES = {
+  'rig-workspace': 250_000,
+  'skin-worker': 120_000,
+  'character-runtime': 150_000,
+  'clip-library': 60_000,
+};
 
 /** The recorded M2a baseline and the M6a eager allowance (`size-baseline.json`, §5.27). */
 export const BASELINE_FILE = join(dirname(fileURLToPath(import.meta.url)), 'size-baseline.json');
@@ -102,6 +121,10 @@ export function eagerDelta(total, baseline, e2eBuild) {
     enforced: baseline.eagerDelta?.enforce === true && !e2eBuild,
     comparable: !e2eBuild,
     pending: typeof baseline.eagerDelta?.pending === 'string' ? baseline.eagerDelta.pending : null,
+    packages:
+      typeof baseline.eagerDelta?.packages === 'object' && baseline.eagerDelta.packages !== null
+        ? baseline.eagerDelta.packages
+        : null,
   };
 }
 
@@ -161,10 +184,16 @@ export function checkSize(nextDir, opts = {}) {
   const delta = eagerDelta(total, baseline, route.e2eBuild);
   if (delta !== null && delta.over && delta.comparable) {
     const text =
-      `M6a eager delta +${delta.delta.toLocaleString('en')} B over the ${delta.baseline.toLocaleString('en')} B ` +
+      `M6b MVP eager delta +${delta.delta.toLocaleString('en')} B over the ${delta.baseline.toLocaleString('en')} B ` +
       `baseline > allowance +${delta.allowance.toLocaleString('en')} B (limit ${delta.limit.toLocaleString('en')} B)`;
     if (delta.enforced) problems.push(text);
     else warnings.push(`${text}; not enforced: ${delta.pending ?? 'the baseline file does not enforce it'}`);
+  }
+  for (const [boundary, warnBytes] of Object.entries(M6B_CHUNK_WARN_BYTES)) {
+    const bytes = lazy.filter((group) => group.boundary === boundary).reduce((sum, group) => sum + group.bytes, 0);
+    if (bytes > warnBytes) {
+      warnings.push(`${boundary} chunk ${bytes.toLocaleString('en')} B > ${warnBytes.toLocaleString('en')} B (§0.4.9)`);
+    }
   }
   const model = modelChunk(lazy, baseline);
   if (model.over) {
@@ -229,10 +258,15 @@ function print(report) {
   const delta = report.eagerDelta;
   if (delta !== null) {
     out(
-      `M6a eager delta: ${delta.delta >= 0 ? '+' : ''}${bytes(delta.delta)} over the baseline ${bytes(delta.baseline)} ` +
+      `M6b MVP eager delta: ${delta.delta >= 0 ? '+' : ''}${bytes(delta.delta)} over the baseline ${bytes(delta.baseline)} ` +
         `(allowance +${bytes(delta.allowance)}, limit ${bytes(delta.limit)}; ` +
         `${delta.comparable ? (delta.enforced ? 'enforced' : 'not enforced yet') : 'e2e build: not compared'})`,
     );
+    // M6B-SPEC §0.4.9 (C7): the per-package allowances inside the MVP gate (each package measures its own delta).
+    if (delta.packages !== null) {
+      const list = Object.entries(delta.packages).map(([id, allowance]) => `${id} +${bytes(allowance)}`);
+      out(`  per-package eager allowances (measured at each merge, wp-notes): ${list.join(', ')}; others 0 B`);
+    }
   }
   out(
     `Model workspace chunk (lazy: ${report.modelChunk.groups.join(', ') || 'none in this build'}): ` +

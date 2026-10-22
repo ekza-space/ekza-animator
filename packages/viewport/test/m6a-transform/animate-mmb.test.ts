@@ -62,6 +62,8 @@ function setup(r: Rig, id: ControlId, tool: 'move' | 'rotate', channels: readonl
       keys: new Map(),
       channels: channels.map((channel) => ({ control: id, channel })),
       objects: [],
+      joints: [],
+      constraints: [],
     },
     tools: { ...state.tools, viewport: tool },
   });

@@ -4,12 +4,13 @@
 // guarded.
 import { PANEL, type PanelKind, type PrefsStorage } from '@ekza-studio/editor-core';
 import type { AddPanelOptions, DockviewApi, IDockviewPanel, SerializedDockview } from 'dockview-react';
+import { buildRigLayout, RIG_SLOTS } from './rig/layouts';
 
 export const WORKSPACE_ID = 'animate';
 /** 2 since M2a: the Animate layout has a Dope Sheet tab beside the Graph Editor (M2A-SPEC §4.8). */
 export const LAYOUT_SCHEMA_VERSION = 2;
 /** Layout versions per workspace (M6A-SPEC §4.8): Animate keeps v2, Model starts at v1. */
-export const LAYOUT_VERSIONS: Readonly<Record<string, number>> = { animate: LAYOUT_SCHEMA_VERSION, model: 1 };
+export const LAYOUT_VERSIONS: Readonly<Record<string, number>> = { animate: LAYOUT_SCHEMA_VERSION, model: 1, rig: 1 };
 /** The layout version of a workspace (workspaces without their own layout use Animate's). */
 export const layoutVersion = (workspace: string): number => LAYOUT_VERSIONS[workspace] ?? LAYOUT_SCHEMA_VERSION;
 /**
@@ -39,6 +40,8 @@ export const ANIMATE_SLOTS: readonly { readonly kind: PanelKind; readonly slot: 
   { kind: PANEL.attributes, slot: 'right', title: 'Attributes' },
   { kind: PANEL.graph, slot: 'bottom', title: 'Graph Editor' },
   { kind: PANEL.dopeSheet, slot: 'bottom', title: 'Dope Sheet' },
+  // M6b (M6B-SPEC §0.4.7; C0): a right-dock tab of Animate, opened from Windows › Clip Library (derived from here).
+  { kind: PANEL.clipLibrary, slot: 'right', title: 'Clip Library' },
 ];
 
 /** M6a panel kinds (§4.8 `PANEL` additions; registered by B10, B11, B13 as lazy chunks). */
@@ -56,15 +59,19 @@ export const MODEL_SLOTS: readonly { readonly kind: PanelKind; readonly slot: Do
   { kind: MODEL_PANEL.meshCheck, slot: 'bottom', title: 'Mesh Check' },
 ];
 
-/** The dock slots of a workspace's layout (Model's, else Animate's). */
+/** The dock slots of a workspace's layout (Model's, Rig & Skin's (M6b C7), else Animate's). */
 export function slotsOf(workspace: string): typeof ANIMATE_SLOTS {
-  return workspace === 'model' ? MODEL_SLOTS : ANIMATE_SLOTS;
+  return workspace === 'model' ? MODEL_SLOTS : workspace === 'rig' ? RIG_SLOTS : ANIMATE_SLOTS;
 }
 
 /** Every panel kind a workspace layout may place (for titles and placeholders). */
 export const ALL_SLOTS: typeof ANIMATE_SLOTS = [
   ...ANIMATE_SLOTS,
-  ...MODEL_SLOTS.filter((slot) => !ANIMATE_SLOTS.some((other) => other.kind === slot.kind)),
+  ...[...MODEL_SLOTS, ...RIG_SLOTS].filter(
+    (slot, i, all) =>
+      !ANIMATE_SLOTS.some((other) => other.kind === slot.kind) &&
+      all.findIndex((other) => other.kind === slot.kind) === i,
+  ),
 ];
 
 /** Panel kinds rendered outside dockview (fixed regions). */
@@ -253,6 +260,7 @@ export function buildWorkspaceLayout(
   height: number,
 ): void {
   if (workspace === 'model') buildModelLayout(api, resolve);
+  else if (workspace === 'rig') buildRigLayout(api, resolve);
   else buildAnimateLayout(api, resolve, height);
 }
 

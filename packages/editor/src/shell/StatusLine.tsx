@@ -35,6 +35,7 @@ import { usePrefs, useSession } from '../hooks';
 import { useRegistryList } from '../hooks/useRegistry';
 import { TweenBar } from '../panels/shared/TweenBar';
 import { useShell, useShellUi } from './context';
+import { RIG_LAYOUTS } from './rig/layouts';
 import { shortcutFor } from './menus';
 
 /** Model's groups (mode, symmetry, soft selection, snapping, pivot): a lazy chunk, drawn only in Model. */
@@ -305,7 +306,7 @@ export function StatusLine(): JSX.Element {
                 if (value !== '') run('view.layout', { layout: value });
               }}
             >
-              {(model ? MODEL_LAYOUTS : LAYOUTS).map((entry) => {
+              {(model ? MODEL_LAYOUTS : workspaceId === 'rig' ? RIG_LAYOUTS : LAYOUTS).map((entry) => {
                 const Icon = LAYOUT_ICONS[entry.layout];
                 return (
                   <Tip key={entry.layout} text={entry.label}>

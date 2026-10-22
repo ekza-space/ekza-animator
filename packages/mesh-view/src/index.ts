@@ -7,6 +7,16 @@ export { ComponentPicker, PICK_RADIUS, type PickOccluder, type PickOptionsInput 
 export { EditMeshView, emptySelection, NGON_CODES } from './EditMeshView';
 export type { PaletteShaders, SwatchShading } from './internal/sets';
 export { MeshSurface } from './MeshSurface';
+// M6b (M6B-SPEC §4.7): the live skinned surface (C1; C0 stub).
+export { SkinnedSurface } from './skin';
+// M6b C6: the weight display of a skinned surface (Skin mode).
+export {
+  DEFAULT_WEIGHT_COLORS,
+  influenceColor,
+  MAX_DISPLAY_BONES,
+  WeightDisplay,
+  type WeightDisplayColors,
+} from './skin/display';
 export { mirroredOf, partnerOf } from './mirror';
 export { MESH_VIEW_STYLE } from './style';
 export {

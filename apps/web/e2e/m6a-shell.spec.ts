@@ -24,7 +24,8 @@ async function shadingOf(page: Page): Promise<Record<string, string | undefined>
   return Object.fromEntries(rows.map((row) => [row.id, row.shading]));
 }
 
-test('workspace tabs: Model › Rig & Skin › Animate › Review; a click on Model switches, Rig & Skin is disabled', async ({
+// M6B-SPEC §3 rule 9 literal update: Rig & Skin is enabled (M6b C0); Review is the disabled tab.
+test('workspace tabs: Model › Rig & Skin › Animate › Review; a click on Model switches, Review is disabled', async ({
   page,
 }) => {
   await openEditor(page);
@@ -34,12 +35,14 @@ test('workspace tabs: Model › Rig & Skin › Animate › Review; a click on Mo
   await expect(tabs.getByRole('tab')).toHaveCount(4);
   expect((await call(page, 'workspaces')).map((w) => [w.id, w.enabled, w.active, w.glyph])).toEqual([
     ['model', true, false, 'todo'],
-    ['rig', false, false, 'none'],
+    // M6B-SPEC §3 rule 9 literal update (C7): Rig & Skin's glyph is ○ without a skeleton (§5.21).
+    ['rig', true, false, 'todo'],
     ['animate', true, true, 'todo'],
     ['review', false, false, 'none'],
   ]);
   await expect(page.getByTestId('ws-glyph-model')).toHaveText('○');
-  await page.getByTestId('ws-tab-rig').click({ force: true });
+  await expect(page.getByTestId('ws-glyph-rig')).toHaveText('○');
+  await page.getByTestId('ws-tab-review').click({ force: true });
   expect((await call(page, 'state')).workspace).toBe('animate');
   await page.getByTestId('ws-tab-model').click();
   await expect.poll(async () => (await call(page, 'state')).workspace).toBe('model');
@@ -391,9 +394,9 @@ test('Mod+K opens the command palette: search with aliases, Enter runs the entry
   await expect(page.getByTestId('cmdk-input')).toBeFocused();
   expect(await call(page, 'commandPalette')).toMatchObject({ open: true, query: '' });
   await page.keyboard.type('workspace');
-  // Disabled entries stay listed with their reason.
-  await expect(page.getByTestId('cmdk-item-workspace.set:rig')).toHaveAttribute('aria-disabled', 'true');
-  await expect(page.getByTestId('cmdk-item-workspace.set:rig')).toContainText('v0.4');
+  // Disabled entries stay listed with their reason (M6B-SPEC §3 rule 9: Review; Rig & Skin is enabled).
+  await expect(page.getByTestId('cmdk-item-workspace.set:review')).toHaveAttribute('aria-disabled', 'true');
+  await expect(page.getByTestId('cmdk-item-workspace.set:review')).toContainText('V1');
   await page.keyboard.type(': model');
   await expect
     .poll(async () => (await call(page, 'commandPalette'))?.items[0])

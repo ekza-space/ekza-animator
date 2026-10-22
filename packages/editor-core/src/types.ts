@@ -1,19 +1,21 @@
-// Contract file: MVP-SPEC §4.5 with the M2A-SPEC §4.5 and M6A-SPEC §4.6 additions, copied verbatim (shapes are normative;
-// change the spec first). M6a functions and constants (`meshOperator`, `meshSetOperator`, `WORKSPACE`) live in
-// implementation modules (§4 placement rule).
+// Contract file: MVP-SPEC §4.5 with the M2A-SPEC §4.5, M6A-SPEC §4.6 and M6B-SPEC §4.6/§0.5 additions, copied verbatim
+// (shapes are normative; change the spec first). M6a functions and constants (`meshOperator`, `meshSetOperator`,
+// `WORKSPACE`) and M6b ones (`registerChannelSourceProvider`) live in implementation modules (§4 placement rule).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
 import type { StoreApi } from 'zustand/vanilla';
 import type { AnimCurve, CompiledAnimCurve, Disposer, Frame, Handle, ParamDef, ParamValues, Quat, TangentType,
   Vec3 } from '@ekza-studio/anim-core';
-import type { AssetId, AssetRecord, CameraId, ChangeBatch, ChannelId, ChannelValues, CharacterId, ClipId, ControlId,
-  CurveId, DocumentStore, GroupId, KeyId, MeshId, MeshRef, Tx, UndoResult, UserId } from '@ekza-studio/doc';
+import type { AssetId, AssetRecord, CameraId, ChangeBatch, ChannelId, ChannelValues, CharacterId, ClipId, ConstraintId,
+  ControlId, CurveId, DocumentStore, GroupId, JointId, KeyId, MeshId, MeshRef, SkeletonId, Tx, UndoResult,
+  UserId } from '@ekza-studio/doc';
 import type { ComponentKind, ComponentSelection, DirtySet, EditMesh, ElementRemap, FalloffCurve, HiddenSet, MeshData,
   MeshOp, MeshSetOp, Normals, OpFrame, OpResult, OpWarning, Refusal, SymmetryAxis, SymmetryMap,
   Triangulation } from '@ekza-studio/mesh-core';   // type-only: no kernel code is bundled
+import type { BindReport, PaintOp, SkinBindArgs, SkinWeights } from '@ekza-studio/mesh-core';   // M6b, type-only
 import type { ExportArtifact, ExportKind, ExportProfileDef, ExportReduceSpec, ExportRequest, GlbContainer,
-  ValidationReport } from '@ekza-studio/io';
-import type { ChannelBuffer, ClipSampler, FootPin, LimbId, PoseBuffers, PoseClipboard, RigProgram,
-  SkeletonDesc } from '@ekza-studio/rig';
+  StarterPackManifest, ValidationReport } from '@ekza-studio/io';
+import type { ChannelBuffer, ClipSampler, FootPin, LimbId, PoseBuffers, PoseClipboard, QuickRigMarker, QuickRigMarkers,
+  RigProgram, SkeletonDesc, SkeletonPreset, TemplateJoint } from '@ekza-studio/rig';
 import type { OperatorMap } from './operators/args';
 
 // ---------- panels and scopes ----------
@@ -23,6 +25,9 @@ export const PANEL = {
   viewport: 'viewport', graph: 'graph', timeline: 'timeline', outliner: 'outliner', clips: 'clips',
   channelBox: 'channelBox', attributes: 'attributes', dopeSheet: 'dopeSheet',   // M2a: dopeSheet
   toolkit: 'toolkit', palette: 'palette', meshCheck: 'meshCheck',                // M6a (Model workspace, §4.8)
+  rigToolkit: 'rigToolkit', paintWeights: 'paintWeights', componentEditor: 'componentEditor',
+  validation: 'validation',                                                      // M6b (Rig & Skin, §4.8)
+  clipLibrary: 'clipLibrary', quickRig: 'quickRig',                              // M6b MVP (§0.5), changed
 } as const;
 /** 'global' or a PanelKind. */
 export type KeyScope = string;
@@ -37,6 +42,8 @@ export interface Selection {
   readonly keys: ReadonlyMap<KeyId, KeyPartSelection>;           // Graph Editor / time slider
   readonly channels: readonly ChannelRef[];                      // Channel Box / Graph channel list highlight
   readonly objects: readonly SceneObjectId[];                    // M6a, changed (additive): lead = last
+  readonly joints: readonly JointId[];                           // M6b, changed: lead = last
+  readonly constraints: readonly ConstraintId[];                 // M6b, changed: lead = last
 }
 export interface SelectionMask { readonly controls: boolean; readonly joints: boolean; readonly meshes: boolean;
   readonly groups: boolean }                                      // M6a, changed (additive)
@@ -70,9 +77,20 @@ export interface DisplayFlags {
   readonly symmetryPlane: boolean;    // true
   readonly dimUnhilited: boolean;     // false
   readonly imagePlanes: boolean;      // true
+  // ---------- M6b (M6B-SPEC §4.6), changed ----------
+  readonly joints: boolean;            // Rig true (the first-class overlay; `skeleton` stays Animate's debug toggle)
+  readonly xrayJoints: boolean;        // Rig true
+  readonly jointAxes: 'none' | 'selected' | 'all';   // Rig 'selected'
+  readonly jointLabels: 'none' | 'hover' | 'all';    // Rig 'hover'
+  readonly weights: 'off' | 'greyscale' | 'ramp' | 'influences';   // Rig Skin mode 'greyscale'
+  readonly weightNumbers: boolean;     // false
+  readonly lockRelative: boolean;      // false
+  readonly constraintLines: boolean;   // Rig true, Animate false
+  readonly shapeCvs: boolean;          // Shapes mode with CV edit
 }
 export type Shading = 'wire' | 'shaded' | 'colours' | 'lit';
-export type ViewportLayout = 'single' | 'split' | 'quad';
+export type ViewportLayout = 'single' | 'split' | 'quad'
+  | 'rig-side' | 'rig-markers';   // M6b C7, changed (additive): R-Side `front │ persp`, R-Markers `front │ side │ persp`
 /** Manipulator handles; gimbal rings reuse rx/ry/rz (axis = channel). */
 export type ManipHandle = 'tx' | 'ty' | 'tz' | 'txy' | 'tyz' | 'txz' | 'tview' | 'rx' | 'ry' | 'rz' | 'rview'
   | 'sx' | 'sy' | 'sz' | 'suniform' | 'pivot';   // M6a, changed: Scale tool, pivot handle
@@ -96,7 +114,9 @@ export interface TimeState {
 // ---------- tools (U state) ----------
 export type ToolId = string;
 export const VIEWPORT_TOOL = { select: 'select', move: 'move', rotate: 'rotate', scale: 'scale', multiCut: 'multiCut',
-  insertLoop: 'insertLoop', targetWeld: 'targetWeld', slide: 'slide', paint: 'paint', extrude: 'extrude' } as const;   // M6a, changed
+  insertLoop: 'insertLoop', targetWeld: 'targetWeld', slide: 'slide', paint: 'paint', extrude: 'extrude',   // M6a, changed
+  jointTool: 'jointTool', insertJoint: 'insertJoint', paintSkinWeights: 'paintSkinWeights',
+  shapeCv: 'shapeCv', quickRigMarker: 'quickRigMarker', socket: 'socket' } as const;    // M6b, changed
 export const GRAPH_TOOL = { select: 'select', move: 'move', insert: 'insert', scale: 'scale' } as const;   // M2a: scale
 export const DOPE_TOOL = { select: 'select', move: 'move', scale: 'scale' } as const;
 export type ManipSpace = 'object' | 'world' | 'gimbal';      // gimbal: rotate tool only
@@ -172,7 +192,9 @@ export interface AutosaveStatus {
 export type UiDialog = 'open' | 'import' | 'export' | 'shortcuts' | 'about' | 'firstRun' | 'preferences'
   | 'recovery'                                                    // M2a
   | 'makeEditableReport' | 'imagePlaneImport'                     // M6a, changed (additive)
-  | 'layoutPresets';                                              // layout presets (additive)
+  | 'layoutPresets'                                               // layout presets (additive)
+  | 'applyPoseAsRest' | 'unbindSkin' | 'rebindSkin' | 'vrmMeta' | 'makeCharacterEditable'
+  | 'attachProp';                                                 // M6b, changed (additive)
 
 export interface FeetPins { readonly character: CharacterId; readonly pins: readonly FootPin[] }
 export interface SessionState {
@@ -205,6 +227,8 @@ export interface SessionState {
   /** Per-workspace viewport layout: `workspace.set` stores the leaving workspace's `viewportLayout`/`maximizedPane`
    *  here and restores the entered one's (Model default: quad, `pane-persp` maximized), so Animate's are untouched. */
   readonly workspaceViews: Readonly<Record<string, { readonly layout: ViewportLayout; readonly maximizedPane: string | null }>>;
+  // ---------- M6b (M6B-SPEC §4.6), changed (additive) ----------
+  readonly rig: RigSessionState;
 }
 export type SessionStore = StoreApi<SessionState>;
 
@@ -252,7 +276,20 @@ export interface Prefs {
     readonly paletteRecents: readonly string[];
     readonly convertOnModeSwitch: boolean;               // false
   };
+  // M6b (M6B-SPEC §4.6; version stays 1; missing fields take defaults on load)
+  readonly rigging: {
+    readonly jointSize: number;                                 // 1.0 (× 0.012·H)
+    readonly brush: BrushSettings;                              // defaults of the session brush
+    readonly influenceSort: 'alpha' | 'hierarchy' | 'flat';     // 'hierarchy'
+    readonly influenceColours: Readonly<Record<string, string>>;   // by joint name
+    /** Option boxes of rig operators, keyed by operator id; per constraint type for `rig.constraint.create:<type>`
+     *  (the user's last choice per type is remembered, §5.19). */
+    readonly optionDefaults: Readonly<Record<string, ParamValues>>;
+    readonly orientPreset: 'world' | 'maya' | 'blender';        // Joint tool and Orient Joint default for non-humanoid chains: 'maya'
+    readonly holds: Readonly<Record<string, readonly string[]>>; // '<projectId>/<characterId>' → held joint keys (§5.10)
+  };
 }
+// prefs.modeling.undoSelection gains `rig: true` (selection undo in Rig & Skin, §5.24; M6b).
 export type PrefsStore = StoreApi<Prefs>;
 
 // ---------- operators ----------
@@ -325,6 +362,9 @@ export interface OperatorRegistry {
   get(id: string): OperatorDef<unknown, unknown, unknown> | undefined;
   list(): readonly OperatorDef<unknown, unknown, unknown>[];
   poll(id: string, ctx?: RunContext, args?: unknown): PollResult;
+  /** M6b C0 hook (§0.5; dispatch in `operators/runner.ts`), changed (additive): listeners run synchronously before
+   *  `prepare` of every operator with `flags.undo` and before `edit.undo` / `edit.redo` (C12 stops the preview there). */
+  onBeforeDocumentRun(listener: (id: OperatorId) => void): Disposer;
 }
 export type OperatorArgs<K extends keyof OperatorMap> = OperatorMap[K]['args'];
 export type OperatorReturn<K extends keyof OperatorMap> = OperatorMap[K]['result'];
@@ -517,6 +557,8 @@ export interface EditorServices {
   /** M6a (B0a addition, §3 rule 8): the kernel debug switch of development and e2e builds; the kernel loader applies
    *  it (`setKernelDebug`) when the lazy kernel chunk loads. Absent = off (tests turn it on in their setup). */
   readonly kernelDebug?: boolean;
+  /** M6b (§0.5, §0.4.7), changed (additive): base URL of the clip library, default '/library/'. */
+  readonly libraryPath?: string;
 }
 
 /** M2a: content-addressed autosave slots (IndexedDB in the browser; null in Node). */
@@ -575,6 +617,12 @@ export interface EvaluationService {
   attrValues(control: ControlId): Readonly<Record<string, number>>;
   /** M2a: evaluated ikFk of a limb of the character (null without that limb). */
   ikFk(character: CharacterId, limb: LimbId): number | null;
+  /** M6b: 'animate' = clip curves ⊕ session overrides (shipped); 'bind' = channel defaults evaluated by the
+   *  **constraint-free program** (`withoutConstraints`, compiled once per program version), so the Bind view is the
+   *  rest pose exactly whatever the constraints' offsets (§5.17); 'test' = defaults ⊕ test pose; 'clip' = the clip's
+   *  curves only. Set by the workspace; Animate uses 'animate', except that (MVP, §0.5) a registered 'preview'
+   *  provider with non-null values overrides the workspace source in every workspace. */
+  setChannelSource(character: CharacterId, source: ChannelSource): void;
 }
 
 export interface PlaybackClock {
@@ -599,6 +647,7 @@ export interface HistoryStep {
   readonly coalesceKey?: string;
   readonly at: number;                                            // ms (coalescing window)
   readonly selection?: SelectionPart | null;                      // M6a, changed (additive)
+  readonly testPose?: TestPosePart | null;                        // M6b, changed (additive)
 }
 export interface HistoryResult {
   readonly label: string;
@@ -631,6 +680,13 @@ export interface EditorHistory {
   onDrop(listener: (steps: readonly HistoryStep[], reason: HistoryDropReason) => void): Disposer;
   /** Drops the n oldest steps and their doc entries (UndoManager.evictOldest); fires onDrop(…, 'budget'). */
   dropOldest(n: number): void;
+  // ---------- M6b (M6B-SPEC §4.6), changed (additive) ----------
+  /** One step per gesture ('Test Pose'); undo and redo apply it like any other part (test-pose parts exist only
+   *  while Rig & Skin is active, see dropTestPoses). */
+  recordTestPose(part: TestPosePart, label: string): void;
+  /** Removes every test-pose part (of one character, or all) from the undo and redo stacks; steps left empty are
+   *  removed, as `dropOverrides` does, so the history stays linear. Run when leaving Rig & Skin (§5.17). */
+  dropTestPoses(character?: CharacterId): void;
 }
 
 // ---------- edit kernel (shared by operators, tools and panels; §4.11.0) ----------
@@ -693,6 +749,12 @@ export interface EditorApp {
   readonly extrude: ExtrudeSessionApi;
   readonly capture: NumericCaptureApi;
   readonly blobs: BlobStore;
+  // ---------- M6b (M6B-SPEC §4.6, §0.5), changed (additive) ----------
+  readonly rig: { readonly testPose: TestPoseService; readonly skin: SkinService; readonly validation: RigValidationService;
+    /** Resolves when the rig-workspace chunk is loaded and its operators are registered (§2.1). */
+    load(): Promise<void>; readonly loaded: boolean };
+  /** Loads the clip-library chunk (§0.4.7). */
+  readonly library: { readonly service: ClipLibraryService; load(): Promise<void>; readonly loaded: boolean };
   /** Typed operator call; `args` may be omitted for operators whose args type includes `void`. */
   run<K extends keyof OperatorMap>(id: K, ...rest: OperatorRunArgs<K>): Promise<OperatorResult<OperatorReturn<K>>>;
   /** Untyped call for keymaps, menus, plugins and the test API. */
@@ -732,6 +794,7 @@ export interface WorkspaceDef {
   readonly timeline: boolean;
   readonly layout: string;                     // layout preset id ('animate', 'model-quad')
   status?(app: EditorApp): WorkspaceStatus;    // derived, cheap; read on human-speed changes only
+  keyModes?(app: EditorApp): readonly string[];   // M6b, changed (CR-4): deepest scope suffixes first
 }
 
 // ---------- selection and session (U state) ----------
@@ -1016,3 +1079,124 @@ export interface NumericCaptureApi {
   openCard(): void;
 }
 
+
+// ===================================== M6b (M6B-SPEC §4.6, §0.5) =====================================
+
+// ---------- Rig & Skin session (U) ----------
+export type RigMode = 'object' | 'skeleton' | 'skin' | 'shape';
+export type PoseView = 'bind' | 'test' | 'clip';
+export type PaintMode = 'paint' | 'select';
+export interface BrushSettings {
+  readonly op: PaintOp;                                        // 'replace' (Maya's default)
+  readonly value: number;                                      // 1
+  readonly opacity: number;                                    // 1
+  readonly radiusPx: number;                                   // 40
+  readonly falloff: 'smooth' | 'linear' | 'constant';           // smooth
+  readonly reach: 'surface' | 'volume';                         // surface
+  readonly frontOnly: boolean;                                  // true
+  readonly mirror: boolean;                                     // follows SkeletonRecord.symmetry at entry
+}
+/** §0.5 (C0 types; C3 Quick Rig state). */
+export interface QuickRigState {
+  readonly meshes: readonly MeshId[];                            // the scene meshes being rigged
+  readonly preset: SkeletonPreset;                               // 'standard33'
+  readonly markers: QuickRigMarkers;
+  readonly moved: ReadonlySet<QuickRigMarker>;                   // user-moved (vs guessed)
+  readonly selected: QuickRigMarker | null;
+  readonly guess: { readonly armAngle: number; readonly aPose: boolean; readonly failed: string | null } | null;
+  readonly preview: readonly TemplateJoint[] | null;             // fitTemplate of the current markers
+  /** §0.4.2 start checks; Create Skeleton is disabled while any is false. */
+  readonly checks: { readonly centred: boolean; readonly grounded: boolean; readonly facing: boolean };
+  /** §0.4.2 re-run: the skeleton being refitted in place, or null for a new character. */
+  readonly refit: SkeletonId | null;
+}
+export interface RigSessionState {
+  readonly mode: RigMode;                                       // 'object' on first entry, then remembered
+  readonly lastMode: Exclude<RigMode, 'object'>;                // F8 target; 'skeleton'
+  readonly character: CharacterId | null;                       // the active character of the workspace
+  readonly poseView: PoseView;                                  // 'bind' on every entry
+  readonly activeInfluence: { readonly mesh: MeshId; readonly joint: string } | null;   // palette key
+  /** Influence locks (Maya Hold) **per joint** (palette key) of a character, applied on every bound mesh of it; per
+   *  user, never in the document; remembered across reloads in `prefs.rigging.holds` (§5.10). */
+  readonly holds: ReadonlyMap<CharacterId, ReadonlySet<string>>;
+  readonly paint: { readonly mode: PaintMode; readonly brush: BrushSettings };
+  readonly snap: { readonly projectedCenter: boolean; readonly grid: boolean; readonly vertex: boolean; readonly increment: boolean };
+  readonly shapeCvMode: boolean;
+  readonly shapeMirrorEdits: boolean;                           // Shapes mode: W/E/R edits also the counterpart
+  readonly quickRig: QuickRigState | null;                      // changed (§0.5)
+  readonly hiddenJoints: ReadonlySet<JointId>;
+  readonly lockedJoints: ReadonlySet<JointId>;                  // Outliner lock column: not pickable, not movable
+  readonly tabMemory: Readonly<Record<RigMode, { readonly right: string; readonly bottom: string }>>;
+}
+
+// ---------- test pose (U) and its history part ----------
+export interface TestPosePart {
+  readonly kind: 'testPose';
+  readonly character: CharacterId;
+  readonly before: ReadonlyMap<ControlId, ChannelValues>;
+  readonly after: ReadonlyMap<ControlId, ChannelValues>;
+}
+export interface TestPoseService {
+  readonly version: number;
+  /** Channel values per control, attribute channels included (`@ikFk` of an IK limb switched to FK for a test, §5.17). */
+  values(character: CharacterId): ReadonlyMap<ControlId, ChannelValues>;
+  /** Writes test values (no document write, never a key); records a TestPosePart unless `record: false` (drags record
+   *  once on release). */
+  set(character: CharacterId, values: ReadonlyMap<ControlId, ChannelValues>, opts?: { readonly record?: boolean }): void;
+  clear(character?: CharacterId): void;                         // Go to Bind Pose keeps a copy for `restore`
+  restore(character: CharacterId): boolean;                     // Bind → Test restores the last test pose
+  forget(character?: CharacterId): void;                        // Reset Test Pose
+  subscribe(listener: (version: number) => void): Disposer;
+}
+
+// ---------- evaluation channel source (C0 baseline 'animate' + the MVP 'preview' priority, §0.5; C7 implements bind/test) ----------
+export type ChannelSource = 'animate' | 'bind' | 'test' | 'clip' | 'preview';   // changed (§0.5): + 'preview' (C12)
+/** C0 hook in `editor-core/src/evaluation/rigSource.ts`: C12 registers the provider of the 'preview' source.
+ *  Resolution (C0 baseline, every workspace incl. Animate): if the registered 'preview' provider's
+ *  values(character) is non-null, those values drive the character; else the workspace's source does
+ *  ('animate' in Animate and Model; 'animate' | 'bind' | 'test' in Rig & Skin, C7). Stopping = returning null. */
+export interface ChannelSourceProvider {
+  /** Channel values (attribute channels included) of the character at the provider's own clock, or null = not playing. */
+  values(character: CharacterId): ReadonlyMap<ControlId, ChannelValues> | null;
+  readonly version: number;                                      // bumps per preview frame
+}
+
+// ---------- skin service (C4 worker client, C6 UI state) ----------
+export interface SkinService {
+  /** Runs bindSkin in the skin worker (Node tests: synchronously); rejects with EkzaError('cancelled') when superseded. */
+  bind(mesh: MeshId, args: SkinBindArgs): Promise<{ readonly skin: SkinWeights; readonly report: BindReport }>;
+  readonly busy: boolean;                                       // the progress pill
+  /** Vertex-weights clipboard of Copy/Paste Vertex Weights (U). */
+  clipboard: readonly (readonly [string, number])[] | null;
+}
+
+// ---------- validation (C7 service; rules from C2, C5, C8a, C10) ----------
+export type RigValidationSeverity = 'error' | 'warning' | 'info';
+export interface RigValidationRow {
+  readonly code: string; readonly severity: RigValidationSeverity; readonly area: 'skeleton' | 'skin' | 'transforms' | 'rig' | 'export';
+  readonly message: string; readonly ids: readonly string[];    // joints, meshes, controls, constraints
+  readonly points?: Readonly<Record<string, Uint32Array>>;      // per mesh, for Select
+  readonly fix: { readonly label: string; readonly op: OperatorId; readonly args: unknown } | null;
+}
+export interface RigValidationService {
+  rows(character: CharacterId, profile: string | null): readonly RigValidationRow[];   // derived, cached by versions
+  status(character: CharacterId, profile: string | null): WorkspaceStatus;
+}
+
+// ---------- viewport badges (§0.5: C0 slot `editor/src/panels/viewport/hud/badges.ts`) ----------
+/** Mounted in the viewport HUD of every workspace; C7 registers BIND / TEST POSE, C12 PREVIEW <label>. */
+export interface ViewportBadgeProvider { readonly id: string; label(app: EditorApp): string | null;   // null = hidden
+  subscribe(listener: () => void): Disposer }
+
+// ---------- clip library (C12; §0.4.7) ----------
+export interface ClipPreviewState { readonly character: CharacterId; readonly clip: string; readonly seconds: number;
+  readonly duration: number; readonly loop: boolean }
+export interface ClipLibraryService {
+  /** The manifest from `<libraryPath>animations/starter-pack.json`, parsed and cached. */
+  manifest(): Promise<StarterPackManifest>;
+  /** Verified bytes of one clip (sha256 and size against the manifest), cached per session. */
+  bytes(clip: string): Promise<Uint8Array>;
+  readonly preview: ClipPreviewState | null;
+  subscribe(listener: () => void): Disposer;
+}
+// Layout preset ids 'rig-side' (§8.2) and 'rig-markers' (front │ side │ persp, 40/30/30): C7, editor/src/shell/rig/layouts.ts
