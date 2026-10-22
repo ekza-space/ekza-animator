@@ -3,12 +3,14 @@
 // document is back (Start over discards the slot); `?sample=` and `?step=`; From Studio ("Use these"); the `autorig`
 // keys (Mod+Enter, Alt+1…5, Mod+Z; Studio's Mod+K palette key off, the palette through `⋯`); Simple navigation —
 // a plain drag on empty space orbits the persp pane, Alt (Maya) keeps working, and after a switch to Studio a plain
-// drag no longer orbits (the override is gone; the unit tests prove `navProfile` is never written); Open in Studio keeps the page and the history.
+// drag no longer orbits (the override is gone; the unit tests prove `navProfile` is never written); Open in Studio keeps the page and the history;
+// the wizard panes' pose and preview badges from ③ on (AR-D3-1).
 import { expect, type Page, test } from '@playwright/test';
 import { expectStudioShown, importStatic, markPage, navigate, openAutoRigReady, pageMark } from './helpers/ar-host';
 import { waitForReport } from './helpers/ar-model';
 import { autorig, history } from './helpers/autorig';
-import { call, openEditor, waitForTestApi } from './helpers/test-api';
+import { cubeLadTruth } from './helpers/m6b-cube-lad';
+import { call, openEditor, runOk, waitForTestApi } from './helpers/test-api';
 
 const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
 
@@ -179,4 +181,40 @@ test('Open in Studio switches on the same page with the history; Rig & Skin from
   await waitForTestApi(page);
   await expect.poll(async () => (await autorig(page))?.subject.meshes.length).toBe(1);
   await expect(page.getByTestId('ar-from-studio')).toHaveCount(0);
+});
+
+test('the panes show the pose view and a library preview from ③ on (BIND POSE, TEST POSE, PREVIEW Walk)', async ({
+  page,
+}) => {
+  await openAutoRigReady(page);
+  await loadCubeLad(page);
+  const meshes = (await autorig(page))?.subject.meshes ?? [];
+  expect(meshes.length).toBe(1);
+  const pose = page.getByTestId('hud-badge-pose-pane-persp');
+  const preview = page.getByTestId('hud-badge-preview-pane-persp');
+  await expect(pose).toHaveCount(0);
+  // the subject rigged and bound through the shipped operators (② and ③'s own UI is D4's)
+  const { character } = await runOk<{ character: string }>(page, 'skel.quickRig.commit', {
+    preset: 'standard33',
+    markers: cubeLadTruth().markers,
+    meshes,
+    flexion: (2 * Math.PI) / 180,
+  });
+  await runOk(page, 'skin.bind', {});
+  await expect.poll(async () => (await autorig(page))?.reachable.rig).toBe(true);
+  await page.keyboard.press('Alt+Digit3');
+  await expect.poll(async () => (await autorig(page))?.step).toBe('rig');
+  await expect(pose).toHaveText('BIND POSE');
+  await runOk(page, 'rig.pose.view', { view: 'test' });
+  await expect(pose).toHaveText('TEST POSE');
+  await runOk(page, 'rig.pose.view', { view: 'bind' });
+  await expect(pose).toHaveText('BIND POSE');
+  await runOk(page, 'library.preview', { character, clip: 'walk' });
+  await expect(preview).toHaveText('PREVIEW Walk');
+  await runOk(page, 'library.stop');
+  await expect(preview).toHaveCount(0);
+  // back on ① the panes carry no badges
+  await page.keyboard.press('Alt+Digit1');
+  await expect.poll(async () => (await autorig(page))?.step).toBe('model');
+  await expect(pose).toHaveCount(0);
 });

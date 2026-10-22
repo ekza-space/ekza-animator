@@ -1,7 +1,7 @@
 // The wizard frame (AUTORIG-SPEC §5.1, §8.2, §8.3; D3): header (mark, subject name, undo/redo, *Open in Studio ▸*,
-// `⋯`), the stepper (`nav` + the step's `h1`), `main` with the step's pane grid (the shipped `PaneView` from
-// `@ekza-studio/editor/host`; the shared canvas draws behind it) and the step panel (≤ 320 px; a bottom sheet below
-// 1024 px), and the footer (*Back*, one status line, one primary button). Landmarks, a polite status line, an
+// `⋯`), the stepper (`nav` + the step's `h1`), `main` with the step's pane grid (`WizardPane`s registered with the
+// page's ViewportManager, AR-D3-1; the shared canvas draws behind them) and the step panel (≤ 320 px; a bottom sheet
+// below 1024 px), and the footer (*Back*, one status line, one primary button). Landmarks, a polite status line, an
 // assertive error line, focus on the step heading at every step change.
 import { useHostUi } from '@ekza-studio/editor/host';
 import { buttonClass, cn, Redo2, Undo2 } from '@ekza-studio/ui';
@@ -107,8 +107,17 @@ function SubjectName(props: { readonly ctx: WizardContext }): JSX.Element {
   );
 }
 
+const selectBusy = (s: AutoRigSession): boolean => s.busy !== null;
+
+/** Undo / Redo with the step labels; off while a composition runs (§4.5, as the keys are). */
 function UndoRedo(props: { readonly ctx: WizardContext }): JSX.Element {
   const { app, host } = props.ctx;
+  const wizardBusy = useSession(props.ctx.session, selectBusy);
+  const appBusy = useAppSession(
+    app,
+    useCallback((s) => s.busy !== null, []),
+  );
+  const busy = wizardBusy || appBusy;
   const subscribe = useCallback((notify: () => void) => app.history.subscribe(notify), [app]);
   const read = useCallback(
     () => `${app.history.peekUndo()?.label ?? ''}\u0000${app.history.peekRedo()?.label ?? ''}`,
@@ -123,7 +132,7 @@ function UndoRedo(props: { readonly ctx: WizardContext }): JSX.Element {
         className={icon}
         aria-label={undo === '' ? f().undo : f().undoStep(undo)}
         title={undo === '' ? f().undo : f().undoStep(undo)}
-        disabled={undo === ''}
+        disabled={undo === '' || busy}
         data-testid="ar-undo"
         onClick={() => void host.runFromUi('edit.undo')}
       >
@@ -134,7 +143,7 @@ function UndoRedo(props: { readonly ctx: WizardContext }): JSX.Element {
         className={icon}
         aria-label={redo === '' ? f().redo : f().redoStep(redo)}
         title={redo === '' ? f().redo : f().redoStep(redo)}
-        disabled={redo === ''}
+        disabled={redo === '' || busy}
         data-testid="ar-redo"
         onClick={() => void host.runFromUi('edit.redo')}
       >
@@ -283,7 +292,7 @@ function Panes(props: { readonly ctx: WizardContext }): JSX.Element {
     <div className="absolute inset-0 flex" data-testid="ar-panes" data-panes={panes.length}>
       {panes.map((pane) => (
         <div key={pane.id} className="flex min-w-0" style={{ flex: `${pane.size ?? 1} 1 0` }}>
-          <WizardPane vm={vm} paneId={pane.id} />
+          <WizardPane vm={vm} app={ctx.app} paneId={pane.id} step={session.step} />
         </div>
       ))}
     </div>

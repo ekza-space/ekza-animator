@@ -24,6 +24,10 @@ export const frame = {
   openStudio: 'Open in Studio',
   openStudioTitle: 'Continue with the full editor (same document, same undo history)',
   more: 'More',
+  // pane badges (the pose view and a playing library preview, as Studio's HUD shows them)
+  badgeBindPose: 'BIND POSE',
+  badgeTestPose: 'TEST POSE',
+  badgePreview: (clip: string) => `PREVIEW ${clip}`,
   // ⋯ menu
   menuNew: 'New',
   menuOpen: 'Open project…',
