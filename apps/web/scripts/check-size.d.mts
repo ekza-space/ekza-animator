@@ -42,7 +42,14 @@ export interface SizeReport {
 }
 export interface SizeBaseline {
   readonly baseline: { readonly total: number; readonly label?: string; readonly recorded?: string };
-  readonly eagerDelta: { readonly allowance: number; readonly enforce: boolean; readonly pending?: string };
+  readonly eagerDelta: {
+    readonly allowance: number;
+    readonly enforce: boolean;
+    readonly pending?: string;
+    readonly gate?: string;
+    /** M6B-SPEC §0.4.9: the per-package eager allowances inside the gate (bytes). */
+    readonly packages?: Readonly<Record<string, number>>;
+  };
   readonly modelChunk?: { readonly warnBytes?: number; readonly boundaries?: readonly string[] };
 }
 export interface EagerDelta {
@@ -54,6 +61,7 @@ export interface EagerDelta {
   readonly enforced: boolean;
   readonly comparable: boolean;
   readonly pending: string | null;
+  readonly packages: Readonly<Record<string, number>> | null;
 }
 export interface ModelChunk {
   readonly bytes: number;
@@ -70,6 +78,7 @@ export declare const BOUNDARIES: readonly {
   readonly markers: readonly string[];
 }[];
 export declare const BASELINE_FILE: string;
+export declare const M6B_CHUNK_WARN_BYTES: Readonly<Record<string, number>>;
 export declare function readBaseline(file?: string): SizeBaseline | null;
 export declare function eagerDelta(total: number, baseline: SizeBaseline | null, e2eBuild: boolean): EagerDelta | null;
 export declare function modelChunk(lazy: readonly LazyGroup[], baseline: SizeBaseline | null): ModelChunk;

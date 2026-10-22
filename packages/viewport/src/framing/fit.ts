@@ -64,3 +64,23 @@ export function fitOrthoHeight(bounds: SpatialBounds, aspect: number, padding = 
   const a = Math.max(0.001, finiteOr(aspect, 1));
   return (2 * radius * padding) / Math.min(1, a);
 }
+
+/**
+ * Visible height (metres) an orthographic view looking along a fixed direction needs to contain the bounds: the eight
+ * corners projected on the view's right and up axes (unit vectors), padded, at the pane aspect. Tighter than the
+ * bounding sphere of {@link fitOrthoHeight}: a T-posed character in a narrow side pane fills the pane's height instead
+ * of a third of it (M6b acceptance: joint fitting after Create Skeleton).
+ */
+export function fitOrthoViewHeight(
+  bounds: SpatialBounds,
+  right: readonly number[],
+  up: readonly number[],
+  aspect: number,
+  padding = DEFAULT_FRAME_PADDING,
+): number {
+  // A box's extent along a unit axis is Σ |axisᵢ| · sizeᵢ (finite bounds, a pane's aspect > 0).
+  const size = [bounds.maxX - bounds.minX, bounds.maxY - bounds.minY, bounds.maxZ - bounds.minZ];
+  const extent = (axis: readonly number[]): number =>
+    size.reduce((sum, d, i) => sum + Math.abs((axis[i] as number) * d), 0);
+  return Math.max(0.1, extent(up), extent(right) / aspect) * padding;
+}

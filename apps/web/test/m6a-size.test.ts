@@ -61,12 +61,14 @@ const baseline = (fields: { total: number; allowance: number; enforce: boolean }
 });
 
 describe('the recorded baseline (size-baseline.json)', () => {
-  it('records the M2a route and the +20,480 B allowance, not enforced until the owner decides', () => {
+  it('records the dev route before M6b C0 and the +6,144 B MVP allowance, enforced by C7 (M6B-SPEC §0.4.9)', () => {
     const recorded = readBaseline(BASELINE_FILE);
-    expect(recorded?.baseline.total).toBe(845_267);
-    expect(recorded?.eagerDelta.allowance).toBe(20_480);
-    expect(recorded?.eagerDelta.enforce).toBe(false);
-    expect(recorded?.eagerDelta.pending).toMatch(/Decision requested/);
+    expect(recorded?.baseline.total).toBe(889_569);
+    expect(recorded?.eagerDelta.allowance).toBe(6_144);
+    // C7 (rig-shell) turned the gate on (§0.4.9; literal update, §3 rule 9): enforced, nothing pending.
+    expect(recorded?.eagerDelta.enforce).toBe(true);
+    expect(recorded?.eagerDelta.pending).toBeUndefined();
+    expect(recorded?.eagerDelta.packages).toEqual({ c0: 2048, c7: 2560, c12: 1024, c1: 512 });
     expect(recorded?.modelChunk?.warnBytes).toBe(250_000);
     expect(JSON.parse(readFileSync(BASELINE_FILE, 'utf8'))).toEqual(recorded);
   });
@@ -83,6 +85,7 @@ describe('the eager-delta gate (§5.27)', () => {
       enforced: true,
       comparable: true,
       pending: 'owner decision pending',
+      packages: null,
     });
     expect(eagerDelta(870_000, baseline({ total: 845_000, allowance: 20_480, enforce: true }), false)?.over).toBe(true);
     expect(eagerDelta(870_000, null, false)).toBeNull();
@@ -100,12 +103,12 @@ describe('the eager-delta gate (§5.27)', () => {
     const enforced = checkSize(build, { baseline: baseline({ total: measured - 100, allowance: 50, enforce: true }) });
     expect(enforced.ok).toBe(false);
     expect(enforced.problems).toEqual([
-      `M6a eager delta +100 B over the ${(measured - 100).toLocaleString('en')} B baseline > allowance +50 B (limit ${(measured - 50).toLocaleString('en')} B)`,
+      `M6b MVP eager delta +100 B over the ${(measured - 100).toLocaleString('en')} B baseline > allowance +50 B (limit ${(measured - 50).toLocaleString('en')} B)`,
     ]);
     const pending = checkSize(build, { baseline: baseline({ total: measured - 100, allowance: 50, enforce: false }) });
     expect(pending.ok).toBe(true);
     expect(pending.warnings).toEqual([
-      expect.stringMatching(/^M6a eager delta \+100 B .* not enforced: owner decision pending$/),
+      expect.stringMatching(/^M6b MVP eager delta \+100 B .* not enforced: owner decision pending$/),
     ]);
     const within = checkSize(build, { baseline: baseline({ total: measured - 40, allowance: 50, enforce: true }) });
     expect(within.ok).toBe(true);

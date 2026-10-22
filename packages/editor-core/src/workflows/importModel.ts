@@ -29,6 +29,7 @@ import type { ImportModelOptions, ImportResult } from '../operators/args';
 import type { EditorApp } from '../types';
 import { frameShotCamera, SHOT_FOV_Y } from './camera';
 import { type ClipWritePlan, planEmptyClip, planImportedClip, resolveClipOptions, writeClipPlan } from './clipWrite';
+import { embeddedEkzaLoop } from './ekzaLoop';
 import { type Progress, yieldToHost } from './host';
 import { importLimbWarnings } from './ik';
 import { baseName, extensionOf, numberedName, sanitizeClipName, uniqueName } from './names';
@@ -251,7 +252,7 @@ export async function prepareModelImport(app: EditorApp, input: ModelImportInput
           id: newRecordId(app, 'clip'),
           character: characterId,
           name,
-          loop: /loop/i.test(raw.name),
+          loop: embeddedEkzaLoop(container, raw.index) ?? /loop/i.test(raw.name),
           provenance: clipProvenance(source, [raw.name, ...nodeNames]),
           source: { kind: 'embedded', asset: asset.id, animationIndex: raw.index, animationName: raw.name },
         },

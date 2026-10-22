@@ -417,3 +417,109 @@ export {
   toWorld,
   worldAxes,
 } from './operators/builtin/extrudeEngine';
+// ---------- M6b (M6B-SPEC §4.6, §0.5; C0 baselines and hooks) ----------
+export { type ChannelSources, previewValues, registerChannelSourceProvider } from './evaluation/rigSource';
+export { defaultRiggingPrefs } from './prefs/defaults';
+export { DEFAULT_BRUSH, defaultRigSession } from './session/rig';
+export { isRigWorkspaceOperator, lazyOperatorChunk, RIG_MENUS, RIG_STATUS_GROUPS, rigStatus } from './workspaces/rig';
+// M6b C7 (rig shell): the Validation service's shapes, the checklist, the Rig keymap rows and the mode rules. Values
+// here are read by lazy UI code and tests only (the rig-workspace chunk creates the services).
+export {
+  type ChecklistGlyph,
+  type ChecklistStep,
+  checklistSummary,
+  DEFAULT_PROFILE,
+  profileKind,
+  RIG_PROFILES,
+  type RigValidation,
+  type RowSelection,
+  rigChecklist,
+  rigValidation,
+  selectValidationRow,
+} from './rig/validation';
+export { activeCharacter, LEFT_RIG_REASON, TEST_POSE_TOAST } from './rig/chunk/workspace';
+export { beginTestPoseGesture } from './rig/testPose/gesture';
+export { KEYING_CHORDS, RIG_SCOPE, RIG_SHADOW_KEYMAP } from './keymap/maya.rig';
+export { RIG_KEYMAP } from './rig/chunk/keymap';
+export { BIND_A_MESH_FIRST, MODE_MASKS, RIG_ONLY_REASON } from './operators/builtin/rig/mode';
+export { type ChannelEditRedirect, registerChannelEditRedirect, rigKeyingRefusal } from './evaluation/rigSource';
+export { RIG_VIEW_ONLY_REASON, rigViewOnly, setRigViewOnly } from './evaluation/rigSource';
+export { type CharacterRuntimeChunk, loadCharacterRuntime } from './characters/runtimeChunk';
+export { ARRIVES_AFTER_MVP } from './operators/builtin/rig/stub';
+// C4 (auto-skin): the skin-worker protocol and host types (type-only: the client lives in the rig-workspace chunk).
+export type {
+  SkinBindJob,
+  SkinBindResult,
+  SkinServiceImpl,
+  SkinWorkerHost,
+  SkinWorkerPort,
+  SkinWorkerRequest,
+  SkinWorkerResponse,
+} from './rig/skinService';
+// C10 (§5.22, §6.4): the character export's request defaults, checks and gating rows (the Export dialog's Character
+// section and the Rig Toolkit read them; the pipeline itself loads with the rig-workspace chunk).
+export {
+  type CharacterExportPlan,
+  characterExportRows,
+  characterOf,
+  characterRequestProblem,
+  isModelCharacter,
+  normalizeCharacterRequest,
+} from './workflows/exportCharacter';
+// M6b C3 (skeleton UI): the Quick Rig session helpers and the joint-edit texts. Read by lazy UI code (the markers tool,
+// the joint tools, the Quick Rig panel) and tests only; the operators stay in the rig-workspace chunk.
+export {
+  A_POSE_NOTICE,
+  closeQuickRig,
+  isCentreMarker,
+  isQuickRigMarker,
+  markerPoint,
+  nextMissingMarker,
+  PRESET_LOCKED,
+  pickQuickRigMarker,
+  QUICK_RIG_CLOSED,
+  QUICK_RIG_LABELS,
+  QUICK_RIG_MARKERS,
+  quickRigCommitArgs,
+  quickRigCommitBlock,
+  quickRigOf,
+  quickRigStartBlock,
+  setQuickRigMarker,
+} from './operators/builtin/rig/quickRigSession';
+export { CHECK_REASONS, REBIND_CONFIRM } from './operators/builtin/rig/quickRig';
+export { ASSET_CHARACTER_REFUSAL, POSED_REFUSAL, rigGeometry } from './operators/builtin/rig/skeleton';
+// C6 (skin UI): the weight helpers the lazy Paint Skin Weights tool, the Paint Weights panel, the Toolkit Skin section
+// and the test API read (rig-workspace code; nothing eager imports them).
+export {
+  activeJoint,
+  boundCharacter,
+  boundMeshesOf,
+  heldKeysOf,
+  jointName,
+  skinPaintRefusal,
+  selectedPoints,
+  skinCharacter,
+  skinTargets,
+  stampArgs,
+  type WeightInputs,
+  weightContext,
+  weightInputs,
+  weightInputsNow,
+} from './operators/builtin/rig/weights';
+export {
+  brushPatch,
+  influencesOf,
+  setBrush,
+  setSkinTestRotate,
+  skinTestRotate,
+  subscribeSkinTestRotate,
+  walkJoint,
+  writeHolds,
+} from './operators/builtin/rig/influence';
+export {
+  answerRebind,
+  answerUnbind,
+  BIND_PARAMS,
+  rebindRequest,
+  unbindRequest,
+} from './operators/builtin/rig/bind';

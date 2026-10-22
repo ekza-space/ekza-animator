@@ -23,6 +23,7 @@ import { newRecordId } from '../app/internals';
 import type { ClipsResult, ImportAnimationOptions } from '../operators/args';
 import type { CharacterRuntime, EditorApp } from '../types';
 import { type ClipWritePlan, planImportedClip, resolveClipOptions, writeClipPlan } from './clipWrite';
+import { embeddedEkzaLoop } from './ekzaLoop';
 import { yieldToHost } from './host';
 import { importLimbWarnings } from './ik';
 import { assertWithinBudget } from './importModel';
@@ -132,6 +133,7 @@ function planImported(
   name: string,
   provenance: ClipProvenance,
   imported: ImportedClipKeys,
+  loop: boolean | null = null,
 ): ClipWritePlan {
   return planImportedClip(
     app,
@@ -139,7 +141,7 @@ function planImported(
       id: newRecordId(app, 'clip'),
       character: input.character,
       name: sanitizeClipName(name),
-      loop: /loop/i.test(name),
+      loop: loop ?? /loop/i.test(name),
       provenance,
       source: { kind: 'imported', fileName: input.fileName, asset: asset.id },
     },
@@ -200,7 +202,7 @@ export async function prepareGlbAnimationImport(app: EditorApp, input: ImportInp
     const name = uniqueName(sanitizeClipName(raw.name), taken);
     taken.push(name);
     const provenance = embeddedEkzaProvenance(container, raw.index) ?? clipProvenance(unknown, names);
-    clips.push(planImported(app, input, asset, name, provenance, imported));
+    clips.push(planImported(app, input, asset, name, provenance, imported, embeddedEkzaLoop(container, raw.index)));
     await yieldToHost();
   }
   if (clips.length === 0) throw new EkzaError('unsupported', `No animation of ${input.fileName} fits the character`);

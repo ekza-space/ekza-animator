@@ -13,7 +13,7 @@ export const SUPPORT_STRIDE = SUPPORT_SAMPLES + 2;
 
 /** One skinned primitive: vertices already placed in canonical bind pose by their dominant joint. */
 export interface SupportPrimitive {
-  readonly joints: Uint32Array;
+  readonly joints: Uint32Array | Uint16Array;
   readonly weights: Float32Array;
   /** Skin joint slot → SkeletonDesc node index (−1 when the joint is not a node). */
   readonly skinJoints: readonly number[];

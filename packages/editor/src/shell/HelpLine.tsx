@@ -2,7 +2,7 @@
 // navigation and tool hints; busy state and the selection on the right. Human-speed state only, never per frame.
 // M6a (M6A-SPEC §5.17, §8.2; B9): in Model the hints are the mode and the resolved meaning of the modeling keys under
 // the pointer (`⌘E Extrude` on macOS, `Ctrl+E Extrude` elsewhere), and the selection counts objects.
-import { type ComponentMode, GLOBAL_SCOPE, PANEL } from '@ekza-studio/editor-core';
+import { type ComponentMode, type EditorApp, GLOBAL_SCOPE, PANEL, type SessionState } from '@ekza-studio/editor-core';
 import { cn, LoaderCircle } from '@ekza-studio/ui';
 import type { JSX } from 'react';
 import { useEditorApp, usePrefs, useSession } from '../hooks';
@@ -24,6 +24,16 @@ const NAV_HINT = {
 
 export const GL_LOST_TEXT = 'Graphics context lost — restoring the 3D view…';
 
+/**
+ * Rig & Skin's tool hint and selection count (`hint\u0001count\u0001noun`), registered by the lazy rig shell
+ * (`rig/helpLine.ts`), so its texts stay out of the eager bundle; null outside Rig & Skin.
+ */
+export type RigHelp = (app: EditorApp, state: SessionState) => string | null;
+let rigHelp: RigHelp | null = null;
+export function setRigHelp(help: RigHelp | null): void {
+  rigHelp = help;
+}
+
 const TOOL_HINT: Readonly<Record<string, string>> = {
   select: 'Click or drag a marquee to select controls · S set key',
   move: 'Drag an arrow or plane to move · S set key',
@@ -44,18 +54,21 @@ export function HelpLine(): JSX.Element {
   const busy = useSession((s) => s.busy);
   const tool = useSession((s) => s.tools.viewport);
   const selected = useSession((s) => s.selection.controls.length);
+  const rig = useSession((s) => rigHelp?.(app, s))?.split('\u0001') ?? null;
   const navProfile = usePrefs((p) => p.navProfile);
   const spaceBehaviour = usePrefs((p) => p.spaceBehaviour);
 
   const modelHints = workspace === 'model' ? helpHints(app, hover) : null;
+  const toolHint = rig === null || rig[0] === '' ? TOOL_HINT[tool] : rig[0];
   const hint =
     workspace === 'model'
       ? `${MODE_LABEL[mode]}${modelHints === null ? '' : ` · ${modelHints}`}`
       : hoverKind === PANEL.viewport || hoverKind === null || hoverKind === GLOBAL_SCOPE
-        ? `${NAV_HINT[navProfile]}${TOOL_HINT[tool] === undefined ? '' : ` · ${TOOL_HINT[tool]}`}`
+        ? `${NAV_HINT[navProfile]}${toolHint === undefined ? '' : ` · ${toolHint}`}`
         : `Space: ${spaceBehaviour === 'play' ? 'play / stop' : 'maximize panel'} · ? shortcuts`;
-  const count = workspace === 'model' ? objects : selected;
-  const what = workspace === 'model' ? (count === 1 ? 'object' : 'objects') : null;
+  const count = workspace === 'model' ? objects : rig === null ? selected : Number(rig[1]);
+  const noun = workspace === 'model' ? 'object' : rig?.[2];
+  const what = noun ? (count === 1 ? noun : `${noun}s`) : null;
   const busyLabel = busy?.label ?? shellBusy;
   // A lost context is a state, not a hint: it takes the help line's text until the context is back (acceptance
   // round 1: /editor kept showing the hover hints while the 3D view was gone).

@@ -75,7 +75,14 @@ export function pruneForControls(app: EditorApp, selection: Selection): Selectio
     if (key !== undefined && shown.has(key.curve)) keys.set(id, parts);
   }
   const channels = selection.channels.filter((ref) => controls.has(ref.control));
-  return { controls: selection.controls, keys, channels, objects: selection.objects };
+  return {
+    controls: selection.controls,
+    keys,
+    channels,
+    objects: selection.objects,
+    joints: selection.joints,
+    constraints: selection.constraints,
+  };
 }
 
 /** Selects controls (one character at a time) and prunes the dependent key and channel selections. */
@@ -98,6 +105,25 @@ export function selectControls(app: EditorApp, ids: readonly ControlId[], mode: 
   if (character !== state.activeCharacter) patch.activeCharacter = character;
   app.session.setState({ ...patch, selection: { ...state.selection, controls } });
   app.session.setState({ selection: pruneForControls(app, app.session.getState().selection) });
+}
+
+/**
+ * M6b C7 (§5.24): a control selection gesture. In Rig & Skin with `prefs.modeling.undoSelection.rig` it records one
+ * selection part ("Select", never a document step; nothing when the selection did not change), as M6a's
+ * `selectionGesture` does for meshes; elsewhere it is the shipped `selectControls` (Animate keeps selection out of the
+ * history; Model's gestures are the mesh and object operators). Inline, so the eager bundle does not pull in the mesh
+ * selection steps.
+ */
+function selectControlsGesture(app: EditorApp, ids: readonly ControlId[], mode: SelectMode): void {
+  const record =
+    app.session.getState().workspace === 'rig' && app.prefs.getState().modeling.undoSelection['rig'] === true;
+  const before = record ? app.components.snapshot([]) : null;
+  selectControls(app, ids, mode);
+  if (before === null) return;
+  const after = app.components.snapshot([]);
+  if (before.controls.join() === after.controls.join() && before.objects.join() === after.objects.join()) return;
+  const gesture = ids.length === 0 ? 'clear' : mode === 'replace' ? 'replace' : 'additive';
+  app.history.recordSelection({ kind: 'select', gesture, before, after }, 'Select');
 }
 
 function partsOf(parts: Partial<KeyPartSelection> | undefined): KeyPartSelection {
@@ -157,7 +183,7 @@ const selectControlsOp = defineOperator({
       : fail('ids must be control ids');
   },
   apply({ app }, args) {
-    selectControls(app, args.ids, args.mode);
+    selectControlsGesture(app, args.ids, args.mode);
   },
 });
 
@@ -182,7 +208,7 @@ const selectAll = defineOperator({
       app.session.setState({ selection: { ...state.selection, keys } });
       return;
     }
-    selectControls(
+    selectControlsGesture(
       app,
       visibleControls(app).map((control) => control.id),
       'replace',
@@ -208,7 +234,7 @@ const selectNone = defineOperator({
     } else if (panel === PANEL.channelBox) {
       app.session.setState({ selection: { ...state.selection, channels: [] } });
     } else {
-      selectControls(app, [], 'replace');
+      selectControlsGesture(app, [], 'replace');
     }
   },
 });
@@ -224,7 +250,7 @@ const selectMirror = defineOperator({
     const mirrored = selectedControls(app).map((control) =>
       control.mirror !== null && app.store.get('controls', control.mirror) !== undefined ? control.mirror : control.id,
     );
-    selectControls(app, mirrored, 'replace');
+    selectControlsGesture(app, mirrored, 'replace');
   },
 });
 
@@ -407,7 +433,7 @@ const selectPickWalk = defineOperator<'select.pickWalk', 'walk' | 'frames'>({
     const visible = (id: ControlId): boolean => resolve(id) === 'visible';
     // Every selected control walks; the lead's result is added last, so it stays the lead.
     const results = selected.map((control) => pickWalkTarget(controls, control, args.direction, visible));
-    selectControls(app, results, args.add === true ? 'add' : 'replace');
+    selectControlsGesture(app, results, args.add === true ? 'add' : 'replace');
   },
 });
 

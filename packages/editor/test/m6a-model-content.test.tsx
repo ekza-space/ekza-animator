@@ -141,6 +141,18 @@ describe('Model Outliner tree (§8.8)', () => {
       containers,
     });
     expect(collapsed.filter((row) => row.kind === 'object')).toEqual([]);
+    // A model-sourced character (Rig & Skin) has a display container synthesised from its own mesh records: those are
+    // listed as objects, never as read-only glTF "asset" rows with Make editable (M6b acceptance fix).
+    app.store.transact({ label: 'model source' }, (tx) => {
+      tx.patch('characters', CHARACTER, { source: { kind: 'model', skeleton: 'skl_model' as never } });
+    });
+    const model = buildModelOutlinerRows(readModelOutlinerDoc(app.store), {
+      filter: '',
+      expanded: new Map(),
+      containers,
+    });
+    expect(model.filter((row) => row.kind === 'asset')).toEqual([]);
+    expect(model.some((row) => row.kind === 'character')).toBe(true);
   });
 
   it('object selection rules and palette helpers', () => {

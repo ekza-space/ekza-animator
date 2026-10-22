@@ -235,11 +235,18 @@ export const LayoutQuadIcon = icon('LayoutQuad', [
   <rect key="r" x={1.5} y={2.5} width={13} height={11} rx={1} />,
   <path key="d" d="M8 2.5v11M1.5 8h13" />,
 ]);
+/** M6b (Rig & Skin R-Markers): `front │ side │ persp`, 40/30/30. */
+export const LayoutTripleIcon = icon('LayoutTriple', [
+  <rect key="r" x={1.5} y={2.5} width={13} height={11} rx={1} />,
+  <path key="d" d="M6.5 2.5v11M10.5 2.5v11" />,
+]);
 /** Layout icons keyed by the editor-core `ViewportLayout` names. */
 export const LAYOUT_ICONS: Readonly<Record<string, IconComponent>> = {
   single: LayoutSingleIcon,
   split: LayoutSplitIcon,
   quad: LayoutQuadIcon,
+  'rig-side': LayoutSplitIcon,
+  'rig-markers': LayoutTripleIcon,
 };
 
 export const KeyframeIcon = icon('Keyframe', <path d="M8 2.5L13.5 8 8 13.5 2.5 8z" />);

@@ -28,6 +28,16 @@ export const DEFAULT_DISPLAY: DisplayFlags = {
   symmetryPlane: true,
   dimUnhilited: false,
   imagePlanes: true,
+  // M6b (M6B-SPEC §4.6): Animate keeps today's look (the joints overlay is Rig & Skin's).
+  joints: false,
+  xrayJoints: false,
+  jointAxes: 'none',
+  jointLabels: 'none',
+  weights: 'off',
+  weightNumbers: false,
+  lockRelative: false,
+  constraintLines: false,
+  shapeCvs: false,
 };
 
 /** Model's pane display (§4.6, research 16 U7): palette colours, wire on shaded, flat, hard edges, the poly count;
@@ -51,9 +61,20 @@ const MODEL_CAMERAS: Readonly<Record<string, PaneCamera>> = {
   'pane-right': VIEW('persp'),
 };
 
+/** Rig & Skin's pane display (M6B-SPEC §4.6, §8.3; C7): the joints overlay with x-ray, axes on the selection and
+ *  labels on hover; meshes lit with their wire hidden; controls shown (Object mode poses them for tests). */
+export const RIG_DISPLAY: DisplayFlags = {
+  ...DEFAULT_DISPLAY,
+  joints: true,
+  xrayJoints: true,
+  jointAxes: 'selected',
+  jointLabels: 'hover',
+  constraintLines: true,
+};
+
 /** The display a pane starts with in a workspace. */
 export function defaultDisplayOf(workspace: string): DisplayFlags {
-  return workspace === 'model' ? MODEL_DISPLAY : DEFAULT_DISPLAY;
+  return workspace === 'model' ? MODEL_DISPLAY : workspace === 'rig' ? RIG_DISPLAY : DEFAULT_DISPLAY;
 }
 
 /** The camera a pane looks through in a workspace until the user picks another one. */

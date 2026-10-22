@@ -1,10 +1,10 @@
-// Contract file: MVP-SPEC §4.2 with the M6A-SPEC §4.2 additions, copied verbatim (shapes are normative; change the spec first).
+// Contract file: MVP-SPEC §4.2 with the M6A-SPEC §4.2 and M6B-SPEC §4.1 additions, copied verbatim (shapes are normative; change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
 import type { CharacterId, ClipId, ControlId, CurveId, GroupId, LayerId, MeshId, PaletteId, RigId, SkeletonId,
   UserId } from './ids';
-import type { ChannelId, ClipRecord, ControlRecord, CurveRecord, GroupRecord, IdOf, ImagePlaneRecord, JointRecord,
-  KeyRecord, LayerRecord, MeshRecord, OrthoCamera, Partition, RecordOf, RigRecord, SoftDeletableTable, SwatchRecord,
-  TableName } from './records';
+import type { ChannelId, ClipRecord, ConstraintRecord, ControlRecord, CurveRecord, GroupRecord, IdOf, ImagePlaneRecord,
+  JointRecord, KeyRecord, LayerRecord, MeshRecord, OrthoCamera, Partition, RecordOf, RigRecord, SkeletonRecord,
+  SoftDeletableTable, SwatchRecord, TableName } from './records';
 
 export type Origin = 'local' | 'undo' | 'redo' | 'preview' | 'remote' | 'load' | 'import' | 'migration' | 'cleanup';
 
@@ -86,6 +86,10 @@ export interface DocQueries {
   swatchBySlot(palette: PaletteId, slot: number): SwatchRecord | undefined;    // smallest SwatchId on a duplicate
   imagePlanesOf(camera: OrthoCamera): readonly ImagePlaneRecord[];             // by order
   jointsOfSkeleton(skeleton: SkeletonId): readonly JointRecord[];              // parents first, then order
+  // ---------- M6b schema v4 (M6B-SPEC §4.1) ----------
+  skeletonOfCharacter(character: CharacterId): SkeletonRecord | undefined;      // live; the newest by id on a conflict
+  constraintsOfRig(rig: RigId): readonly ConstraintRecord[];                    // live, by id
+  meshesBoundTo(skeleton: SkeletonId): readonly MeshRecord[];                   // skin.skeleton === skeleton, live, by order
 }
 
 export interface PreviewSession {

@@ -4,6 +4,10 @@
 // points at an existing file. fixtures/synthetic/ is generated test data under the repository licence and is not
 // checked here.
 //
+// M6B-SPEC §0.4.7 (C12): the clip library's committed starter pack is licensed the same way. A row whose path starts
+// with `apps/web/public/library/` is repository-rooted: it resolves against the repository root, must exist and match
+// its SHA-256, and every file under `apps/web/public/library/` needs a row (the same two-way rule).
+//
 // Usage: node tooling/check-fixtures.mjs [repoRoot]
 
 import { createHash } from 'node:crypto';
@@ -12,6 +16,8 @@ import { join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const LICENSED_DIRS = ['models', 'animations'];
+/** Repository-rooted licensed trees (§0.4.7): rows with this prefix resolve against the repository root. */
+export const ROOTED_PREFIX = 'apps/web/public/library/';
 
 /**
  * Parses the fixture table: a row's first cell holds the file path relative to fixtures/ (in backticks) and its last
@@ -44,27 +50,41 @@ export function checkFixtures(root) {
     byPath.set(row.path, row);
   }
 
-  const files = LICENSED_DIRS.flatMap((dir) => listFiles(join(fixturesDir, dir))).map((file) =>
-    relative(fixturesDir, file).split(sep).join('/'),
-  );
+  const posix = (base, file) => relative(base, file).split(sep).join('/');
+  // A row path names a fixture relative to fixtures/, or a repository-rooted file (ROOTED_PREFIX).
+  const files = [
+    ...LICENSED_DIRS.flatMap((dir) => listFiles(join(fixturesDir, dir))).map((file) => ({
+      row: posix(fixturesDir, file),
+      shown: `fixtures/${posix(fixturesDir, file)}`,
+      path: file,
+    })),
+    ...listFiles(join(root, ROOTED_PREFIX)).map((file) => ({
+      row: posix(root, file),
+      shown: posix(root, file),
+      path: file,
+    })),
+  ];
   for (const file of files) {
-    const row = byPath.get(file);
+    const row = byPath.get(file.row);
     if (row === undefined) {
-      problems.push(`fixtures/${file}: no row in fixtures/LICENSES.md (source, licence and SHA-256 are required)`);
+      problems.push(`${file.shown}: no row in fixtures/LICENSES.md (source, licence and SHA-256 are required)`);
       continue;
     }
-    const actual = createHash('sha256')
-      .update(readFileSync(join(fixturesDir, file)))
-      .digest('hex');
+    const actual = createHash('sha256').update(readFileSync(file.path)).digest('hex');
     if (actual !== row.sha256)
-      problems.push(`fixtures/${file}: SHA-256 ${actual} does not match the recorded ${row.sha256}`);
+      problems.push(`${file.shown}: SHA-256 ${actual} does not match the recorded ${row.sha256}`);
   }
-  const present = new Set(files);
+  const present = new Set(files.map((file) => file.row));
   for (const row of rows) {
-    const inLicensedDir = LICENSED_DIRS.some((dir) => row.path.startsWith(`${dir}/`));
-    if (!inLicensedDir) problems.push(`fixtures/LICENSES.md: ${row.path} is outside ${LICENSED_DIRS.join('/ and ')}/`);
-    else if (!present.has(row.path))
+    const inLicensedDir =
+      LICENSED_DIRS.some((dir) => row.path.startsWith(`${dir}/`)) || row.path.startsWith(ROOTED_PREFIX);
+    if (!inLicensedDir) {
+      problems.push(
+        `fixtures/LICENSES.md: ${row.path} is outside ${LICENSED_DIRS.join('/ and ')}/ and ${ROOTED_PREFIX}`,
+      );
+    } else if (!present.has(row.path)) {
       problems.push(`fixtures/LICENSES.md: ${row.path} is listed but the file is missing`);
+    }
   }
   return { problems, checked: files.length };
 }

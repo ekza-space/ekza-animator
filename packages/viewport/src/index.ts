@@ -8,6 +8,7 @@ export {
   type PanePointerPress,
   type PaneState,
   ViewportManager,
+  type ViewportPointerLayer,
   WHEEL_BURST_MS,
 } from './manager/ViewportManager';
 // M6a (M6A-SPEC §4.7, §5.17, §5.26; B9)
@@ -30,6 +31,11 @@ export {
   meshPaneDisplay,
 } from './mesh';
 export { defaultPaneCamera, FIRST_SHOT_CAMERA, LAYOUT_PANES } from './panes/layout';
+// M6b (M6B-SPEC §4.7): the lazy Rig & Skin overlays (C0 stubs; C3, C6, C8b, C9 fill viewport/src/rig/**).
+export { loadViewportRig, type ViewportRigModule } from './rig/load';
+// M6b (C3): the skeleton runtime of a viewport (the test API's joint and marker queries) and the pointer layer.
+export { viewportRigOf } from './rig/joints/attach';
+export type { ViewportRigRuntime } from './rig/runtime';
 // M6a (B10): the Model select runtime (mesh display, component and object picking, the operators' pointer probe).
 export {
   attachModelSelect,
@@ -64,3 +70,6 @@ export {
 } from './tools/model/transform/readout';
 export type { ManipulatorFrame, ModelManipulator, ModelManipulatorTarget } from './tools/model/transform/types';
 export { mmbHandleFor, withModelTransform } from './tools/transformTool';
+// M6b (C6): Skin mode's runtime of a viewport (the skinned and weight display, the Paint Skin Weights tool), loaded on
+// the first Rig & Skin entry.
+export { type RigSkinRuntime, rigSkinOf } from './tools/rig/paint';

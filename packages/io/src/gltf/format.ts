@@ -53,7 +53,15 @@ export function readVrmLicense(c: GlbContainer): VrmLicenseInfo | null {
 }
 
 function vrm1License(meta: JsonRecord): VrmLicenseInfo {
-  const licenseUrl = text(meta['licenseUrl']);
+  // Our writer's CC0 and CC BY presets keep `licenseUrl` on the VRM Public License document and state the CC deed in
+  // `otherLicenseUrl` (vrm/meta.ts): the deed is the intent.
+  const other = text(meta['otherLicenseUrl']) ?? '';
+  const deed = other.includes('publicdomain/zero/1.0')
+    ? 'CC0-1.0'
+    : other.includes('creativecommons.org/licenses/by/4.0')
+      ? 'CC-BY-4.0'
+      : null;
+  const licenseUrl = deed === null ? text(meta['licenseUrl']) : other;
   const modification = meta['modification'];
   const credit = meta['creditNotation'];
   return {
@@ -69,7 +77,7 @@ function vrm1License(meta: JsonRecord): VrmLicenseInfo {
         : null,
     commercialUsage: text(meta['commercialUsage']),
     creditNotation: credit === 'required' || credit === 'unnecessary' ? credit : null,
-    licenseName: licenseUrl !== null && VRM_PL_1.test(licenseUrl) ? 'LicenseRef-VRM-PL-1.0' : null,
+    licenseName: deed ?? (licenseUrl !== null && VRM_PL_1.test(licenseUrl) ? 'LicenseRef-VRM-PL-1.0' : null),
   };
 }
 

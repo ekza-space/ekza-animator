@@ -53,6 +53,8 @@ import { createCapture } from './factories/capture';
 import { createComponents } from './factories/components';
 import { createExtrude } from './factories/extrude';
 import { createBlobs, createMeshes } from './factories/meshes';
+import { createLibrary } from './factories/library';
+import { createRig } from './factories/rig';
 import { bindInternals } from './internals';
 import { createMeshDisplay } from '../workflows/meshDisplay';
 
@@ -174,8 +176,17 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
     notify: services.notify,
     models: services.models,
     display: meshDisplay,
+    app: () => app,
   });
-  const evaluation = createEvaluationService({ store, session, characters, deps, cache, requestFrame });
+  const evaluation = createEvaluationService({
+    store,
+    session,
+    characters,
+    deps,
+    cache,
+    requestFrame,
+    testPose: () => rig.services?.testPose ?? null,
+  });
   const playback = createPlaybackClock({ store, session, deps, requestFrame });
 
   // ---------- history and operators ----------
@@ -188,10 +199,15 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
     locate: (character: CharacterId) => locateCharacter(app, character),
     restoreSelection: (snapshot: unknown) => restoreSelection(app, snapshot),
     restoreSelectionPart: (part, side) => restoreSelectionPart(app, part, side),
+    // M6b (§4.6): undo/redo of a test-pose part writes the test pose without recording.
+    restoreTestPose: (part, side) => rig.testPose.set(part.character, part[side], { record: false }),
     reconcile: () => capture?.reconcile(),
     navigated: () => capture?.sync(),
   });
   capture = createDocCapture(store, () => history);
+  // M6b (M6B-SPEC §4.6, §0.5): the Rig & Skin services and the lazy rig-workspace and clip-library chunks.
+  const rig = createRig({ app: () => app, history: () => history, changed: (id) => evaluation.invalidate([id]) });
+  const library = createLibrary(() => app);
   const operators = createOperatorRegistry(() => app);
   const runner = createOperatorRunner({
     app: () => app,
@@ -322,6 +338,8 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
     extrude,
     capture: numericCapture,
     blobs,
+    rig,
+    library,
     run<K extends keyof OperatorMap>(id: K, ...rest: OperatorRunArgs<K>): Promise<OperatorResult<OperatorReturn<K>>> {
       const [args, ctx] = rest as readonly [unknown?, RunContext?];
       return run(id, args, ctx) as Promise<OperatorResult<OperatorReturn<K>>>;
@@ -366,6 +384,8 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
       history.dispose();
       meshes.dispose();
       meshDisplay.dispose();
+      rig.dispose();
+      library.dispose();
       characters.dispose();
       evaluation.dispose();
       cache.dispose();

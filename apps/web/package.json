@@ -39,6 +39,7 @@
     "gltf-validator": "2.0.0-dev.3.10",
     "playwright": "1.63.0",
     "tailwindcss": "4.3.3",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "vrm-validator": "2.0.0-dev.3.10"
   }
 }

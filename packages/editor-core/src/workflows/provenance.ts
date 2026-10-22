@@ -88,18 +88,22 @@ export function isRestrictedLicense(license: VrmLicenseInfo | null): boolean {
 
 const REDISTRIBUTABLE: ReadonlySet<string> = new Set(['yes', 'no', 'unknown']);
 
+/** The `asset.extras.ekza_animation_v1` entry of glTF animation `index` (its `index` field; the first without one). */
+export function ekzaClipEntry(container: GlbContainer, index?: number): unknown {
+  const extras = container.json.asset.extras;
+  const meta = isRecord(extras) ? extras['ekza_animation_v1'] : undefined;
+  if (!isRecord(meta) || !Array.isArray(meta['clips'])) return null;
+  const clips = meta['clips'] as readonly unknown[];
+  return index === undefined ? clips[0] : clips.find((entry) => isRecord(entry) && entry['index'] === index);
+}
+
 /**
  * Provenance recorded by the editor in a file it wrote (`asset.extras.ekza_animation_v1`): the entry of the glTF
  * animation `index` (its `index` field), or the first entry when `index` is omitted (a VRMA holds one clip). Null
  * when the file carries none for that animation or it is malformed.
  */
 export function embeddedEkzaProvenance(container: GlbContainer, index?: number): ClipProvenance | null {
-  const extras = container.json.asset.extras;
-  const meta = isRecord(extras) ? extras['ekza_animation_v1'] : undefined;
-  if (!isRecord(meta) || !Array.isArray(meta['clips'])) return null;
-  const clips = meta['clips'] as readonly unknown[];
-  const clip: unknown =
-    index === undefined ? clips[0] : clips.find((entry) => isRecord(entry) && entry['index'] === index);
+  const clip = ekzaClipEntry(container, index);
   if (!isRecord(clip) || !Array.isArray(clip['derivedFrom'])) return null;
   const redistributable = clip['redistributable'];
   if (typeof redistributable !== 'string' || !REDISTRIBUTABLE.has(redistributable)) return null;

@@ -11,7 +11,13 @@ import { registerTimelinePanel } from './timeline';
 import { registerToolkitPanel } from './toolkit';
 import type { PanelRegistry } from './types';
 import { registerViewportPanel } from './viewport';
+// M6b (M6B-SPEC §8, §0.4.7; C0 registers every MVP panel, each body is its owner's lazy chunk ./<id>/index.tsx).
+import { PANEL } from '@ekza-studio/editor-core';
+import { lazyPanelDef } from './lazyPanel';
 import { registerModelStartOverlays } from './viewport/modelOverlays';
+
+/** M6b: the Rig & Skin panel bodies, one lazy group (./rigPanels.ts). */
+const loadRigPanels = () => import('./rigPanels');
 
 /**
  * Registers every built-in panel. Each panel directory exports `register<Name>Panel`; panel owners edit only their
@@ -35,6 +41,14 @@ export function registerBuiltinPanels(registry: PanelRegistry): Disposer {
     registerPalettePanel(registry),
     // M6a (B13): the Model start card and the Getting started card (pane overlay slots).
     registerModelStartOverlays(),
+    // M6b (C0 registration lines; bodies: C12, C3, C7, C7, C6)
+    registry.register(lazyPanelDef(PANEL.clipLibrary, 'Clip Library', () => import('./clipLibrary'))),
+    registry.register(lazyPanelDef(PANEL.quickRig, 'Quick Rig', loadRigPanels)),
+    registry.register(lazyPanelDef(PANEL.rigToolkit, 'Rig Toolkit', loadRigPanels)),
+    registry.register(lazyPanelDef(PANEL.validation, 'Validation', loadRigPanels)),
+    registry.register(lazyPanelDef(PANEL.paintWeights, 'Paint Weights', loadRigPanels)),
+    // The Component Editor is not built in the MVP (M6B-INT-2; §0.3 C6 row, §0.4.5 "if built"): it is not registered,
+    // so Windows never lists a panel that can show nothing (Q-MVP-15). Its stub body stays in ./componentEditor.
   ];
   return () => {
     for (const dispose of [...disposers].reverse()) dispose();

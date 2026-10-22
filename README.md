@@ -10,7 +10,9 @@ preserved — or export VRMA and animation-only GLB. Part of the Ekza ecosystem;
 
 > **Status: alpha — milestone M2a ("game-clip daily driver") is integrated and merged into `dev`** on top of the
 > accepted M1 alpha. **M6a (the modeling base) is merged into `dev`** (2026-10-20): a Model workspace for low-poly
-> box modeling (see "What M6a is for"); its `v0.3.0` tag waits for the owner's review.
+> box modeling (see "What M6a is for"), released as `v0.3.0` and `v0.3.1` (basic shading). **The M6b MVP — the Rig &
+> Skin workspace — is integrated** (2026-10-22): turn a model into an animatable VRM 1.0 avatar (see "Rig & Skin: from
+> cubes to a VRM in minutes"); its release tag (proposed `v0.4.0`) is the owner's call.
 > `pnpm dev` opens the full editor at `/editor`: bundled samples or your own `.vrm`/`.glb`, circle controls with IK
 > legs in a split view, keying, the time slider, the Dope Sheet, the Graph Editor with tweens and buffer curves,
 > exports (bake into the model, VRMA, animation-only GLB, with optional key reduction), `.ekzanim` projects and
@@ -77,11 +79,40 @@ panel help a model stay game-ready. **Static GLB export** writes the model with 
 `ekza/omoba-handheld-v1` profile; imported characters can be **made editable** and baked back with their skin
 weights, expressions and MToon looks.
 
-Known gaps, said plainly: no subdivision preview, booleans, sculpting, UV editor or texture painting (M6c), no
-skeleton or skinning for your own models yet (M6b), no Live Mirror (Symmetry plus Mesh › Mirror instead), and the
+Known gaps, said plainly: no subdivision preview, booleans, sculpting, UV editor or texture painting (M6c), rigging
+and skinning your own models is the M6b MVP (see "Rig & Skin" below; constraints and the full joint tools come later), no Live Mirror (Symmetry plus Mesh › Mirror instead), and the
 M6a-stretch items listed in the e2e report as `test.fixme` (Extrude Manifold, Select Similar, lasso, Poke, edge snap,
 ramp swatches, `.gpl` palettes, component pick-walk, selection constraints, unequal Bridge, Multi-Cut across faces,
 Maya's per-component Normal, Retain component spacing).
+
+## Rig & Skin: from cubes to a VRM in minutes
+
+The **Rig & Skin** tab (M6b MVP) turns a mesh you modelled into a character that plays animations and exports as a
+VRM 1.0 avatar for Ekza Space and OMOBA. The loop, in the owner's words: *model a character, place the joints in the
+front and side views, get the VRM skeleton, adjust it, press a button to skin, look at animations*:
+
+1. **Quick Rig** (checklist ①): the meshes are checked (centred, grounded, facing +Z, with one-click fixes) and nine
+   markers are **guessed from the silhouette** — head top, chin, pelvis, and shoulder, elbow, wrist, knee, ankle, toe
+   on the right side (the left mirrors). **Drag in the front view to set x/y, in the side view to set depth**: a drag
+   never changes the axis that view does not show; pick a marker in the list to grab it where markers overlap. The
+   VRM humanoid skeleton (Standard 33; Lite 17, Core 21 and Full 52 too) follows live.
+2. **Create Skeleton**: one undo step makes the character, its skeleton and its control rig (IK legs, FK arms) and
+   leaves you in Skeleton mode. `W` moves a joint with its children, `D`+`W` the joint alone, `E` rotates the rest;
+   symmetry keeps both sides in step. Quick Rig again refits the same joints in place.
+3. **Bind Skin** (one click): automatic low-poly weights in a worker, ≤ 4 influences, normalized and symmetric.
+   **Paint Skin Weights** (`2`): Replace / Add / Scale / Smooth, Flood, holds, an X-mirrored stroke, `B`/`M`/`N` drags;
+   `E` on a joint tries a test pose (never a key) and you can paint on the posed mesh; Go to Bind Pose returns.
+4. **Clip Library**: a CC0 starter pack (14 clips of Quaternius' Universal Animation Library: idle, walk, run, jog,
+   attacks, hit, death, dance, jumps) plays on your character with a click; **Use Clip** brings one into the project
+   as an ordinary editable clip (Graph Editor, Dope Sheet).
+5. **Export Character…**: VRM meta (licence presets, CC0 first), a rendered thumbnail and the Validation rows as the
+   gate; the file passes glTF-Validator, vrm-validator and OMOBA's own runtime rules. OMOBA plays its own motion
+   library on your VRM; your clips play in Space. How to take it there: [docs/guides/characters-to-ekza.md](docs/guides/characters-to-ekza.md).
+
+Known gaps, said plainly: the model must be **T-posed** for export (an A-posed model is fitted and flagged; the A-pose
+fix arrives later), Rig and skin edits on imported avatars arrive after the MVP (clips play on them), and
+constraints, control-shape editing, the Joint tool, the Component Editor weight table and weight transfer/inpainting
+follow after the MVP ([docs/M6B-SPEC.md](docs/M6B-SPEC.md) §0.3).
 
 ## Focused layouts
 
@@ -111,7 +142,8 @@ Hide what you do not need, per workspace (details: [docs/LAYOUT-PRESETS.md](docs
 | Projects | `.ekzanim` (zip with source models by SHA-256), JSON debug variant; **autosave to IndexedDB with crash recovery**; schema version 2 (M1 apps open IK projects read-only) | Merge-on-open (M3) |
 | Collaboration | Data model, store boundary and conformance suite — verified in CI against a test-only Yjs store | Live sessions with presence and claims (M3), accounts and permissions (M4b) |
 | Ekza | Space-compatible exports, slot vocabulary, provenance, registry-aligned lints, interop warnings | Upload as `ekza:animation` asset, one-click publish, open from Ekza (M4a) |
-| Modeling | **M6a: Model workspace, component modes, the box-modeling tool set with symmetry, soft selection, snapping, the extrude session, Last-op card and Toolkit, palette colour, templates, reference planes, HUD and Mesh Check, static GLB export, Make editable for imported characters**; control shapes use the shared spline type | Skeletons and skinning for own models (M6b), UV editor (M6c), AI generation (M7), splines and generators (M8) |
+| Modeling | **M6a: Model workspace, component modes, the box-modeling tool set with symmetry, soft selection, snapping, the extrude session, Last-op card and Toolkit, palette colour, templates, reference planes, HUD and Mesh Check, static GLB export, Make editable for imported characters**; Lambert/Blinn swatch shaders (v0.3.1); control shapes use the shared spline type | UV editor (M6c), AI generation (M7), splines and generators (M8) |
+| Rig & Skin | **M6b MVP: Quick Rig (guessed markers, front/side axis rule, live VRM skeleton preview), Create Skeleton with an auto control rig, joint fitting with symmetry, Orient and Mirror Joints, one-click Bind Skin in a worker, Paint Skin Weights with mirror strokes and holds, test poses, Validation as the export gate, the CC0 Clip Library with preview and Use Clip, VRM 1.0 export with OMOBA's runtime lints** | Constraints and control-shape editing, the Joint tool, the Component Editor, weight transfer and inpainting, rig edits on imported avatars, the A-pose path (full M6b) |
 
 Full numbered list: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
 
@@ -155,6 +187,10 @@ docs/                    research, ADRs, requirements, roadmap, MVP spec, glossa
   conflicts were resolved.
 - [docs/MVP-SPEC.md](docs/MVP-SPEC.md) — exact MVP scope, pinned dependencies, shared TypeScript contracts,
   operator catalog, keymap, normative behaviours, user stories, e2e scenarios, work packages.
+- [docs/M6B-SPEC.md](docs/M6B-SPEC.md) — build spec of milestone M6b, the Rig & Skin workspace; §0 is the MVP cut
+  that was built, with its acceptance scenario AS-MVP-1 ("Cube Lad comes alive").
+- [docs/guides/characters-to-ekza.md](docs/guides/characters-to-ekza.md) — export a VRM, upload it to Ekza Hub as an
+  avatar, and what Ekza Space and OMOBA do with it.
 - [docs/M2A-SPEC.md](docs/M2A-SPEC.md) — build spec of milestone M2a (integrated): limb IK, Dope Sheet, tween and
   breakdowns, Graph Editor tools, autosave, and the fixes for the M1 budget misses, as contract deltas and work
   packages; with the owner demo script (§10.3).
@@ -192,7 +228,8 @@ example "Maya-style hotkeys") are used descriptively only.
 - "Seed-san" VRM 1.0 model by VirtualCast, Inc., [VRM Public License 1.0](https://vrm.dev/en/licenses/1.0/).
 - "Polybot" VRM 0.x model by Polygonal Mind (100Avatars), CC0 1.0. It rests in an A-pose, so a VRMA clip from a
   T-pose avatar plays with its arms about 38° lower (three-vrm-animation gives the same result).
-- Universal Animation Library by Quaternius, CC0 1.0.
+- Universal Animation Library by Quaternius, CC0 1.0 — also the source of the Clip Library's starter pack
+  (`apps/web/public/library/animations/`, converted to VRMA on the VRM humanoid).
 - The GIFs in `docs/media/` show Polybot and were recorded from the e2e build with
   `apps/web/scripts/record-readme-media.mjs`.
 - Curve evaluation based on Autodesk AnimX (Apache-2.0).
