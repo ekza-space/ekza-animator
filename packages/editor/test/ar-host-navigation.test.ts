@@ -3,7 +3,7 @@
 // palette and keyboard state, then pushes, and the arriving shell reads the subject and workspace once; the chooser
 // is a page load; the new-tab flow opens its tab synchronously (inside the gesture) and hands over a record, and a
 // failed hand-over closes that tab and says why; without a client router a switch hands over in this tab.
-import type { NavigationRequest } from '@ekza-studio/editor-core';
+import { GLOBAL_SCOPE, type NavigationRequest } from '@ekza-studio/editor-core';
 import { createFakeEditorApp } from '@ekza-studio/editor-core/testing';
 import { describe, expect, it } from 'vitest';
 import { createHostShell } from '../src/host/createHost';
@@ -11,7 +11,7 @@ import { routeHref } from '../src/host/navigation';
 import type { MountedShell } from '../src/host/types';
 import { createToastNotifier } from '../src/services/notify';
 import { DEFAULT_PARAMS } from '../src/test-api/params';
-import { waitFor } from './shell-helpers';
+import { createTestShell, waitFor } from './shell-helpers';
 
 describe('routeHref (§3.1)', () => {
   it.each([
@@ -79,6 +79,28 @@ describe('the navigation port (§4.4)', () => {
     expect(host.navigation.takeWorkspace()).toBe('rig');
     expect(host.navigation.takeWorkspace()).toBeNull();
     host.dispose();
+  });
+
+  it("Studio's leave() stops the library preview, then ends the tool session with Esc semantics (§4.4)", async () => {
+    const { app, shell } = createTestShell();
+    const ran: string[] = [];
+    const stub = (id: 'library.stop' | 'edit.escape') =>
+      app.contribute({
+        kind: 'operator',
+        def: { id, label: id, category: 'test', scope: GLOBAL_SCOPE, apply: () => void ran.push(id) },
+      });
+    // Before the clip library loaded there is no `library.stop`: leave() skips it and never reports an unknown id.
+    const escape = stub('edit.escape');
+    shell.leave?.();
+    await waitFor(() => ran.length === 1);
+    expect(ran).toEqual(['edit.escape']);
+    const stop = stub('library.stop');
+    shell.leave?.();
+    await waitFor(() => ran.length === 3);
+    expect(ran.slice(1)).toEqual(['library.stop', 'edit.escape']);
+    stop();
+    escape();
+    shell.dispose();
   });
 
   it('the chooser is a page load', async () => {

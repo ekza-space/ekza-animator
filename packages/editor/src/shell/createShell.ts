@@ -150,6 +150,16 @@ export function createShell(opts: CreateShellOptions): Shell {
     attachWorkspace: (api) => workspace.attach(api),
     leave(): void {
       markingMenus.close();
+      // §4.4 (the §4.2 entry order): before the push the leaving shell stops the library preview and ends its tool
+      // session with the shipped Esc semantics (`edit.escape`: a channel/transform gesture, the extrude session, else
+      // playback). Quick Rig stays open: the arriving shell's entry decides (Auto-Rig's ② keeps it, any other step
+      // runs `skel.quickRig.cancel`). The host closes the palette, the confirm and the dialog after this (AR-D1-13).
+      const quiet = (op: string): void => {
+        if (app.operators.get(op) === undefined) return; // `library.stop` exists once the clip library loaded
+        void app.runUntyped(op).catch(() => {});
+      };
+      quiet('library.stop');
+      quiet('edit.escape');
     },
     openMarkingMenu: (def, ctx) => markingMenus.openByCommand(def, ctx),
     dispose(): void {

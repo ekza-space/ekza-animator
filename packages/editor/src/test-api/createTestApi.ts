@@ -390,6 +390,8 @@ export function createTestApi(host: HostShell, opts: { readonly engine?: CurveEn
         hilite: [...session.model.hilite],
         capture: { ...app.capture.state },
         extrudeSession: app.extrude.state !== null,
+        // AUTORIG-SPEC §10 D1: the store version, so a shell switch can prove no batch was emitted across it.
+        storeVersion: store.version,
       };
     },
     counts() {

@@ -93,8 +93,12 @@ describe('StudioHost with a switchable shell (§4.4)', () => {
     expect(host.mounted.getState()?.kind).toBe('studio');
     expect(app.operators.get('workspace.reset')).toBeDefined();
     expect(app.operators.get('ui.open')).toBeDefined();
+    const versionAtStart = api?.state().storeVersion ?? Number.NaN;
     app.store.transact({ label: 'Step one' }, () => {});
     const historyBefore = api?.history();
+    const versionBefore = api?.state().storeVersion;
+    expect(versionBefore).toBe(app.store.version);
+    expect(versionBefore).toBeGreaterThanOrEqual(versionAtStart);
 
     page.show('other');
     await waitFor(() => present('other-shell') && !present('editor-shell'));
@@ -108,6 +112,7 @@ describe('StudioHost with a switchable shell (§4.4)', () => {
     expect(app.operators.get('prefs.set')).toBeDefined();
     expect(window.__EKZA_STUDIO_TEST__).toBe(api);
     expect(api?.history()).toEqual(historyBefore);
+    expect(api?.state().storeVersion).toBe(versionBefore);
     // the host's dialogs open on any route
     expect((await api?.run('ui.open', { dialog: 'about' }))?.status).toBe('finished');
     await waitFor(() => document.querySelector('[role="dialog"]') !== null);

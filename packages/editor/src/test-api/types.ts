@@ -17,6 +17,7 @@ export interface EkzaStudioTestApi {
     keyTarget: string; ripple: boolean; dirty: boolean; recovery: string[];   // M2a (additive)
     workspace: string; mode: string; hilite: string[]; capture: { armed: string | null;
       field: string | null; text: string | null }; extrudeSession: boolean;      // M6a, changed (additive)
+    storeVersion: number;                                    // AUTORIG D1 (§10 D1 DoD), changed (additive): app.store.version
   };
   counts(): Record<string, number>;                          // records per table (non-deleted)
   characters(): { id: string; name: string; format: string; source: 'asset' | 'model'; skeleton: string | null; rig: string;

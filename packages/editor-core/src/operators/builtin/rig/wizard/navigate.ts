@@ -3,6 +3,12 @@
 // `hostNavigation`, eager, `workspaces/ports.ts`); without a port (headless, Node) it fails its poll with "No
 // navigation in this host". UI controls call the port directly, never through this chunk. Not undoable (U): it changes
 // the page, never the document.
+//
+// Limitation of `newTab: true` here (AR-D1-14): the port opens the tab in `prepare`, after the runner has awaited this
+// chunk (on its first use) and anything before it, so from the palette or the MCP bridge the user gesture's transient
+// activation may have expired and the browser blocks the pop-up. The port then hands over through the record in this
+// tab (the page-load fallback: the document arrives, the source page is replaced). A UI control that must open a tab
+// calls the port directly from its own click handler, as the shipped buttons do.
 import { EkzaError } from '@ekza-studio/anim-core';
 import { GLOBAL_SCOPE, type ShellRoute } from '../../../../types';
 import { isRecord } from '../../../../workflows/util';
