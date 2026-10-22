@@ -23,6 +23,7 @@ import { AUTORIG_STEPS, type AutoRigProgress, type AutoRigSession, type AutoRigS
 import type { FooterState, ShellUi, WizardContext } from './context';
 import { endSessions, enterStep, entryQueue, quiet } from './entry';
 import { bindingFor } from './keys';
+import { stepUndo } from './stepUndo';
 import { stepModule } from './steps';
 import { type SmallStore, smallStore } from './store';
 
@@ -314,6 +315,13 @@ export function createWizard(host: HostShell): Wizard {
           const undo = binding.run.op === 'edit.undo' || binding.run.op === 'edit.redo';
           // §4.5: while a composition runs, the global undo/redo keys are off
           if (undo && (session.getState().busy !== null || app.session.getState().busy !== null)) return;
+          // A step with its own undo (② markers, AR-D8-3) takes the keys: they never cross into the document history.
+          const local = undo ? stepUndo(session).get() : null;
+          if (local !== null) {
+            if (binding.run.op === 'edit.undo') local.undo();
+            else local.redo();
+            return;
+          }
           void host.runFromUi(binding.run.op, binding.run.args);
           return;
         }

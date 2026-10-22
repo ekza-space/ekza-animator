@@ -21,6 +21,7 @@ import { rigUi } from '../rig/ui';
 import { enterMarkers } from './enter';
 import { type MarkerPane, markerPanes, type ScreenClass } from './index';
 import { withPane } from './slice';
+import { installMarkerHistory } from './history';
 import { installMarkerKeys } from './keys';
 import { PaneLabels, useScreenClass } from './panes';
 import { Pictogram } from './Pictogram';
@@ -278,6 +279,7 @@ function PanelWithFooter(props: { readonly ctx: WizardContext }): JSX.Element {
   const { ctx } = props;
   useMarkersFooter(ctx);
   useEffect(() => installMarkerKeys(ctx), [ctx]);
+  useEffect(() => installMarkerHistory(ctx), [ctx]);
   useEffect(() => watchPaintedSinceBind(ctx.app, ctx.session), [ctx]);
   return <Panel ctx={ctx} />;
 }

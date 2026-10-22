@@ -26,6 +26,7 @@ import { useAppSession, useDocument, useProgress, useSession, type WizardContext
 import { MoreMenu } from './Menu';
 import { WizardPane } from './Pane';
 import { type StepViewProps, stepModule, stepPanes, studioWorkspace } from './steps';
+import { stepUndo } from './stepUndo';
 import { useSmall, type SmallStore } from './store';
 import type { FooterState } from './context';
 
@@ -123,7 +124,11 @@ function UndoRedo(props: { readonly ctx: WizardContext }): JSX.Element {
     () => `${app.history.peekUndo()?.label ?? ''}\u0000${app.history.peekRedo()?.label ?? ''}`,
     [app],
   );
-  const [undo, redo] = useSyncExternalStore(subscribe, read, read).split('\u0000') as [string, string];
+  const [docUndo, docRedo] = useSyncExternalStore(subscribe, read, read).split('\u0000') as [string, string];
+  // A step with its own undo (② markers, AR-D8-3) names and runs its own steps.
+  const local = useSmall(stepUndo(props.ctx.session));
+  const undo = local === null ? docUndo : (local.undoLabel ?? '');
+  const redo = local === null ? docRedo : (local.redoLabel ?? '');
   const icon = cn(buttonClass('ghost', 'sm'), 'w-8 px-0', coarse);
   return (
     <span className="flex items-center">
@@ -134,7 +139,7 @@ function UndoRedo(props: { readonly ctx: WizardContext }): JSX.Element {
         title={undo === '' ? f().undo : f().undoStep(undo)}
         disabled={undo === '' || busy}
         data-testid="ar-undo"
-        onClick={() => void host.runFromUi('edit.undo')}
+        onClick={() => (local === null ? void host.runFromUi('edit.undo') : local.undo())}
       >
         <Undo2 size={16} aria-hidden />
       </button>
@@ -145,7 +150,7 @@ function UndoRedo(props: { readonly ctx: WizardContext }): JSX.Element {
         title={redo === '' ? f().redo : f().redoStep(redo)}
         disabled={redo === '' || busy}
         data-testid="ar-redo"
-        onClick={() => void host.runFromUi('edit.redo')}
+        onClick={() => (local === null ? void host.runFromUi('edit.redo') : local.redo())}
       >
         <Redo2 size={16} aria-hidden />
       </button>

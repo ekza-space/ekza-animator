@@ -24,6 +24,7 @@ import {
   wizard,
 } from './helpers/ar-markers';
 import { history } from './helpers/autorig';
+import { modKey } from './helpers/m6a-model';
 import { drag } from './helpers/g1-viewport';
 import { call } from './helpers/test-api';
 
@@ -185,4 +186,41 @@ test('AS-AR-12 (② part): at 390×844 one pane at a time with the Front │ Sid
   await markerAt(page, 'headTop', 'R', FRONT);
   // no horizontal scroll
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test('AR-D8-3: Mod+Z on ② reverts a marker drag, never the import; Mod+Shift+Z redoes it; an empty history does nothing', async ({
+  page,
+}) => {
+  const guessed = await sampleAtMarkers(page, 'polybot-tpose');
+  const mod = await modKey(page);
+  const docBefore = await history(page);
+  await expect(page.getByTestId('ar-undo')).toBeDisabled();
+  // Mod+Z with nothing moved: the model and ② stay, the document history is untouched
+  await page.keyboard.press(`${mod}+KeyZ`);
+  expect(await history(page)).toEqual(docBefore);
+  expect((await quickRig(page))?.markers).toEqual(guessed.markers);
+  // drag Elbow in FRONT: one step "Marker Move"
+  await selectMarker(page, 'elbow');
+  const elbow = await markerAt(page, 'elbow', 'R', FRONT);
+  await drag(page, elbow, { dx: 0, dy: 25 });
+  await expect.poll(async () => marker(await quickRig(page), 'elbow')).not.toEqual(marker(guessed, 'elbow'));
+  const moved = (await quickRig(page)) as QuickRigView;
+  expect(moved.moved).toContain('elbow');
+  await expect(page.getByTestId('ar-undo')).toHaveAttribute('title', 'Undo Marker Move');
+  // Mod+Z: the drag is reverted (markers, moved and preview), the import stays
+  await page.keyboard.press(`${mod}+KeyZ`);
+  await expect.poll(async () => marker(await quickRig(page), 'elbow')).toEqual(marker(guessed, 'elbow'));
+  const undone = (await quickRig(page)) as QuickRigView;
+  expect(undone.moved).not.toContain('elbow');
+  expect(undone.preview).toEqual(guessed.preview);
+  expect(await history(page)).toEqual(docBefore);
+  expect((await wizard(page)).step).toBe('markers');
+  await expect(page.getByTestId('ar-primary')).toBeEnabled();
+  // a second Mod+Z does nothing; Mod+Shift+Z brings the drag back
+  await page.keyboard.press(`${mod}+KeyZ`);
+  expect(await history(page)).toEqual(docBefore);
+  await page.keyboard.press(`${mod}+Shift+KeyZ`);
+  await expect.poll(async () => marker(await quickRig(page), 'elbow')).toEqual(marker(moved, 'elbow'));
+  expect((await quickRig(page))?.moved).toContain('elbow');
+  expect(await history(page)).toEqual(docBefore);
 });

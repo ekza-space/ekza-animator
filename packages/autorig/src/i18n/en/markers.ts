@@ -43,4 +43,6 @@ export const markers = {
   rebindTitle: 'Rebind the skin?',
   rebindConfirm: 'Rebind',
   rigFailed: (message: string) => `Auto-rig failed: ${message}`,
+  // ②'s own undo (AR-D8-3): what Undo / Redo name
+  historyLabel: 'Marker Move',
 } as const satisfies MessageTable;
