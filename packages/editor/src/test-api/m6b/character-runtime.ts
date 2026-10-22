@@ -16,7 +16,7 @@ import type { M6bTestApiContext } from './support';
 
 export type CharacterRuntimeTestApi = Pick<
   EkzaStudioTestApi,
-  'skeleton' | 'skeletonDesc' | 'containerVersion' | 'posedPositions'
+  'skeleton' | 'skeletonDesc' | 'containerVersion' | 'displayTextures' | 'posedPositions'
 >;
 
 export function characterRuntimeTestApi(ctx: M6bTestApiContext): CharacterRuntimeTestApi {
@@ -65,6 +65,24 @@ export function characterRuntimeTestApi(ctx: M6bTestApiContext): CharacterRuntim
     containerVersion(character) {
       const runtime = app().characters.get(character as CharacterId) as { containerVersion?: unknown } | undefined;
       return typeof runtime?.containerVersion === 'number' ? runtime.containerVersion : 0;
+    },
+    displayTextures(character) {
+      const runtime = app().characters.get(character as CharacterId);
+      if (runtime === undefined) return null;
+      const json = runtime.container.json as {
+        images?: { name?: string }[];
+        textures?: { source?: number }[];
+        materials?: { pbrMetallicRoughness?: { baseColorTexture?: { index?: number } } }[];
+      };
+      const adopted = (index: number | undefined): boolean =>
+        /^image \d+$/.test(json.images?.[index ?? -1]?.name ?? '');
+      return {
+        images: (json.images ?? []).filter((image) => /^image \d+$/.test(image.name ?? '')).length,
+        textured: (json.materials ?? []).filter((material) => {
+          const texture = json.textures?.[material.pbrMetallicRoughness?.baseColorTexture?.index ?? -1];
+          return adopted(texture?.source);
+        }).length,
+      };
     },
     posedPositions(mesh, points) {
       ctx.sync();

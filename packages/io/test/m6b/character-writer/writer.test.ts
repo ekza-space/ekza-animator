@@ -10,6 +10,7 @@
 import { makeVrmMeta } from '@ekza-studio/doc';
 import { makeTestSkeleton } from '@ekza-studio/doc/testing';
 import { humanoidBody } from '@ekza-studio/mesh-core';
+import { inflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { characterAssetMaterials } from '../../../src/write';
 import {
@@ -437,6 +438,68 @@ describe('P-W2 determinism', () => {
       const b = await writeCharacter(await make(), { generator: 't', format });
       expect(b).toEqual(a);
     }
+  });
+});
+
+/** The pixels of an io PNG (filter type 0 on every row, RGB). */
+function pngPixels(png: Uint8Array): { readonly width: number; rgb(x: number, y: number): [number, number, number] } {
+  const data = Buffer.from(png);
+  let offset = 8;
+  let width = 0;
+  const idat: Buffer[] = [];
+  while (offset < data.length) {
+    const length = data.readUInt32BE(offset);
+    const type = data.toString('latin1', offset + 4, offset + 8);
+    const body = data.subarray(offset + 8, offset + 8 + length);
+    if (type === 'IHDR') width = body.readUInt32BE(0);
+    else if (type === 'IDAT') idat.push(body);
+    offset += 12 + length;
+  }
+  const raw = inflateSync(Buffer.concat(idat));
+  const row = width * 3 + 1;
+  return {
+    width,
+    rgb: (x, y) => {
+      const at = y * row + 1 + x * 3;
+      return [raw[at] as number, raw[at + 1] as number, raw[at + 2] as number];
+    },
+  };
+}
+
+describe('the thumbnail of an imported textured model (AR-D8-1)', () => {
+  it('draws the adopted material: the decoded image times its factor, else the factor; never the palette grey', async () => {
+    const file = fixture('polybot-unskinned-tpose.glb');
+    const assetMaterials = characterAssetMaterials(file, [0], 'ast_polybot');
+    const { write } = await character(
+      [{ name: 'Polybot', data: await meshOf('polybot-unskinned-tpose.glb'), bound: true }],
+      { joints: polybotJoints(), paletteId: null, assetMaterials, thumbnailPng: THUMB },
+    );
+    const key = assetMaterials[0]?.baseColorTexture?.key as string;
+    // A 1 × 1 pure green image: every textured pixel is green (the key light only scales it).
+    const green = { width: 1, height: 1, rgba: new Uint8Array([0, 255, 0, 255]) };
+    const textured = pngPixels(renderCharacterThumbnail(write.meshes, write.palettes, 64, new Map([[key, green]])));
+    const centre = textured.rgb(32, 32);
+    expect(centre[1]).toBeGreaterThan(60);
+    expect(centre[0]).toBeLessThan(5);
+    expect(centre[2]).toBeLessThan(5);
+    // Deterministic.
+    expect(renderCharacterThumbnail(write.meshes, write.palettes, 64, new Map([[key, green]]))).toEqual(
+      renderCharacterThumbnail(write.meshes, write.palettes, 64, new Map([[key, green]])),
+    );
+    // Without the decoded image the factor (white) draws, not the no-palette grey; the background stays.
+    const plain = pngPixels(renderCharacterThumbnail(write.meshes, write.palettes, 64));
+    const [r, g, b] = plain.rgb(32, 32);
+    expect(r).toBe(g);
+    expect(g).toBe(b);
+    const greyOnly = pngPixels(
+      renderCharacterThumbnail(
+        write.meshes.map((mesh) => ({ ...mesh, assetMaterials: undefined })),
+        write.palettes,
+        64,
+      ),
+    );
+    expect(r).toBeGreaterThan(greyOnly.rgb(32, 32)[0]);
+    expect(plain.rgb(0, 0)).toEqual([46, 51, 59]);
   });
 });
 

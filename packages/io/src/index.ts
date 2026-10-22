@@ -71,7 +71,7 @@ export {
   VRM_LICENSE_URL,
   vrmcMetaOf,
 } from './vrm/meta';
-export { renderCharacterThumbnail, THUMBNAIL_SIZE } from './vrm/thumbnail';
+export { renderCharacterThumbnail, THUMBNAIL_SIZE, type ThumbnailImage } from './vrm/thumbnail';
 export {
   applyClipParams,
   CLIP_ARM_SPACE_RANGE,

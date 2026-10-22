@@ -8,7 +8,11 @@
 // - Camera: perspective, 30° vertical field of view, looking at the bounds' centre from 30° towards +X (the
 //   character's left) and 10° above, at the distance that fits the bounding sphere.
 // - Faces: fan-triangulated (low-poly faces are convex or nearly so), depth-tested on 1/z, two-sided, each face flat
-//   in its paint swatch's colour (slot 0's colour for a slot without a swatch; light grey without a palette).
+//   in its paint swatch's colour (slot 0's colour for a slot without a swatch; light grey without a palette). A mesh
+//   without a palette whose material slot carries an adopted asset material (an imported textured model, AR-D7-15)
+//   draws that material (AR-D8-1): its base colour image sampled per pixel (nearest, perspective-correct UVs of the
+//   slot's texCoord layer, wrap repeat / mirror / clamp) times the base colour factor when the caller passes the
+//   decoded image (`images`, by the material's image key; io decodes no images), else the base colour factor flat.
 // - 2 × 2 supersampling, box-filtered; the PNG writer is io's deterministic encoder.
 import type { MeshData } from '@ekza-studio/mesh-core';
 import { encodePngRgb } from '../png/encode';
@@ -41,15 +45,38 @@ const toSrgb8 = (l: number): number => {
   return Math.round(s * 255);
 };
 
-interface Triangle {
-  readonly p: readonly [Vec3, Vec3, Vec3];
-  readonly colour: readonly [number, number, number];
+/** A decoded base colour image (sRGB RGBA bytes, row 0 = the image's top row, as a canvas returns them). */
+export interface ThumbnailImage {
+  readonly width: number;
+  readonly height: number;
+  readonly rgba: Uint8Array | Uint8ClampedArray;
 }
 
-/** The triangles of one mesh's faces (fan triangulation) with their swatch colours. */
-function trianglesOf(data: MeshData, colourOf: (slot: number) => readonly [number, number, number]): Triangle[] {
+/** What a face draws: a linear base colour, optionally times an image sampled at its corners' UVs. */
+interface Surface {
+  /** Linear RGB (the image's texel is multiplied by it). */
+  readonly linear: Vec3;
+  readonly image: ThumbnailImage | null;
+  readonly wrapS: number;
+  readonly wrapT: number;
+}
+
+interface Triangle {
+  readonly p: readonly [Vec3, Vec3, Vec3];
+  readonly surface: Surface;
+  /** u, v per corner (only with an image). */
+  readonly uv: readonly [number, number, number, number, number, number] | null;
+}
+
+const MIRRORED_REPEAT = 33648;
+const CLAMP_TO_EDGE = 33071;
+
+/** The triangles of one mesh's faces (fan triangulation) with their surfaces. */
+function trianglesOf(
+  data: MeshData,
+  surfaceOf: (face: number) => { readonly surface: Surface; readonly uvLayer: string | null },
+): Triangle[] {
   const out: Triangle[] = [];
-  const paint = data.layers.get('paint');
   const at = (v: number): Vec3 => [
     data.position[3 * v] as number,
     data.position[3 * v + 1] as number,
@@ -57,32 +84,76 @@ function trianglesOf(data: MeshData, colourOf: (slot: number) => readonly [numbe
   ];
   for (let f = 0; f < data.counts.faces; f++) {
     const first = data.faceCorner[f] as number;
-    const verts: number[] = [];
+    const corners: number[] = [];
     let c = first;
     do {
-      verts.push(data.cornerVert[c] as number);
+      corners.push(c);
       c = data.cornerNext[c] as number;
-    } while (c !== first && verts.length <= data.counts.corners);
-    const colour = colourOf(paint === undefined ? 0 : (paint.data[f] as number));
-    for (let i = 1; i + 1 < verts.length; i++) {
-      out.push({ p: [at(verts[0] as number), at(verts[i] as number), at(verts[i + 1] as number)], colour });
+    } while (c !== first && corners.length <= data.counts.corners);
+    const { surface, uvLayer } = surfaceOf(f);
+    const uvs = surface.image === null || uvLayer === null ? undefined : data.layers.get(uvLayer)?.data;
+    const uvOf = (corner: number): [number, number] =>
+      uvs === undefined ? [0, 0] : [uvs[2 * corner] as number, uvs[2 * corner + 1] as number];
+    const c0 = corners[0] as number;
+    for (let i = 1; i + 1 < corners.length; i++) {
+      const c1 = corners[i] as number;
+      const c2 = corners[i + 1] as number;
+      out.push({
+        p: [at(data.cornerVert[c0] as number), at(data.cornerVert[c1] as number), at(data.cornerVert[c2] as number)],
+        surface: uvs === undefined && surface.image !== null ? { ...surface, image: null } : surface,
+        uv: uvs === undefined ? null : [...uvOf(c0), ...uvOf(c1), ...uvOf(c2)],
+      });
     }
   }
   return out;
 }
 
-/** The thumbnail PNG of a character's meshes (character space, bind pose). */
+const flat = (srgb: readonly [number, number, number]): Surface => ({
+  linear: [toLinear(srgb[0]), toLinear(srgb[1]), toLinear(srgb[2])],
+  image: null,
+  wrapS: 10497,
+  wrapT: 10497,
+});
+
+/**
+ * The thumbnail PNG of a character's meshes (character space, bind pose). `images`: the decoded base colour images of
+ * the meshes' adopted asset materials by `baseColorTexture.key` (absent: those faces draw their base colour factor).
+ */
 export function renderCharacterThumbnail(
   meshes: readonly CharacterMeshIn[],
   palettes: CharacterWriteInput['palettes'],
   size: number = THUMBNAIL_SIZE,
+  images: ReadonlyMap<string, ThumbnailImage> = new Map(),
 ): Uint8Array {
   const triangles: Triangle[] = [];
   for (const mesh of meshes) {
     const swatches = mesh.paletteId === null ? undefined : palettes.get(mesh.paletteId);
-    const bySlot = new Map((swatches ?? []).map((swatch) => [swatch.slot, swatch.srgb] as const));
-    const colourOf = (slot: number) => bySlot.get(slot) ?? bySlot.get(0) ?? NO_PALETTE;
-    triangles.push(...trianglesOf(mesh.data, colourOf));
+    const bySlot = new Map((swatches ?? []).map((swatch) => [swatch.slot, flat(swatch.srgb)] as const));
+    const paint = mesh.data.layers.get('paint');
+    const grey = flat(NO_PALETTE);
+    const adopted = mesh.paletteId === null ? (mesh.assetMaterials ?? []) : [];
+    const assetSurfaces = adopted.map((material) => {
+      if (material === null || material === undefined) return null;
+      const texture = material.baseColorTexture;
+      const image = texture === null ? null : (images.get(texture.key) ?? null);
+      const [r, g, b] = material.baseColorFactor;
+      return {
+        surface: {
+          linear: [r, g, b] as Vec3,
+          image,
+          wrapS: texture?.sampler.wrapS ?? 10497,
+          wrapT: texture?.sampler.wrapT ?? 10497,
+        },
+        uvLayer: texture === null ? null : texture.texCoord === 1 ? 'uv1' : 'uv0',
+      };
+    });
+    const surfaceOf = (face: number) => {
+      const asset = assetSurfaces[mesh.data.faceMaterial[face] as number];
+      if (asset !== null && asset !== undefined) return asset;
+      const slot = paint === undefined ? 0 : (paint.data[face] as number);
+      return { surface: bySlot.get(slot) ?? bySlot.get(0) ?? grey, uvLayer: null };
+    };
+    triangles.push(...trianglesOf(mesh.data, surfaceOf));
   }
   const W = size * SUPERSAMPLE;
   const colour = new Float32Array(W * W * 3);
@@ -158,6 +229,9 @@ function rasterize(triangles: readonly Triangle[], colour: Float32Array, W: numb
     }
     if (behind) continue;
     const shade = shadeOf(t, eye);
+    const light = shade[3];
+    const image = t.surface.image;
+    const uv = t.uv;
     const area =
       ((sx[1] as number) - (sx[0] as number)) * ((sy[2] as number) - (sy[0] as number)) -
       ((sx[2] as number) - (sx[0] as number)) * ((sy[1] as number) - (sy[0] as number));
@@ -178,20 +252,51 @@ function rasterize(triangles: readonly Triangle[], colour: Float32Array, W: numb
         const i = y * W + x;
         if (w <= (depth[i] as number)) continue;
         depth[i] = w;
-        colour[3 * i] = shade[0];
-        colour[3 * i + 1] = shade[1];
-        colour[3 * i + 2] = shade[2];
+        if (image === null || uv === null) {
+          colour[3 * i] = shade[0];
+          colour[3 * i + 1] = shade[1];
+          colour[3 * i + 2] = shade[2];
+          continue;
+        }
+        // Perspective-correct UV: interpolate u/z, v/z and divide by the interpolated 1/z.
+        const a0 = (e0 * (sw[0] as number)) / w;
+        const a1 = (e1 * (sw[1] as number)) / w;
+        const a2 = (e2 * (sw[2] as number)) / w;
+        const u = a0 * uv[0] + a1 * uv[2] + a2 * uv[4];
+        const v = a0 * uv[1] + a1 * uv[3] + a2 * uv[5];
+        const tx = texel(image.width, wrap(u, t.surface.wrapS));
+        const ty = texel(image.height, wrap(v, t.surface.wrapT));
+        const k = 4 * (ty * image.width + tx);
+        colour[3 * i] = toLinear(image.rgba[k] as number) * t.surface.linear[0] * light;
+        colour[3 * i + 1] = toLinear(image.rgba[k + 1] as number) * t.surface.linear[1] * light;
+        colour[3 * i + 2] = toLinear(image.rgba[k + 2] as number) * t.surface.linear[2] * light;
       }
     }
   }
+}
+
+/** A texture coordinate after the sampler's wrap mode (in [0, 1]). */
+function wrap(x: number, mode: number): number {
+  if (!Number.isFinite(x)) return 0;
+  if (mode === CLAMP_TO_EDGE) return Math.min(1, Math.max(0, x));
+  if (mode === MIRRORED_REPEAT) {
+    const m = ((x % 2) + 2) % 2;
+    return m > 1 ? 2 - m : m;
+  }
+  return x - Math.floor(x);
+}
+
+/** The nearest texel index of a wrapped coordinate. */
+function texel(extent: number, x: number): number {
+  return Math.min(extent - 1, Math.max(0, Math.floor(x * extent)));
 }
 
 function edge(ax: number, ay: number, bx: number, by: number, px: number, py: number): number {
   return (bx - ax) * (py - ay) - (by - ay) * (px - ax);
 }
 
-/** Linear colour of a flat face: ambient plus a key and a fill light, two-sided. */
-function shadeOf(t: Triangle, eye: Vec3): Vec3 {
+/** Linear colour of a flat face (ambient plus a key and a fill light, two-sided) and the light factor itself. */
+function shadeOf(t: Triangle, eye: Vec3): [number, number, number, number] {
   const [a, b, c] = t.p;
   const u: Vec3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
   const v: Vec3 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
@@ -201,5 +306,6 @@ function shadeOf(t: Triangle, eye: Vec3): Vec3 {
   const key = Math.max(0, n[0] * KEY[0] + n[1] * KEY[1] + n[2] * KEY[2]);
   const fill = Math.max(0, n[0] * FILL[0] + n[1] * FILL[1] + n[2] * FILL[2]);
   const light = 0.32 + 0.6 * key + 0.18 * fill;
-  return [toLinear(t.colour[0]) * light, toLinear(t.colour[1]) * light, toLinear(t.colour[2]) * light];
+  const base = t.surface.linear;
+  return [base[0] * light, base[1] * light, base[2] * light, light];
 }

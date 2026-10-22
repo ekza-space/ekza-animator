@@ -30,6 +30,7 @@ import type { CharacterEvent, CharacterRuntime, DisplayModel, EditorApp } from '
 import { loadWritePath } from '../workflows/export';
 import { createCharacterDisplaySchedule } from '../workflows/characterDisplay';
 import { EDITOR_VERSION } from '../workflows/samples';
+import { type AssetMaterialCache, adoptedMaterials } from './assetMaterials';
 import type { ModelHookContext } from './model';
 import {
   characterMeshes,
@@ -174,6 +175,7 @@ export function createModelCharacters(
   let tokens = 0;
   let ordered: readonly CharacterRuntime[] | null = null;
   let disposed = false;
+  const materialCache: AssetMaterialCache = new Map();
 
   const track = <T>(promise: Promise<T>): Promise<T> => {
     inFlight.add(promise);
@@ -210,8 +212,14 @@ export function createModelCharacters(
 
   /** The display container (the writer comes with the write path, so glTF Transform loads once for both). */
   const containerOf = async (kernel: MeshKernel, parts: ModelParts, skeleton: SkeletonDesc): Promise<GlbContainer> => {
-    const meshes = characterMeshes(store, kernel, parts);
     const write = await loadWritePath();
+    // An imported textured model shows its texture (AR-D8-1): the writer copies the adopted asset materials.
+    const a = app();
+    const adopted = a === null ? [] : await adoptedMaterials(a, write, parts.meshes, materialCache);
+    const meshes = characterMeshes(store, kernel, parts).map((mesh, i) => {
+      const assetMaterials = adopted[i];
+      return assetMaterials === undefined ? mesh : { ...mesh, assetMaterials };
+    });
     return write.synthesizeContainer({
       skeleton,
       joints: parts.joints,

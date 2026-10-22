@@ -10,11 +10,30 @@ import { polybotWithSword } from './helpers/ar-model';
 import { wizard } from './helpers/ar-markers';
 import { autoRig, subjectCharacter } from './helpers/ar-rig';
 import { glbJson } from './helpers/g1-viewport';
+import { decodePalettePng } from './helpers/m6a-model-content';
 import { validatorErrors } from './helpers/m6b-mvp-script';
 import { call } from './helpers/test-api';
 
+/** The bytes of image `index` of a GLB (its buffer view in the BIN chunk). */
+function imageBytes(glb: Uint8Array, index: number): Uint8Array {
+  const json = glbJson(glb) as unknown as {
+    images: { bufferView: number }[];
+    bufferViews: { byteOffset?: number; byteLength: number }[];
+  };
+  const view = json.bufferViews[json.images[index]?.bufferView ?? -1];
+  if (view === undefined) throw new Error(`no image ${index}`);
+  const data = new DataView(glb.buffer, glb.byteOffset, glb.byteLength);
+  const jsonLength = data.getUint32(12, true);
+  const bin = 20 + jsonLength + 8;
+  const start = bin + (view.byteOffset ?? 0);
+  return glb.subarray(start, start + view.byteLength);
+}
+
 /** ① with the sword unticked, ② and ③ through the UI, ⑤'s VRM downloaded; returns the character, sword and file. */
-async function rigBodyAndExport(page: Page): Promise<{ character: string; sword: string; bytes: Uint8Array }> {
+async function rigBodyAndExport(
+  page: Page,
+  onAnimations: (character: string) => Promise<void> = async () => {},
+): Promise<{ character: string; sword: string; bytes: Uint8Array }> {
   await openAutoRigReady(page);
   await dropModel(page, 'polybot-sword.glb', new Uint8Array(polybotWithSword()));
   const state = await wizard(page);
@@ -36,6 +55,7 @@ async function rigBodyAndExport(page: Page): Promise<{ character: string; sword:
   expect((await wizard(page)).done['rig']).toBe(true);
   await primary(page, /Animations/);
   await onStep(page, 'animations');
+  await onAnimations(character);
   await primary(page, /Export|Skip/);
   await onStep(page, 'export');
   await exportMeta(page);
@@ -62,9 +82,14 @@ test('AS-AR-6: the sword is unticked, the body alone becomes a clean VRM, the sw
   expect(swordMesh?.owner ?? []).not.toContain(character);
 });
 
-test('AS-AR-6: the VRM keeps the body’s image texture', async ({ page }) => {
+test('AS-AR-6: the VRM keeps the body’s image texture; ④ and the thumbnail show it (AR-D8-1)', async ({ page }) => {
   test.setTimeout(300_000);
-  const { bytes } = await rigBodyAndExport(page);
+  const { bytes } = await rigBodyAndExport(page, async (character) => {
+    // ④'s display (Animate) samples the body's image, not a flat colour.
+    await expect
+      .poll(async () => await call(page, 'displayTextures', character), { timeout: 20_000 })
+      .toEqual({ images: 1, textured: 1 });
+  });
   keepExport('as-ar-6-polybot-textured.vrm', bytes);
   const json = glbJson(bytes) as unknown as {
     images?: { name?: string; mimeType?: string }[];
@@ -82,4 +107,16 @@ test('AS-AR-6: the VRM keeps the body’s image texture', async ({ page }) => {
   expect(json.images?.[texture?.source ?? -1]?.name).not.toBe('thumbnail');
   expect(Object.keys(json.meshes[0]?.primitives[0]?.attributes ?? {})).toContain('TEXCOORD_0');
   expect(await validatorErrors(bytes)).toEqual({ gltf: [], vrm: [] });
+  // The VRM thumbnail is textured: Polybot's green, not the no-palette grey (AR-D8-1).
+  const thumb = json.images?.findIndex((image) => image.name === 'thumbnail') ?? -1;
+  const png = imageBytes(bytes, thumb);
+  const pixels = decodePalettePng(png);
+  let green = 0;
+  for (let y = 0; y < pixels.height; y += 8) {
+    for (let x = 0; x < pixels.width; x += 8) {
+      const [r, g, b] = pixels.rgb(x, y) as [number, number, number];
+      if (g > r + 20 && g > b + 20) green++;
+    }
+  }
+  expect(green).toBeGreaterThan(200);
 });

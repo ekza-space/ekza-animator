@@ -153,6 +153,8 @@ export interface EkzaStudioTestApi {
   skeletonDesc(character: string): { fingerprint: string; height: number; humanoid: Record<string, number>;
     radii: (number | null)[]; names: string[] } | null;
   containerVersion(character: string): number;                                     // bumps on every synthesized rebuild
+  /** D8 (additive, AR-D8-1): the display container's adopted images (`image N`) and the materials that sample them. */
+  displayTextures(character: string): { images: number; textured: number } | null;
   /** C3 (`m6b/skeleton-ui.ts`) */
   screenOfJoint(joint: string, paneId: string): { x: number; y: number } | null;   // sphere centre, null when off-screen
   screenOfBone(joint: string, child: string, paneId: string, t: number): { x: number; y: number } | null;
