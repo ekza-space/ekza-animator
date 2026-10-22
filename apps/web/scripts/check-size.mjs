@@ -92,7 +92,10 @@ export const M6B_CHUNK_WARN_BYTES = {
   'clip-library': 60_000,
 };
 
-/** The recorded M2a baseline and the M6a eager allowance (`size-baseline.json`, §5.27). */
+/**
+ * The recorded baseline and the current eager allowance (`size-baseline.json`; M6A-SPEC §5.27, M6B-SPEC §0.4.9, since
+ * AUTORIG-SPEC §7.0 the AR-B1 re-baseline: the measured route counts the FIRST_VISIT groups).
+ */
 export const BASELINE_FILE = join(dirname(fileURLToPath(import.meta.url)), 'size-baseline.json');
 
 /** Reads a size baseline file (null when there is none). */
@@ -118,6 +121,7 @@ export function eagerDelta(total, baseline, e2eBuild) {
     limit: base + allowance,
     delta,
     over: delta > allowance,
+    label: typeof baseline.eagerDelta?.label === 'string' ? baseline.eagerDelta.label : 'Eager delta',
     enforced: baseline.eagerDelta?.enforce === true && !e2eBuild,
     comparable: !e2eBuild,
     pending: typeof baseline.eagerDelta?.pending === 'string' ? baseline.eagerDelta.pending : null,
@@ -184,7 +188,7 @@ export function checkSize(nextDir, opts = {}) {
   const delta = eagerDelta(total, baseline, route.e2eBuild);
   if (delta !== null && delta.over && delta.comparable) {
     const text =
-      `M6b MVP eager delta +${delta.delta.toLocaleString('en')} B over the ${delta.baseline.toLocaleString('en')} B ` +
+      `${delta.label} +${delta.delta.toLocaleString('en')} B over the ${delta.baseline.toLocaleString('en')} B ` +
       `baseline > allowance +${delta.allowance.toLocaleString('en')} B (limit ${delta.limit.toLocaleString('en')} B)`;
     if (delta.enforced) problems.push(text);
     else warnings.push(`${text}; not enforced: ${delta.pending ?? 'the baseline file does not enforce it'}`);
@@ -258,11 +262,11 @@ function print(report) {
   const delta = report.eagerDelta;
   if (delta !== null) {
     out(
-      `M6b MVP eager delta: ${delta.delta >= 0 ? '+' : ''}${bytes(delta.delta)} over the baseline ${bytes(delta.baseline)} ` +
+      `${delta.label}: ${delta.delta >= 0 ? '+' : ''}${bytes(delta.delta)} over the baseline ${bytes(delta.baseline)} ` +
         `(allowance +${bytes(delta.allowance)}, limit ${bytes(delta.limit)}; ` +
         `${delta.comparable ? (delta.enforced ? 'enforced' : 'not enforced yet') : 'e2e build: not compared'})`,
     );
-    // M6B-SPEC §0.4.9 (C7): the per-package allowances inside the MVP gate (each package measures its own delta).
+    // The per-package allowances inside the gate (each package measures its own delta; AR-B1, M6B-SPEC §0.4.9).
     if (delta.packages !== null) {
       const list = Object.entries(delta.packages).map(([id, allowance]) => `${id} +${bytes(allowance)}`);
       out(`  per-package eager allowances (measured at each merge, wp-notes): ${list.join(', ')}; others 0 B`);

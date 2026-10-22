@@ -1,19 +1,20 @@
 {
-  "description": "M6B-SPEC §0.4.9 (Q-MVP-14): the /editor first-visit route measured on dev before M6b's C0 (production build, gzip -9, the check:size measure) and the MVP eager allowance over it. C0 recorded it as its first commit so its own delta counts; C7 (rig-shell) turned the gate on. The M6a record it replaces is kept under `previous`.",
+  "description": "AUTORIG-SPEC §7.0 rule 3 (decision AR-B1, DECISIONS-OPEN §M): the /editor first-visit route (eager scripts + the FIRST_VISIT groups, i.e. the First-run dialog) measured by D0 on autorig/mvp with the route-group-proof tooling (production build, gzip -9, the check:size measure), and the Auto-Rig eager allowance over it. The M6b record it replaces is kept under `previous`.",
   "baseline": {
-    "label": "dev before M6b C0 (m6b/mvp 906520c, code = dev 6f9fab9)",
-    "total": 889569,
-    "recorded": "2026-10-22, docs/wp-notes/m6b-rig-contracts.md (Eager route)"
+    "label": "dev at v0.4.0 + M6b fixes, before Auto-Rig D0 (autorig/mvp 04e2c54, code = dev eb391b3)",
+    "total": 895688,
+    "recorded": "2026-10-22, docs/wp-notes/ar-contracts.md (AR-B1)"
   },
   "eagerDelta": {
-    "allowance": 6144,
+    "label": "Auto-Rig eager delta",
+    "allowance": 2048,
     "enforce": true,
-    "gate": "M6B-SPEC §0.4.9: the MVP eager additions over this baseline are at most +6,144 B (enforced by C7). Per-package allowances (measured by each package at its merge, recorded in its wp-notes): C0 2,048 B, C7 2,560 B, C12 1,024 B, C1 512 B, every other package 0 B.",
+    "gate": "AUTORIG-SPEC §7.0 rule 2 (AR-B1): the Auto-Rig milestone may add at most +2,048 B to /editor's measured route (eager scripts plus FIRST_VISIT groups) over this baseline; limit 897,736 B, under the unchanged 900,000 B gate. Per-package allowances (measured by each package against autorig/mvp at its merge, recorded in its wp-notes): D0 64 B, D1 1,408 B, D2 448 B, D3 128 B, every other package (A0, D4, D5, D6, D7) 0 B. Unused allowance of one package is not taken by another without D7's approval in wp-notes.",
     "packages": {
-      "c0": 2048,
-      "c7": 2560,
-      "c12": 1024,
-      "c1": 512
+      "d0": 64,
+      "d1": 1408,
+      "d2": 448,
+      "d3": 128
     }
   },
   "modelChunk": {
@@ -21,9 +22,17 @@
     "boundaries": ["mesh-kernel", "mesh-view", "marking-menu"]
   },
   "previous": {
-    "label": "M2a (v0.2.0, m6a/spec ec541b4)",
-    "total": 845267,
-    "allowance": 20480,
-    "recorded": "2026-10-19, docs/wp-notes/m6a-contracts-foundation.md (Eager route)"
+    "label": "M6b MVP: dev before M6b C0 (m6b/mvp 906520c, code = dev 6f9fab9)",
+    "total": 889569,
+    "allowance": 6144,
+    "packages": { "c0": 2048, "c7": 2560, "c12": 1024, "c1": 512 },
+    "measuredAtRelease": 895688,
+    "recorded": "2026-10-22, docs/wp-notes/m6b-rig-contracts.md (Eager route); closed by AR-B1",
+    "previous": {
+      "label": "M2a (v0.2.0, m6a/spec ec541b4)",
+      "total": 845267,
+      "allowance": 20480,
+      "recorded": "2026-10-19, docs/wp-notes/m6a-contracts-foundation.md (Eager route)"
+    }
   }
 }

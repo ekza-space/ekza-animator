@@ -43,6 +43,8 @@ export interface SizeReport {
 export interface SizeBaseline {
   readonly baseline: { readonly total: number; readonly label?: string; readonly recorded?: string };
   readonly eagerDelta: {
+    /** The gate's name in messages (default "Eager delta"). */
+    readonly label?: string;
     readonly allowance: number;
     readonly enforce: boolean;
     readonly pending?: string;
@@ -51,6 +53,8 @@ export interface SizeBaseline {
     readonly packages?: Readonly<Record<string, number>>;
   };
   readonly modelChunk?: { readonly warnBytes?: number; readonly boundaries?: readonly string[] };
+  /** The record this baseline replaced (kept for the history; never compared). */
+  readonly previous?: Readonly<Record<string, unknown>>;
 }
 export interface EagerDelta {
   readonly baseline: number;
@@ -58,6 +62,7 @@ export interface EagerDelta {
   readonly limit: number;
   readonly delta: number;
   readonly over: boolean;
+  readonly label: string;
   readonly enforced: boolean;
   readonly comparable: boolean;
   readonly pending: string | null;
