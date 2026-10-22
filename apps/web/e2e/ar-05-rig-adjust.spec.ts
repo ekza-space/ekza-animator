@@ -3,8 +3,10 @@
 // does **not** straighten: exactly two undo steps, the mesh points bit-equal to the import, and ③ shows the
 // `skel.tpose` row with *Adjust joints* first and *Straighten to T-Pose* as the secondary Fix, *Animations ▸* blocked.
 // *Adjust joints* (front │ side │ persp, Skeleton mode): `D` + `W` drags the elbow joint back onto the line (one
-// "Move Joint" step, its partner follows); *Done* rebinds without a question (no weight edit since the bind). The row
-// then names only the hands (their tails stay on the old forearm line: AR-D4-9).
+// "Move Joint" step, its partner follows); *Done* rebinds without a question (no weight edit since the bind).
+// KNOWN GAP (AR-D4-T1, DECISIONS-OPEN §M; not specified behaviour): AS-AR-1 step 12 says moving the elbow back clears
+// the row; today it still names the two hands, whose tails C3's Move Joint leaves on the old forearm line. The block
+// marked TODO(AR-D4-T1) below records today's state and flips to "the row is gone" when C3's fix lands.
 import { expect, test } from '@playwright/test';
 import { FRONT, hoverPane, sampleAtMarkers, selectMarker, wizard } from './helpers/ar-markers';
 import { autoRig, markerOf, nudge, quickRig, rows, stepsSince, subjectCharacter } from './helpers/ar-rig';
@@ -81,14 +83,17 @@ test('AS-AR-1 negative: the elbow 8° off the line rigs in two steps with the sk
   expect(await restOf('rightHand')).toEqual(hand);
   await expect(page.getByTestId('ar-rig-joint')).toContainText('cm');
 
-  // Done: Bind Skin again without the question (no weight edit since the bind); the row is gone
+  // Done: Bind Skin again without the question (no weight edit since the bind)
   await page.getByTestId('ar-rig-done').click();
   await expect.poll(async () => (await history(page)).undo.at(-1), { timeout: 30_000 }).toBe('Bind Skin');
   expect((await call(page, 'state')).dialog).toBeNull();
   await expect.poll(async () => (await wizard(page)).slices['rig']).toMatchObject({ sub: 'review' });
-  // The upper arm is back on the line. The row stays for the hand: Move Joint leaves the hand's tail on the old
-  // forearm line (C3's rest edit does not re-aim a child's tail), so the hand → tail segment is still ~8° up — a
-  // finding for D7 / C3 (AS-AR-1 step 12's "moving the elbow back clears it", docs/wp-notes/ar-rig-steps.md AR-D4-9).
+  // The upper arm is back on the line.
+  // TODO(AR-D4-T1, DECISIONS-OPEN §M — C3 Move Joint re-aims a moved joint's child tails): KNOWN GAP, not the
+  // specified behaviour. AS-AR-1 step 12 says the row is gone after the move; today it stays for the two hands: the
+  // hand → tail segment still runs ~8° up along the old forearm line. When C3's fix lands, replace this block with
+  //   expect((await rows(page)).map((r) => r.code)).not.toContain('skel.tpose');
+  //   await expect(page.getByTestId('ar-primary')).toBeEnabled();
   const tpose = (await rows(page)).filter((r) => r.code === 'skel.tpose');
   expect(tpose.map((r) => r.count)).toEqual([2]);
   const after = await call(page, 'skeleton', character);
@@ -100,5 +105,6 @@ test('AS-AR-1 negative: the elbow 8° off the line rigs in two steps with the sk
   );
   expect(tailAngle / DEG).toBeGreaterThan(5);
   await expect(page.getByTestId('ar-primary')).toBeDisabled();
+  // end TODO(AR-D4-T1)
   expect((await call(page, 'rigState')).mode).toBe('object');
 });

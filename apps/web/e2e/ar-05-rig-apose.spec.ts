@@ -3,8 +3,10 @@
 // makes exactly three undo steps — "Create Skeleton", "Bind Skin", "Straighten to T-Pose": no `skel.tpose` row, every
 // humanoid joint within 0.05 H of the **T-pose** truth, every template joint's rest rotation identity, ≤ 4 influences
 // summing to 1. `Mod+Z` once returns the A-posed rest — the points bit-equal to the import (= after Bind Skin, which
-// writes no position) and the `skel.tpose` row back; `Mod+Shift+Z` restores the T-pose with the weights bit-equal (the
-// straighten never touches weights). The motion test's Walk swings the hands below the shoulders: each hand lower than
+// writes no position), the joints bit-equal to the state after Bind Skin (the committed rest positions are the last
+// Quick Rig preview, C2's rule; Bind Skin writes no joint; the whole skeleton the same after another redo / undo) and
+// the `skel.tpose` row back; `Mod+Shift+Z` restores the T-pose with the weights bit-equal (the straighten never
+// touches weights). The motion test's Walk swings the hands below the shoulders: each hand lower than
 // its upper arm by ≥ 0.3 × the arm's length.
 import { expect, test } from '@playwright/test';
 import { dist, polybotMarkers, sampleAtModel, toMarkers, wizard } from './helpers/ar-markers';
@@ -28,7 +30,8 @@ test('AS-AR-2 steps 2–5: three steps to a T-pose rest, undo / redo exact, the 
   const model = await sampleAtModel(page, 'polybot-apose');
   const scene = model.subject.meshes[0] ?? '';
   const imported = await call(page, 'meshPositions', scene, undefined, 'local');
-  await toMarkers(page);
+  const preview = (await toMarkers(page)).preview;
+  expect(preview.length).toBeGreaterThan(0);
   expect((await wizard(page)).startPose).toMatchObject({ kind: 'a' });
   const before = (await history(page)).undo;
   await recordStages(page);
@@ -66,6 +69,9 @@ test('AS-AR-2 steps 2–5: three steps to a T-pose rest, undo / redo exact, the 
   expect(await call(page, 'meshPositions', mesh, undefined, 'local')).toEqual(imported);
   await expect.poll(codes).toContain('skel.tpose');
   const aPosed = await call(page, 'skeleton', character);
+  // the joints after Bind Skin, bit for bit: the committed rest positions are the last preview (C2's rule)
+  const undone = new Map((aPosed?.joints ?? []).map((joint) => [joint.key, joint.restPosition]));
+  for (const joint of preview) expect([joint.key, undone.get(joint.key)]).toEqual([joint.key, joint.position]);
   const hand = aPosed?.joints.find((joint) => joint.humanBone === 'leftHand')?.restPosition ?? [];
   const upper = aPosed?.joints.find((joint) => joint.humanBone === 'leftUpperArm')?.restPosition ?? [];
   expect((upper[1] ?? 0) - (hand[1] ?? 0)).toBeGreaterThan(0.1);
@@ -80,6 +86,13 @@ test('AS-AR-2 steps 2–5: three steps to a T-pose rest, undo / redo exact, the 
   expect(await call(page, 'weights', mesh)).toEqual(weights);
   await expect.poll(codes).not.toContain('skel.tpose');
   await expect(page.getByTestId('ar-primary')).toBeEnabled();
+  // undo again: the whole skeleton (positions, rotations, tails) is the A-posed one read above, bit for bit
+  await page.keyboard.press(`${mod}+KeyZ`);
+  await expect.poll(async () => (await history(page)).undo.at(-1)).toBe('Bind Skin');
+  expect(await call(page, 'skeleton', character)).toEqual(aPosed);
+  await page.keyboard.press(`${mod}+Shift+KeyZ`);
+  await expect.poll(async () => (await history(page)).undo.at(-1)).toBe('Straighten to T-Pose');
+  await expect.poll(codes).not.toContain('skel.tpose');
 
   // step 5 (motion test): Walk swings the hands below the shoulders
   await expect.poll(async () => (await call(page, 'library'))?.preview?.clip).toBe('walk');
@@ -102,4 +115,47 @@ test('AS-AR-2 steps 2–5: three steps to a T-pose rest, undo / redo exact, the 
       await page.waitForTimeout(150);
     }
   }
+});
+
+test('A-posed input, Cancel mid-bind, Bind again: the bind and the straighten, as on the first run', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await sampleAtModel(page, 'polybot-apose');
+  await toMarkers(page);
+  expect((await wizard(page)).startPose).toMatchObject({ kind: 'a' });
+  const before = (await history(page)).undo;
+  // Cancel the moment the sheet offers it (a DOM observer in the page: the bind would otherwise finish first)
+  const cancelled = page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        const observer = new MutationObserver(() => {
+          const button = document.querySelector<HTMLButtonElement>('[data-testid="ar-rig-cancel"]');
+          if (button === null) return;
+          observer.disconnect();
+          button.click();
+          resolve();
+        });
+        observer.observe(document.body, { subtree: true, childList: true });
+      }),
+  );
+  await page.getByTestId('ar-primary').click();
+  await cancelled;
+  await expect.poll(async () => (await wizard(page)).busy, { timeout: 30_000 }).toBeNull();
+  await expect.poll(async () => (await wizard(page)).step).toBe('rig');
+  await expect(page.getByTestId('ar-rig-unbound-text')).toHaveText('Skeleton created; skinning cancelled');
+  expect(await stepsSince(page, before)).toEqual(['Create Skeleton']);
+
+  // Bind again: Skinning, Straightening, Checking — "Bind Skin" then "Straighten to T-Pose", no skel.tpose row
+  await recordStages(page);
+  await page.getByTestId('ar-rig-bind-again').click();
+  await expect.poll(async () => (await history(page)).undo.at(-1), { timeout: 60_000 }).toBe('Straighten to T-Pose');
+  await expect.poll(async () => (await wizard(page)).busy, { timeout: 30_000 }).toBeNull();
+  expect(await stepsSince(page, before)).toEqual(['Create Skeleton', 'Bind Skin', 'Straighten to T-Pose']);
+  const seen = await readStages(page);
+  expect(seen.stages).toEqual(expect.arrayContaining(['skin', 'straighten']));
+  for (const list of seen.rows) expect(list).toEqual(['skin', 'straighten', 'check']);
+  expect((await rows(page)).map((row) => row.code)).not.toContain('skel.tpose');
+  await expect(page.getByTestId('ar-rig-unbound')).toHaveCount(0);
+  await expect(page.getByTestId('ar-primary')).toBeEnabled();
 });
