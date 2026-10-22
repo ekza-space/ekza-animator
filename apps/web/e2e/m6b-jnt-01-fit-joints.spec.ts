@@ -11,8 +11,6 @@ import { call, runOk } from './helpers/test-api';
 // unchanged); every rest edit one step; the keys hash unchanged. After `skin.bind`, `W` keeps the mesh (Move Skinned
 // Joints) and `E` is a test pose.
 
-const GATES = 'c1, c4';
-
 async function steps(page: Page): Promise<string[]> {
   return (await call(page, 'history')).undo;
 }
@@ -21,9 +19,7 @@ async function rest(page: Page, character: string, key: string): Promise<number[
   return (await jointsByKey(page, character)).get(key)?.restPosition ?? [];
 }
 
-test.fixme(`E2E-JNT-01: fit joints with the §5.7 gestures; bound: Move Skinned Joints and E test poses (gates: ${GATES})`, async ({
-  page,
-}) => {
+test(`E2E-JNT-01: fit joints with the §5.7 gestures; bound: Move Skinned Joints and E test poses`, async ({ page }) => {
   const mesh = await cubeLadInRig(page);
   await runOk(page, 'skel.quickRig.start', { meshes: [mesh] });
   await expect.poll(async () => (await quickRig(page))?.preview?.length ?? 0).toBeGreaterThan(0);

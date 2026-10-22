@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import { buildCubeLad, cubeLadTruth } from './helpers/m6b-cube-lad';
 import { enterRig, openRig } from './helpers/m6b-rig';
+import { boxPoints } from './helpers/m6b-skin-ui';
 import { call, openEditor, run, runOk } from './helpers/test-api';
 
 // E2E-SKIN-01 "Bind Skin, one click" (M6B-SPEC §0.7, MVP cut of §10.1; C4). The Cube Lad made a character through
@@ -12,13 +13,26 @@ import { call, openEditor, run, runOk } from './helpers/test-api';
 // Rig's guess, Create Skeleton and Bind: no Validation error, every humanoid joint within 0.05 H of the truth.
 //
 // Gates (§0.7 Gates column, §3 rule 4): c1 (Create Skeleton makes a character), c2 (the Quick Rig fit), c3 (the
-// Quick Rig UI), c6 (`weights()`), c7 (the Toolkit's checklist and Validation) — `test.fixme` until they merge.
-const GATES = ['c1', 'c2', 'c3', 'c6', 'c7'] as const;
+// Quick Rig UI), c6 (`weights()`), c7 (the Toolkit's checklist and Validation) — merged; INT runs it ungated.
 
 const DEG = Math.PI / 180;
 
 const fixture = (file: string): Uint8Array =>
   new Uint8Array(readFileSync(new URL(`../../../fixtures/models/${file}`, import.meta.url)));
+
+/** `mesh.importStatic` of a fixture through the test API (the bytes as a Uint8Array in the page). */
+async function importStatic(page: Page, file: string): Promise<{ meshes: string[] }> {
+  const base64 = Buffer.from(fixture(file)).toString('base64');
+  const result = await page.evaluate(
+    async ([data, name]) => {
+      const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+      return await window.__EKZA_STUDIO_TEST__?.run('mesh.importStatic', { bytes, name });
+    },
+    [base64, file] as const,
+  );
+  expect(result?.status, `mesh.importStatic: ${result?.reason ?? result?.error?.message ?? ''}`).toBe('finished');
+  return result?.value as { meshes: string[] };
+}
 
 /** The Cube Lad as a character: built in Model, Quick Rig committed with the truth markers (Standard 33). */
 async function cubeLadCharacter(page: Page): Promise<{ readonly mesh: string; readonly character: string }> {
@@ -32,7 +46,10 @@ async function cubeLadCharacter(page: Page): Promise<{ readonly mesh: string; re
     meshes: [mesh],
     flexion: 2 * DEG,
   });
-  return { mesh, character: result.character };
+  // The character adopted the scene mesh under a new id (§5.1 adoption).
+  const adopted = (await call(page, 'meshes')).find((row) => row.owner === `char:${result.character}`)?.id ?? '';
+  expect(adopted).not.toBe('');
+  return { mesh: adopted, character: result.character };
 }
 
 /** The manifest of a mesh's current revision. */
@@ -59,8 +76,6 @@ async function mainThreadManifest(browser: Browser): Promise<string | null> {
 }
 
 test.describe('E2E-SKIN-01 Bind Skin, one click', () => {
-  test.fixme(true, `gates ${GATES.join(', ')} have not merged (M6B-SPEC §3 rule 4)`);
-
   test('the Cube Lad: Toolkit ③ binds every point in one step; the worker equals the main thread', async ({
     page,
     browser,
@@ -68,7 +83,7 @@ test.describe('E2E-SKIN-01 Bind Skin, one click', () => {
     await openRig(page);
     const { mesh } = await cubeLadCharacter(page);
     const before = (await call(page, 'history')).undo.length;
-    await page.getByTestId('rtk-step-3').getByTestId('rtk-btn-skin.bind').click();
+    await page.getByTestId('rtk-step-3-btn').click();
     await expect.poll(async () => (await call(page, 'history')).undo.length).toBe(before + 1);
     expect((await call(page, 'history')).undo.at(-1)).toBe('Bind Skin');
 
@@ -78,6 +93,10 @@ test.describe('E2E-SKIN-01 Bind Skin, one click', () => {
     const weights = await call(page, 'weights', mesh);
     const positions = await call(page, 'meshPositions', mesh, undefined, 'local');
     expect(weights.length).toBe(positions.length);
+    const forearms = new Map<number, 'left' | 'right'>();
+    for (const v of boxPoints(positions, 'forearm.L')) forearms.set(v, 'left');
+    for (const v of boxPoints(positions, 'forearm.R')) forearms.set(v, 'right');
+    expect(forearms.size).toBe(16);
     let forearm = 0;
     let onLowerArm = 0;
     weights.forEach((row, v) => {
@@ -85,11 +104,10 @@ test.describe('E2E-SKIN-01 Bind Skin, one click', () => {
       expect(row.joints.length).toBeLessThanOrEqual(4);
       expect(Math.abs(row.weights.reduce((a, b) => a + b, 0) - 1)).toBeLessThanOrEqual(1e-6);
       expect(row.joints.some((key) => key.endsWith(':root'))).toBe(false);
-      const [x, y] = positions[v] as number[];
-      // The forearm boxes: |x| in [0.48, 0.74] at shoulder height (cube-lad-truth.json).
-      if (Math.abs(x as number) > 0.481 && Math.abs(x as number) < 0.739 && Math.abs((y as number) - 1.33) < 0.05) {
+      // The forearm boxes' own points (their corners, cube-lad-truth.json; the boxes are islands of 8 points each).
+      const side = forearms.get(v);
+      if (side !== undefined) {
         forearm++;
-        const side = (x as number) < 0 ? 'right' : 'left';
         if ((row.joints[0] ?? '').endsWith(`:${side}LowerArm`)) onLowerArm++;
       }
     });
@@ -102,10 +120,8 @@ test.describe('E2E-SKIN-01 Bind Skin, one click', () => {
 
   test('Polybot (T-pose), imported static: Quick Rig guess, Create Skeleton, Bind — no error row', async ({ page }) => {
     await openEditor(page);
-    const imported = await runOk<{ meshes: string[] }>(page, 'mesh.importStatic', {
-      bytes: Array.from(fixture('polybot-unskinned-tpose.glb')),
-      name: 'polybot-unskinned-tpose.glb',
-    });
+    // `mesh.importStatic` takes a Uint8Array: the bytes cross into the page as base64 (JSON would make them an array).
+    const imported = await importStatic(page, 'polybot-unskinned-tpose.glb');
     await enterRig(page);
     await runOk(page, 'select.objects', { ids: imported.meshes, mode: 'replace' });
     await runOk(page, 'skel.quickRig.start');
@@ -118,6 +134,8 @@ test.describe('E2E-SKIN-01 Bind Skin, one click', () => {
       const skin = await call(page, 'skin', mesh);
       expect(skin?.skeleton).not.toBeNull();
     }
+    // The VRM meta rows are export metadata, not rigging: set them, then no row is an error.
+    await runOk(page, 'char.setVrmMeta', { character, patch: { authors: ['Tester'], licensePreset: 'cc0' } });
     expect((await call(page, 'validation')).filter((row) => row.severity === 'error')).toEqual([]);
 
     const truth = JSON.parse(

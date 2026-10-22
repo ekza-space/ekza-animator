@@ -55,6 +55,9 @@ export async function boundCubeLad(page: Page): Promise<BoundLad> {
         : bone;
     return byBone.get(swapped) ?? id;
   };
+  // Create Skeleton leaves Skeleton mode (§0.2 step 5); the helper's scenarios start in Object mode.
+  await runOk(page, 'rig.mode', { mode: 'object' });
+  await expect.poll(async () => (await call(page, 'rigState')).mode).toBe('object');
   return { mesh, character: created.character, joint, mirror };
 }
 

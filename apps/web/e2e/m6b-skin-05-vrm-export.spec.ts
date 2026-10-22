@@ -19,7 +19,6 @@ import { call, expectKernelStarted, loadFile, openEditor, runOk, waitForTestApi 
 // the dialog's Validation rows are C7's). Ungated now: the Character section, the VRM meta and the thumbnail through
 // the UI on a model character, and the character check route on a VRM 1.0 sample.
 
-const GATES = 'c2, c4, c7';
 const BANNER = 'OMOBA plays its own motion library on your VRM; your clips play in Space.';
 
 setGltfValidator(gltfValidator);
@@ -84,10 +83,7 @@ test('E2E-SKIN-05 (MVP part): /e2e/character-check loads a VRM 1.0, resolves its
   expect(check.skinnedMeshes).toBeGreaterThan(0);
 });
 
-test.fixme(`E2E-SKIN-05: VRM 1.0 export of the bound Cube Lad (gates: ${GATES})`, async ({
-  page,
-  browser,
-}, testInfo) => {
+test(`E2E-SKIN-05: VRM 1.0 export of the bound Cube Lad`, async ({ page, browser }, testInfo) => {
   test.setTimeout(240_000);
   await openEditor(page);
   await expectKernelStarted(page);
@@ -119,7 +115,12 @@ test.fixme(`E2E-SKIN-05: VRM 1.0 export of the bound Cube Lad (gates: ${GATES})`
   await runOk(page, 'workspace.set', { workspace: 'rig' });
   await runOk(page, 'ui.open', { dialog: 'export' });
   await expect(page.getByTestId('export-char-banner')).toHaveText(BANNER);
-  await expect(page.getByTestId('export-char-clean')).toBeVisible();
+  // Clean = no error or warning row: the bound Cube Lad keeps one info row (`skin.joint-without-weights`, e.g. the
+  // finger joints of its box hands), which never gates (INT).
+  await expect(page.getByTestId('export-char-rows')).toBeVisible();
+  await expect(page.locator('[data-testid^="export-char-row-"]').filter({ hasText: /^(error|warning)/ })).toHaveCount(
+    0,
+  );
   await expect(page.getByTestId('export-confirm')).toBeEnabled();
   await page.keyboard.press('Escape');
 

@@ -11,8 +11,6 @@ import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api
 // as before. The full row needs a bound body (gates c1, c2, c4); the part that needs no skeleton runs on the imported
 // Polybot now.
 
-const GATES = 'c1, c2, c4';
-
 /** Hovers the perspective pane (the keymap's scope chain follows the pointer). */
 async function hoverPersp(page: Page): Promise<void> {
   const at = centreOf(await paneRect(page, RIG_PERSP_PANE));
@@ -109,12 +107,14 @@ test('E2E-RIG-02 (MVP part): booting straight into Rig & Skin (?ws=rig): S never
   expect(await keysHash(page)).toBe(hash);
 });
 
-test.fixme(`E2E-RIG-02: modes, scopes, shadows on a bound body (gates: ${GATES})`, async ({ page }) => {
+test(`E2E-RIG-02: modes, scopes, shadows on a bound body`, async ({ page }) => {
   await openEditor(page);
   await expectKernelStarted(page);
   const body = await createBodyCharacter(page);
   await runOk(page, 'skin.bind', {});
   await enterRig(page);
+  // Skeleton Template leaves Skeleton mode (§0.2 step 5); this scenario starts in Object mode.
+  await runOk(page, 'rig.mode', { mode: 'object' });
   await hoverPersp(page);
   const hips = await controlId(page, 'fk.hips', body.character);
   await runOk(page, 'select.controls', { ids: [hips], mode: 'replace' });

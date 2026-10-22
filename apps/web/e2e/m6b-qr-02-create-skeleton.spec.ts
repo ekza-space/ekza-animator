@@ -25,7 +25,6 @@ import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api
 // Skeleton → one step "Refit Skeleton", the same joint ids, still one character; after `skin.bind` the re-run asks
 // "Rebind replaces painted weights".
 
-const GATES = 'c1, c4';
 const truth = cubeLadTruth();
 
 async function characters(page: Page): Promise<string[]> {
@@ -53,9 +52,7 @@ async function expectCommitted(
   expect((await call(page, 'rigState')).mode).toBe('skeleton');
 }
 
-test.fixme(`E2E-QR-02: Create Skeleton on the Cube Lad, Full 52, the re-run in place (gates: ${GATES})`, async ({
-  page,
-}) => {
+test(`E2E-QR-02: Create Skeleton on the Cube Lad, Full 52, the re-run in place`, async ({ page }) => {
   await cubeLadInRig(page);
   const steps = (await call(page, 'history')).undo.length;
   const state = await startQuickRig(page);
@@ -109,7 +106,7 @@ test.fixme(`E2E-QR-02: Create Skeleton on the Cube Lad, Full 52, the re-run in p
   expect(await quickRig(page)).not.toBeNull();
 });
 
-test.fixme(`E2E-QR-02: the generated humanoid body and an A-posed Cube Lad (gates: ${GATES})`, async ({ page }) => {
+test(`E2E-QR-02: the generated humanoid body and an A-posed Cube Lad`, async ({ page }) => {
   await openEditor(page);
   await expectKernelStarted(page);
   await enterModel(page);

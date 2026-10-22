@@ -17,12 +17,9 @@ import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api
 // direction −X → +X leaves the left side bit-equal (involution). One step per run that changes weights; the second run
 // is a no-op on the now-symmetric skin, finishes and records zero steps.
 //
-// Gates (§0.7): c2 — `test.fixme` until it merges (§3 rule 4).
-const GATES = ['c2'] as const;
+// Gates (§0.7): c2 — merged; INT runs it ungated (§3 rule 4).
 
 test.describe('E2E-SKIN-03 Mirror Skin Weights', () => {
-  test.fixme(true, `gates ${GATES.join(', ')} have not merged (M6B-SPEC §3 rule 4)`);
-
   test('left edits reach the right partners; mirroring back is an involution; one step per run', async ({ page }) => {
     await openEditor(page);
     await expectKernelStarted(page);

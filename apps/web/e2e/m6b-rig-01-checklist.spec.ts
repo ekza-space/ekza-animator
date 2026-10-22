@@ -2,15 +2,15 @@ import { expect, type Page, test } from '@playwright/test';
 import { centreOf, drag, paneRect, pointOf } from './helpers/g1-viewport';
 import { createPrimitive, openModel } from './helpers/m6a-model';
 import { buildCubeLad } from './helpers/m6b-cube-lad';
-import { enterRig, expectRefused, RIG_FRONT_PANE, RIG_PERSP_PANE } from './helpers/m6b-rig';
+import { enterRig, expectRefused, RIG_FRONT_PANE, RIG_PERSP_PANE, RIG_SIDE_PANE } from './helpers/m6b-rig';
+import { toolKey } from './helpers/m6b-skeleton-ui';
+import { boxPoints, enterSkin, positionsOf, screenCentroid, stroke } from './helpers/m6b-skin-ui';
 import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
 
 // E2E-RIG-01 (M6B-SPEC §0.7 "MVP checklist"; owner C7): the Cube Lad goes through ① Place markers + Create Skeleton,
 // ② a `D`-drag of a knee, ③ Bind, ④ one stroke, ⑤ a library preview and ⑥ the Export Character dialog with Export
 // enabled: every checklist glyph turns done and the tab glyph ●. Gates c1, c2, c3, c4, c6, c10, c12 (every step is
 // another package's). The checklist frame, the empty state, the Getting started card and the tab glyph run now.
-
-const GATES = 'c1, c2, c3, c4, c6, c10, c12';
 
 const glyphs = async (page: Page): Promise<string[]> =>
   (await call(page, 'rigState')).checklist.map((step) => step.glyph);
@@ -79,7 +79,7 @@ test('E2E-RIG-01 (MVP part): Object mode picks a scene mesh (Quick Rig on it); v
   await expect(page.getByTestId('rig-view-only')).toBeHidden();
 });
 
-test.fixme(`E2E-RIG-01: the MVP checklist on the Cube Lad (gates: ${GATES})`, async ({ page }) => {
+test(`E2E-RIG-01: the MVP checklist on the Cube Lad`, async ({ page }) => {
   await openEditor(page);
   await expectKernelStarted(page);
   const mesh = await buildCubeLad(page);
@@ -91,26 +91,36 @@ test.fixme(`E2E-RIG-01: the MVP checklist on the Cube Lad (gates: ${GATES})`, as
   await page.getByTestId('quickrig-commit').click();
   await expect.poll(async () => (await call(page, 'rigState')).mode).toBe('skeleton');
   const character = (await call(page, 'rigState')).character ?? '';
-  // ② D + W drag of the left knee in the front pane.
+  // ② D + W drag of the left knee in the side pane (a small z nudge, as AS-MVP-1 step 5: a front-pane x drag would tilt
+  // the shin past the 5° T-pose tolerance and ⑥ would rightly block on `skel.tpose`).
   const knee = (await call(page, 'skeleton', character))?.joints.find((j) => j.humanBone === 'leftLowerLeg');
-  const at = await pointOf(page, () => call(page, 'screenOfJoint', knee?.id ?? '', RIG_FRONT_PANE), 'left knee');
-  await page.keyboard.press('KeyW');
+  const at = await pointOf(page, () => call(page, 'screenOfJoint', knee?.id ?? '', RIG_SIDE_PANE), 'left knee');
+  await toolKey(page, 'KeyW', RIG_SIDE_PANE);
   await page.keyboard.down('KeyD');
-  await drag(page, at, { dx: 6, dy: 0 });
+  await drag(page, at, { dx: 2, dy: 0 });
   await page.keyboard.up('KeyD');
+  await expect.poll(async () => (await call(page, 'history')).undo.at(-1)).toBe('Move Joint');
   // ③ Bind Skin, one click.
   await page.getByTestId('rtk-step-3-btn').click();
   await expect.poll(async () => (await call(page, 'rigState')).checklist[2]?.glyph).toBe('done');
-  // ④ One Replace stroke in Skin mode on the bound mesh.
-  await page.keyboard.press('Digit2');
-  await expect.poll(async () => (await call(page, 'rigState')).mode).toBe('skin');
-  const point = await pointOf(page, () => call(page, 'screenOfVertex', mesh, 0, RIG_PERSP_PANE), 'a point');
-  await drag(page, point, { dx: 10, dy: 0 });
+  // ④ One Replace stroke in Skin mode on the bound mesh (the character adopted the scene mesh under a new id).
+  const bound = (await call(page, 'meshes')).find((row) => row.owner === `char:${character}`)?.id ?? '';
+  await enterSkin(page);
+  await runOk(page, 'workspace.showPanel', { panel: 'paintWeights' });
+  const upperArm = (await call(page, 'skeleton', character))?.joints.find((j) => j.humanBone === 'leftUpperArm');
+  await page.getByTestId(`pw-influence-${upperArm?.id ?? ''}`).click();
+  await stroke(page, await screenCentroid(page, bound, boxPoints(await positionsOf(page, bound), 'upperArm.L')));
+  await expect.poll(async () => (await call(page, 'history')).undo.at(-1)).toBe('Paint Skin Weights');
   // ⑤ Preview a library clip.
   await runOk(page, 'library.preview', { character, clip: 'walk' });
   await expect.poll(async () => (await call(page, 'library'))?.preview?.clip ?? null).toBe('walk');
   await runOk(page, 'library.stop');
-  // ⑥ The Export Character dialog with Export enabled.
+  // ⑥ The Export Character dialog with Export enabled (the VRM meta set: author and licence are export errors).
+  await runOk(page, 'char.setVrmMeta', { character, patch: { authors: ['Tester'], licensePreset: 'cc0' } });
+  await runOk(page, 'workspace.showPanel', { panel: 'rigToolkit' });
+  // Every step is done by now, so the checklist has collapsed to `Setup 6/6 · ●`: open it for ⑥'s button.
+  await expect(page.getByTestId('rtk-checklist-toggle')).toHaveText(/Setup 6\/6 · ●/);
+  await page.getByTestId('rtk-checklist-toggle').click();
   await page.getByTestId('rtk-step-6-btn').click();
   await expect(page.getByTestId('export-confirm')).toBeEnabled();
   await page.keyboard.press('Escape');

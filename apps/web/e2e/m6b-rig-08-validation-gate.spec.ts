@@ -9,8 +9,6 @@ import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api
 // Export is enabled. An A-posed body's `skel.tpose` blocks the Ekza profile but not `local/generic`. Gates c1, c2,
 // c10; the panel frame (profile selector, empty states, the Windows item) runs now.
 
-const GATES = 'c1, c2, c10';
-
 test('E2E-RIG-08 (MVP part): the Validation panel, its profile and its empty states', async ({ page }) => {
   await openEditor(page);
   await expectKernelStarted(page);
@@ -36,11 +34,17 @@ test('E2E-RIG-08 (MVP part): the Validation panel, its profile and its empty sta
   expect(await call(page, 'history')).toEqual(history);
 });
 
-test.fixme(`E2E-RIG-08: Validation as the export gate (gates: ${GATES})`, async ({ page }) => {
+test(`E2E-RIG-08: Validation as the export gate`, async ({ page }) => {
   await openEditor(page);
   await expectKernelStarted(page);
   const body = await createBodyCharacter(page);
   await enterRig(page);
+  // A bound body with its VRM meta set (author, licence): the remaining export errors are the skeleton's own.
+  await runOk(page, 'skin.bind', {});
+  await runOk(page, 'char.setVrmMeta', {
+    character: body.character,
+    patch: { authors: ['Tester'], licensePreset: 'cc0' },
+  });
   const forearm = (await call(page, 'skeleton', body.character))?.joints.find((j) => j.humanBone === 'leftLowerArm');
   expect(forearm).toBeDefined();
   await runOk(page, 'skel.joint.setHumanBone', { joint: forearm?.id, bone: null });
@@ -70,9 +74,12 @@ test.fixme(`E2E-RIG-08: Validation as the export gate (gates: ${GATES})`, async 
   // An A-posed body: skel.tpose blocks the Ekza profile, warns for local/generic.
   await runOk(page, 'workspace.set', { workspace: 'model' });
   const aPosed = await createBodyCharacter(page);
+  await runOk(page, 'rig.mode', { mode: 'object' });
   await runOk(page, 'select.objects', { ids: [aPosed.mesh], mode: 'replace' });
   await enterRig(page);
-  await runOk(page, 'skel.joint.rotateRest', { joints: [], mode: 'subtree', angle: 35 });
+  // Both upper arms 35° down (the left one rotated about −Z; symmetry mirrors the right one).
+  const upperArm = (await call(page, 'skeleton', aPosed.character))?.joints.find((j) => j.humanBone === 'leftUpperArm');
+  await runOk(page, 'skel.joint.rotateRest', { joints: [upperArm?.id], rotateZ: (-35 * Math.PI) / 180 });
   const tpose = async (profile: string) =>
     (await call(page, 'validation', profile)).find((row) => row.code === 'skel.tpose')?.severity;
   expect(await tpose('ekza/space-avatar-v1')).toBe('error');

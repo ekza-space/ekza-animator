@@ -22,7 +22,6 @@ import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api
 // `vrm.extensions-required` (OMOBA's rule). Gates c2, c4, c7 for the bound Cube Lad; the dialog's profile list and
 // the lint fixture run now.
 
-const GATES = 'c2, c4, c7';
 const SPACE = BUILTIN_EXPORT_PROFILES.find((profile) => profile.id === 'ekza/space-avatar-v1') ?? null;
 const LOCAL = BUILTIN_EXPORT_PROFILES.find((profile) => profile.id === 'local/generic') ?? null;
 
@@ -78,9 +77,7 @@ test('E2E-SKIN-06 (MVP part): the Export dialog offers the Space profile and loc
   expect(plainSpace.result.reason).toMatch(/a plain GLB goes through "Local file \(generic checks\)"/);
 });
 
-test.fixme(`E2E-SKIN-06: the bound Cube Lad as a plain GLB through local/generic (gates: ${GATES})`, async ({
-  page,
-}) => {
+test(`E2E-SKIN-06: the bound Cube Lad as a plain GLB through local/generic`, async ({ page }) => {
   test.setTimeout(180_000);
   await openEditor(page);
   await expectKernelStarted(page);

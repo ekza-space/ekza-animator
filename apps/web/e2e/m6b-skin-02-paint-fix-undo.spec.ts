@@ -19,12 +19,9 @@ import { call, expectKernelStarted, openEditor, renderedFrames, runOk } from './
 // leftHand weight is bit-equal, the history grew by exactly one "Paint Skin Weights", one undo restores the seeded
 // weights bit-equal, and the keys hash is unchanged.
 //
-// Gates (§0.7): c2 (Create Skeleton through the Quick Rig commit) — `test.fixme` until it merges (§3 rule 4).
-const GATES = ['c2'] as const;
+// Gates (§0.7): c2 (Create Skeleton through the Quick Rig commit) — merged; INT runs it ungated (§3 rule 4).
 
 test.describe('E2E-SKIN-02 Paint fix with one undo', () => {
-  test.fixme(true, `gates ${GATES.join(', ')} have not merged (M6B-SPEC §3 rule 4)`);
-
   test('one stroke fixes a seeded point; held leftHand stays; one undo step restores it', async ({ page }) => {
     await openEditor(page);
     await expectKernelStarted(page);

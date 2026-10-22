@@ -29,13 +29,9 @@ import { call, expectKernelStarted, openEditor, run, runOk } from './helpers/tes
 // leftLowerLeg active takes the same IK → FK test switch (the paint tool holds the limb's @ikFk at 0 in the test pose,
 // M6B-C6-19); `E` with leftLowerArm active rotates the elbow with the tool still paintSkinWeights.
 //
-// Gates (§0.7): c2; the Skeleton-mode part (b) + c3 — `test.fixme` until they merge (§3 rule 4).
-const GATES = ['c2'] as const;
-const GATES_B = ['c2', 'c3'] as const;
+// Gates (§0.7): c2; the Skeleton-mode part (b) + c3 — merged; INT runs it ungated (§3 rule 4).
 
 test.describe('E2E-SKIN-10 test pose, posed painting, Go to Bind Pose', () => {
-  test.fixme(true, `gates ${GATES.join(', ')} have not merged (M6B-SPEC §3 rule 4)`);
-
   test('(a) a test pose, a mirrored stroke on the posed mesh, Bind / Test / Reset, nothing leaks into Animate', async ({
     page,
   }) => {
@@ -116,9 +112,7 @@ test.describe('E2E-SKIN-10 test pose, posed painting, Go to Bind Pose', () => {
     expect(await call(page, 'overrides', arm)).toEqual({});
   });
 
-  test.fixme(`(b) E on the left knee in Skeleton mode: the IK leg turns FK for the test (gates: ${GATES_B.join(', ')})`, async ({
-    page,
-  }) => {
+  test(`(b) E on the left knee in Skeleton mode: the IK leg turns FK for the test`, async ({ page }) => {
     await openEditor(page);
     await expectKernelStarted(page);
     const lad = await boundCubeLad(page);

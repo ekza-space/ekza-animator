@@ -9,12 +9,9 @@ import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api
 // Skin-mode default (on), since Flood is one-sided (M6B-C6-17); `Alt+F` is never bound. The `U`
 // operation marking menu (`rig.paint.ops`) arrives after the MVP (§0.3), so its flick is not part of this cut.
 //
-// Gates (§0.7): c2 — `test.fixme` until it merges (§3 rule 4).
-const GATES = ['c2'] as const;
+// Gates (§0.7): c2 — merged; INT runs it ungated (§3 rule 4).
 
 test.describe('E2E-RIG-04 Paint keys', () => {
-  test.fixme(true, `gates ${GATES.join(', ')} have not merged (M6B-SPEC §3 rule 4)`);
-
   test('B/M/N drags, Shift+I picks the influence, I samples the value, Flood on a fresh joint', async ({ page }) => {
     await openEditor(page);
     await expectKernelStarted(page);

@@ -10,7 +10,6 @@ import { call, expectKernelStarted, openEditor, run, runOk } from './helpers/tes
 // step (no empty step left) and the next undo there undoes the last document step. The full row starts from a bound
 // body and refuses a joint move in Test (gates c1, c2, c3, c4); the control part runs on the imported Polybot now.
 
-const GATES = 'c1, c2, c3, c4';
 const TOAST = 'Test pose: not keyed; Go to Bind Pose to edit joints';
 
 /** Selects a control and rotates it with the manipulator's Z ring in the perspective pane (a real drag). */
@@ -129,12 +128,14 @@ test('E2E-RIG-05 (MVP part): a test pose is never keyed: Channel Box Key Selecte
   expect(await call(page, 'counts')).toEqual(counts);
 });
 
-test.fixme(`E2E-RIG-05: pose view and history on a bound body (gates: ${GATES})`, async ({ page }) => {
+test(`E2E-RIG-05: pose view and history on a bound body`, async ({ page }) => {
   await openEditor(page);
   await expectKernelStarted(page);
   const body = await createBodyCharacter(page);
   await runOk(page, 'skin.bind', {});
   await enterRig(page);
+  // Skeleton Template leaves Skeleton mode (§0.2 step 5); this scenario starts in Object mode.
+  await runOk(page, 'rig.mode', { mode: 'object' });
   const arm = await controlId(page, 'fk.lowerArm.L', body.character);
   const head = await controlId(page, 'fk.head', body.character);
   await hoverPersp(page);
