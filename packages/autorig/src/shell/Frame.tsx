@@ -306,7 +306,12 @@ function Panes(props: { readonly ctx: WizardContext }): JSX.Element {
   const vm = useHostUi((s) => s.viewport);
   const panes = stepPanes(session.step, session);
   return (
-    <div className="absolute inset-0 flex" data-testid="ar-panes" data-panes={panes.length}>
+    // ⑤'s targets card covers the pane's left part on a wide screen: the pane starts beside it (AR-R4-7)
+    <div
+      className={cn('absolute inset-0 flex', session.step === 'export' && 'min-[1280px]:left-[29.5rem]')}
+      data-testid="ar-panes"
+      data-panes={panes.length}
+    >
       {panes.map((pane) => (
         <div key={pane.id} className="flex min-w-0" style={{ flex: `${pane.size ?? 1} 1 0` }}>
           <WizardPane vm={vm} app={ctx.app} paneId={pane.id} step={session.step} />

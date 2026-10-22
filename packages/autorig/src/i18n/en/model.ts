@@ -78,6 +78,7 @@ export const model = {
   hintContinue: 'Your last work was saved: press “Continue” to pick it up, or load another model.',
   hintFix: (fix: string) => `Some checks failed: press “${fix}” before the markers.`,
   hintReady: 'The model is ready for the markers.',
+  hintNoArms: 'Arms not found: place the Shoulder, Elbow and Wrist markers by hand on the next step.',
   hintVrm: 'The avatar is rigged: continue with Animations.',
   hintParts: 'Tick the meshes that belong to the character.',
 } as const satisfies MessageTable;

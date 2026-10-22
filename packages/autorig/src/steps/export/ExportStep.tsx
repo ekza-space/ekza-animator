@@ -537,6 +537,21 @@ function Checklist(props: {
 
 const EMPTY_ROWS: readonly never[] = [];
 
+/**
+ * ⑤ frames the character in its pane once the layout settled (two frames): the pane kept ④'s camera, and on a wide
+ * screen it now starts beside the targets card (AR-R4-7), so the character stood half under the card.
+ */
+function useFrameCharacter(ctx: WizardContext): void {
+  useEffect(() => {
+    let handle = requestAnimationFrame(() => {
+      handle = requestAnimationFrame(() => {
+        void ctx.app.runUntyped('view.frame', { what: 'all', paneId: 'pane-persp' });
+      });
+    });
+    return () => cancelAnimationFrame(handle);
+  }, [ctx]);
+}
+
 function Panel(props: { readonly ctx: WizardContext }): JSX.Element {
   const { ctx } = props;
   const { app } = ctx;
@@ -544,6 +559,7 @@ function Panel(props: { readonly ctx: WizardContext }): JSX.Element {
   // a clean character on "Get your character" too (AR-D10-4; ②–④ since AR-D9-8), without the left-out parts
   useHiddenControls(ctx, true, 'export');
   useHiddenParts(ctx);
+  useFrameCharacter(ctx);
   const view = useExportView(ctx);
   const ui = useSmall(exportUi(ctx));
   const { record, target } = view;

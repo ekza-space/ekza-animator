@@ -119,14 +119,23 @@ export function RigEmptyState(props: PaneOverlayProps): JSX.Element | null {
   useOwnPointer(card);
   if (host !== props.paneId || !empty || quickRig) return null;
   const ctx = { panel: PANEL.viewport, paneId: props.paneId, source: 'menu' as const };
+  const hint = 'Select a mesh to turn into a character, or a character';
+  // With meshes in the scene (a model handed over from Auto-Rig's ①) the card is a strip in the bottom left corner,
+  // clear of the model's head (AR-R4-7); an empty scene keeps the card at the top
   return (
     <div
       ref={card}
-      className="pointer-events-auto mt-10 flex self-start max-w-[28rem] flex-col items-center gap-2 rounded-lg border border-line bg-[color-mix(in_srgb,var(--bg-panel,#232428)_92%,transparent)] px-5 py-4 text-center text-[12px] text-fg-2 shadow-lg"
+      className={
+        meshes
+          ? 'pointer-events-auto m-3 mb-10 flex max-w-[28rem] flex-wrap items-center gap-2 self-end justify-self-start rounded-lg border border-line bg-[color-mix(in_srgb,var(--bg-panel,#232428)_92%,transparent)] px-3 py-2 text-[12px] text-fg-2 shadow-lg'
+          : 'pointer-events-auto mt-10 flex self-start max-w-[28rem] flex-col items-center gap-2 rounded-lg border border-line bg-[color-mix(in_srgb,var(--bg-panel,#232428)_92%,transparent)] px-5 py-4 text-center text-[12px] text-fg-2 shadow-lg'
+      }
+      title={meshes ? hint : undefined}
       data-testid="rig-empty"
+      data-compact={meshes}
     >
-      <h2 className="text-[14px] font-semibold text-fg">Rig & Skin</h2>
-      <p>Select a mesh to turn into a character, or a character</p>
+      <h2 className={meshes ? 'text-[12px] font-semibold text-fg' : 'text-[14px] font-semibold text-fg'}>Rig & Skin</h2>
+      {meshes ? <p className="sr-only">{hint}</p> : <p>{hint}</p>}
       <div className="flex flex-wrap justify-center gap-1.5">
         {meshes ? (
           <button

@@ -4,7 +4,7 @@
 // and the From Studio card. The footer's primary is *Next: Markers* (an already rigged avatar: *Next: Animations*).
 // The first visit loads only the drop zone (AR-D3-4): the ① actions (`./flow`), the report (`./Report`) and the cards
 // a fresh profile never shows (Continue, the rigged-other choice, a project's characters: `./Extras`) are lazy chunks.
-import type { AutoRigFix, AutosaveSlotInfo } from '@ekza-studio/editor-core';
+import type { AutosaveSlotInfo } from '@ekza-studio/editor-core';
 import { buttonClass, cn } from '@ekza-studio/ui';
 import { type JSX, lazy, Suspense, useCallback, useEffect, useRef } from 'react';
 import { formatNumber, messages } from '../../i18n';
@@ -249,6 +249,9 @@ function useModelFooter(ctx: WizardContext): void {
       intake?.kind === 'rigged-humanoid' ||
       (subject.character !== null && !progress.reachable.markers && progress.reachable.animations);
     const target = asset ? 'animations' : 'markers';
+    const fix = intake === null || asset ? null : firstFix(intake, uniform);
+    // the Pose row's "!" (AR-D10-3): the footer says so too, never "ready" (AR-R4-7)
+    const noArms = fix === null && intake?.kind === 'static' && intake.pose === null && intake.checks.upright;
     const footer: FooterState = {
       status:
         ui.loading !== null
@@ -259,15 +262,12 @@ function useModelFooter(ctx: WizardContext): void {
               ? m.hintLoad
               : asset
                 ? m.hintVrm
-                : intake !== null && firstFix(intake, uniform) !== null
-                  ? m.hintFix(FIX_LABEL[firstFix(intake, uniform) as AutoRigFix]())
-                  : m.hintReady,
-      tone:
-        ui.loading === null && ui.error !== null
-          ? 'error'
-          : intake !== null && !asset && firstFix(intake, uniform) !== null
-            ? 'warning'
-            : 'info',
+                : fix !== null
+                  ? m.hintFix(FIX_LABEL[fix]())
+                  : noArms
+                    ? m.hintNoArms
+                    : m.hintReady,
+      tone: ui.loading === null && ui.error !== null ? 'error' : fix !== null || noArms ? 'warning' : 'info',
       primary: {
         label: f.next(asset ? f.stepAnimations : f.stepMarkers),
         disabled: ui.loading !== null || !progress.reachable[target],
