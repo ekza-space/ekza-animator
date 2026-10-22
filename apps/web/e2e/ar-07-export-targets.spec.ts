@@ -209,7 +209,7 @@ async function texturedBodyVrm(page: Page): Promise<{ character: string; json: R
   const file = await download(page);
   expect(file.name).toBe('polybot.vrm');
   keepExport('ar-07-polybot-textured.vrm', file.bytes);
-  return { character, json: (await parseGlb(file.bytes)).json as Record<string, unknown> };
+  return { character, json: (await parseGlb(file.bytes)).json };
 }
 
 test('AS-AR-6 (⑤ part): the body rigged without the sword exports a clean VRM; the sword stays a scene mesh', async ({
