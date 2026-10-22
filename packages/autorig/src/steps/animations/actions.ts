@@ -98,6 +98,8 @@ function failedChecksum(ctx: WizardContext, clip: string, result: { status: stri
 export async function previewClip(ctx: WizardContext, clip: string): Promise<void> {
   const character = subjectCharacter(ctx);
   if (character === null) return;
+  // Another card than the ✎-edited clip's own library clip leaves the edit: *Update* belongs to that clip only.
+  if (ctx.session.getState().animations.editing !== null && editTarget(ctx, clip) === null) endEdit(ctx.session);
   patchUi(ctx, { selected: clip });
   const result = await ctx.run('library.preview', { character: character.id, clip, params: draftOf(ctx, clip) });
   failedChecksum(ctx, clip, result);
@@ -141,8 +143,8 @@ export async function addClip(ctx: WizardContext, clip: string): Promise<boolean
   const ui = animationsUi(ctx).get();
   const entry = entryOf(ui, clip);
   if (character === null || entry === null || ui.busy !== null) return false;
-  const editing = ctx.session.getState().animations.editing;
-  const replace = editing !== null && ctx.app.store.get('clips', editing) !== undefined ? editing : null;
+  // *Update* replaces the ✎-edited clip only with its own library clip; any other card adds a new clip.
+  const replace = editTarget(ctx, clip);
   patchUi(ctx, { busy: clip, notice: { text: t().adding(entry.label), tone: 'info' } });
   const result = await ctx.run('autorig.clip.add', {
     character: character.id,
@@ -181,6 +183,26 @@ export function libraryClipOf(
     (c) => c.source === title && c.credit === record.provenance.derivedFrom[0]?.author,
   );
   return entry === undefined ? null : { clip: entry.id, params: IDENTITY };
+}
+
+/**
+ * The document clip *Update* replaces when library clip `clip` is added: the ✎-edited clip, and only when `clip` is
+ * that clip's own library clip (else the card adds a new clip — a Run card never overwrites an edited Walk).
+ */
+export function editTargetOf(
+  manifest: StarterPackManifest | null,
+  edited: ClipRecord | undefined,
+  clip: string,
+): ClipId | null {
+  if (edited === undefined) return null;
+  return libraryClipOf(manifest, edited)?.clip === clip ? edited.id : null;
+}
+
+/** {@link editTargetOf} for the session's ✎ edit. */
+export function editTarget(ctx: Pick<WizardContext, 'app' | 'session'>, clip: string): ClipId | null {
+  const editing = ctx.session.getState().animations.editing;
+  if (editing === null) return null;
+  return editTargetOf(animationsUi(ctx).get().manifest, ctx.app.store.get('clips', editing), clip);
 }
 
 /** ✎ (§5.5.4): the clip's library clip and parameters into the editor; *Update* then replaces the clip. */

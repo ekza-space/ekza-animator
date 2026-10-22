@@ -35,6 +35,7 @@ import {
   deleteDocumentClip,
   draftOf,
   editDocumentClip,
+  editTargetOf,
   entryOf,
   importVrmaFiles,
   libraryClipOf,
@@ -660,11 +661,18 @@ function AddButtons(props: { readonly ctx: WizardContext; readonly entry: Starte
   const a = t();
   const slice = useSession(ctx.session, selectAnimations);
   const ui = useSmall(animationsUi(ctx));
-  const editing = slice.editing !== null && ctx.app.store.get('clips', slice.editing) !== undefined;
+  // *Update* / *Cancel* only on the ✎-edited clip's own library clip (`editTargetOf`); other cards add.
+  const editing =
+    slice.editing !== null && editTargetOf(ui.manifest, ctx.app.store.get('clips', slice.editing), entry.id) !== null;
   return (
     <div className="flex items-center justify-end gap-2">
       {editing ? (
-        <button type="button" className={button('ghost')} onClick={() => cancelEdit(ctx)}>
+        <button
+          type="button"
+          className={button('ghost')}
+          data-testid="ar-clip-cancel-edit"
+          onClick={() => cancelEdit(ctx)}
+        >
           {a.cancelEdit}
         </button>
       ) : null}

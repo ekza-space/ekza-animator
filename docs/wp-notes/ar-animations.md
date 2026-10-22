@@ -36,13 +36,14 @@ did).
 | AR-D5-8 | **A byte preview's id is its label** (`PreviewClip.clip = label ?? clip`): both PREVIEW badges (Studio's and the wizard's) already show `labelOf(clip) ?? clip`, so `PREVIEW Range test` needs no change in either. `library().preview.clip` / `ClipPreviewState.clip` is therefore the label for a byte preview | the badges are D3's and C12's files |
 | AR-D5-9 | **Space is the view's, not a keymap row**: a row is prevented on every target by the frame, and a focused checkbox, slider or button must keep its own Space (§8.2). The view toggles the preview on Space when the focus is not on a form control (then it only stops the event from reaching Studio's Space binding). `/` and `A` are keymap rows (the frame prevents them; the view acts). The frame's shortcuts sheet (`KeysSheet`, D3) describes only operators, the primary and go-to rows, so ④'s rows are not listed there yet — **for D7**: a label for step actions (e.g. a `label` on `AutoRigKeyBinding`, D0's type) | §8.1, §8.2 |
 | AR-D5-10 | **Play / Stop, not Play / Pause.** C12's preview has no pause or seek (the `ClipPreviewSource` clock is private and the `ClipLibraryService` contract is closed), so the transport plays from 0 and stops; it shows the preview's time and progress (read per frame only while a preview plays: no frames when idle). Esc stops (the frame's fall-through) | §5.5.2 "plays/pauses"; a pause needs a contract change (D0/D7) |
-| AR-D5-11 | **The `ar-*` tag reader has two copies**: editor-core's (`library/params.ts`, beside the writer Use Clip runs) and Auto-Rig's (`steps/animations/data.ts`, for ✎). Auto-Rig may not deep-import editor-core and the root index / `types.ts` are closed; both tests pin the same examples | §4.1 package rule |
+| AR-D5-11 | **The `ar-*` tag reader has two copies**: editor-core's (`library/params.ts`, beside the writer Use Clip runs) and Auto-Rig's (`steps/animations/data.ts`, for ✎). Auto-Rig may not deep-import editor-core and the root index / `types.ts` are closed; both tests pin the same examples. The params check (`clipParamsProblem`, editor-core's for the operator poll and io's for the derive) is also two copies: `editor-core/test/autorig/clip.test.ts` pins editor-core's limits and verdicts to io's on 22 examples | §4.1 package rule |
 | AR-D5-12 | The Ekza slot vocabulary is copied from Studio's `SLOT_VOCABULARY` (`editor/src/panels/clips/settings.ts`, ADR 0010 §5) | importing it from `/autorig` costs `/editor` bytes (the AR-D3-1 pattern) |
 | AR-D5-13 | `autorig.clip.add`'s poll checks only the shape of `replace`; Use Clip's poll checks that it is a clip of the character | the runner polls a composition again after its `prepare`, when the clip is already replaced |
 | AR-D5-14 | **One panel instead of the sketch's three columns**: On <character> first (short; what was added stays in view), then the library grid, then the drop zone, OMOBA's note and *Skip*; the preview bar and the parameters lie over the pane's bottom (above the PREVIEW badge). On phones and below 700 px the parameters fold behind *Adjust ▾* so the character stays visible | §5.5 sketch, §8.3 |
 | AR-D5-15 | A parametrized preview derives and stores its bytes in the asset service (the shipped preview stores the library bytes the same way, `prepareVrmaImport`); a slider drag re-previews once it rests (200 ms), so one blob per resting value | the shipped import path |
 | AR-D5-16 | **E2E builds the character with operators**: the Cube Lad loaded at ① through `?sample=cube-lad`, then `skel.quickRig.commit` (truth markers) and `skin.bind` as test-API runs (D4's UI is not part of D5's merge, §11 merge-time parts); the VRM path uses `?sample=polybot` | §11 |
 | AR-D5-17 | Preview ≡ playback (1e-5) and Mirror ≡ `pose.mirrorAnimation` (1e-4 rad) are proven in Node (a deterministic preview clock; `reduceOnImport: 'never'` for the mirror comparison so the shipped key reduction of the two clips does not differ); the browser cannot drive the preview clock, so E2E-AR-06 asserts the mirrored Sword attack against a plain one through the shipped playback (left hand = reflected right hand within 3 cm at three frames) | DoD |
+| AR-D5-19 | **✎ *Update* belongs to the edited clip's own card** (fix round 1). `editTargetOf` gives the clip to replace only when the card is the edited clip's library clip; any other card shows *+ Add to character* (no *Cancel*) and adds a new clip, whether clicked, previewed or added with `A`. Previewing another card ends the edit, so coming back to the edited card adds too (✎ reopens it). Before the fix, ✎ Walk → Run → *Update* deleted the Walk and put Run in its place named "Walk" with slot `walk` | §5.5.4 |
 | AR-D5-18 | The range test (§5.4.1) is done (no `test.fixme('ar-rom')`): Node previews it on the **Cube Lad** at a controlled clock and checks the rest, *arms down*, *legs side* and *knees 130* frames against the table; E2E-AR-06 previews it on Polybot (badge, motion, document untouched). The ③ motion-test button that plays it is D4's | §5.4.1 |
 
 ## Tests
@@ -60,11 +61,12 @@ did).
   frames; Mirror = `pose.mirrorAnimation` within 1e-4 rad on Walk and Sword attack; `library.preview {bytes}` on Seed-san
   and on the Cube Lad (the ROM pose frames); the tag examples. Every C12 test unchanged.
 - autorig (Node): `test/steps/animations/animations.test.ts` — categories, search with synonyms, the tag reader on the
-  shared examples, the library clip of a document clip (tags, provenance, neither), the slice reducers, the ④ keys
+  shared examples, the library clip of a document clip (tags, provenance, neither), the ✎ edit target (only the edited
+  clip's own card replaces it), the slice reducers, the ④ keys
   (`/`, `A`; no Space row), the `.vrma` routing.
 - E2E-AR-06: `ar-06-animations-cube-lad.spec.ts` (AS-AR-1 steps 7–8 through the UI; ✎ Update / slot chip / ✕ with
   undo; keys, synonyms, categories, roving focus, Space, Esc, A), `ar-06-animations-vrm.spec.ts` (AS-AR-4's ④ part;
-  `.vrma` drop; *Skip*; the range test by bytes); helper `helpers/ar-animations.ts` (incl. `modKey`: the Desktop Chrome
+  ✎ Walk then Idle by `A` and Run by click each add a new clip and leave the Walk as it was; `.vrma` drop; *Skip*; the range test by bytes); helper `helpers/ar-animations.ts` (incl. `modKey`: the Desktop Chrome
   device reports Windows, so the app's Mod is Ctrl in e2e).
 
 ## Outside the Dirs (for D7's approval)
@@ -114,3 +116,16 @@ port 3000, the preview server's port; whether it was running before is not known
 mistake, a `rebuild.sh` that another agent (D4, `ar-rig-steps`, port 3165) had written to the shared scratchpad
 directory: it rebuilt that worktree's `.next` and restarted D4's server on 3165. No source file of another worktree was
 touched. From then on the builder used a private scratch subdirectory and killed only the listener of port 3166.
+
+## Fix round 1
+
+- **Major, fixed (AR-D5-19):** with a ✎ edit open, another card no longer replaces the edited clip. `addClip` and
+  *Update* / *Cancel* use `editTargetOf`; `previewClip` ends the edit on another card. Unit test in
+  `animations.test.ts`, e2e in `ar-06-animations-vrm.spec.ts` (✎ Walk → `A` on Idle → ✎ Walk → Run card → Add: Idle
+  and Run are new clips, the Walk keeps its id and exported metadata). The *Cancel* button got `data-testid`
+  `ar-clip-cancel-edit`. The operator side (`autorig.clip.add {replace}` with another library clip) is unchanged: it
+  is a deliberate swap through the API; the UI no longer sends it by accident.
+- The comments in `editor-core/src/library/params.ts` and `editor-core/test/autorig/clip.test.ts` now name the real
+  files (`steps/animations/data.ts`, `animations.test.ts`).
+- The params check copies are pinned (AR-D5-11).
+- The incident above stands; the fix round killed only its own port 3166 listener (Playwright's own server).

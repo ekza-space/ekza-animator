@@ -3,10 +3,11 @@
 // dropped on the step goes to the character through the shipped `file.importAnimation` (the wizard stays on ④).
 // *Skip* with no clips marks ④ done and goes to ⑤; Export ▸ is enabled with zero clips and the footer says OMOBA
 // needs none. The range-of-motion clip previews by the byte route (`library.preview {bytes}`): the PREVIEW badge
-// shows its label, the avatar moves, the document does not change.
+// shows its label, the avatar moves, the document does not change. A ✎ edit's *Update* belongs to the edited clip's
+// own card: another card (clicked, or A on it) adds its clip and never replaces the edited one.
 import { romVrma } from '@ekza-studio/io';
 import { expect, type Page, test } from '@playwright/test';
-import { animationsWithVrm, clipNamed, clipsOf, libraryPreview } from './helpers/ar-animations';
+import { animationsWithVrm, clipNamed, clipsOf, exportedMeta, libraryPreview } from './helpers/ar-animations';
 import { autorig, history } from './helpers/autorig';
 import { starterPackFile } from './helpers/m6b-clip-library';
 import { call, run } from './helpers/test-api';
@@ -48,6 +49,45 @@ test('AS-AR-4 (④ part): the Polybot VRM goes straight to ④; Walk is one Use 
   await expect.poll(async () => (await autorig(page))?.done['animations']).toBe(true);
   await page.getByTestId('ar-primary').click();
   await expect.poll(async () => (await autorig(page))?.step).toBe('export');
+});
+
+test('✎ then another card adds that clip; Update stays with the edited clip’s own card', async ({ page }) => {
+  const character = await animationsWithVrm(page);
+  const before = (await clipsOf(page, character)).map((c) => c.name);
+  await page.getByTestId('ar-clip-card-walk').click();
+  await page.getByTestId('ar-clip-add').click();
+  await expect.poll(async () => (await history(page)).undo.at(-1)).toBe('Use Clip Walk');
+  const walk = await clipNamed(page, character, 'Walk');
+  const walkAsAdded = await exportedMeta(page, character, walk.id);
+
+  // ✎ Walk, then A on the focused Idle card: Idle is added, the Walk is not replaced
+  await page.getByTestId(`ar-char-clip-edit-${walk.id}`).click();
+  await expect(page.getByTestId('ar-clip-add')).toHaveText('Update');
+  await page.getByTestId('ar-clip-card-idle').focus();
+  await page.keyboard.press('KeyA');
+  await expect.poll(async () => (await history(page)).undo.at(-1)).toBe('Use Clip Idle');
+
+  // ✎ Walk, then the Run card: the edit ends (Add, no Cancel); Add adds a new Run and leaves the Walk alone
+  await page.getByTestId(`ar-char-clip-edit-${walk.id}`).click();
+  await expect(page.getByTestId('ar-clip-add')).toHaveText('Update');
+  await expect(page.getByTestId('ar-clip-cancel-edit')).toBeVisible();
+  await page.getByTestId('ar-clip-card-run').click();
+  await expect(page.getByTestId('ar-clip-add')).toHaveText('+ Add to character');
+  await expect(page.getByTestId('ar-clip-cancel-edit')).toHaveCount(0);
+  await page.getByTestId('ar-clip-add').click();
+  await expect.poll(async () => (await history(page)).undo.at(-1)).toBe('Use Clip Run');
+  const clips = await clipsOf(page, character);
+  expect(clips.map((c) => c.name).sort()).toEqual([...before, 'Idle', 'Run', 'Walk'].sort());
+  expect(clips.find((c) => c.name === 'Walk')?.id).toBe(walk.id);
+  expect(await exportedMeta(page, character, walk.id)).toEqual(walkAsAdded);
+  const run = await clipNamed(page, character, 'Run');
+  expect((await exportedMeta(page, character, run.id)).derivedFrom[0]?.title).not.toBe(
+    walkAsAdded.derivedFrom[0]?.title,
+  );
+  await expect(page.getByTestId(`ar-char-clip-slot-${run.id}`)).toHaveValue('run');
+  // back on the Walk card the edit is gone too: it adds
+  await page.getByTestId('ar-clip-card-walk').click();
+  await expect(page.getByTestId('ar-clip-add')).toHaveText('+ Add to character');
 });
 
 test('a .vrma dropped on ④ is imported onto the character; Skip marks ④ done', async ({ page }) => {

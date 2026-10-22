@@ -11,11 +11,23 @@ import { readFileSync } from 'node:fs';
 import { type Quat, quatAngle, sha256Hex } from '@ekza-studio/anim-core';
 import { type CharacterId, type ClipId, type ClipRecord, seededIdSource } from '@ekza-studio/doc';
 import { readFixture } from '@ekza-studio/doc/testing';
-import { romFrameOf, romVrma } from '@ekza-studio/io';
+import {
+  CLIP_ARM_SPACE_RANGE,
+  CLIP_SPEED_RANGE,
+  clipParamsProblem as ioClipParamsProblem,
+  romFrameOf,
+  romVrma,
+} from '@ekza-studio/io';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { type ClipParams, createEditorApp, type EditorApp, type ImportResult } from '../../src';
 import { attachClipLibrary, type ClipLibrary } from '../../src/library';
-import { clipParamsFromTags, clipParamTags, IDENTITY_CLIP_PARAMS } from '../../src/library/params';
+import {
+  CLIP_PARAM_LIMITS,
+  clipParamsFromTags,
+  clipParamsProblem,
+  clipParamTags,
+  IDENTITY_CLIP_PARAMS,
+} from '../../src/library/params';
 import { createFakeServices, type FakeServices } from '../../src/testing';
 import { meshTestApp } from '../mesh/support';
 
@@ -378,7 +390,7 @@ describe('library.preview {bytes} (CR-AR-2 c, §5.4.1)', () => {
 });
 
 describe('ar-* tags (§5.5.4)', () => {
-  // The same examples pin the Auto-Rig shell's reader (`autorig/test/steps/animations/tags.test.ts`).
+  // The same examples pin the Auto-Rig shell's reader (`autorig/test/steps/animations/animations.test.ts`).
   const EXAMPLES: readonly [string, ClipParams, readonly string[]][] = [
     ['walk', IDENTITY_CLIP_PARAMS, []],
     ['walk', params({ speed: 1.2, inPlace: true }), ['ar-walk', 'ar-speed-120', 'ar-inplace']],
@@ -401,6 +413,42 @@ describe('ar-* tags (§5.5.4)', () => {
     for (const [clip, p] of EXAMPLES) {
       for (const tag of clipParamTags(clip, p)) expect(tag).toMatch(/^[a-z0-9_-]{1,32}$/);
     }
+  });
+});
+
+describe('the clip parameters check (§5.5.3)', () => {
+  // editor-core's operator-side check is its own copy (AR-D5-11); these examples pin it to io's (without a duration:
+  // the trim against the clip's length is io's alone).
+  it('agrees with io on the limits and on every verdict', () => {
+    expect(CLIP_PARAM_LIMITS).toEqual({ speed: CLIP_SPEED_RANGE, armSpace: CLIP_ARM_SPACE_RANGE });
+    const examples: unknown[] = [
+      IDENTITY_CLIP_PARAMS,
+      params({ speed: 0.25 }),
+      params({ speed: 3 }),
+      params({ speed: 0.2 }),
+      params({ speed: 3.01 }),
+      params({ speed: Number.NaN }),
+      params({ armSpace: -10 }),
+      params({ armSpace: 30 }),
+      params({ armSpace: -11 }),
+      params({ armSpace: 31 }),
+      params({ mirror: true, inPlace: true }),
+      { ...IDENTITY_CLIP_PARAMS, mirror: 'yes' },
+      { ...IDENTITY_CLIP_PARAMS, inPlace: 1 },
+      params({ trim: { start: 0, end: 0.5 } }),
+      params({ trim: { start: 0.5, end: 0.5 } }),
+      params({ trim: { start: -0.1, end: 0.5 } }),
+      { ...IDENTITY_CLIP_PARAMS, trim: { start: 0 } },
+      { ...IDENTITY_CLIP_PARAMS, trim: [0, 1] },
+      { ...IDENTITY_CLIP_PARAMS, speed: '1' },
+      null,
+      [],
+      'walk',
+    ];
+    expect(examples.map((example) => clipParamsProblem(example))).toEqual(
+      examples.map((example) => ioClipParamsProblem(example)),
+    );
+    expect(examples.filter((example) => clipParamsProblem(example) === null)).toHaveLength(7);
   });
 });
 

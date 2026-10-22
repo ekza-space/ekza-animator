@@ -20,7 +20,7 @@ import {
   setDraft,
   stepFiles,
 } from '../../../src/steps/animations';
-import { libraryClipOf, type StarterPackManifest } from '../../../src/steps/animations/actions';
+import { editTargetOf, libraryClipOf, type StarterPackManifest } from '../../../src/steps/animations/actions';
 import {
   CATEGORIES,
   categoryOf,
@@ -131,6 +131,18 @@ describe('the library clip of a document clip (✎)', () => {
     const dropped = clip({ provenance: { derivedFrom: [{ title: 'my-dance', author: 'unknown' }] } as never });
     expect(libraryClipOf(manifest, dropped)).toBeNull();
     expect(libraryClipOf(manifest, clip({ tags: ['ar-gone'] }))).toBeNull();
+  });
+  it('*Update* replaces the ✎-edited clip only with its own library clip; another card adds a new clip', () => {
+    const walk = clip({ id: 'clp_walk' as ClipId });
+    const fastIdle = clip({ id: 'clp_idle' as ClipId, tags: ['ar-idle', 'ar-speed-150'] });
+    expect(editTargetOf(manifest, walk, 'walk')).toBe('clp_walk');
+    expect(editTargetOf(manifest, walk, 'run')).toBeNull();
+    expect(editTargetOf(manifest, walk, 'idle')).toBeNull();
+    expect(editTargetOf(manifest, fastIdle, 'idle')).toBe('clp_idle');
+    expect(editTargetOf(manifest, fastIdle, 'walk')).toBeNull();
+    expect(editTargetOf(manifest, undefined, 'walk')).toBeNull();
+    const dropped = clip({ id: 'clp_drop' as ClipId, provenance: { derivedFrom: [{ title: 'x' }] } as never });
+    expect(editTargetOf(manifest, dropped, 'walk')).toBeNull();
   });
 });
 

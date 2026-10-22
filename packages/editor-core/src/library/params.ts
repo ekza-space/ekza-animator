@@ -76,7 +76,7 @@ export const isClipParamTag = (tag: string): boolean => tag.startsWith(TAG);
 
 /**
  * The library clip and parameters recorded by `clipParamTags` (null when the tags hold no `ar-<library id>`). The
- * Auto-Rig shell reads them with its own copy of this table (`autorig/src/steps/animations/tags.ts`): both are pinned
+ * Auto-Rig shell reads them with its own copy of this table (`autorig/src/steps/animations/data.ts`): both are pinned
  * by the same examples in their tests.
  */
 export function clipParamsFromTags(tags: readonly string[]): { clip: string; params: ClipParams } | null {
