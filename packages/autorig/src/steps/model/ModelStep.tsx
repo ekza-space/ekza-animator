@@ -97,7 +97,7 @@ function FilePicker(props: { readonly ctx: WizardContext; readonly label: string
         type="file"
         accept=".glb,.vrm,.gltf,.ekzanim,.json"
         className="hidden"
-        data-testid="ar-file-input"
+        data-testid="ar-model-picker"
         onChange={(e) => {
           const files = [...(e.currentTarget.files ?? [])];
           e.currentTarget.value = '';
