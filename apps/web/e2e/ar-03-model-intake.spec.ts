@@ -54,6 +54,16 @@ test('a sample loads in one undo step; the report, the stepper and the footer fo
   expect(await history(page)).toEqual({ undo: ['Import Static Model'], redo: [] });
   await expect(page.getByTestId('ar-drop-strip')).toBeVisible();
   await expect(page.getByTestId('ar-subject-name')).toHaveText('Cube Lad');
+  // the header renames the subject (a scene mesh before Create Skeleton: `scene.rename`, one undo step)
+  await page.getByTestId('ar-subject-name').click();
+  const field = page.getByRole('textbox', { name: 'Character name' });
+  await expect(field).toBeFocused();
+  await field.fill('Lad');
+  await field.press('Enter');
+  await expect(page.getByTestId('ar-subject-name')).toHaveText('Lad');
+  expect((await history(page)).undo).toHaveLength(2);
+  await page.getByTestId('ar-undo').click();
+  await expect(page.getByTestId('ar-subject-name')).toHaveText('Cube Lad');
   for (const check of ['centred', 'grounded', 'facing', 'upright', 'size']) {
     await expect(checkRow(page, check)).toHaveAttribute('data-ok', 'true');
   }
@@ -70,7 +80,8 @@ test('a sample loads in one undo step; the report, the stepper and the footer fo
   await expect(page.locator('[data-step="model"]')).toHaveAttribute('data-done', 'true');
   await page.getByRole('button', { name: /Back/ }).click();
   await expect.poll(async () => (await autorig(page))?.step).toBe('model');
-  expect(await history(page)).toEqual({ undo: ['Import Static Model'], redo: [] });
+  // stepping never undoes anything (§4.3)
+  expect((await history(page)).undo).toEqual(['Import Static Model']);
 });
 
 test('AS-AR-5: bad placement — three fixes, three undo steps, then the guess is within 0.05 H', async ({ page }) => {
