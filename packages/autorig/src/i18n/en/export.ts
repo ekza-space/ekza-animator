@@ -10,6 +10,9 @@ export const exportStep = {
   targetVrm: 'Ekza avatar · VRM 1.0',
   targetVrmRecommended: '(recommended)',
   targetVrmHint: 'One file for OMOBA and Ekza Space',
+  targetVrm0: 'Ekza avatar · VRM 0.x, kept as it is',
+  targetVrm0Hint:
+    'Your avatar is a VRM 0.x: its animations are baked in and the version stays 0.x, which OMOBA accepts',
   targetGlb: 'GLB with animations',
   targetGlbHint: 'For Unity, Godot, Blender, three.js',
   targetVrma: 'Animations only (.vrma)',
@@ -20,6 +23,16 @@ export const exportStep = {
   noTargets: 'Nothing to export yet: an imported avatar exports with its animations baked in. Add an animation first.',
   noTargetsBecause: (reason: string) => `Nothing to export: ${reason}.`,
   unavailable: (target: string, reason: string) => `${target} is not available: ${reason}.`,
+  leftOutTitle: (clips: number) =>
+    clips === 1
+      ? 'Not in the VRM: 1 animation has no OMOBA slot'
+      : `Not in the VRM: ${clips} animations have no OMOBA slot`,
+  leftOutHint:
+    'The VRM keeps one animation per slot (idle, walk, attack…). Give one a free slot to add it; the GLB and the .vrma files keep every animation.',
+  leftOutAs: (slot: string) => `Add as ${slot}`,
+  leftOutPick: 'Slot…',
+  leftOutPickLabel: (clip: string) => `OMOBA slot for ${clip}`,
+  leftOutNoFree: 'Every slot is taken',
   continueStudio: 'Want to keyframe your own motion?',
   continueStudioLink: 'Continue in Studio',
   // metadata (§5.6.3)
@@ -41,6 +54,7 @@ export const exportStep = {
   resultBlocked: (file: string) => `${file} was not saved`,
   resultSaved: (file: string, size: string | null) => (size === null ? `Saved ${file}` : `Saved ${file} · ${size}`),
   checkHumanoid: 'VRM 1.0 humanoid',
+  checkHumanoidVrm0: 'VRM 0.x humanoid (kept as it is)',
   checkRequiredBones: 'All 15 required bones',
   checkParents: 'Standard bone parents',
   checkTpose: 'T-pose rest',

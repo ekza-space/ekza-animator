@@ -433,6 +433,38 @@ describe('autorig.export: imported avatars (§5.6.1, AS-AR-4)', () => {
     expect(entry['license']).not.toBe('');
   });
 
+  it('a clip without an Ekza name stays out of the VRM bake instead of removing the target (AR-D8-2)', async () => {
+    const t = await meshTestApp();
+    const { character } = await ok<{ character: CharacterId }>(t.app, 'file.importModel', {
+      name: 'seed-san.vrm',
+      bytes: fixture('seed-san.vrm'),
+    });
+    await (t.app.characters as KernelCharacters).settled();
+    const { clip: punch } = await ok<{ clip: string }>(t.app, 'clip.new', { character, name: 'Punch' });
+    await ok(t.app, 'clip.setSettings', { clip: punch, loop: false, range: { start: 0, end: 30 } });
+    await ok(t.app, 'key.set', { target: 'character' });
+    // only the slotless Punch: the VRM waits for a slot, with that reason; VRMA carries it
+    expect(exportTargetProblem(t.app, character, 'ekza-vrm')).toMatch(/give an animation an OMOBA slot first/);
+    expect(availableTargets(t.app, character)).toEqual(['vrma']);
+    const { clip: idle } = await ok<{ clip: string }>(t.app, 'clip.new', { character, name: 'Idle' });
+    await ok(t.app, 'clip.setSettings', { clip: idle, slot: 'idle', loop: true, range: { start: 0, end: 30 } });
+    await ok(t.app, 'key.set', { target: 'character' });
+    // Idle has a slot: the VRM is back, and the bake carries Idle alone (Punch stays out, VRMA keeps both)
+    expect(availableTargets(t.app, character)).toEqual(['ekza-vrm', 'vrma', 'omoba-kit']);
+    const record = t.app.store.get('characters', character)!;
+    expect(fileExportRequest(t.app, record, 'bake-into-model', 'ekza/space-avatar-v1', '').clips).toEqual([idle]);
+    expect(fileExportRequest(t.app, record, 'vrma', null, '').clips).toEqual([punch, idle]);
+    const result = await ok<AutoRigExportResult>(t.app, 'autorig.export', {
+      character,
+      target: 'ekza-vrm',
+      fileName: '',
+    });
+    const json = (await parseGlb(result.artifacts[0]?.bytes as Uint8Array)).json as {
+      animations?: { name?: string }[];
+    };
+    expect((json.animations ?? []).map((animation) => animation.name)).toEqual(['idle']);
+  });
+
   it('a restricted licence: no VRM or kit target, with the reason; VRMA stays (AR-D6-19)', async () => {
     const t = await meshTestApp();
     const { character } = await ok<{ character: CharacterId }>(t.app, 'file.importModel', {

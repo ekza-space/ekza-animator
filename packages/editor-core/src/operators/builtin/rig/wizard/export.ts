@@ -27,6 +27,7 @@ import { EkzaError } from '@ekza-studio/anim-core';
 import { type CharacterId, type CharacterRecord, type ClipRecord, makeVrmMeta, type ReadView } from '@ekza-studio/doc';
 import {
   type CharacterExportRequest,
+  clipExportName,
   type ExportArtifact,
   type ExportRequest,
   exportFileName,
@@ -100,6 +101,22 @@ export function characterClips(view: ReadView, character: CharacterId): readonly
     );
 }
 
+/** An Ekza clip name (ADR 0010 §5; `ekza.slot-name`). */
+const EKZA_CLIP_NAME = /^[a-z][a-z0-9_]{0,31}$/;
+
+/**
+ * Whether a clip goes into the character's Ekza VRM (AR-D8-2): a model character's VRM carries the clips with a slot
+ * (`clips: 'slots'`); an imported avatar's bake carries the clips whose export name (the slot, else the sanitized
+ * name) is an Ekza clip name. Every other clip stays out of the VRM (⑤ lists it with a slot fix) instead of removing
+ * the target; the GLB and VRMA targets carry every clip.
+ */
+export function inEkzaVrm(record: CharacterRecord, clip: ClipRecord): boolean {
+  const slot = (clip.slot ?? '').trim();
+  if (isModelCharacter(record)) return slot !== '';
+  const name = clipExportName(clip);
+  return EKZA_CLIP_NAME.test(name) && name !== 'tpose';
+}
+
 /** The avatar's display name: the VRM meta's name of a model character, else the character's name. */
 export function avatarName(record: CharacterRecord): string {
   const name = isModelCharacter(record) ? (record.vrm?.name ?? '').trim() : '';
@@ -157,7 +174,10 @@ export function fileExportRequest(
   profile: string | null,
   fileName: string,
 ): ExportRequest {
-  const clips = characterClips(app.store, record.id);
+  // The Ekza VRM bake of an imported avatar carries the clips with an Ekza name only (AR-D8-2).
+  const clips = characterClips(app.store, record.id).filter(
+    (clip) => kind !== 'bake-into-model' || profile !== SPACE_PROFILE_ID || inEkzaVrm(record, clip),
+  );
   const reduce = app.prefs.getState().exportReduce;
   const base = exportBase(record, fileName);
   return {
@@ -215,8 +235,12 @@ export function exportTargetProblem(
       ? `${record.name} is a VRM: export it as the Ekza avatar (VRM) or as animations`
       : `${record.name} is not a VRM: export it as a GLB or as animations`;
   }
-  if (characterClips(app.store, record.id).length === 0) {
+  const clips = characterClips(app.store, record.id);
+  if (clips.length === 0) {
     return 'An imported avatar exports with its clips baked in: add an animation first';
+  }
+  if (profile === SPACE_PROFILE_ID && !clips.some((clip) => inEkzaVrm(record, clip))) {
+    return 'An imported avatar exports with its clips baked in: give an animation an OMOBA slot first';
   }
   // Auto-Rig never acknowledges a restricted licence for the user (AR-D6-19): the bake is Studio's Export dialog's
   const runtime = app.characters.get(record.id);

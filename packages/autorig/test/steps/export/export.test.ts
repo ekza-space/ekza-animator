@@ -18,6 +18,7 @@ import {
   mergeRows,
   ruleLabel,
 } from '../../../src/steps/export/labels';
+import { freeSlots, inVrm, leftOutClips, suggestedSlot } from '../../../src/steps/export/leftOut';
 import { formatBytes, glbJsonChunk, measureArtifact } from '../../../src/steps/export/measure';
 import { chooseTarget, currentDownload, recordDownload, shownTarget } from '../../../src/steps/export/slice';
 
@@ -220,6 +221,43 @@ describe('the checklist (§5.6.2)', () => {
     });
     expect(glb.find((item) => item.id === 'tpose')?.state).toBe('warning');
     expect(firstError(glb)).toBeNull();
+  });
+});
+
+describe('honest VRM version and clips left out of the VRM (AR-D8-2, AR-D8-5)', () => {
+  it('an imported VRM 0.x avatar’s humanoid check names the kept version; VRM 1.0 and model characters do not', () => {
+    const label = (vrm0: boolean, model: boolean) =>
+      checklistOf({ target: 'ekza-vrm', modelCharacter: model, vrm0, live: [], written: null, measured: null }).find(
+        (item) => item.id === 'humanoid',
+      )?.label;
+    expect(label(true, false)).toBe('VRM 0.x humanoid (kept as it is)');
+    expect(label(false, false)).toBe('VRM 1.0 humanoid');
+    expect(label(true, true)).toBe('VRM 1.0 humanoid');
+    expect(m.targetVrm0).toContain('VRM 0.x');
+  });
+
+  it('model characters keep slotted clips; imported avatars clips with an Ekza name; the fix suggests a free slot', () => {
+    const clips = [
+      { id: 'c1', name: 'Idle', slot: 'idle' },
+      { id: 'c2', name: 'Sword attack', slot: 'attack' },
+      { id: 'c3', name: 'Punch', slot: null },
+      { id: 'c4', name: 'Jog', slot: null },
+      { id: 'c5', name: 'wave', slot: null },
+      { id: 'c6', name: 'Jump loop', slot: null },
+    ];
+    expect(leftOutClips(true, clips).map((c) => c.id)).toEqual(['c3', 'c4', 'c5', 'c6']);
+    expect(leftOutClips(false, clips).map((c) => c.id)).toEqual(['c3', 'c4', 'c6']);
+    expect(inVrm(false, { id: 'x', name: 'tpose', slot: null })).toBe(false);
+    const free = freeSlots(clips);
+    expect(free).not.toContain('idle');
+    expect(free).not.toContain('attack');
+    expect(free).not.toContain('wave');
+    // Punch would be an attack, which Sword attack holds: the list only; Jog runs; Jump loop jumps
+    expect(suggestedSlot(clips[2]!, free)).toBeNull();
+    expect(suggestedSlot(clips[3]!, free)).toBe('run');
+    expect(suggestedSlot(clips[5]!, free)).toBe('jump');
+    expect(suggestedSlot({ id: 'p', name: 'Punch', slot: null }, freeSlots([]))).toBe('attack');
+    expect(m.leftOutTitle(1)).toBe('Not in the VRM: 1 animation has no OMOBA slot');
   });
 });
 

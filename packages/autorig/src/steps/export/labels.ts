@@ -65,6 +65,8 @@ const HUMANOID: CheckDef = {
   label: () => t().checkHumanoid,
   rules: ['vrm.spec-version', 'vrm.bone-names', 'skel.unique-human-bone', 'skel.unique-names'],
 };
+/** The same check for an imported VRM 0.x avatar, whose bake keeps the version (AR-D8-5). */
+const HUMANOID_VRM0: CheckDef = { ...HUMANOID, label: () => t().checkHumanoidVrm0 };
 const REQUIRED: CheckDef = {
   id: 'required-bones',
   label: () => t().checkRequiredBones,
@@ -144,10 +146,12 @@ const SKELETON: CheckDef = {
 };
 
 /** The checks of a target, in the order the column lists them (§5.6 mock). */
-export function checksOf(target: AutoRigExportTarget, modelCharacter: boolean): readonly CheckDef[] {
+export function checksOf(target: AutoRigExportTarget, modelCharacter: boolean, vrm0 = false): readonly CheckDef[] {
   if (target === 'vrma') return [READ_BACK];
-  if (!modelCharacter)
-    return target === 'glb' ? [READ_BACK] : [HUMANOID, REQUIRED, PARENTS, SIZE, NODES, BONES, EXTENSIONS, READ_BACK];
+  if (!modelCharacter) {
+    if (target === 'glb') return [READ_BACK];
+    return [vrm0 ? HUMANOID_VRM0 : HUMANOID, REQUIRED, PARENTS, SIZE, NODES, BONES, EXTENSIONS, READ_BACK];
+  }
   if (target === 'glb') return [SKELETON, TPOSE, SKINNED, TRANSFORMS, READ_BACK];
   return [
     HUMANOID,
@@ -254,12 +258,14 @@ export function mergeRows(
 export function checklistOf(input: {
   readonly target: AutoRigExportTarget;
   readonly modelCharacter: boolean;
+  /** An imported VRM 0.x avatar (its humanoid check names the kept version, AR-D8-5). */
+  readonly vrm0?: boolean;
   readonly live: readonly ChecklistInputRow[];
   readonly written: readonly ChecklistInputRow[] | null;
   readonly measured: Measured | null;
 }): readonly ChecklistItem[] {
   const rows = mergeRows(input.live, input.written);
-  const defs = checksOf(input.target, input.modelCharacter);
+  const defs = checksOf(input.target, input.modelCharacter, input.vrm0 === true);
   const sortRows = (list: readonly ChecklistInputRow[]) =>
     [...list].sort((a, b) => RANK[a.severity] - RANK[b.severity]);
   const items: ChecklistItem[] = defs.map((def) => {

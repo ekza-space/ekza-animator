@@ -14,7 +14,7 @@ import {
   type RigValidationRow,
 } from '@ekza-studio/editor-core';
 import { buttonClass, cn, RadioGroup, RadioGroupItem } from '@ekza-studio/ui';
-import type { CharacterRecord } from '@ekza-studio/doc';
+import type { CharacterRecord, ClipRecord } from '@ekza-studio/doc';
 import { type JSX, type MouseEvent, useCallback, useEffect, useState } from 'react';
 import { messages } from '../../i18n';
 import { useDocument, useSession, type WizardContext } from '../../shell/context';
@@ -26,6 +26,7 @@ import { exportCharacter } from './enter';
 import { expectedFileName } from './files';
 import { publishToHub } from './hub';
 import { type ChecklistItem, checklistOf, firstError } from './labels';
+import { clipName, freeSlots, leftOutClips, suggestedSlot } from './leftOut';
 import { fileSize, measureArtifact } from './measure';
 import { chooseTarget, currentDownload, recordDownload, shownTarget } from './slice';
 import './strings';
@@ -107,6 +108,10 @@ interface ExportView {
   readonly firstClip: string | null;
   /** Why the recommended target (VRM, or GLB for a glTF avatar) is not offered, or null (§5.6.1, AR-D6-19). */
   readonly unavailable: string | null;
+  /** The exportable clips, in the document's order. */
+  readonly clipRecords: readonly ClipRecord[];
+  /** An imported VRM 0.x avatar: its bake keeps the version (AR-D8-5). */
+  readonly vrm0: boolean;
 }
 
 /** The recommended target of a character: the Ekza avatar, or the GLB for an imported glTF avatar. */
@@ -124,26 +129,15 @@ function unavailableReason(app: EditorApp, record: CharacterRecord | null): stri
   return poll === true ? null : poll.reason;
 }
 
-/** A clip's export name as io writes it (`clipExportName`: the slot, else the sanitized name). */
-const clipName = (clip: { readonly name: string; readonly slot: string | null }): string =>
-  clip.slot !== null && clip.slot.trim() !== ''
-    ? clip.slot.trim()
-    : clip.name
-        .trim()
-        .replace(/[^A-Za-z0-9_.-]+/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_+|_+$/g, '')
-        .slice(0, 64) || 'clip';
-
 function useExportView(ctx: WizardContext): ExportView {
   const { app } = ctx;
   const rigLoaded = useRigLoaded(app);
   const slice = useSession(ctx.session, selectExport);
   const record = useDocument(app, () => exportCharacter(ctx));
   const available = useDocument(app, () => (rigLoaded ? availableTargets(app, record) : []));
-  const exportable = useDocument(app, () =>
+  const clipRecords = useDocument(app, () =>
     record === null
-      ? ''
+      ? []
       : app.store.query
           .clipsOfCharacter(record.id)
           .filter(
@@ -151,11 +145,9 @@ function useExportView(ctx: WizardContext): ExportView {
               clip.deleted === null &&
               clip.source.kind !== 'test' &&
               (clip.source.kind !== 'new' || app.store.list('curves').some((curve) => curve.clip === clip.id)),
-          )
-          .map(clipName)
-          .join('\u0000'),
+          ),
   );
-  const names = exportable === '' ? [] : exportable.split('\u0000');
+  const names = clipRecords.map(clipName);
   const unavailable = useDocument(app, () => (rigLoaded ? unavailableReason(app, record) : null));
   return {
     record,
@@ -165,6 +157,8 @@ function useExportView(ctx: WizardContext): ExportView {
     clips: names.length,
     firstClip: names[0] ?? null,
     unavailable,
+    clipRecords,
+    vrm0: record !== null && !isModelCharacter(record) && record.format === 'vrm0',
   };
 }
 
@@ -182,12 +176,12 @@ const avatarName = (record: CharacterRecord): string =>
 // ---------------------------------------------------------------------------------------------------------------------
 // over the pane: targets, Continue in Studio, metadata
 
-function TargetLabel(props: { readonly target: AutoRigExportTarget }): JSX.Element {
+function TargetLabel(props: { readonly target: AutoRigExportTarget; readonly vrm0?: boolean }): JSX.Element {
   const m = t();
   if (props.target === 'ekza-vrm') {
     return (
       <>
-        {m.targetVrm} <span className="text-fg-3">{m.targetVrmRecommended}</span>
+        {props.vrm0 === true ? m.targetVrm0 : m.targetVrm} <span className="text-fg-3">{m.targetVrmRecommended}</span>
       </>
     );
   }
@@ -198,7 +192,7 @@ function hintOf(target: AutoRigExportTarget, view: ExportView): string {
   const m = t();
   switch (target) {
     case 'ekza-vrm':
-      return m.targetVrmHint;
+      return view.vrm0 ? m.targetVrm0Hint : m.targetVrmHint;
     case 'glb':
       return m.targetGlbHint;
     case 'vrma':
@@ -277,7 +271,7 @@ function Targets(props: { readonly ctx: WizardContext }): JSX.Element {
               <RadioGroupItem
                 key={target}
                 value={target}
-                label={<TargetLabel target={target} />}
+                label={<TargetLabel target={target} vrm0={view.vrm0} />}
                 hint={hintOf(target, view)}
                 className={coarse}
                 data-testid={`ar-export-target-${target}`}
@@ -310,10 +304,87 @@ function Targets(props: { readonly ctx: WizardContext }): JSX.Element {
             {m.unavailable(recommendedOf(view.record) === 'glb' ? m.targetGlb : m.targetVrm, view.unavailable)}
           </p>
         ) : null}
+        {view.record !== null &&
+        recommendedOf(view.record) === 'ekza-vrm' &&
+        (view.target === null ||
+          view.target === 'ekza-vrm' ||
+          view.target === 'omoba-kit' ||
+          view.unavailable !== null) ? (
+          <LeftOut ctx={ctx} model={view.model} clips={view.clipRecords} />
+        ) : null}
         <ContinueInStudio ctx={ctx} />
         {meta && view.record !== null ? <AboutAvatar ctx={ctx} character={view.record.id} /> : null}
       </section>
     </div>
+  );
+}
+
+/**
+ * The clips the VRM leaves out (AR-D8-2): each with its fix — the suggested free slot in one click, or any free slot
+ * from the list (`clip.setSettings`, one undo step). The GLB and the .vrma keep every clip.
+ */
+function LeftOut(props: {
+  readonly ctx: WizardContext;
+  readonly model: boolean;
+  readonly clips: readonly ClipRecord[];
+}): JSX.Element | null {
+  const { ctx, clips } = props;
+  const m = t();
+  const out = leftOutClips(props.model, clips);
+  if (out.length === 0) return null;
+  const free = freeSlots(clips);
+  const setSlot = (clip: ClipRecord, slot: string): void => {
+    void ctx.run('clip.setSettings', { clip: clip.id, slot });
+  };
+  return (
+    <section className="flex flex-col gap-1.5 border-t border-line pt-3" data-testid="ar-export-left-out">
+      <p className="font-semibold text-warn">{m.leftOutTitle(out.length)}</p>
+      <p className="text-ui-dense text-fg-2">{m.leftOutHint}</p>
+      <ul className="flex flex-col gap-1">
+        {out.map((clip) => {
+          const suggested = suggestedSlot(clip, free);
+          return (
+            <li
+              key={clip.id}
+              className="flex flex-wrap items-center gap-2"
+              data-testid={`ar-export-left-out-${clip.id}`}
+            >
+              <span className="min-w-0 flex-1 truncate">{clip.name}</span>
+              {suggested === null ? null : (
+                <button
+                  type="button"
+                  className={cn(buttonClass('default', 'sm'), coarse)}
+                  data-testid={`ar-export-left-out-as-${clip.id}`}
+                  onClick={() => setSlot(clip, suggested)}
+                >
+                  {m.leftOutAs(suggested)}
+                </button>
+              )}
+              {free.length === 0 ? (
+                <span className="text-fg-3">{m.leftOutNoFree}</span>
+              ) : (
+                <select
+                  className="h-7 min-w-0 rounded-field border border-line bg-field px-1 text-fg pointer-coarse:h-11"
+                  aria-label={m.leftOutPickLabel(clip.name)}
+                  value=""
+                  data-testid={`ar-export-left-out-slot-${clip.id}`}
+                  onChange={(e) => {
+                    if (e.target.value !== '') setSlot(clip, e.target.value);
+                  }}
+                >
+                  <option value="">{m.leftOutPick}</option>
+                  {free.map((slot) => (
+                    <option key={slot} value={slot}>
+                      {slot}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
@@ -495,6 +566,7 @@ function Panel(props: { readonly ctx: WizardContext }): JSX.Element {
       : checklistOf({
           target,
           modelCharacter: view.model,
+          vrm0: view.vrm0,
           live: target === 'vrma' ? EMPTY_ROWS : live,
           written,
           measured,
