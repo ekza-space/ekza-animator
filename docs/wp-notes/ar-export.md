@@ -102,3 +102,29 @@ Run in this worktree on local Chrome (GPU), `EKZA_E2E_PORT=3167`, never the Swif
 - E2E-AR-07: `ar-07-export-vrm.spec.ts` 3 passed, `ar-07-export-targets.spec.ts` 4 passed + 1 fixme.
 - Local OMOBA admission (not in `ci`): `node tooling/omoba-validate.mjs` on the kept exports → exit 0, "Compatible
   local humanoid: VRM 1.0, 35 nodes, 33 semantic bones, 2 scene-0 roots" for the Cube Lad and the textured Polybot.
+
+### Fix round 1 (review of `8e5b4c1`)
+
+- **Major, fixed (AR-D6-16):** an `Ekza …` avatar's kit got the slug `ekza-bot`, which OMOBA's roster loader skips. The
+  slug is now `studio-ekza-bot`. io tests cover `Ekza Bot`, `ekza`, the 64-character cap and idempotence;
+  editor-core checks the kit's file, its files and its entry; E2E-AR-07 renames the kit avatar to `Ekza Bot` and
+  checks the hint and the saved kit. `expectOmobaEntry` now also refuses an `ekza-` slug and an empty licence.
+- **Minor, fixed:** a real post-write byte lint is now under test. A hand 2,000 km out produces
+  `vrm.translation-range` on both the VRM and the kit: nothing is saved, the error is toasted and the document is
+  unchanged. The UI half is covered by the pure `currentDownload`: the byte row is an error and disables Download
+  until the document version changes (autorig unit test). Seed-san's own non-uniform node scales are a second real
+  byte lint (`vrm.uniform-scale`) that blocks its Space bake.
+- **Minor, fixed (AR-D6-17, AR-D6-18, AR-D6-19):** non-Latin names get a hashed slug. An imported VRM's kit carries
+  its thumbnail and a non-empty licence. A restricted licence names its reason in the step.
+- **Open, unchanged:** the AS-AR-6 texture is still a `fixme` (a C10 writer gap, for D7 or the C10 owner).
+  `/autorig` is over its reported gate (D7). The A-pose to T-pose path must be verified after the A0/D4 merge (D7).
+- **Gates at `811d470`**, local Chrome GPU, `EKZA_E2E_PORT=3167 pnpm run ci`:
+  - Passed: format:check, lint, typecheck, check:deps, check:fixtures, check:licenses.
+  - test: 16/16 turbo tasks. A first run hit io `project.test.ts` with a timeout under load average 216; it passes
+    alone and in the rerun.
+  - Clean build passed.
+  - check:size: `/editor` is **896,387 B**, with an AR-B1 eager delta of +699 B (pass). `/autorig` is 670,747 B,
+    reported only.
+  - test:e2e: 286 passed, 25 skipped and 2 failed: E2E-MOD-14 (autosave timeout) and SHADING-01, under load average
+    about 445. Neither touches D6. Rerun alone, both pass (2/2).
+  - E2E-AR-07 in the full run: export-vrm 3/3, export-targets 4 passed and 1 fixme. ar-00 passed 3/3.
