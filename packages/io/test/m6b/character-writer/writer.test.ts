@@ -493,7 +493,7 @@ describe('the thumbnail of an imported textured model (AR-D8-1)', () => {
     expect(g).toBe(b);
     const greyOnly = pngPixels(
       renderCharacterThumbnail(
-        write.meshes.map((mesh) => ({ ...mesh, assetMaterials: undefined })),
+        write.meshes.map(({ assetMaterials: _dropped, ...mesh }) => mesh),
         write.palettes,
         64,
       ),
