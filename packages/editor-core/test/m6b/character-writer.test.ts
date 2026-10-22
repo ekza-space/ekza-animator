@@ -13,7 +13,7 @@ import {
   type MeshId,
   type SkeletonId,
 } from '@ekza-studio/doc';
-import { type CharacterReadBack, type ExportArtifact, parseGlb, pngSize } from '@ekza-studio/io';
+import { type CharacterReadBack, type ExportArtifact, parseGlb, pngSize, readVrmLicense } from '@ekza-studio/io';
 import { type SkinWeights, withSkin } from '@ekza-studio/mesh-core';
 import { describe, expect, it } from 'vitest';
 import type { EditorApp } from '../../src';
@@ -251,6 +251,22 @@ describe('file.exportCharacter (§6.4)', () => {
     // An explicit list exports that clip; a test clip is never exported.
     const [listed] = await ok<ExportArtifact[]>(t.app, 'file.exportCharacter', { clips: [clip] });
     expect(listed?.sha256).toBe(artifact?.sha256);
+  });
+
+  it('round trip: File › Open of the exported VRM keeps the CC0 intent and the looping slot clip (acceptance fix)', async () => {
+    const { t, character } = await readyLad();
+    await idleClip(t.app, character);
+    const [artifact] = await ok<ExportArtifact[]>(t.app, 'file.exportCharacter', {});
+    const bytes = artifact?.bytes as Uint8Array;
+    // The licence the Import dialog summarises: the CC0 deed of otherLicenseUrl, not the VRM-PL licenseUrl.
+    expect(readVrmLicense(await parseGlb(bytes))).toMatchObject({ licenseName: 'CC0-1.0' });
+    // The animation is named by its slot ('idle', no "loop" in it): the loop flag comes from ekza_animation_v1.
+    const imported = await ok<{ character: CharacterId; clips: string[] }>(t.app, 'file.importModel', {
+      name: 'Cube_Lad.vrm',
+      bytes,
+    });
+    expect(imported.clips).toHaveLength(1);
+    expect(t.app.store.get('clips', imported.clips[0] as never)).toMatchObject({ name: 'idle', loop: true });
   });
 
   it('the VRM meta rows gate the Space profile: errors block the download; local/generic exports', async () => {

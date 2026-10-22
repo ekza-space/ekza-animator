@@ -5,6 +5,7 @@ import { readEmbeddedAvatarHeightScale } from '../src/gltf/ekzaMeta';
 import { detectModelFormat, readVrmLicense } from '../src/gltf/format';
 import { importProvenance } from '../src/gltf/provenance';
 import { makeGlb } from '../src/testing/glb';
+import { CC_BY_DEED_URL, CC0_DEED_URL, VRM_LICENSE_URL } from '../src/vrm/meta';
 import type { GltfJson } from '../src/types';
 
 const asJson = (value: object): GltfJson => ({ asset: { version: '2.0' }, ...value });
@@ -53,6 +54,40 @@ describe('readVrmLicense', () => {
       creditNotation: 'required',
       licenseName: 'LicenseRef-VRM-PL-1.0',
     });
+  });
+
+  it('reads the CC deed of a VRM 1.0 otherLicenseUrl (our CC0 / CC BY presets) over the VRM-PL licenseUrl', async () => {
+    const vrm1 = (otherLicenseUrl: string | undefined) =>
+      parseGlb(
+        makeGlb(
+          {
+            asset: { version: '2.0' },
+            extensions: {
+              VRMC_vrm: {
+                specVersion: '1.0',
+                meta: {
+                  name: 'Bruno',
+                  authors: ['Tester'],
+                  licenseUrl: VRM_LICENSE_URL,
+                  ...(otherLicenseUrl === undefined ? {} : { otherLicenseUrl }),
+                },
+              },
+            },
+          },
+          null,
+        ),
+      );
+    expect(readVrmLicense(await vrm1(CC0_DEED_URL))).toMatchObject({
+      licenseUrl: CC0_DEED_URL,
+      licenseName: 'CC0-1.0',
+    });
+    expect(readVrmLicense(await vrm1(CC_BY_DEED_URL))).toMatchObject({ licenseName: 'CC-BY-4.0' });
+    // Any other deed (or none) keeps the VRM Public License reading.
+    expect(readVrmLicense(await vrm1('https://example.com/my-licence'))).toMatchObject({
+      licenseUrl: VRM_LICENSE_URL,
+      licenseName: 'LicenseRef-VRM-PL-1.0',
+    });
+    expect(readVrmLicense(await vrm1(undefined))).toMatchObject({ licenseName: 'LicenseRef-VRM-PL-1.0' });
   });
 
   it('returns null for plain glTF and maps restrictive VRM 0.x licences', async () => {

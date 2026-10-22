@@ -32,7 +32,13 @@ import { type ClipWritePlan, planEmptyClip, planImportedClip, resolveClipOptions
 import { type Progress, yieldToHost } from './host';
 import { importLimbWarnings } from './ik';
 import { baseName, extensionOf, numberedName, sanitizeClipName, uniqueName } from './names';
-import { clipProvenance, isRestrictedLicense, type KnownLicense, sourceProvenance } from './provenance';
+import {
+  clipProvenance,
+  embeddedEkzaLoop,
+  isRestrictedLicense,
+  type KnownLicense,
+  sourceProvenance,
+} from './provenance';
 import { cameraRecord, characterRecord, DEFAULT_CLIP_RANGE, orderAfter, projectRecord } from './records';
 import { activateClip, EMPTY_SELECTION, sceneFpsIn } from './session';
 import { maxChannelKeys } from './util';
@@ -251,7 +257,7 @@ export async function prepareModelImport(app: EditorApp, input: ModelImportInput
           id: newRecordId(app, 'clip'),
           character: characterId,
           name,
-          loop: /loop/i.test(raw.name),
+          loop: embeddedEkzaLoop(container, raw.index) ?? /loop/i.test(raw.name),
           provenance: clipProvenance(source, [raw.name, ...nodeNames]),
           source: { kind: 'embedded', asset: asset.id, animationIndex: raw.index, animationName: raw.name },
         },

@@ -89,6 +89,21 @@ export function isRestrictedLicense(license: VrmLicenseInfo | null): boolean {
 const REDISTRIBUTABLE: ReadonlySet<string> = new Set(['yes', 'no', 'unknown']);
 
 /**
+ * The loop flag the editor recorded for glTF animation `index` in a file it wrote (`asset.extras.ekza_animation_v1`,
+ * the entry whose `index` field matches), or null when the file carries none: the exported animation is named by its
+ * slot ("walk"), so the `/loop/i` name rule alone loses a looping clip's flag on a round trip.
+ */
+export function embeddedEkzaLoop(container: GlbContainer, index: number): boolean | null {
+  const extras = container.json.asset.extras;
+  const meta = isRecord(extras) ? extras['ekza_animation_v1'] : undefined;
+  if (!isRecord(meta) || !Array.isArray(meta['clips'])) return null;
+  const clip: unknown = (meta['clips'] as readonly unknown[]).find(
+    (entry) => isRecord(entry) && entry['index'] === index,
+  );
+  return isRecord(clip) && typeof clip['loop'] === 'boolean' ? clip['loop'] : null;
+}
+
+/**
  * Provenance recorded by the editor in a file it wrote (`asset.extras.ekza_animation_v1`): the entry of the glTF
  * animation `index` (its `index` field), or the first entry when `index` is omitted (a VRMA holds one clip). Null
  * when the file carries none for that animation or it is malformed.
