@@ -11,6 +11,7 @@ import type { Disposer } from '@ekza-studio/anim-core';
 import type { CharacterId, JointId } from '@ekza-studio/doc';
 import { cancelChannelEditGestures } from '../../edit/channels';
 import { registerChannelEditRedirect } from '../../evaluation/rigSource';
+import { hasBoundMesh, setRigMode } from '../../operators/builtin/rig/mode';
 import { ownerOfControl } from '../../session/location';
 import type { EditorApp, PoseView, TestPoseService } from '../../types';
 import { beginTestPoseGesture } from '../testPose/gesture';
@@ -79,6 +80,18 @@ export function startRigWorkspace(
     const character = activeCharacter(app);
     if (state.rig.character !== character) app.session.setState({ rig: { ...state.rig, character } });
   };
+  // A mode whose subject is gone (an undo past Create Skeleton or Bind Skin, a deleted character) falls back to Object,
+  // so the toolbar, the HUD badge and the pick mask never show Joint or Skin mode on nothing (acceptance fix). Run on
+  // committed document changes only: Create Skeleton and Bind Skin enter their mode inside the transaction.
+  const fallBackMode = (): void => {
+    const { rig } = app.session.getState();
+    if (rig.mode === 'skeleton' || rig.mode === 'shape') {
+      const skeleton = rig.character === null ? undefined : app.store.query.skeletonOfCharacter(rig.character);
+      if (skeleton === undefined || skeleton.deleted !== null) setRigMode(app, 'object');
+    } else if (rig.mode === 'skin' && (rig.character === null || !hasBoundMesh(app))) {
+      setRigMode(app, 'object');
+    }
+  };
   const enter = (): void => {
     inRig = true;
     applyPoseView(app, 'bind');
@@ -112,7 +125,9 @@ export function startRigWorkspace(
       if (state.workspace === 'rig' && state.selection !== previous.selection) syncCharacter();
     }),
     app.store.subscribe(() => {
-      if (inRig) syncCharacter();
+      if (!inRig) return;
+      syncCharacter();
+      fallBackMode();
     }),
     app.characters.subscribe((event) => {
       if (!inRig || event.type !== 'added') return;

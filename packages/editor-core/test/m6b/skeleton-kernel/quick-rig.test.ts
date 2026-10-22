@@ -65,6 +65,19 @@ describe('skel.quickRig.commit (Create Skeleton)', () => {
     expect(t.app.store.get('meshes', t.lad)).toBeDefined();
   });
 
+  it('undo past Create Skeleton in Rig & Skin: Skeleton mode falls back to Object (no character left)', async () => {
+    const t = await rigTestApp();
+    expect((await t.app.runUntyped('workspace.set', { workspace: 'rig' })).status).toBe('finished');
+    expect((await t.app.runUntyped('skel.quickRig.commit', commitArgs([t.lad]))).status).toBe('finished');
+    expect(t.app.session.getState().rig.mode).toBe('skeleton');
+    expect((await t.app.runUntyped('edit.undo')).status).toBe('finished');
+    expect(charactersOf(t.app)).toEqual([]);
+    expect(t.app.session.getState().rig).toMatchObject({ mode: 'object', character: null });
+    // Redo brings the character back; the mode stays Object until the user picks one (U state).
+    expect((await t.app.runUntyped('edit.redo')).status).toBe('finished');
+    expect(charactersOf(t.app)).toHaveLength(1);
+  });
+
   it('a side-view elbow depth (bend ≥ θ) survives Create Skeleton bit-equal; the left elbow mirrors it', async () => {
     const t = await rigTestApp();
     const elbow = [-0.48, 1.31, -0.02] as const;

@@ -163,6 +163,31 @@ describe('skin.bind (§5.9)', () => {
     expect(last.targets).toEqual([f.mesh]);
   });
 
+  it('§0.2 step 7: Bind Skin opens Skin mode; a masked run keeps the mode; undo falls back to Object', async () => {
+    const f = await bodyCharacter();
+    await f.app.runUntyped('workspace.set', { workspace: 'rig' });
+    expect(f.app.session.getState().workspace).toBe('rig');
+    const mode = (): string => f.app.session.getState().rig.mode;
+    expect(mode()).toBe('object');
+    await f.app.runUntyped('skin.bind', {});
+    expect(mode()).toBe('skin');
+    expect(f.app.session.getState().tools.viewport).toBe(
+      f.app.tools.get('viewport', 'paintSkinWeights') === undefined ? 'select' : 'paintSkinWeights',
+    );
+    // The Last-op card of Bind Skin stays open (Bind Skin belongs to Skin mode, §5.24).
+    expect(f.app.session.getState().lastRun?.closed ?? null).toBeNull();
+    await f.app.runUntyped('rig.mode', { mode: 'skeleton' });
+    expect((await f.app.runUntyped('skin.bind', { points: [0, 1, 2] })).status).toBe('finished');
+    expect(mode()).toBe('skeleton');
+    // Undo past the binds: Skin mode has nothing to show, so a later Skin mode falls back to Object.
+    await f.app.runUntyped('rig.mode', { mode: 'skin' });
+    await f.app.runUntyped('edit.undo');
+    expect(mode()).toBe('skin');
+    await f.app.runUntyped('edit.undo');
+    expect(f.app.store.get('meshes', f.mesh)?.skin).toBeNull();
+    expect(mode()).toBe('object');
+  });
+
   it('P-S5 through the operator: the bound manifest equals a direct bindSkin run on the same input', async () => {
     const f = await bodyCharacter('segmented');
     const before = dataOf(f.app, f.mesh);
