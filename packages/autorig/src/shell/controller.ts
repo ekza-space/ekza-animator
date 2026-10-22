@@ -94,9 +94,10 @@ export function createWizard(host: HostShell): Wizard {
     // A Studio hand-over of another subject starts fresh at ① with the From Studio card (the mirror is another's).
     if (handed !== null && mirror !== null && !sameSubject(handed, mirror.subject)) mirror = null;
     if (mirror !== null) session.load(restored(mirror));
+    // `from=studio` of this arrival (a client navigation: the host's params are the first page load's)
+    const fromParam = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('from');
     const fromStudio =
-      handed ??
-      (host.params.from === 'studio' && mirror === null && !documentEmpty(app) ? subjectFromDocument(app) : null);
+      handed ?? (fromParam === 'studio' && mirror === null && !documentEmpty(app) ? subjectFromDocument(app) : null);
     ui.set({ fromStudio, pendingStep: query.step ?? mirror?.step ?? null });
   };
 
@@ -213,15 +214,17 @@ export function createWizard(host: HostShell): Wizard {
       };
       takeHandoff();
 
-      // the pending step: taken once reachable; while the document is empty (a reload before Continue) it waits
+      // the pending step: taken once reachable. At the arrival a document that cannot reach it lands on the furthest
+      // reachable step; an empty one (a reload before Continue, a sample still loading) lets it wait.
       const settle = (): void => {
         takeHandoff();
         const pending = ui.get().pendingStep;
-        if (pending === null) return;
-        const p = progress();
-        if (p.reachable[pending]) go(pending);
-        else if (!documentEmpty(app)) go(landingStep(p, pending));
+        if (pending !== null && progress().reachable[pending]) go(pending);
       };
+      const initial = ui.get().pendingStep;
+      if (first && initial !== null && !progress().reachable[initial] && !documentEmpty(app)) {
+        go(landingStep(progress(), initial));
+      }
       disposers.push(this.progressStore.subscribe(settle));
       settle();
 

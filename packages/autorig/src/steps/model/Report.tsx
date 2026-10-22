@@ -11,7 +11,7 @@ import { useSmall } from '../../shell/store';
 import type { AutoRigSession } from '../../types';
 import { FIX_LABEL, transformsUniform } from './checks';
 import { applyFix, takeFromStudio } from './fixes';
-import { subjectMeshes } from './flow';
+import { reinspect, subjectMeshes } from './flow';
 import { separateMeshes, setPart } from './parts';
 
 const t = (): ReturnType<typeof messages>['model'] => messages().model;
@@ -174,7 +174,14 @@ export function Report(props: { readonly ctx: WizardContext; readonly report: In
             const ticked = (model.parts ?? report.meshes).includes(id);
             return (
               <label key={id} className="flex items-center gap-2 pointer-coarse:min-h-11" data-part={id}>
-                <input type="checkbox" checked={ticked} onChange={(e) => setPart(ctx, id, e.currentTarget.checked)} />
+                <input
+                  type="checkbox"
+                  checked={ticked}
+                  onChange={(e) => {
+                    setPart(ctx, id, e.currentTarget.checked);
+                    void reinspect(ctx);
+                  }}
+                />
                 <span className="flex-1 truncate">{ctx.app.store.get('meshes', id)?.name ?? id}</span>
                 {separate.has(id) ? <span className="text-fg-3">{m.looksSeparate}</span> : null}
               </label>

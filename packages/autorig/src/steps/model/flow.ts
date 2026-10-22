@@ -14,6 +14,8 @@ import { defaultParts } from './parts';
 /** ①'s transient UI state (per wizard): what is loading, a skinned file waiting for Re-rig, a project's characters. */
 export interface ModelUi {
   readonly loading: string | null;
+  /** The last failure of a ① action (shown in the footer until the next one). */
+  readonly error: string | null;
   readonly rerig: { readonly name: string; readonly bytes: Uint8Array } | null;
   readonly choose: readonly CharacterId[] | null;
 }
@@ -23,7 +25,7 @@ const uis = new WeakMap<WizardContext['session'], SmallStore<ModelUi>>();
 export function modelUi(ctx: Pick<WizardContext, 'session'>): SmallStore<ModelUi> {
   let store = uis.get(ctx.session);
   if (store === undefined) {
-    store = smallStore<ModelUi>({ loading: null, rerig: null, choose: null });
+    store = smallStore<ModelUi>({ loading: null, error: null, rerig: null, choose: null });
     uis.set(ctx.session, store);
   }
   return store;
@@ -57,7 +59,7 @@ function takeReport(ctx: WizardContext, report: IntakeReport, subject: AutoRigSu
     ctx.session.patch('model', { parts });
     ctx.session.set({ subject: { character: null, meshes: parts } });
   }
-  modelUi(ctx).set({ loading: null, rerig: null, choose: null });
+  modelUi(ctx).set({ loading: null, error: null, rerig: null, choose: null });
   ctx.setFooter({});
 }
 
@@ -74,6 +76,8 @@ async function afterIntake(ctx: WizardContext, report: IntakeReport, before: Rea
   switch (report.kind) {
     case 'static':
       takeReport(ctx, report, { character: null, meshes: report.meshes });
+      // §6.1: the checks are the ticked parts' (a sword on the floor is not part of the body)
+      if (report.meshes.length > 1) await reinspect(ctx);
       return;
     case 'vrm':
     case 'rigged-humanoid': {
@@ -91,7 +95,7 @@ async function afterIntake(ctx: WizardContext, report: IntakeReport, before: Rea
       if (characters.length > 1) {
         ctx.session.resetSubject({ character: null, meshes: [] });
         ctx.session.set({ intake: report });
-        ui.set({ loading: null, rerig: null, choose: characters });
+        ui.set({ loading: null, error: null, rerig: null, choose: characters });
         return;
       }
       if (characters.length === 1) {
@@ -116,7 +120,7 @@ export async function runIntake(
   const ui = modelUi(ctx);
   if (ui.get().loading !== null) return null;
   if (fresh && !(await startFresh(ctx))) return null;
-  ui.set((current) => ({ ...current, loading: label, rerig: null, choose: null }));
+  ui.set((current) => ({ ...current, loading: label, error: null, rerig: null, choose: null }));
   ctx.setFooter({ status: messages().model.loading(label), tone: 'info' });
   try {
     // ① works in Rig & Skin (§4.2): the switch loads the rig-workspace chunk with the first file or sample.
@@ -124,7 +128,8 @@ export async function runIntake(
     const before = new Set<string>(ctx.app.store.list('characters').map((character) => character.id));
     const result = await ctx.run(op, args);
     if (result.status !== 'finished') {
-      ui.set((current) => ({ ...current, loading: null }));
+      const error = result.status === 'failed' ? result.error.message : result.reason;
+      ui.set((current) => ({ ...current, loading: null, error }));
       return null;
     }
     const report = result.value as IntakeReport;
@@ -166,6 +171,7 @@ export async function reinspect(ctx: WizardContext): Promise<IntakeReport | null
           kind: previous.kind,
           fileName: previous.fileName ?? report.fileName,
           bytes: previous.bytes ?? report.bytes,
+          meshes: previous.meshes.length > 0 ? previous.meshes : report.meshes,
         };
   ctx.session.set({
     intake: kept,

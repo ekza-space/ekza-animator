@@ -36,14 +36,19 @@ export async function applyFix(ctx: WizardContext, fix: AutoRigFix, height?: num
   const meshes = subjectMeshes(ctx);
   if (meshes.length === 0) return;
   await enterWorkspace(ctx.app, 'model');
+  modelUi(ctx).set((current) => ({ ...current, error: null }));
   const result = await ctx.run('autorig.fix', { fix, meshes, ...(height === undefined ? {} : { height }) });
   if (result.status === 'finished') await reinspect(ctx);
+  else {
+    const error = result.status === 'failed' ? result.error.message : result.reason;
+    modelUi(ctx).set((current) => ({ ...current, error }));
+  }
 }
 
 /** §3.4, §5.2 From Studio: the handed subject becomes the wizard's ("Use these"); never replaces anything. */
 export async function takeFromStudio(ctx: WizardContext, subject: AutoRigSubject): Promise<void> {
   ctx.session.resetSubject(subject);
-  modelUi(ctx).set({ loading: null, rerig: null, choose: null });
+  modelUi(ctx).set({ loading: null, error: null, rerig: null, choose: null });
   await enterWorkspace(ctx.app, 'model');
   if (subject.character === null && subject.meshes.length > 0) {
     await ctx.app.rig.load();
@@ -56,5 +61,5 @@ export function chooseCharacter(ctx: WizardContext, character: CharacterId): voi
   const intakeReport = ctx.session.getState().intake;
   ctx.session.resetSubject({ character, meshes: [] });
   if (intakeReport !== null) ctx.session.set({ intake: intakeReport });
-  modelUi(ctx).set({ loading: null, rerig: null, choose: null });
+  modelUi(ctx).set({ loading: null, error: null, rerig: null, choose: null });
 }

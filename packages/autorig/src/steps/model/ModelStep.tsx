@@ -124,9 +124,9 @@ function Overlay(props: { readonly ctx: WizardContext }): JSX.Element {
   const { ctx } = props;
   const m = t();
   const ui = useSmall(modelUi(ctx));
-  const subject = useSession(ctx.session, selectSubject);
   const intake = useSession(ctx.session, selectIntake);
-  const loaded = subject.character !== null || subject.meshes.length > 0;
+  // the document's subject, not the session's ids (an undone import, or a reload before Continue)
+  const loaded = useProgress(ctx).done.model;
   if (ui.loading !== null) {
     return (
       <div className="pointer-events-none absolute inset-0 grid place-items-center">
@@ -215,10 +215,11 @@ function Panel(props: { readonly ctx: WizardContext }): JSX.Element | null {
   const intake = useSession(ctx.session, selectIntake);
   const subject = useSession(ctx.session, selectSubject);
   const handed = useSmall(ctx.ui, selectFromStudio);
+  const loaded = useProgress(ctx).done.model;
   const name = useDocument(ctx.app, () =>
     subject.character === null ? null : (ctx.app.store.get('characters', subject.character)?.name ?? null),
   );
-  const report = intake !== null && intake.kind !== 'rigged-other' ? intake : null;
+  const report = loaded && intake !== null && intake.kind !== 'rigged-other' ? intake : null;
   return (
     <div className="flex flex-col gap-3">
       {report === null && name !== null ? <p data-testid="ar-subject-character">{name}</p> : null}
@@ -255,14 +256,21 @@ function useModelFooter(ctx: WizardContext): void {
       status:
         ui.loading !== null
           ? m.loading(ui.loading)
-          : !progress.done.model
-            ? m.hintLoad
-            : asset
-              ? m.hintVrm
-              : intake !== null && firstFix(intake, uniform) !== null
-                ? m.hintFix(FIX_LABEL[firstFix(intake, uniform) as AutoRigFix]())
-                : m.hintReady,
-      tone: intake !== null && !asset && firstFix(intake, uniform) !== null ? 'warning' : 'info',
+          : ui.error !== null
+            ? ui.error
+            : !progress.done.model
+              ? m.hintLoad
+              : asset
+                ? m.hintVrm
+                : intake !== null && firstFix(intake, uniform) !== null
+                  ? m.hintFix(FIX_LABEL[firstFix(intake, uniform) as AutoRigFix]())
+                  : m.hintReady,
+      tone:
+        ui.loading === null && ui.error !== null
+          ? 'error'
+          : intake !== null && !asset && firstFix(intake, uniform) !== null
+            ? 'warning'
+            : 'info',
       primary: {
         label: f.next(asset ? f.stepAnimations : f.stepMarkers),
         disabled: ui.loading !== null || !progress.reachable[target],
@@ -281,7 +289,7 @@ function useModelFooter(ctx: WizardContext): void {
       },
     };
     ctx.setFooter(footer);
-  }, [ctx, step, intake, model.heavyConfirmed, subject, ui.loading, progress, uniform]);
+  }, [ctx, step, intake, model.heavyConfirmed, subject, ui.loading, ui.error, progress, uniform]);
 }
 
 /** Re-reads the report when the document changes under ① (an undo of a fix, an edit in Studio's palette). */
