@@ -92,14 +92,17 @@ source has its page (fix round 1), else when `server/app/autorig.html` exists; `
   the First-run loader copied into an Auto-Rig chunk sorting after every editor chunk (and into an orphan chunk) leaves
   `/editor`'s total, eager bytes and first-visit group unchanged; the host's shell loader copied into a later chunk
   still promotes the shell. Both fail on the previous reader. Real production build: unchanged (`/editor` 895,732 B,
-  first visit 6,854 B, 82 lazy groups; `/autorig` 134,011 B).
+  first visit 6,854 B, 82 lazy groups; `/autorig` 134,011 B). The e2e build (most loaders duplicated) now measures
+  `/editor` at 896,680 B with the First-run group (6,854 B) and 82 lazy groups.
 - **Stale e2e `.next` under a production label (minor).** The e2e webServer builds into the same `.next`; a repeat
   `pnpm run ci` restored the cached production build on top (turbo restores outputs without deleting extra files), and
   `check:size` measured the mix as "e2e build: not compared", skipping the enforced AR-B1 gate. Two changes:
   `pnpm run ci` runs `pnpm --filter web clean:next` (new `apps/web/scripts/clean-next.mjs`: removes every `.next` entry
   except Turbopack's `cache`) right before `pnpm run build`; and `isE2eBuild` throws "mixes two builds" when
   `server/app/e2e/vrma-check.html` exists but the build's own `app-paths-manifest.json` does not list
-  `/e2e/vrma-check/page`, so a mixed tree fails instead of being measured. A separate e2e `distDir` was rejected: Next
+  `/e2e/vrma-check/page`, so a mixed tree fails instead of being measured. Checked on the real tree: after the e2e
+  suite, `pnpm run build` (turbo cache hit) without `clean:next` makes `check:size` fail with "mixes two builds";
+  `clean:next` + the same cache hit measures 895,732 B, enforced. A separate e2e `distDir` was rejected: Next
   rewrites the tracked `next-env.d.ts` and the type paths for another distDir.
 - **`/autorig` silently skipped (minor).** `checkRoutes` takes `appDir`; a route whose `page.tsx` is in the app source
   (route groups included, `page.dev.tsx` excluded: `hasSourcePage`) is required, and a build without its prerendered
