@@ -137,7 +137,9 @@ export function startRigWorkspace(
     library = app.library.service.subscribe(check);
     check();
   };
-  disposers.push(app.session.subscribe(watchLibrary), () => library?.());
+  // The chunk can load without a session change (a `library.preview` run loads it and starts playing at once): the
+  // preview's frames reach the evaluation service, so its notifications attach the watcher while the clip plays (INT).
+  disposers.push(app.session.subscribe(watchLibrary), app.evaluation.subscribe(watchLibrary), () => library?.());
   if (app.session.getState().workspace === 'rig') enter();
   return () => {
     for (const dispose of disposers.splice(0).reverse()) dispose();

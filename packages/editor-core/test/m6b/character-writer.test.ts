@@ -267,9 +267,9 @@ describe('file.exportCharacter (§6.4)', () => {
       ['vrm.thumbnail-square', 'warning'],
     ]);
     expect(gating('local/generic')).toEqual([]);
-    expect(
-      characterExportRows(t.app, character, 'local/generic', 'vrm').every((r) => r.code.startsWith('skin.')),
-    ).toBe(true);
+    expect(characterExportRows(t.app, character, 'local/generic', 'vrm').every((r) => r.code.startsWith('skin.'))).toBe(
+      true,
+    );
     const [blocked] = await ok<ExportArtifact[]>(t.app, 'file.exportCharacter', {});
     expect(blocked?.lints.filter((l) => l.severity === 'error').map((l) => l.code)).toEqual([
       'vrm.meta-required',
