@@ -4,9 +4,11 @@
 // the template select, Cancel and leaving the workspace; the off-centre Cube Lad: the centre notice until Center and
 // Ground (one step), then the guess runs; a re-run seeds the markers from the joints, locks the preset and refits in
 // place.
-import type { MeshId, SkeletonId } from '@ekza-studio/doc';
+import type { CharacterId, MeshId, RigId, SkeletonId } from '@ekza-studio/doc';
+import { makeTestAsset, makeTestCharacter, makeTestRig } from '@ekza-studio/doc/testing';
 import { describe, expect, it } from 'vitest';
 import {
+  ASSET_CHARACTER_REFUSAL,
   closeQuickRig,
   nextMissingMarker,
   QUICK_RIG_MARKERS,
@@ -16,7 +18,7 @@ import {
   setQuickRigMarker,
 } from '../../../src';
 import { CHECK_REASONS, quickRigFit } from '../../../src/operators/builtin/rig/quickRig';
-import { PRESET_LOCKED } from '../../../src/operators/builtin/rig/quickRigSession';
+import { PRESET_LOCKED, quickRigStartBlock } from '../../../src/operators/builtin/rig/quickRigSession';
 import { charactersOf, cubeLadTruth, ladMeshes, type RigTestApp, rigTestApp } from '../skeleton-kernel/support';
 
 const H = 1.7;
@@ -73,6 +75,32 @@ describe('skel.quickRig.start (§0.2 steps 1–2)', () => {
       status: 'cancelled',
       reason: 'Select the meshes to rig',
     });
+    // An imported avatar active (its glTF meshes are not scene meshes): the §0.4.2 reason, not "Select the meshes".
+    const asset = makeTestAsset('imported.vrm');
+    const character = 'chr_Imported01' as CharacterId;
+    t.app.store.transact({ label: 'Imported avatar' }, (tx) => {
+      tx.put('assets', asset);
+      tx.put('rigs', makeTestRig('rig_Imported01' as RigId, character));
+      tx.put(
+        'characters',
+        makeTestCharacter({
+          id: character,
+          asset: asset.id,
+          rig: 'rig_Imported01' as RigId,
+          name: 'Polybot',
+          order: 'b0',
+        }),
+      );
+    });
+    t.app.session.setState({
+      rig: { ...t.app.session.getState().rig, character },
+      selection: { ...t.app.session.getState().selection, objects: [] },
+    });
+    expect(await t.app.runUntyped('skel.quickRig.start')).toMatchObject({
+      status: 'cancelled',
+      reason: ASSET_CHARACTER_REFUSAL,
+    });
+    expect(quickRigStartBlock(t.app, [])).toBe(ASSET_CHARACTER_REFUSAL);
   });
 });
 

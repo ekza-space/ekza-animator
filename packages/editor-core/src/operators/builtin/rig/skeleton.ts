@@ -263,10 +263,22 @@ export type RigTarget =
       readonly meshes: readonly MeshId[];
     };
 
-/** Scene meshes (a new character) or the meshes of one model-sourced character; a string = the refusal. */
-export function rigTarget(view: ReadView, objects: readonly string[]): RigTarget | string {
+/**
+ * Scene meshes (a new character) or the meshes of one model-sourced character; a string = the refusal. `active` is
+ * the workspace's active character: with no meshes to rig, an imported (asset-sourced) one gives the §0.4.2 reason —
+ * its glTF meshes are not scene meshes, so "Select the meshes to rig" would send the user looking for nothing.
+ */
+export function rigTarget(
+  view: ReadView,
+  objects: readonly string[],
+  active: CharacterId | null = null,
+): RigTarget | string {
   const meshes = meshesOfObjects(view, objects);
-  if (meshes.length === 0) return 'Select the meshes to rig';
+  if (meshes.length === 0) {
+    const character = active === null ? undefined : view.get('characters', active);
+    const asset = character !== undefined && character.deleted === null && character.source.kind !== 'model';
+    return asset ? ASSET_CHARACTER_REFUSAL : 'Select the meshes to rig';
+  }
   const records = meshes.map((id) => view.get('meshes', id) as MeshRecord);
   if (records.every((record) => 'scene' in record.owner)) return { kind: 'scene', objects, meshes };
   const owners = new Set(records.map((record) => ('character' in record.owner ? record.owner.character : null)));
@@ -666,7 +678,7 @@ function templateTarget(app: EditorApp, view: ReadView, raw: unknown): RigTarget
     isRecord(raw) && Array.isArray(raw['objects'])
       ? (raw['objects'] as unknown[]).filter((id): id is string => typeof id === 'string')
       : app.session.getState().selection.objects;
-  const target = rigTarget(view, objects);
+  const target = rigTarget(view, objects, app.session.getState().rig.character);
   if (typeof target === 'string') return target;
   if (
     target.kind === 'character' &&

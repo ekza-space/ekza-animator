@@ -240,12 +240,20 @@ const start = defineOperator<'skel.quickRig.start', StartPrepared>({
   workspaces: ['rig'],
   extraArgs: ['meshes'],
   poll(ctx, args): PollResult {
-    const target = rigTarget(ctx.app.store, startObjects(ctx.app, ctx.app.store, args));
+    const target = rigTarget(
+      ctx.app.store,
+      startObjects(ctx.app, ctx.app.store, args),
+      ctx.app.session.getState().rig.character,
+    );
     return typeof target === 'string' ? fail(target) : OK;
   },
   async prepare(ctx, args): Promise<StartPrepared> {
     await loadMeshKernel();
-    const target = rigTarget(ctx.app.store, startObjects(ctx.app, ctx.app.store, args));
+    const target = rigTarget(
+      ctx.app.store,
+      startObjects(ctx.app, ctx.app.store, args),
+      ctx.app.session.getState().rig.character,
+    );
     if (typeof target === 'string') throw new EkzaError('op-refused', target);
     await meshesResident(ctx.app, target.meshes);
     const state = openingState(ctx.app, target.meshes);
@@ -526,6 +534,6 @@ export const QUICK_RIG_SESSION_OPERATORS: readonly AnyOperator[] = [
 
 /** Whether `meshes` (scene objects) can start Quick Rig, else the reason (the panel's and the Toolkit's buttons). */
 export function quickRigStartBlock(app: EditorApp, objects: readonly string[]): string | null {
-  const target = rigTarget(app.store, objects);
+  const target = rigTarget(app.store, objects, app.session.getState().rig.character);
   return typeof target === 'string' ? target : null;
 }
