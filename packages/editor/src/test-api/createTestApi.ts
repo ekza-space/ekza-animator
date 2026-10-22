@@ -58,6 +58,7 @@ import { skeletonKernelTestApi } from './m6b/skeleton-kernel';
 import { skeletonUiTestApi } from './m6b/skeleton-ui';
 import { skinUiTestApi } from './m6b/skin-ui';
 import { weightsKernelTestApi } from './m6b/weights-kernel';
+import { autorigTestApi } from './autorig';
 import type { EkzaStudioTestApi } from './types';
 
 export interface TestApiHandle {
@@ -301,6 +302,7 @@ export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngin
     ...characterWriterTestApi(m6a),
     ...clipLibraryTestApi(m6a),
     ...m6bIntegrationTestApi(m6a),
+    ...autorigTestApi(m6a),
     ready,
     get webgl() {
       const gl = ui.getState().gl;

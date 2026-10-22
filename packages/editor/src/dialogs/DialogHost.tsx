@@ -41,8 +41,8 @@ const LOADERS: Readonly<Record<UiDialog, () => Promise<DialogModule>>> = {
   makeEditableReport: () => import('./MakeEditableReport').then((m) => ({ default: m.MakeEditableReportDialog })),
   imagePlaneImport: () => import('./ImagePlaneImport').then((m) => ({ default: m.ImagePlaneImportDialog })),
   layoutPresets: () => import('./LayoutPresetsDialog').then((m) => ({ default: m.LayoutPresetsDialog })),
-  // M6b (C0 placeholders; each owner replaces its line)
-  applyPoseAsRest: pendingRig,
+  // M6b (C0 placeholders; each owner replaces its line; applyPoseAsRest: AUTORIG-SPEC D0, A0 owns the dialog file)
+  applyPoseAsRest: () => import('./ApplyPoseAsRestDialog').then((m) => ({ default: m.ApplyPoseAsRestDialog })),
   unbindSkin: () => import('./SkinBindDialogs').then((m) => ({ default: m.UnbindSkinDialog })),
   rebindSkin: () => import('./SkinBindDialogs').then((m) => ({ default: m.RebindSkinDialog })),
   vrmMeta: () => import('./VrmMetaDialog').then((m) => ({ default: m.VrmMetaDialog })),

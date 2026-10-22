@@ -38,6 +38,13 @@ function fixtureBuild(chunks: Readonly<Record<string, string>>, opts: { readonly
     'server/app/editor.html',
     '<!DOCTYPE html><html><head><script src="/_next/static/chunks/main.js" async=""></script></head></html>',
   );
+  write(
+    'server/app-paths-manifest.json',
+    JSON.stringify({
+      '/editor/page': 'app/editor/page.js',
+      ...(opts.e2e === true ? { '/e2e/vrma-check/page': 'app/e2e/vrma-check/page.js' } : {}),
+    }),
+  );
   write('server/app/editor/page/react-loadable-manifest.json', JSON.stringify({}));
   if (opts.e2e === true) write('server/app/e2e/vrma-check.html', '<html></html>');
   for (const [name, text] of Object.entries(chunks)) write(`static/chunks/${name}`, text);
@@ -61,15 +68,26 @@ const baseline = (fields: { total: number; allowance: number; enforce: boolean }
 });
 
 describe('the recorded baseline (size-baseline.json)', () => {
-  it('records the dev route before M6b C0 and the +6,144 B MVP allowance, enforced by C7 (M6B-SPEC §0.4.9)', () => {
+  it('records AR-B1: the /editor route before Auto-Rig D0 and the +2,048 B Auto-Rig allowance (AUTORIG-SPEC §7.0)', () => {
     const recorded = readBaseline(BASELINE_FILE);
-    expect(recorded?.baseline.total).toBe(889_569);
-    expect(recorded?.eagerDelta.allowance).toBe(6_144);
-    // C7 (rig-shell) turned the gate on (§0.4.9; literal update, §3 rule 9): enforced, nothing pending.
+    // AR-B1 (DECISIONS-OPEN §M): measured by D0 on autorig/mvp with the route-group-proof tooling (literal update)
+    expect(recorded?.baseline.total).toBe(895_688);
+    expect(recorded?.eagerDelta.allowance).toBe(2_048);
     expect(recorded?.eagerDelta.enforce).toBe(true);
     expect(recorded?.eagerDelta.pending).toBeUndefined();
-    expect(recorded?.eagerDelta.packages).toEqual({ c0: 2048, c7: 2560, c12: 1024, c1: 512 });
+    expect(recorded?.eagerDelta.packages).toEqual({ d0: 64, d1: 1408, d2: 448, d3: 128 });
+    const packages = Object.values(recorded?.eagerDelta.packages ?? {});
+    expect(packages.reduce((sum, bytes) => sum + bytes, 0)).toBe(recorded?.eagerDelta.allowance);
+    // the limit stays under the unchanged 900,000 B gate
+    expect((recorded?.baseline.total ?? 0) + (recorded?.eagerDelta.allowance ?? 0)).toBeLessThanOrEqual(900_000);
     expect(recorded?.modelChunk?.warnBytes).toBe(250_000);
+    // the M6b record it replaced: 889,569 B + 6,144 B, measured 895,688 B at release (25 B left)
+    expect(recorded?.previous).toMatchObject({
+      total: 889_569,
+      allowance: 6_144,
+      measuredAtRelease: 895_688,
+      packages: { c0: 2048, c7: 2560, c12: 1024, c1: 512 },
+    });
     expect(JSON.parse(readFileSync(BASELINE_FILE, 'utf8'))).toEqual(recorded);
   });
 });
@@ -86,6 +104,7 @@ describe('the eager-delta gate (§5.27)', () => {
       comparable: true,
       pending: 'owner decision pending',
       packages: null,
+      label: 'Eager delta',
     });
     expect(eagerDelta(870_000, baseline({ total: 845_000, allowance: 20_480, enforce: true }), false)?.over).toBe(true);
     expect(eagerDelta(870_000, null, false)).toBeNull();
@@ -103,12 +122,12 @@ describe('the eager-delta gate (§5.27)', () => {
     const enforced = checkSize(build, { baseline: baseline({ total: measured - 100, allowance: 50, enforce: true }) });
     expect(enforced.ok).toBe(false);
     expect(enforced.problems).toEqual([
-      `M6b MVP eager delta +100 B over the ${(measured - 100).toLocaleString('en')} B baseline > allowance +50 B (limit ${(measured - 50).toLocaleString('en')} B)`,
+      `Eager delta +100 B over the ${(measured - 100).toLocaleString('en')} B baseline > allowance +50 B (limit ${(measured - 50).toLocaleString('en')} B)`,
     ]);
     const pending = checkSize(build, { baseline: baseline({ total: measured - 100, allowance: 50, enforce: false }) });
     expect(pending.ok).toBe(true);
     expect(pending.warnings).toEqual([
-      expect.stringMatching(/^M6b MVP eager delta \+100 B .* not enforced: owner decision pending$/),
+      expect.stringMatching(/^Eager delta \+100 B .* not enforced: owner decision pending$/),
     ]);
     const within = checkSize(build, { baseline: baseline({ total: measured - 40, allowance: 50, enforce: true }) });
     expect(within.ok).toBe(true);
