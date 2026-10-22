@@ -2179,7 +2179,8 @@ Pipeline per mesh (the welded **points** of the revision; UV and normal seams sh
    - `auto-lowpoly` (research 14 §5.4 step 4): per island, votes = the nearest visible segment of every point; `c` =
      the joint nearest the island centroid. **Rigid** (weight 1 on `c`) if every vote is within tree distance 1 of `c`
      **and** (the island's extent along `c`'s bone ≤ 1.25 × the bone length **or** the island holds ≤ 2 % of the mesh's
-     points); otherwise `heat` restricted to the island. (Thresholds are the defaults; C4's first spike calibrates them
+     points); a **limb box** (an island of ≤ 8 points whose `c` is a side joint) is rigid on `c` whatever its votes
+     (acceptance fix M6B-AF-12, DECISIONS-OPEN §L); otherwise `heat` restricted to the island. (Thresholds are the defaults; C4's first spike calibrates them
      on Polybot and the generated body and records the values in its wp-notes; a change is a contract PR to this line.)
    - **Visibility**: a point sees a segment when the ray from `v + 1e-4 H · n` to the closest point on the segment
      hits no triangle (`TriangleBvh.raycast` over every mesh of the character, ignoring the triangles incident to `v`);
