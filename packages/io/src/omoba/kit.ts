@@ -2,7 +2,7 @@
 // use (`fflate`, which io already owns; no new dependency). The kit holds `<slug>.glb` (the VRM bytes unchanged),
 // `<slug>.png` (the thumbnail, when there is one), `manifest-entry.json` (OMOBA's field names) and `README.txt`.
 // Identical input gives identical bytes: every entry has the DOS epoch as its time, no OS attributes, a fixed order.
-import { zipSync, type Zippable } from 'fflate';
+import { unzipSync, zipSync, type Zippable } from 'fflate';
 import { type OmobaKitMeta, omobaManifestEntry, omobaManifestJson } from './manifest';
 import { omobaKitReadme } from './readme';
 
@@ -25,6 +25,11 @@ export function zipFiles(entries: readonly ZipEntry[]): Uint8Array {
     files[entry.path] = [entry.bytes, { level: entry.deflate === false ? 0 : 6 }];
   }
   return zipSync(files, { mtime: ZIP_TIME, os: 0, attrs: 0 });
+}
+
+/** The files of a zip by path, in archive order (reads a kit or a VRMA bundle back; tests and tools). */
+export function unzipFiles(bytes: Uint8Array): Readonly<Record<string, Uint8Array>> {
+  return unzipSync(bytes);
 }
 
 export interface OmobaKitInput {

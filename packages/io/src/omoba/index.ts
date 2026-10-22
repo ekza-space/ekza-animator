@@ -5,6 +5,7 @@ export {
   omobaKitFileName,
   omobaKitFiles,
   packOmobaKit,
+  unzipFiles,
   type ZipEntry,
   zipFiles,
 } from './kit';

@@ -122,7 +122,7 @@ describe('packOmobaKit (§5.6.4)', () => {
   it('without a thumbnail: no PNG and thumbnail null', () => {
     const files = unzipSync(packOmobaKit({ vrm: VRM, thumbnail: null, meta: META }));
     expect(Object.keys(files)).toEqual(['cube-lad.glb', 'manifest-entry.json', 'README.txt']);
-    expect(JSON.parse(text(files['manifest-entry.json']))['thumbnail']).toBeNull();
+    expect((JSON.parse(text(files['manifest-entry.json'])) as Record<string, unknown>)['thumbnail']).toBeNull();
   });
 
   it('is deterministic: the same input gives the same bytes', () => {
