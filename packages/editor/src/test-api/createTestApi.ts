@@ -347,7 +347,11 @@ export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngin
         activeCharacter,
         activeClip: activeCharacter === null ? null : (session.activeClip[activeCharacter] ?? null),
         band: session.time.band === null ? null : { start: session.time.band.start, end: session.time.band.end },
-        selection: { controls: [...session.selection.controls], keys: [...session.selection.keys.keys()] },
+        selection: {
+          controls: [...session.selection.controls],
+          keys: [...session.selection.keys.keys()],
+          joints: [...session.selection.joints],
+        },
         history: {
           canUndo: app.history.canUndo(),
           canRedo: app.history.canRedo(),

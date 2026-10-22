@@ -11,7 +11,7 @@ export interface EkzaStudioTestApi {
   state(): {
     clipFrame: number | null; sceneFrame: number; playing: boolean; layout: string; maximizedPane: string | null;
     activeCharacter: string | null; activeClip: string | null; band: { start: number; end: number } | null;
-    selection: { controls: string[]; keys: string[] };
+    selection: { controls: string[]; keys: string[]; joints: string[] };                     // + joints (M6b fix)
     history: { canUndo: boolean; canRedo: boolean; undoLabel: string | null };
     tool: string; rotateSpace: string; autoKey: boolean; dialog: string | null; readOnly: boolean;
     keyTarget: string; ripple: boolean; dirty: boolean; recovery: string[];   // M2a (additive)

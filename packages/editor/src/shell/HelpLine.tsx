@@ -62,6 +62,14 @@ export function HelpLine(): JSX.Element {
           : null,
   );
   const selected = useSession((s) => s.selection.controls.length);
+  // Rig & Skin (acceptance fix): Skeleton mode counts the selected joints; Object mode also counts picked meshes.
+  const rigSelection = useSession((s) =>
+    s.workspace !== 'rig'
+      ? null
+      : s.rig.mode === 'skeleton'
+        ? `${s.selection.joints.length}:joint`
+        : `${s.selection.controls.length + s.selection.objects.length}:`,
+  );
   const navProfile = usePrefs((p) => p.navProfile);
   const spaceBehaviour = usePrefs((p) => p.spaceBehaviour);
 
@@ -73,8 +81,10 @@ export function HelpLine(): JSX.Element {
       : hoverKind === PANEL.viewport || hoverKind === null || hoverKind === GLOBAL_SCOPE
         ? `${NAV_HINT[navProfile]}${toolHint === undefined ? '' : ` · ${toolHint}`}`
         : `Space: ${spaceBehaviour === 'play' ? 'play / stop' : 'maximize panel'} · ? shortcuts`;
-  const count = workspace === 'model' ? objects : selected;
-  const what = workspace === 'model' ? (count === 1 ? 'object' : 'objects') : null;
+  const [rigCount, rigNoun] = rigSelection === null ? [null, ''] : rigSelection.split(':');
+  const count = workspace === 'model' ? objects : rigCount === null ? selected : Number(rigCount);
+  const noun = workspace === 'model' ? 'object' : rigNoun;
+  const what = noun === '' || noun === undefined ? null : count === 1 ? noun : `${noun}s`;
   const busyLabel = busy?.label ?? shellBusy;
   // A lost context is a state, not a hint: it takes the help line's text until the context is back (acceptance
   // round 1: /editor kept showing the hover hints while the 3D view was gone).

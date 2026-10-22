@@ -94,7 +94,7 @@ describe('createTestApi', () => {
       activeCharacter: CHARACTER,
       activeClip: CLIP,
       band: null,
-      selection: { controls: [], keys: [] },
+      selection: { controls: [], keys: [], joints: [] },
       history: { canUndo: false, canRedo: false, undoLabel: null },
       tool: 'select',
       dialog: null,

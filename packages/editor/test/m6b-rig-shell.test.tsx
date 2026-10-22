@@ -34,6 +34,7 @@ import { RIG_MARKING_MENUS } from '../src/overlays/menus/rig';
 import RigToolkitView from '../src/panels/rigToolkit';
 import ValidationView from '../src/panels/validation';
 import { gettingStartedSteps, poseBadge } from '../src/panels/viewport/rig/overlays';
+import { HelpLine } from '../src/shell/HelpLine';
 import { ALL_SLOTS, slotsOf } from '../src/shell/layout';
 import { RIG_MENU_ITEMS } from '../src/shell/menus/rig';
 import { menuContents, topMenus } from '../src/shell/menus';
@@ -321,6 +322,35 @@ describe('the pose badge and the Getting started card (§5.17, §8.12)', () => {
     expect(steps[2]).not.toMatch(/\b1\b/);
     expect(steps[3]).toMatch(/Skin mode opens/);
     expect(steps[4]).toMatch(/^Paint fixes \(Skin mode: 2\)/);
+  });
+});
+
+describe('the help line selection count in Rig & Skin (acceptance fix)', () => {
+  it('Skeleton mode counts the selected joints; Object mode the controls and picked meshes', async () => {
+    const test = await rigShell();
+    await mountPlain(
+      <ShellFrame shell={test.shell}>
+        <HelpLine />
+      </ShellFrame>,
+    );
+    const text = () => by('helpline-selection').textContent;
+    const set = async (patch: Partial<ReturnType<EditorApp['session']['getState']>['selection']>, mode: string) => {
+      const s = test.app.session.getState();
+      await act(async () => {
+        test.app.session.setState({
+          rig: { ...s.rig, mode: mode as never },
+          selection: { ...s.selection, joints: [], controls: [], objects: [], ...patch },
+        });
+      });
+    };
+    await set({}, 'skeleton');
+    expect(text()).toBe('Nothing selected');
+    await set({ joints: ['skl_a:hips' as JointId] }, 'skeleton');
+    expect(text()).toBe('1 joint selected');
+    await set({ joints: ['skl_a:hips', 'skl_a:spine'] as JointId[] }, 'skeleton');
+    expect(text()).toBe('2 joints selected');
+    await set({ objects: ['msh_a'] }, 'object');
+    expect(text()).toBe('1 selected');
   });
 });
 
