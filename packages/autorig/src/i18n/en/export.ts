@@ -18,6 +18,8 @@ export const exportStep = {
   targetKitHint: 'The VRM, its thumbnail, a manifest entry and the validator steps',
   developers: 'For developers',
   noTargets: 'Nothing to export yet: an imported avatar exports with its animations baked in. Add an animation first.',
+  noTargetsBecause: (reason: string) => `Nothing to export: ${reason}.`,
+  unavailable: (target: string, reason: string) => `${target} is not available: ${reason}.`,
   continueStudio: 'Want to keyframe your own motion?',
   continueStudioLink: 'Continue in Studio',
   // metadata (§5.6.3)

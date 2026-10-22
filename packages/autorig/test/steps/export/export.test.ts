@@ -19,7 +19,7 @@ import {
   ruleLabel,
 } from '../../../src/steps/export/labels';
 import { formatBytes, glbJsonChunk, measureArtifact } from '../../../src/steps/export/measure';
-import { chooseTarget, recordDownload, shownTarget } from '../../../src/steps/export/slice';
+import { chooseTarget, currentDownload, recordDownload, shownTarget } from '../../../src/steps/export/slice';
 
 const m = messages().export;
 const row = (
@@ -168,6 +168,43 @@ describe('the checklist (§5.6.2)', () => {
     ]);
   });
 
+  it('a blocked byte lint: its row is an error and Download stays disabled until the document changes', () => {
+    // autorig.export refused the file: the live document is clean, the written file broke OMOBA's ±1e6 rule
+    const last = {
+      character: 'chr_lad',
+      target: 'ekza-vrm' as const,
+      version: 7,
+      lints: [row('vrm.translation-range', 'error', 'VRM node 12 translation exceeds the supported range')],
+    };
+    const column = (version: number) => {
+      const current = currentDownload(last, 'chr_lad', 'ekza-vrm', version);
+      return checklistOf({
+        target: 'ekza-vrm',
+        modelCharacter: true,
+        live: [],
+        written: current === null ? null : current.lints,
+        measured: null,
+      });
+    };
+    const blocked = column(7);
+    const transforms = blocked.find((item) => item.id === 'transforms');
+    expect(transforms).toMatchObject({ state: 'error', check: true });
+    expect(transforms?.rows.map((r) => r.message)).toEqual(['VRM node 12 translation exceeds the supported range']);
+    expect(firstError(blocked)?.id).toBe('transforms'); // Download disabled
+    // nothing changed: still the same file, still disabled
+    expect(firstError(column(7))?.id).toBe('transforms');
+    // an edit: the byte rows are stale and dropped, the byte checks wait for the next file, Download is enabled
+    const edited = column(8);
+    expect(firstError(edited)).toBeNull();
+    expect(edited.find((item) => item.id === 'transforms')?.state).toBe('ok');
+    expect(edited.find((item) => item.id === 'read-back')?.state).toBe('pending');
+    // another target or character never shows this file's rows
+    expect(currentDownload(last, 'chr_lad', 'glb', 7)).toBeNull();
+    expect(currentDownload(last, 'chr_other', 'ekza-vrm', 7)).toBeNull();
+    expect(currentDownload(last, null, 'ekza-vrm', 7)).toBeNull();
+    expect(currentDownload(null, 'chr_lad', 'ekza-vrm', 7)).toBeNull();
+  });
+
   it('per target: GLB has no VRM checks, VRMA only its file checks, an imported avatar waits for its file', () => {
     expect(checksOf('glb', true).map((c) => c.id)).toEqual(['skeleton', 'tpose', 'skinned', 'transforms', 'read-back']);
     expect(checksOf('vrma', true).map((c) => c.id)).toEqual(['read-back']);
@@ -233,7 +270,13 @@ describe('file names and notes (§5.6.1, §5.6.4, §5.6.5)', () => {
   it('the slug and the saved file of each target', () => {
     expect(slugOf('Cube Lad')).toBe('cube-lad');
     expect(slugOf('Zoë — the Ränger!!')).toBe('zoe-the-ranger');
-    expect(slugOf('Аватар')).toBe('avatar');
+    // io's omobaSlug, rule for rule (the hint names the file autorig.export saves)
+    expect(slugOf('Аватар')).toBe('avatar-9f935759');
+    expect(slugOf('')).toBe('avatar');
+    expect(slugOf('Ekza Bot')).toBe('studio-ekza-bot');
+    expect(slugOf('ekza')).toBe('ekza');
+    expect(slugOf(`ekza ${'y'.repeat(70)}`)).toBe(`studio-ekza-${'y'.repeat(52)}`);
+    expect(expectedFileName('omoba-kit', 'Ekza Bot', 0, null)).toBe('studio-ekza-bot-omoba-kit.zip');
     expect(expectedFileName('ekza-vrm', 'Polybot', 0, null)).toBe('polybot.vrm');
     expect(expectedFileName('glb', 'Cube Lad', 2, 'idle')).toBe('cube-lad.glb');
     expect(expectedFileName('omoba-kit', 'Cube Lad', 2, 'idle')).toBe('cube-lad-omoba-kit.zip');

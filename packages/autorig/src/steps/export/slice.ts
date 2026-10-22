@@ -27,3 +27,26 @@ export function shownTarget(
 ): AutoRigExportTarget | null {
   return available.includes(slice.target) ? slice.target : (available[0] ?? null);
 }
+
+/** What a download was written from: the character, the target and the document version. */
+export interface DownloadKey {
+  readonly character: string;
+  readonly target: AutoRigExportTarget;
+  readonly version: number;
+}
+
+/**
+ * The last download while it still describes the file *Download* would write now: same character, same target, same
+ * document version. A later edit (or another target) drops it, and with it its byte rows: a blocked download keeps
+ * *Download* disabled (its error row) until the document changes.
+ */
+export function currentDownload<T extends DownloadKey>(
+  last: T | null,
+  character: string | null,
+  target: AutoRigExportTarget | null,
+  version: number,
+): T | null {
+  return last !== null && last.character === character && last.target === target && last.version === version
+    ? last
+    : null;
+}

@@ -27,7 +27,7 @@ import { expectedFileName } from './files';
 import { publishToHub } from './hub';
 import { type ChecklistItem, checklistOf, firstError } from './labels';
 import { fileSize, measureArtifact } from './measure';
-import { chooseTarget, recordDownload, shownTarget } from './slice';
+import { chooseTarget, currentDownload, recordDownload, shownTarget } from './slice';
 
 const t = (): ReturnType<typeof messages>['export'] => messages().export;
 const coarse = 'pointer-coarse:min-h-11';
@@ -104,6 +104,23 @@ interface ExportView {
   readonly clips: number;
   /** The export name of the first exportable clip (its slot, else its name), or null. */
   readonly firstClip: string | null;
+  /** Why the recommended target (VRM, or GLB for a glTF avatar) is not offered, or null (§5.6.1, AR-D6-19). */
+  readonly unavailable: string | null;
+}
+
+/** The recommended target of a character: the Ekza avatar, or the GLB for an imported glTF avatar. */
+const recommendedOf = (record: CharacterRecord): AutoRigExportTarget =>
+  isModelCharacter(record) || record.format !== 'gltf' ? 'ekza-vrm' : 'glb';
+
+/** The poll's reason when the recommended target is unavailable, else null. */
+function unavailableReason(app: EditorApp, record: CharacterRecord | null): string | null {
+  if (record === null || app.operators.get('autorig.export') === undefined) return null;
+  const poll = app.operators.poll('autorig.export', undefined, {
+    character: record.id,
+    target: recommendedOf(record),
+    fileName: '',
+  });
+  return poll === true ? null : poll.reason;
 }
 
 /** A clip's export name as io writes it (`clipExportName`: the slot, else the sanitized name). */
@@ -138,6 +155,7 @@ function useExportView(ctx: WizardContext): ExportView {
           .join('\u0000'),
   );
   const names = exportable === '' ? [] : exportable.split('\u0000');
+  const unavailable = useDocument(app, () => (rigLoaded ? unavailableReason(app, record) : null));
   return {
     record,
     model: record !== null && isModelCharacter(record),
@@ -145,7 +163,15 @@ function useExportView(ctx: WizardContext): ExportView {
     target: shownTarget(slice, available),
     clips: names.length,
     firstClip: names[0] ?? null,
+    unavailable,
   };
+}
+
+/** Why nothing can be exported: the plain no-clips line, else the recommended target's reason. */
+function noTargetsText(view: ExportView): string {
+  const m = t();
+  if (view.record === null) return m.hintNoCharacter;
+  return view.clips === 0 || view.unavailable === null ? m.noTargets : m.noTargetsBecause(view.unavailable);
 }
 
 /** The display name the file is named after (as `autorig.export` names it). */
@@ -238,7 +264,7 @@ function Targets(props: { readonly ctx: WizardContext }): JSX.Element {
         </h2>
         {view.target === null ? (
           <p className="text-fg-2" data-testid="ar-export-no-targets">
-            {view.record === null ? m.hintNoCharacter : m.noTargets}
+            {noTargetsText(view)}
           </p>
         ) : (
           <RadioGroup
@@ -278,6 +304,11 @@ function Targets(props: { readonly ctx: WizardContext }): JSX.Element {
             ) : null}
           </RadioGroup>
         )}
+        {view.target !== null && view.record !== null && view.unavailable !== null && view.clips > 0 ? (
+          <p className="text-ui-dense text-fg-2" data-testid="ar-export-unavailable">
+            {m.unavailable(recommendedOf(view.record) === 'glb' ? m.targetGlb : m.targetVrm, view.unavailable)}
+          </p>
+        ) : null}
         <ContinueInStudio ctx={ctx} />
         {meta && view.record !== null ? <AboutAvatar ctx={ctx} character={view.record.id} /> : null}
       </section>
@@ -441,14 +472,7 @@ function Panel(props: { readonly ctx: WizardContext }): JSX.Element {
     target === 'glb' ? 'glb' : 'vrm',
   );
   const version = useDocument(app, () => app.store.version);
-  const last =
-    ui.last !== null &&
-    record !== null &&
-    ui.last.character === record.id &&
-    ui.last.target === target &&
-    ui.last.version === version
-      ? ui.last
-      : null;
+  const last = currentDownload(ui.last, record?.id ?? null, target, version);
   const fixes = useDocument(app, () => {
     const map = new Map<string, RigValidationRow['fix']>();
     if (record === null || !view.model || !app.rig.loaded || target === null || target === 'vrma') return map;
@@ -525,6 +549,7 @@ function useExportFooter(
 ): void {
   const { record, target } = view;
   const blocking = firstError(items)?.label ?? null;
+  const empty = noTargetsText(view);
   const name =
     record === null || target === null
       ? null
@@ -557,7 +582,7 @@ function useExportFooter(
       record === null
         ? m.hintNoCharacter
         : target === null
-          ? m.noTargets
+          ? empty
           : last !== null
             ? last.saved
               ? m.hintSaved(last.result.fileName, last.bytes === null ? null : fileSize(last.bytes))
@@ -574,7 +599,7 @@ function useExportFooter(
         run: download,
       },
     });
-  }, [ctx, record, target, blocking, last, name]);
+  }, [ctx, record, target, blocking, last, name, empty]);
 }
 
 /** The size of the saved file: one artifact's bytes, or (zip) the sum is unknown — the result's file is reported by name. */
