@@ -16,8 +16,8 @@ class Node implements GuardElement {
     return false;
   }
   closest(): GuardElement | null {
-    for (let at: Node | null = this; at !== null; at = at.parent) if (at.dialog) return at;
-    return null;
+    if (this.dialog) return this;
+    return this.parent === null ? null : this.parent.closest();
   }
 }
 
