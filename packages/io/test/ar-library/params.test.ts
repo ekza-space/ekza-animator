@@ -26,6 +26,7 @@ import {
   IDENTITY_HUMANOID_CLIP_PARAMS,
   isIdentityClipParams,
   mirrorBone,
+  TRIM_END_TOLERANCE,
 } from '../../src/library/params';
 import { createFkPoseSource } from '../../src/testing';
 import type { BakedClip } from '../../src/types';
@@ -264,6 +265,46 @@ describe('applyClipParams (§5.5.3)', () => {
     const again = applyClipParams(ours, params({ inPlace: true }));
     expect(again.hips?.values).toEqual(ours.hips?.values);
     expect(again).toBe(ours);
+  });
+});
+
+describe('a trim end recorded in milliseconds (§5.5.3, the ar-trim tag)', () => {
+  const MANIFEST = JSON.parse(readFileSync(new URL('starter-pack.json', LIBRARY), 'utf8')) as {
+    clips: { id: string; duration: number }[];
+  };
+  const ms = (seconds: number): number => Math.round(seconds * 1000) / 1000;
+
+  it('an end within 1 ms of the clip’s end is its end: Run, Death and Jump land trim their start only', async () => {
+    for (const id of ['run', 'death', 'jump-land']) {
+      const entry = MANIFEST.clips.find((clip) => clip.id === id);
+      if (entry === undefined) throw new Error(`no ${id}`);
+      const bytes = libraryBytes(id);
+      const data = readVrma(await parseGlb(bytes));
+      const end = ms(entry.duration); // 0.667 > 0.6666667 (float32), 2.367 > 2.3666666, 1.267 > 1.2666667
+      expect(end).toBeGreaterThan(data.duration);
+      const p = params({ trim: { start: 0.1, end } });
+      expect(clipParamsProblem(p, data.duration)).toBeNull();
+      const trimmed = applyClipParams(data, p);
+      expect(trimmed.duration).toBeCloseTo(data.duration - 0.1, 12);
+      // the last sample is the source's last key, as it is (no extrapolation past the clip)
+      const source = data.rotations.hips as Track;
+      const cut = trimmed.rotations.hips as Track;
+      expect(cut.times[cut.times.length - 1]).toBeCloseTo(data.duration - 0.1, 6);
+      expect(quatAt(cut, cut.times.length - 1)).toEqual(quatAt(source, source.times.length - 1));
+      const derived = readVrma(await parseGlb(await deriveHumanoidVrma(bytes, p)));
+      expect(derived.duration).toBeCloseTo(data.duration - 0.1, 5);
+      // the whole clip in milliseconds is the identity: the same bytes
+      expect(await deriveHumanoidVrma(bytes, params({ trim: { start: 0, end } }))).toBe(bytes);
+    }
+  });
+
+  it('still refuses an end more than 1 ms past the clip, and a start at or after its end', async () => {
+    const data = readVrma(await parseGlb(libraryBytes('run')));
+    const past = data.duration + TRIM_END_TOLERANCE * 1.5;
+    expect(clipParamsProblem(params({ trim: { start: 0.1, end: past } }), data.duration)).toMatch(/past the clip/);
+    expect(() => applyClipParams(data, params({ trim: { start: 0.1, end: past } }))).toThrow(/past the clip/);
+    const late = { start: data.duration + 0.0002, end: data.duration + 0.0004 };
+    expect(clipParamsProblem(params({ trim: late }), data.duration)).toMatch(/start < end/);
   });
 });
 

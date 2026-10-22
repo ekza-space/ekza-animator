@@ -265,6 +265,27 @@ describe('autorig.clip.add (§4.5, §5.5.4)', () => {
     expect(past).toMatchObject({ status: 'failed', error: { code: 'invalid-input' } });
   });
 
+  it.each([
+    ['run', 0.667],
+    ['death', 2.367],
+    ['jump-land', 1.267],
+  ] as const)(
+    'trims only the start of %s, whose end in milliseconds lies past its float32 length; the tags re-add it',
+    async (id, end) => {
+      const p = params({ trim: { start: 0.1, end } });
+      const before = app.history.peekUndo()?.id ?? null;
+      const { clip } = (await runOk(app, 'autorig.clip.add', { character, clip: id, params: p })) as { clip: ClipId };
+      expect(app.history.peekUndo()?.id ?? null).not.toBe(before);
+      const record = app.store.get('clips', clip) as ClipRecord;
+      expect(record.loop).toBe(false);
+      expect(record.tags).toEqual([`ar-${id}`, `ar-trim-100-${Math.round(end * 1000)}`]);
+      // ✎ reopens the clip with the parameters its tags record, and *Update* derives the same clip again
+      const reopened = clipParamsFromTags(record.tags);
+      expect(reopened).toEqual({ clip: id, params: p });
+      await runOk(app, 'autorig.clip.add', { character, clip: id, params: reopened?.params, replace: clip });
+    },
+  );
+
   it('replace swaps the clip in one step, keeping its name, slot and place', async () => {
     const { clip: first } = (await runOk(app, 'autorig.clip.add', {
       character,

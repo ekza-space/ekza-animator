@@ -58,8 +58,15 @@ export const IDENTITY_HUMANOID_CLIP_PARAMS: HumanoidClipParams = Object.freeze({
 export const CLIP_SPEED_RANGE = { min: 0.25, max: 3 } as const;
 export const CLIP_ARM_SPACE_RANGE = { min: -10, max: 30 } as const;
 
-/** Trim boundaries closer than this (seconds) to a key or to the clip's ends count as on it. */
+/** Trim boundaries closer than this (seconds) to a key or to the clip's start count as on it. */
 const TIME_EPSILON = 1e-6;
+
+/**
+ * A trim end within this (seconds) of the clip's end is the clip's end: trims are recorded in milliseconds (the
+ * `ar-trim-<startMs>-<endMs>` tag, the UI's sliders) while a VRMA's duration is a float32 key time (Run: 0.6666667 s,
+ * its trim end recorded as 0.667 s), so an end rounded to the millisecond may lie up to half a millisecond past it.
+ */
+export const TRIM_END_TOLERANCE = 1e-3;
 
 type Interpolation = 'LINEAR' | 'STEP' | 'CUBICSPLINE';
 interface Track {
@@ -67,9 +74,14 @@ interface Track {
   readonly values: Float32Array;
 }
 
+/** The trim's end on the clip: an end within `TRIM_END_TOLERANCE` of the clip's end (either side) is that end. */
+export function trimEndOn(end: number, duration: number): number {
+  return Math.abs(end - duration) <= TRIM_END_TOLERANCE ? duration : end;
+}
+
 /** True when the trim covers the whole clip (or is null): the clip is not trimmed. */
 export function isFullTrim(trim: HumanoidClipParams['trim'], duration: number): boolean {
-  return trim === null || (trim.start <= TIME_EPSILON && trim.end >= duration - TIME_EPSILON);
+  return trim === null || (trim.start <= TIME_EPSILON && trimEndOn(trim.end, duration) >= duration);
 }
 
 /** True for the identity parameters (with any trim that covers the whole clip when `duration` is given). */
@@ -96,7 +108,11 @@ export function clipParamsProblem(params: unknown, duration?: number): string | 
     const start = trim['start'];
     const end = trim['end'];
     if (!(start >= 0 && end > start)) return 'trim needs 0 ≤ start < end';
-    if (duration !== undefined && end > duration + TIME_EPSILON) return `trim end is past the clip (${duration} s)`;
+    if (duration !== undefined) {
+      const on = trimEndOn(end, duration);
+      if (on > duration) return `trim end is past the clip (${duration} s)`;
+      if (!(on > start)) return 'trim needs 0 ≤ start < end';
+    }
   }
   return null;
 }
@@ -110,7 +126,9 @@ export function applyClipParams(data: HumanoidClipData, params: HumanoidClipPara
   if (problem !== null) throw new EkzaError('invalid-input', `Clip parameters: ${problem}`);
   if (isIdentityClipParams(params, data.duration)) return data;
   let out = data;
-  if (params.trim !== null && !isFullTrim(params.trim, data.duration)) out = trimClip(out, params.trim);
+  if (params.trim !== null && !isFullTrim(params.trim, data.duration)) {
+    out = trimClip(out, { start: params.trim.start, end: trimEndOn(params.trim.end, data.duration) });
+  }
   if (params.speed !== 1) out = speedClip(out, params.speed);
   if (params.mirror) out = mirrorClip(out);
   if (params.armSpace !== 0) out = armSpaceClip(out, (params.armSpace * Math.PI) / 180);

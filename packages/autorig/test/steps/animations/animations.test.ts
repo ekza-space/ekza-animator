@@ -31,6 +31,7 @@ import {
   paramsFromTags,
   SLOT_VOCABULARY,
   speedText,
+  trimFromSliders,
 } from '../../../src/steps/animations/data';
 
 const params = (fields: Partial<ClipParams>): ClipParams => ({ ...IDENTITY_CLIP_PARAMS, ...fields });
@@ -106,6 +107,27 @@ describe('ar-* tags (§5.5.4)', () => {
       clip: 'idle',
       params: params({ mirror: true }),
     });
+  });
+});
+
+describe('the trim sliders (§5.5.3)', () => {
+  it('record whole milliseconds and never round the end past the clip', () => {
+    // Run (0.666667 s): Trim start ArrowRight ×3 leaves the end at the slider's max, which used to round to 0.667 s.
+    expect(trimFromSliders(0.1, 0.666667, 0.666667)).toEqual({ start: 0.1, end: 0.666 });
+    expect(trimFromSliders(0.1, 0.7, 0.666667)).toEqual({ start: 0.1, end: 0.666 });
+    // Death and Jump land, the other starter-pack clips that are not a whole number of milliseconds.
+    expect(trimFromSliders(0.2, 2.366667, 2.366667)?.end).toBe(2.366);
+    expect(trimFromSliders(0.2, 1.266667, 1.266667)?.end).toBe(1.266);
+    // A whole-millisecond clip keeps its end; inner values round to the millisecond.
+    expect(trimFromSliders(0.0333333, 1.0, 1.0)).toEqual({ start: 0.033, end: 1 });
+    expect(trimFromSliders(0.1, 0.4666666, 1.0)).toEqual({ start: 0.1, end: 0.467 });
+  });
+
+  it('give null for the whole clip and nothing for a range shorter than a frame', () => {
+    expect(trimFromSliders(0, 0.666667, 0.666667)).toBeNull();
+    expect(trimFromSliders(-1, 5, 0.666667)).toBeNull();
+    expect(trimFromSliders(0.5, 0.52, 0.666667)).toBeUndefined();
+    expect(trimFromSliders(0.6, 0.5, 0.666667)).toBeUndefined();
   });
 });
 

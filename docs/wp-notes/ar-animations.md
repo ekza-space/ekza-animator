@@ -45,6 +45,7 @@ did).
 | AR-D5-17 | Preview ≡ playback (1e-5) and Mirror ≡ `pose.mirrorAnimation` (1e-4 rad) are proven in Node (a deterministic preview clock; `reduceOnImport: 'never'` for the mirror comparison so the shipped key reduction of the two clips does not differ); the browser cannot drive the preview clock, so E2E-AR-06 asserts the mirrored Sword attack against a plain one through the shipped playback (left hand = reflected right hand within 3 cm at three frames) | DoD |
 | AR-D5-19 | **✎ *Update* belongs to the edited clip's own card** (fix round 1). `editTargetOf` gives the clip to replace only when the card is the edited clip's library clip; any other card shows *+ Add to character* (no *Cancel*) and adds a new clip, whether clicked, previewed or added with `A`. Previewing another card ends the edit, so coming back to the edited card adds too (✎ reopens it). Before the fix, ✎ Walk → Run → *Update* deleted the Walk and put Run in its place named "Walk" with slot `walk` | §5.5.4 |
 | AR-D5-18 | The range test (§5.4.1) is done (no `test.fixme('ar-rom')`): Node previews it on the **Cube Lad** at a controlled clock and checks the rest, *arms down*, *legs side* and *knees 130* frames against the table; E2E-AR-06 previews it on Polybot (badge, motion, document untouched). The ③ motion-test button that plays it is D4's | §5.4.1 |
+| AR-D5-20 | **A trim end within 1 ms of the clip's end is the clip's end** (fix round 2). Trims are recorded in milliseconds (the `ar-trim-<startMs>-<endMs>` tag, the sliders) while a VRMA's duration is a float32 key time: Run's 0.666667 s manifest length rounds to 0.667 s, past its 0.6666667 s, and io refused it ("trim end is past the clip"), so trimming only the start of Run, Death or Jump land failed in preview (silently) and on Add. io's `trimEndOn` snaps such an end to the clip's end (`TRIM_END_TOLERANCE` = 1 ms, either side) in `clipParamsProblem`, `isFullTrim` and `applyClipParams`; an end more than 1 ms past is still refused. The sliders (`trimFromSliders`, `data.ts`) also never round the end past the clip (they floor it to the millisecond), and editor-core's `trimmedShort` already used the same 1 ms at the end | §5.5.3, §5.5.4 |
 
 ## Tests
 
@@ -138,3 +139,21 @@ touched. From then on the builder used a private scratch subdirectory and killed
   5.9 kB); full e2e on local Chrome: 287 passed, 24 skipped, 1 failed — `shading-01-blinn` (a viewport pixel poll,
   5 s, an `/editor` test whose bundle D5's fix leaves byte-identical), green on its rerun together with
   `ar-06-animations-vrm` (5/5). E2E-AR-06: 7 tests across the two specs, green.
+
+## Fix round 2
+
+- **Major, fixed (AR-D5-20):** trimming only the start of a clip whose length is not a whole number of milliseconds
+  (Run, Death, Jump land) previews and adds. Unit tests: io `params.test.ts` derives Run, Death and Jump land with
+  start 0.1 s and end = the manifest length rounded to 1 ms (the derived clip ends on the source's last key; the whole
+  clip in milliseconds is the identity, same bytes) and still refuses an end 1.5 ms past the clip; editor-core
+  `clip.test.ts` adds the three clips by `autorig.clip.add` (one step, `ar-trim-100-<ms>`, loop dropped) and re-adds
+  each from its tags with `replace` (✎ *Update*); autorig `animations.test.ts` pins `trimFromSliders` (Run's end floors
+  to 0.666 s, whole-millisecond clips keep theirs, null for the whole clip, nothing below one frame). The new io and
+  editor-core tests fail on the round-1 io code. E2E-AR-06 (`ar-06-animations-vrm.spec.ts`): Polybot, Run card, Trim
+  start ArrowRight ×3 → the preview restarts at 0.6 s with no error → Add (`Use Clip Run`, tags `ar-run`,
+  `ar-trim-100-666`, loop false) → ✎ reopens Trim start 0.1 → *Update* (one more step).
+- **Minor, fixed:** a failed preview (a refused parameter, a checksum, a fetch) now puts its reason in the status line
+  with the error tone, as Add does; a later preview that plays clears that error (`actions.ts` `previewClip`).
+- **Minor, open for D7 / the coordinator (a decision, not D5 rework):** Play/Stop instead of play/pause (AR-D5-10), ④'s
+  keys not in the shortcuts sheet (AR-D5-9), preview ≡ playback proven in Node only (AR-D5-17), `/autorig` over its
+  reported-only 660,000 B gate (Sizes).

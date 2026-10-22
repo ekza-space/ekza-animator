@@ -103,6 +103,13 @@ export async function previewClip(ctx: WizardContext, clip: string): Promise<voi
   patchUi(ctx, { selected: clip });
   const result = await ctx.run('library.preview', { character: character.id, clip, params: draftOf(ctx, clip) });
   failedChecksum(ctx, clip, result);
+  // A failed preview (a refused parameter, a checksum, a fetch) says why, as Add does; a later preview that plays
+  // clears that error.
+  if (result.status === 'failed') {
+    patchUi(ctx, { notice: { text: result.error.message, tone: 'error' } });
+  } else if (result.status === 'finished' && animationsUi(ctx).get().notice?.tone === 'error') {
+    patchUi(ctx, { notice: null });
+  }
 }
 
 /** Stops the library preview (U state). */

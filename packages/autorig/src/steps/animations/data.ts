@@ -108,6 +108,25 @@ export const IDENTITY: ClipParams = Object.freeze({ speed: 1, trim: null, mirror
 export const isIdentity = (params: ClipParams): boolean =>
   params.speed === 1 && params.trim === null && !params.mirror && !params.inPlace && params.armSpace === 0;
 
+/** The shortest trim the sliders make: one frame at 30 fps (seconds). */
+export const MIN_TRIM = 1 / 30;
+
+/**
+ * The trim of two slider values on a clip of `duration` seconds (§5.5.3), in whole milliseconds like the `ar-trim`
+ * tag: null for the whole clip, undefined for a range shorter than `MIN_TRIM` (the sliders do not move). The end never
+ * rounds past the clip: a duration that is not a whole number of milliseconds (Run: 0.666667 s) floors it.
+ */
+export function trimFromSliders(start: number, end: number, duration: number): ClipParams['trim'] | undefined {
+  const clamp = (value: number): number => Math.max(0, Math.min(value, duration));
+  const s = clamp(start);
+  const e = clamp(end);
+  if (!(e - s >= MIN_TRIM)) return undefined;
+  if (s <= 1e-6 && e >= duration - 1e-3) return null;
+  const last = Math.floor(duration * 1000 + 1e-6) / 1000;
+  const ms = (value: number): number => Math.min(Math.round(value * 1000) / 1000, last);
+  return { start: ms(s), end: ms(e) };
+}
+
 /**
  * The library clip and the parameters an `ar-*` tag set records (§5.5.4: `ar-<id>`, `ar-speed-<percent>`,
  * `ar-trim-<startMs>-<endMs>`, `ar-mirror`, `ar-inplace`, `ar-arms-<deg>` with `m` for minus); null without `ar-<id>`.

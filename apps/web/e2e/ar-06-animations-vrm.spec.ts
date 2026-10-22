@@ -90,6 +90,38 @@ test('✎ then another card adds that clip; Update stays with the edited clip’
   await expect(page.getByTestId('ar-clip-add')).toHaveText('+ Add to character');
 });
 
+test('Trim start alone on Run (0.666667 s, not whole milliseconds) previews, adds and updates', async ({ page }) => {
+  const character = await animationsWithVrm(page);
+  await page.getByTestId('ar-clip-card-run').click();
+  await expect.poll(async () => (await libraryPreview(page))?.clip).toBe('run');
+  await expect(page.getByTestId('ar-preview-time')).toContainText('/ 0.7 s');
+  // Trim start: three 1/30 s steps; the end stays at the slider's max (the clip's end)
+  await page.getByTestId('ar-param-trim-start').focus();
+  for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowRight');
+  await expect(page.getByTestId('ar-param-trim-start')).toHaveValue('0.1');
+  // the parametrized preview restarts with the trimmed clip (0.566 s), without an error
+  await expect(page.getByTestId('ar-preview-time')).toContainText('/ 0.6 s');
+  await expect(page.getByTestId('ar-anim-preview')).toHaveAttribute('data-playing', 'true');
+  await expect(page.getByTestId('ar-status')).not.toContainText('Clip parameters');
+  const before = (await history(page)).undo.length;
+  await page.getByTestId('ar-clip-add').click();
+  await expect.poll(async () => (await history(page)).undo.at(-1)).toBe('Use Clip Run');
+  expect((await history(page)).undo.length).toBe(before + 1);
+  await expect(page.getByTestId('ar-status')).toContainText('Added Run');
+  const run = await clipNamed(page, character, 'Run');
+  const meta = await exportedMeta(page, character, run.id);
+  expect([meta.tags, meta.loop]).toEqual([['ar-run', 'ar-trim-100-666'], false]);
+  // ✎ reopens the recorded trim; Update derives it again (one step)
+  await page.getByTestId(`ar-char-clip-edit-${run.id}`).click();
+  await expect(page.getByTestId('ar-clip-add')).toHaveText('Update');
+  await expect(page.getByTestId('ar-param-trim-start')).toHaveValue('0.1');
+  await page.getByTestId('ar-clip-add').click();
+  await expect(page.getByTestId('ar-status')).toContainText('Updated Run');
+  expect((await history(page)).undo.length).toBe(before + 2);
+  const updated = await clipNamed(page, character, 'Run');
+  expect((await exportedMeta(page, character, updated.id)).tags).toEqual(['ar-run', 'ar-trim-100-666']);
+});
+
 test('a .vrma dropped on ④ is imported onto the character; Skip marks ④ done', async ({ page }) => {
   const character = await animationsWithVrm(page);
   // Skip with no clips: ④ done, on to ⑤

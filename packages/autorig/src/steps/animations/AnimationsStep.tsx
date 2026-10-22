@@ -50,7 +50,16 @@ import {
   subjectCharacter,
   togglePreview,
 } from './actions';
-import { CATEGORIES, type ClipCategory, filterClips, IDENTITY, isIdentity, SLOT_VOCABULARY, speedText } from './data';
+import {
+  CATEGORIES,
+  type ClipCategory,
+  filterClips,
+  IDENTITY,
+  isIdentity,
+  SLOT_VOCABULARY,
+  speedText,
+  trimFromSliders,
+} from './data';
 import { clearDraft, markSkipped } from './slice';
 
 const t = (): ReturnType<typeof messages>['animations'] => messages().animations;
@@ -542,10 +551,8 @@ function Params(props: {
   const set = (patch: Partial<ClipParams>): void =>
     changeParams(ctx, entry.id, { ...draftOf(ctx, entry.id), ...patch });
   const setTrim = (start: number, end: number): void => {
-    const s = Math.max(0, Math.min(start, duration));
-    const e = Math.max(0, Math.min(end, duration));
-    if (!(e - s >= 1 / 30)) return;
-    set({ trim: s <= 1e-6 && e >= duration - 1e-3 ? null : { start: round(s, 0.001), end: round(e, 0.001) } });
+    const next = trimFromSliders(start, end, duration);
+    if (next !== undefined) set({ trim: next });
   };
   const field = 'flex items-center gap-2';
   const label = 'w-20 shrink-0 text-fg-2';
