@@ -896,7 +896,7 @@ Under the targets: "Want to keyframe your own motion? **Continue in Studio ▸**
 | Non-humanoid (prop, quadruped) | C2's `guessMarkers` returns null (no leg split or arm run) | markers placed from template proportions with C2's message, plus Auto-Rig's: "This does not look like a person standing. Auto-Rig makes humanoid (VRM) skeletons. You can still place the markers by hand." Auto-rig stays possible; ⑤'s checks decide |
 | T-posed input, but `skel.tpose` fires after the bind (a marker dragged off the arm line in FRONT, a bent shin) | `session.startPose.kind = 't'` and the row present | **no** straighten (no mesh bake on a T-posed body); ③ shows the row with *Adjust joints* first and *Straighten to T-Pose* as a secondary Fix (§5.4); the VRM target stays blocked until it is clean |
 | A-posed arms (> 5° below horizontal) | `IntakeReport.pose.kind = 'a'` on ① (or the guess's `armAngle` recorded on ② for a *From Studio* subject) → `session.startPose.kind = 'a'`; Auto-Rig's own notice on ② ("Auto-rig straightens it for you."; C2's `guess.aPose` notice is Studio's and hidden in Auto-Rig, AR-D8-8) | the skeleton follows the arms (C2's fit along the marker line, 0–50°); `autorig.rig {straighten: true}` binds in the mesh's own pose and then runs A0's *Straighten to T-Pose* (`skel.pose.applyAsRest {pose: 'tStance'}`: T-Stance computed, the bound meshes baked by LBS, the joint rests set to the T-pose), a third undo step; ③ onward and ⑤'s VRM see a T-pose rest, `skel.tpose` clean (AS-AR-2). If straightening fails (e.g. an arm chain the T-Stance cannot reach within 5°) ③ shows the `skel.tpose` row with its Fix and the reason; the VRM target stays blocked, GLB/VRMA stay allowed (`local/generic` warns) |
-| Several meshes (body, hair, sword …) | `IntakeReport.meshes.length > 1` | the Model panel lists them with checkboxes *Part of the character* (default: all visible meshes); unticked ones stay in the scene, visible and untouched (`view.hide` hides the selection only, and hiding is not needed), and are left out of `subject.meshes`, so `skel.quickRig.start {meshes}` and the commit adopt only the ticked ones. A mesh whose bounds lie outside the body's (a weapon on the floor) is unticked by default with "Looks separate" |
+| Several meshes (body, hair, sword …) | `IntakeReport.meshes.length > 1` | the Model panel lists them with checkboxes *Part of the character* (default: all visible meshes); unticked ones stay in the scene, visible and untouched (`view.hide` hides the selection only, and hiding is not needed), and are left out of `subject.meshes`, so `skel.quickRig.start {meshes}` and the commit adopt only the ticked ones. A mesh whose bounds lie outside the body's (a weapon on the floor) is unticked by default with "Looks separate" (**amended by §20, AR-D10-1/2**: parts touching the body through other parts are ticked; unticked parts are hidden while Auto-Rig shows the model and follow ①'s fixes) |
 | Already-rigged VRM | `kind: 'vrm'` | straight to ④ (FR-AR-09); ②/③ show the already-rigged notice (C11 is deferred) |
 | Rigged non-VRM humanoid GLB | `kind: 'rigged-humanoid'` | ④; ⑤ shows the targets Studio offers for it |
 | Rigged GLB, unknown skeleton | `kind: 'rigged-other'` | *Re-rig from scratch* (CR-AR-6) or *Open in Studio* |
@@ -1851,3 +1851,32 @@ Fixes of the second Auto-Rig acceptance run on `dev` (2 major, 10 minor findings
   first-run dialog to wait for, AR-D9-2).
 - Open for the owner: ⑤'s auto thumbnail is still an undo step (AR-D9-6); one control-size rule for model characters
   (AR-D9-3).
+
+## 20. Acceptance fix round 3 (D10, 2026-10-23)
+
+Fixes of the third Auto-Rig acceptance run on `dev` (3 major, 6 minor findings; a real 35-part low-poly character),
+decisions AR-D10-1…10 in [DECISIONS-OPEN §M](DECISIONS-OPEN.md#m-auto-rig-2026-10-22); each fix with a regression test
+(unit tests and `e2e/ar-r3-acceptance.spec.ts`). Amendments to this spec:
+
+- **§6.1 Several meshes** (replaces the row's default rule): every mesh that touches the body — the tallest mesh —
+  directly or through other parts is *Part of the character*; a mesh touching none of them *Looks separate* and
+  starts unticked. Touching = world-space surfaces within one cell of a grid of 1/96 of the model's height (bounds only
+  for data without faces). Unticked meshes stay in the scene but are **hidden while Auto-Rig shows the model**
+  (`autorig.parts {hidden}`, the per-user hidden objects; given back when Auto-Rig unmounts) and marked *Left out*;
+  *Tick all* ticks every part; Rig & Skin's frame-all skips hidden meshes (AR-D10-1).
+- **§5.2 ① fixes**: measured on the ticked parts, applied to the whole model (`autorig.fix {…, with}`, additive
+  `with` on `skel.quickRig.center` / `faceForward`), so a part ticked after the fixes is in place (AR-D10-2). ① frames
+  its view on the model after an import and after every fix (AR-D10-6). The Pose row reads "Arms not found" when the
+  model stands but the guess finds no arms.
+- **§5.3 ② / §4.5 `autorig.rig`**: when the One-Click guess failed (no arm run), Auto-rig waits until the Shoulder,
+  Elbow and Wrist markers were placed by hand (`autoRigBlock`; Studio's Create Skeleton is unchanged) (AR-D10-3).
+- **§5.4 ③ / §5.6.2 ⑤**: a new Validation row `skin.limb-unweighted` (error in the Ekza profile, warning plain): an
+  upper or lower arm or leg bone that moves no part of the model; ③ offers *Place the markers again*, ⑤'s *Every part
+  skinned* covers it (AR-D10-3). Esc in ③ review turns the motion test off; an Esc that closes a menu does not stop
+  the preview (AR-D10-5). The rig's controls stay hidden on ⑤ too (AR-D10-4).
+- **§5.2 naming**: a modelling tool's default first-mesh name (`pCube10`, `polySurface1`, `Cube.001`, `Mesh.003`,
+  `Mesh 0`, after a Maya namespace) names the project after the file; the character and the header take the project's
+  name; a new VRM name renames a project named after its character (AR-D10-8).
+- **§5.6.4 OMOBA kit**: the README names the avatar file's VRM version (an imported VRM 0.x keeps 0.x); ⑤ promises
+  the thumbnail only "when it has one", and the left-out note names no GLB for an imported VRM (AR-D10-9).
+- Open for the owner: auto weights bind a wide hair mesh's side cubes to the upper arms (AR-D10-7).

@@ -22,8 +22,12 @@ FBX and OBJ are not read yet: in Blender use *File › Export › glTF 2.0 (.glb
 Drop the file on the page (or *Choose file…*, or try a sample). The report checks the model: **centred, on the
 ground, facing +Z, upright, a human size**, and its pose (T or A). Each failed check has a one-click fix, each one
 undo step: *Center and ground* (it also brings a model that sits far away back to the middle), *Face forward*,
-*Stand up*, *Set height*. If the file has several meshes, things
-that look separate (a sword on the floor) are left out of the character; tick them to include them.
+*Stand up*, *Set height*; they move the whole model, ticked parts or not. If the file has several meshes (a low-poly
+character is often 30 parts or more), every part that touches the body — directly or through other parts: hands on
+forearms, shoes on ankles, eyes on the face — is part of the character; things that look separate (a sword on the
+floor) are left out. An unticked part is hidden and marked *Left out*, so unticking one shows which mesh it is;
+*Tick all* takes every part. If the report says *Arms not found*, Auto-Rig needs the arms held out to the sides
+(T-pose or A-pose).
 
 ## ② Markers
 
@@ -31,7 +35,8 @@ Nine markers — head top, chin, pelvis, shoulder, elbow, wrist, knee, ankle, to
 **Drag in the front view to move a marker sideways and up, in the side view to set its depth** (a drag never changes
 the axis that view does not show); the left side mirrors the right. Pick a marker in the list to grab it where markers
 overlap; the arrow keys nudge the selected marker by 1 cm (with Shift by 1 mm). Choose how many finger joints you
-want (none, thumb + 1, full hands). `G` guesses again.
+want (none, thumb + 1, full hands). `G` guesses again. When the guess cannot find the arms (arms hanging straight
+down, or not a person), **Auto-rig** waits until you have placed the Shoulder, Elbow and Wrist markers on the arm.
 
 ## ③ Rig
 
@@ -46,7 +51,9 @@ If something looks wrong:
   clears the T-pose check) and rebinds the skin.
 - **Paint weights**: the brush from Studio (Replace, Add, Smooth; mirror on). Painting needs a larger screen than a
   phone.
-- The checks list names any problem with its fix — e.g. an arm that is off its T-pose line.
+- The checks list names any problem with its fix — e.g. an arm that is off its T-pose line, or arm or leg bones that
+  move no part of the model (the skeleton is not inside the body: *Place the markers again*). `Esc` stops the motion
+  test; one click on its button starts it again.
 
 ## ④ Animations
 
@@ -55,7 +62,7 @@ card to see it on your character, set **Speed**, **Trim**, **Mirror**, **In plac
 the arms for bulky bodies), then **Add to character**. Add as many as you like; ✎ edits one, ✕ removes it. A card
 marked *no slot* (Jog, Punch, Pistol shoot, Jump loop, Jump land) has no OMOBA slot: give it one under its name after
 adding it, or it stays out of the VRM. You can also drop your own `.vrma` files here. Animations are optional: OMOBA
-plays its own motion library on any VRM. The rig's controls stay hidden on steps ②–④; Studio shows them.
+plays its own motion library on any VRM. The rig's controls stay hidden on steps ②–⑤; Studio shows them.
 
 ## ⑤ Export
 
@@ -64,8 +71,9 @@ plays its own motion library on any VRM. The rig's controls stay hidden on steps
   and "T-pose rest". The VRM keeps one animation per OMOBA slot (idle, walk, attack…): an animation without a slot is
   listed under *Not in the VRM* with a button that gives it a free slot (the GLB and VRMA keep every animation). A VRM
   0.x you brought stays a VRM 0.x, which OMOBA accepts.
-- **GLB with animations**, **Animations as VRMA**, and under *For developers* the **OMOBA local test kit** (the VRM, a
-  thumbnail and a roster entry for OMOBA's local avatar manifest, with a README).
+- **GLB with animations**, **Animations as VRMA**, and under *For developers* the **OMOBA local test kit** (the VRM, its
+  thumbnail when it has one and a roster entry for OMOBA's local avatar manifest, with a README that names the VRM
+  version).
 
 To use your avatar in OMOBA online, upload the VRM to Ekza Hub ([characters-to-ekza.md](characters-to-ekza.md)).
 To check a file locally against OMOBA's validator: `node tooling/omoba-validate.mjs your-file.vrm` (a checkout of
