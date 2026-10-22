@@ -3,7 +3,7 @@
 // mode, M6B-AF-1: Auto-Rig sets the mode it wants), *Adjust joints* in Skeleton mode, *Paint weights* in Skin mode.
 // The motion test starts from the view once the rig is checked (`./motion`).
 import type { WizardContext } from '../../shell/context';
-import { SUB_MODE } from './index';
+import { SUB_MODE } from './slice';
 
 export async function enterRig(ctx: WizardContext): Promise<void> {
   const { app } = ctx;

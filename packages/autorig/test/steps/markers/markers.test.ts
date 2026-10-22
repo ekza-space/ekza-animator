@@ -7,15 +7,8 @@ import { AUTORIG_KEYMAP } from '../../../src';
 import { markersKeys, NUDGE_ACTION } from '../../../src/keymap/steps/markers';
 import { bindingFor } from '../../../src/shell/keys';
 import { poseClass } from '../../../src/steps/markers/enter';
-import {
-  MARKER_PANE_IDS,
-  MARKERS_SLICE,
-  markerPanes,
-  nudgePane,
-  paneKind,
-  screenClass,
-  withPane,
-} from '../../../src/steps/markers/index';
+import { MARKER_PANE_IDS, MARKERS_SLICE, markerPanes, screenClass } from '../../../src/steps/markers/index';
+import { nudgePane, paneKind, withPane } from '../../../src/steps/markers/slice';
 import { nudged } from '../../../src/steps/markers/keys';
 
 const DEG = Math.PI / 180;

@@ -10,7 +10,8 @@ import { type EditorApp, QUICK_RIG_MARKERS, quickRigOf } from '@ekza-studio/edit
 import { type MarkerNudge, NUDGE_ACTION } from '../../keymap/steps/markers';
 import type { WizardContext } from '../../shell/context';
 import { bindingFor } from '../../shell/keys';
-import { MARKER_PANE_IDS, nudgePane, paneKind, withPane } from './index';
+import { MARKER_PANE_IDS } from './index';
+import { nudgePane, paneKind, withPane } from './slice';
 
 type Vec3 = readonly [number, number, number];
 

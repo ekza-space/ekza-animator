@@ -3,7 +3,6 @@
 import type { MessageTable } from '../index';
 
 export const markers = {
-  panelTitle: 'Markers',
   intro: 'Drag each marker onto the body: the front view moves it sideways and up, the side view sets its depth.',
   symmetry: 'Left side mirrors the right',
   // the pane labels (§5.3 wireframe)
@@ -44,8 +43,4 @@ export const markers = {
   rebindTitle: 'Rebind the skin?',
   rebindConfirm: 'Rebind',
   rigFailed: (message: string) => `Auto-rig failed: ${message}`,
-  // keys (the shortcuts sheet)
-  keyNudge: 'Nudge the selected marker 1 cm (Shift: 1 mm)',
-  keySelect: 'Select the previous / next marker (in the list)',
-  keyGuess: 'Guess the markers again',
 } as const satisfies MessageTable;

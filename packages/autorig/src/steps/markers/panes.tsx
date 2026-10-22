@@ -4,7 +4,8 @@
 import type { StepPane } from '../../shell/steps';
 import { type JSX, useEffect, useState } from 'react';
 import { messages } from '../../i18n';
-import { type MarkerPane, paneKind, type ScreenClass, screenClass } from './index';
+import { type MarkerPane, type ScreenClass, screenClass } from './index';
+import { paneKind } from './slice';
 
 /** The §8.3 device class, following the window's width. */
 export function useScreenClass(): ScreenClass {

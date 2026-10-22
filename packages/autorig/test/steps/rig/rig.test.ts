@@ -7,16 +7,15 @@ import type { OperatorDef } from '@ekza-studio/editor-core';
 import { createFakeEditorApp } from '@ekza-studio/editor-core/testing';
 import { describe, expect, it } from 'vitest';
 import { createAutoRigSessionStore, defaultAutoRigSession } from '../../../src/session';
+import { RIG_SLICE, rigPanes } from '../../../src/steps/rig/index';
 import {
   MOTION_CLIPS,
   paintedAfterRun,
   paintTracked,
-  RIG_SLICE,
-  rigPanes,
   SUB_MODE,
   withMotionClip,
   withSub,
-} from '../../../src/steps/rig/index';
+} from '../../../src/steps/rig/slice';
 import { watchPaintedSinceBind } from '../../../src/steps/rig/painted';
 import { stageAfter } from '../../../src/steps/rig/run';
 

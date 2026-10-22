@@ -7,7 +7,7 @@
 import type { Disposer } from '@ekza-studio/anim-core';
 import type { EditorApp } from '@ekza-studio/editor-core';
 import type { AutoRigSessionStore } from '../../session';
-import { paintedAfterRun, paintTracked } from './index';
+import { paintedAfterRun, paintTracked } from './slice';
 
 const installed = new WeakMap<EditorApp, { count: number; dispose: Disposer }>();
 

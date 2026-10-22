@@ -1,8 +1,8 @@
 // ② Markers step (AUTORIG-SPEC §5.3, §8.1, §8.3; D4): M6b's Quick Rig (C2/C3) in the front │ side │ persp panes of
 // the `'rig-markers'` layout, the compact marker list beside a body pictogram, the fingers choice, keyboard nudges and
 // *Auto-rig ▸* (`autorig.rig`, then ③). This module is in `/autorig`'s first visit (the frame's step registry and the
-// session store import it), so it holds only the `markers` slice, its reducers and the pane grid; the view
-// (`./MarkersStep`), the step's start (`./enter`) and the keys (`./keys`) are lazy chunks.
+// session store import it), so it holds only the `markers` slice's default and the pane grid; the slice's reducers
+// (`./slice`), the view (`./MarkersStep`), the step's start (`./enter`) and the keys (`./keys`) are lazy chunks.
 import type { WizardContext } from '../../shell/context';
 import type { StepPane, StepViewProps } from '../../shell/steps';
 import type { AutoRigMarkersSlice, AutoRigSession } from '../../types';
@@ -20,25 +20,6 @@ export const MARKER_PANE_IDS: Readonly<Record<MarkerPane, string>> = {
   persp: 'pane-persp',
 };
 const SIZES: Readonly<Record<MarkerPane, number>> = { front: 40, side: 30, persp: 30 };
-
-/** The pane kind of a pane id, or null for another pane. */
-export function paneKind(id: string | null | undefined): MarkerPane | null {
-  if (id === MARKER_PANE_IDS.front) return 'front';
-  if (id === MARKER_PANE_IDS.side) return 'side';
-  if (id === MARKER_PANE_IDS.persp) return 'persp';
-  return null;
-}
-
-/** Reducer: the pane the pointer is over (or the phone's switch picked); an ortho pane is remembered as the last one. */
-export function withPane(slice: AutoRigMarkersSlice, pane: MarkerPane): Partial<AutoRigMarkersSlice> {
-  if (slice.pane === pane && (pane === 'persp' || slice.lastOrtho === pane)) return {};
-  return pane === 'persp' ? { pane } : { pane, lastOrtho: pane };
-}
-
-/** The ortho pane a keyboard nudge acts in: the pane under the pointer, else the last ortho pane used (§8.1). */
-export function nudgePane(slice: AutoRigMarkersSlice): 'front' | 'side' {
-  return slice.pane === 'persp' ? slice.lastOrtho : slice.pane;
-}
 
 /** §8.3 device classes by the window's width. */
 export type ScreenClass = 'phone' | 'tablet' | 'desktop';

@@ -22,7 +22,6 @@ export const rig = {
   motionOn: 'on',
   motionOff: 'off',
   playMotion: 'Play motion test',
-  stopMotion: 'Stop',
   clipWalk: 'Walk',
   clipSword: 'Sword',
   clipDance: 'Dance',
@@ -54,6 +53,4 @@ export const rig = {
   hintAdjust: 'Move the joints, then press Done.',
   hintPaint: 'Paint the weights, then press Done.',
   hintRigging: 'Rigging…',
-  // keys
-  keyPlay: 'Play / pause the motion test',
 } as const satisfies MessageTable;
