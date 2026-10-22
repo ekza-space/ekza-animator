@@ -14,6 +14,7 @@ export const model = {
   formats: 'GLB · VRM · stays in your browser',
   loading: (name: string) => `Loading ${name}…`,
   replace: 'Load another model',
+  loadFailed: "Couldn't load the model step. Check your connection and try again.",
   // continue where you left off (§4.4)
   continueTitle: (name: string, ago: string) => `Continue where you left off — “${name}”, saved ${ago}`,
   continue: 'Continue',

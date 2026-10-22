@@ -8,7 +8,7 @@ import type { Disposer } from '@ekza-studio/anim-core';
 import type { AutoRigSampleId, AutoRigSubject, EditorApp } from '@ekza-studio/editor-core';
 import { type HostShell, provideAutoRigTestState } from '@ekza-studio/editor/host';
 import { installSimpleNavigation } from '../nav';
-import { autoRigProgress, landingStep } from '../progress';
+import { autoRigProgress, checklistLoaded, landingStep, loadChecklist } from '../progress';
 import {
   type AutoRigSessionStore,
   createAutoRigSessionStore,
@@ -17,10 +17,11 @@ import {
   type SessionMirror,
   sessionStorageOf,
 } from '../session';
-import { loadFiles, loadSample } from '../steps/model/flow';
+import { messages } from '../i18n';
+import { withFlow } from '../steps/model/ui';
 import { AUTORIG_STEPS, type AutoRigProgress, type AutoRigSession, type AutoRigStep } from '../types';
 import type { FooterState, ShellUi, WizardContext } from './context';
-import { endSessions, enterStep, quiet } from './entry';
+import { endSessions, enterStep, entryQueue, quiet } from './entry';
 import { bindingFor } from './keys';
 import { type SmallStore, smallStore } from './store';
 
@@ -155,7 +156,7 @@ export function createWizard(host: HostShell): Wizard {
         const list = [...files];
         if (list.length === 0) return;
         if (session.getState().step !== 'model') session.set({ step: 'model' });
-        void loadFiles(wizard, list);
+        void withFlow(wizard, messages().model.loadFailed, (flow) => flow.loadFiles(wizard, list));
       },
     },
     start() {
@@ -171,14 +172,28 @@ export function createWizard(host: HostShell): Wizard {
         live = false;
       });
 
-      // inputs of the progress: the document, the session, the rig-workspace chunk
-      disposers.push(app.store.subscribe(() => bump()));
+      // inputs of the progress: the document, the session, the rig-workspace chunk and the checklist chunk (loaded
+      // with the first model; a failed load is retried at the next document change)
+      let alive = true;
+      disposers.push(() => {
+        alive = false;
+      });
+      const wantChecklist = (): void => {
+        if (checklistLoaded() || documentEmpty(app)) return;
+        void loadChecklist().then(
+          () => alive && bump(),
+          () => {},
+        );
+      };
+      wantChecklist();
+      disposers.push(
+        app.store.subscribe(() => {
+          bump();
+          wantChecklist();
+        }),
+      );
       disposers.push(session.subscribe(() => bump()));
       if (!app.rig.loaded) {
-        let alive = true;
-        disposers.push(() => {
-          alive = false;
-        });
         const waitRig = (): void => {
           void app.rig
             .load()
@@ -228,14 +243,16 @@ export function createWizard(host: HostShell): Wizard {
       disposers.push(this.progressStore.subscribe(settle));
       settle();
 
-      // §4.2 entry order on every step change, and again on ① when the first model arrives
+      // §4.2 entry order on every step change, and again on ① when the first model arrives; entries run one after
+      // another, and a quick second change (Alt+2 then Alt+3) supersedes the first before its next stage
       let entered: { step: AutoRigStep; model: boolean } | null = null;
+      const queue = entryQueue();
       const enter = (): void => {
         const step = session.getState().step;
         const model = progress().done.model;
         if (entered !== null && entered.step === step && (entered.model || !model)) return;
         entered = { step, model };
-        void enterStep(wizard, step, model);
+        void queue((current) => enterStep(wizard, step, model, current));
       };
       disposers.push(session.subscribe(enter));
       disposers.push(this.progressStore.subscribe(enter));
@@ -332,7 +349,10 @@ export function createWizard(host: HostShell): Wizard {
       });
 
       // `?sample=` loads once at ①
-      if (first && sample !== null) void loadSample(wizard, sample);
+      if (first && sample !== null) {
+        const id = sample;
+        void withFlow(wizard, messages().model.loadFailed, (flow) => flow.loadSample(wizard, id));
+      }
 
       return () => {
         for (const dispose of disposers.splice(0).reverse()) dispose();

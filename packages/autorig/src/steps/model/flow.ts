@@ -2,34 +2,17 @@
 // `autorig.sample` (the shipped New confirm first when the document holds something), take the report into the
 // session (subject, intake, the start pose recorded once per subject, the default parts), run the one-click fixes
 // (`autorig.fix`, one undo step each, then a fresh `autorig.inspect`), use a Studio hand-over, continue or discard an
-// autosave slot. Every document change is an operator run; the session is U state.
+// autosave slot. Every document change is an operator run; the session is U state. A lazy chunk (AR-D3-4): the
+// first ① action loads it (`./ui` keeps the transient state the drop zone reads before).
 import type { CharacterId, MeshId } from '@ekza-studio/doc';
 import type { AutoRigSampleId, AutoRigSubject, IntakeReport } from '@ekza-studio/editor-core';
 import { messages } from '../../i18n';
 import type { WizardContext } from '../../shell/context';
 import { enterWorkspace } from '../../shell/entry';
-import { smallStore, type SmallStore } from '../../shell/store';
 import { defaultParts } from './parts';
+import { modelUi } from './ui';
 
-/** ①'s transient UI state (per wizard): what is loading, a skinned file waiting for Re-rig, a project's characters. */
-export interface ModelUi {
-  readonly loading: string | null;
-  /** The last failure of a ① action (shown in the footer until the next one). */
-  readonly error: string | null;
-  readonly rerig: { readonly name: string; readonly bytes: Uint8Array } | null;
-  readonly choose: readonly CharacterId[] | null;
-}
-
-const uis = new WeakMap<WizardContext['session'], SmallStore<ModelUi>>();
-
-export function modelUi(ctx: Pick<WizardContext, 'session'>): SmallStore<ModelUi> {
-  let store = uis.get(ctx.session);
-  if (store === undefined) {
-    store = smallStore<ModelUi>({ loading: null, error: null, rerig: null, choose: null });
-    uis.set(ctx.session, store);
-  }
-  return store;
-}
+export { modelUi };
 
 /** The live scene meshes of the subject (the fixes and the inspection work on them). */
 export function subjectMeshes(ctx: WizardContext): MeshId[] {

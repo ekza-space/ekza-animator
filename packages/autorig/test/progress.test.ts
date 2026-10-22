@@ -5,11 +5,18 @@
 // open); ④ done with a clip or `animations.skipped`; an asset-sourced humanoid skips to ④; the subject resolves
 // through Create Skeleton's adoption; `landingStep` picks the furthest reachable step.
 import { type CharacterId, derivedId, type DocumentStore, emptySnapshot, type MeshId } from '@ekza-studio/doc';
-import type { RigValidationRow } from '@ekza-studio/editor-core';
+import { type RigValidationRow, rigChecklist } from '@ekza-studio/editor-core';
 import { createFakeEditorApp, createNaiveStore } from '@ekza-studio/editor-core/testing';
 import { describe, expect, it } from 'vitest';
 import { autoRigProgress, defaultAutoRigSession, messages } from '../src';
-import { landingStep, type ProgressInput, progressOf, resolveSubject } from '../src/progress';
+import {
+  checklistLoaded,
+  landingStep,
+  loadChecklist,
+  type ProgressInput,
+  progressOf,
+  resolveSubject,
+} from '../src/progress';
 
 const t = messages().frame;
 const CHAR = 'chr_Model0000000001' as CharacterId;
@@ -101,6 +108,7 @@ const input = (view: DocumentStore, fields: Partial<ProgressInput> = {}): Progre
   subject: { character: null, meshes: [] },
   rows: null,
   animationsSkipped: false,
+  checklist: rigChecklist,
   ...fields,
 });
 
@@ -237,6 +245,39 @@ describe('autoRigProgress (§4.3)', () => {
     const p = autoRigProgress(app, session);
     expect(p.reachable.model).toBe(true);
     expect(p.done.model).toBe(false);
+  });
+
+  it("the checklist chunk not loaded yet: a character's skeleton and binding are unknown (Checking…), meshes are not", () => {
+    const subject = { character: CHAR, meshes: [] };
+    const p = progressOf(input(riggedLad(true), { subject, rows: [], checklist: null }));
+    expect(p.done).toEqual({ model: true, markers: false, rig: false, animations: false, export: false });
+    expect(p.reachable.markers).toBe(true);
+    expect(p.blocked.rig).toBe(t.blockedChecking);
+    expect(p.blocked.animations).toBe(t.blockedChecking);
+    // the same document once the chunk is there
+    expect(progressOf(input(riggedLad(true), { subject, rows: [] })).done.rig).toBe(true);
+    // scene meshes need no checklist: ① done, ② reachable, ③ waits for the skeleton as before
+    const s = store();
+    put(s, 'meshes', mesh('msh_a', { scene: true }));
+    const q = progressOf(input(s, { subject: { character: null, meshes: ['msh_a' as MeshId] }, checklist: null }));
+    expect(q.done.model).toBe(true);
+    expect(q.reachable.markers).toBe(true);
+    expect(q.blocked.rig).toBe(t.blockedNoSkeleton);
+  });
+
+  it('autoRigProgress uses the checklist chunk once loadChecklist() resolved', async () => {
+    const app = createFakeEditorApp();
+    const view = riggedLad(false);
+    for (const record of view.list('characters')) put(app.store, 'characters', record as never);
+    for (const record of view.list('skeletons')) put(app.store, 'skeletons', record as never);
+    for (const record of view.list('meshes')) put(app.store, 'meshes', record as never);
+    const session = { ...defaultAutoRigSession(), subject: { character: CHAR, meshes: [] } };
+    await loadChecklist();
+    expect(checklistLoaded()).toBe(true);
+    const p = autoRigProgress(app, session);
+    expect(p.done.markers).toBe(true);
+    expect(p.reachable.rig).toBe(true);
+    expect(p.done.rig).toBe(false);
   });
 
   it('landingStep: the step when reachable, else the furthest reachable one', () => {

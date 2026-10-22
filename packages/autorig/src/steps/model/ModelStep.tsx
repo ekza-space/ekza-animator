@@ -2,6 +2,8 @@
 // left off), shrinking to a strip once a model is loaded; in the side panel the report (file, meshes, triangles,
 // height, the check rows with their one-click fixes, the Pose row, the parts of a multi-mesh model, the weight notes)
 // and the From Studio card. The footer's primary is *Next: Markers* (an already rigged avatar: *Next: Animations*).
+// The first visit loads only the drop zone (AR-D3-4): the ① actions (`./flow`), the report (`./Report`) and the cards
+// a fresh profile never shows (Continue, the rigged-other choice, a project's characters: `./Extras`) are lazy chunks.
 import type { AutoRigFix } from '@ekza-studio/editor-core';
 import { buttonClass, cn } from '@ekza-studio/ui';
 import { type JSX, lazy, Suspense, useCallback, useEffect, useRef } from 'react';
@@ -18,9 +20,8 @@ import {
 import type { StepViewProps } from '../../shell/steps';
 import { useSmall } from '../../shell/store';
 import type { AutoRigSession } from '../../types';
-import { continueSlot, discardSlot, loadFiles, loadSample, modelUi, reinspect, subjectMeshes } from './flow';
 import { FIX_LABEL, firstFix, transformsUniform } from './checks';
-import { confirmHeavy } from './parts';
+import { modelUi, withFlow } from './ui';
 
 const t = (): ReturnType<typeof messages>['model'] => messages().model;
 
@@ -32,12 +33,6 @@ const selectIntake = (s: AutoRigSession): AutoRigSession['intake'] => s.intake;
 const selectModel = (s: AutoRigSession): AutoRigSession['model'] => s.model;
 const selectStep = (s: AutoRigSession): AutoRigSession['step'] => s.step;
 const selectFromStudio = (u: ShellUi): ShellUi['fromStudio'] => u.fromStudio;
-
-function ago(savedAt: number): string {
-  const minutes = Math.floor((Date.now() - savedAt) / 60_000);
-  if (minutes < 1) return t().agoNow;
-  return minutes < 60 ? t().agoMinutes(minutes) : t().agoHours(Math.floor(minutes / 60));
-}
 
 // ---------------------------------------------------------------------------------------------------------------------
 // over the pane
@@ -58,7 +53,7 @@ function FilePicker(props: { readonly ctx: WizardContext; readonly label: string
         onChange={(e) => {
           const files = [...(e.currentTarget.files ?? [])];
           e.currentTarget.value = '';
-          if (files.length > 0) void loadFiles(props.ctx, files);
+          if (files.length > 0) void withFlow(props.ctx, t().loadFailed, (flow) => flow.loadFiles(props.ctx, files));
         }}
       />
     </>
@@ -81,7 +76,7 @@ function Samples(props: { readonly ctx: WizardContext }): JSX.Element {
           type="button"
           className={button()}
           data-sample={id}
-          onClick={() => void loadSample(props.ctx, id)}
+          onClick={() => void withFlow(props.ctx, t().loadFailed, (flow) => flow.loadSample(props.ctx, id))}
         >
           {label}
         </button>
@@ -90,6 +85,9 @@ function Samples(props: { readonly ctx: WizardContext }): JSX.Element {
   );
 }
 
+const Extras = lazy(() => import('./Extras'));
+
+/** §4.4 Continue where you left off: shown when an autosave slot exists, the document is empty and no handoff came. */
 function ContinueCard(props: { readonly ctx: WizardContext }): JSX.Element | null {
   const { ctx } = props;
   const recovery = useAppSession(
@@ -103,20 +101,9 @@ function ContinueCard(props: { readonly ctx: WizardContext }): JSX.Element | nul
   const slot = [...recovery].sort((a, b) => b.savedAt - a.savedAt)[0];
   if (slot === undefined || !empty || ctx.host.params.handoff !== null) return null;
   return (
-    <div
-      className="flex flex-col items-center gap-2 rounded-field border border-line bg-panel p-3"
-      data-testid="ar-continue"
-    >
-      <p className="text-center">{t().continueTitle(slot.projectName, ago(slot.savedAt))}</p>
-      <div className="flex gap-2">
-        <button type="button" className={button('primary')} onClick={() => void continueSlot(ctx, slot.id)}>
-          {t().continue}
-        </button>
-        <button type="button" className={button('ghost')} onClick={() => void discardSlot(ctx, slot.id)}>
-          {t().startOver}
-        </button>
-      </div>
-    </div>
+    <Suspense fallback={null}>
+      <Extras ctx={ctx} show="continue" slot={slot} />
+    </Suspense>
   );
 }
 
@@ -161,42 +148,14 @@ function Overlay(props: { readonly ctx: WizardContext }): JSX.Element {
         </div>
         <Samples ctx={ctx} />
         {ui.rerig !== null && intake?.kind === 'rigged-other' ? (
-          <div className="flex flex-col items-center gap-2" data-testid="ar-rigged-other" role="alert">
-            <p>{m.kindRiggedOther}</p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className={button('primary')}
-                onClick={() => void import('./fixes').then((m) => m.reRig(ctx))}
-              >
-                {m.reRig}
-              </button>
-              <button
-                type="button"
-                className={button()}
-                onClick={() => void import('./fixes').then((m) => m.openRiggedInStudio(ctx))}
-              >
-                {m.openInStudio}
-              </button>
-            </div>
-          </div>
+          <Suspense fallback={null}>
+            <Extras ctx={ctx} show="rigged-other" />
+          </Suspense>
         ) : null}
         {ui.choose !== null ? (
-          <div className="flex flex-col items-center gap-2" data-testid="ar-choose-character">
-            <p>{m.severalCharacters}</p>
-            <div className="flex flex-wrap justify-center gap-2">
-              {ui.choose.map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  className={button()}
-                  onClick={() => void import('./fixes').then((m) => m.chooseCharacter(ctx, id))}
-                >
-                  {ctx.app.store.get('characters', id)?.name ?? id}
-                </button>
-              ))}
-            </div>
-          </div>
+          <Suspense fallback={null}>
+            <Extras ctx={ctx} show="choose" characters={ui.choose} />
+          </Suspense>
         ) : null}
         <ContinueCard ctx={ctx} />
         <p className="text-fg-3">{m.formats}</p>
@@ -283,7 +242,7 @@ function useModelFooter(ctx: WizardContext): void {
               confirmLabel: f.next(f.stepMarkers),
             });
             if (!ok) return;
-            confirmHeavy(ctx);
+            (await import('./parts')).confirmHeavy(ctx);
           }
           ctx.go(target);
         },
@@ -302,7 +261,8 @@ function useFreshReport(ctx: WizardContext): void {
       timer = setTimeout(() => {
         timer = null;
         const state = ctx.session.getState();
-        if (state.step === 'model' && state.intake !== null && subjectMeshes(ctx).length > 0) void reinspect(ctx);
+        if (state.step !== 'model' || state.intake === null) return;
+        void withFlow(ctx, t().loadFailed, (flow) => (flow.subjectMeshes(ctx).length > 0 ? flow.reinspect(ctx) : null));
       }, 0);
     });
     return () => {

@@ -1,9 +1,11 @@
 // Derived wizard progress (AUTORIG-SPEC §4.3; D3): `done`, `reachable` and `blocked` per step as a pure function of
 // the document, the M6b checklist (`rigChecklist`, CR-AR-4) with the Validation rows of the subject character under
 // `ekza/space-avatar-v1` (the rows need the rig-workspace chunk; before it loaded they are unknown and ③ is not done)
-// and the session — never stored, so reloads, undo and Studio edits keep it right.
+// and the session — never stored, so reloads, undo and Studio edits keep it right. The checklist is a lazy chunk of
+// its own (`./checklist`, AR-D3-21): the shell loads it with the first model, and until it is there a subject
+// character's skeleton and binding are unknown (② and ③ not done, "Checking…"), as the rows are before the rig chunk.
 import { type CharacterRecord, derivedId, type MeshId, type ReadView } from '@ekza-studio/doc';
-import { type EditorApp, type RigValidationRow, rigChecklist } from '@ekza-studio/editor-core';
+import type { EditorApp, RigValidationRow, rigChecklist } from '@ekza-studio/editor-core';
 import { messages } from '../i18n';
 import {
   AUTORIG_STEPS,
@@ -54,6 +56,8 @@ export interface ProgressInput {
   /** The subject character's Validation rows, or null while unknown (no character, or the rig chunk not loaded). */
   readonly rows: readonly RigValidationRow[] | null;
   readonly animationsSkipped: boolean;
+  /** C7's `rigChecklist` (CR-AR-4), or null while its chunk is loading (skeleton and binding unknown). */
+  readonly checklist: typeof rigChecklist | null;
 }
 
 const flags = (value: (step: AutoRigStep) => boolean): Record<AutoRigStep, boolean> =>
@@ -69,10 +73,15 @@ export function progressOf(input: ProgressInput): AutoRigProgress {
   // An asset-sourced humanoid: the shipped importer maps the humanoid only from the VRM extensions (format vrm0/vrm1).
   const assetHumanoid = asset && character?.format !== 'gltf';
   const hasSubject = subject.meshes.length > 0 || character !== null;
-  const checklist = rigChecklist({ store: view as EditorApp['store'] }, character?.id ?? null, {
-    rows: input.rows ?? [],
-    previewed: false,
-  });
+  // unknown only for a character: without one the checklist is the empty one that starts at ①
+  const unknown = character !== null && input.checklist === null;
+  const checklist =
+    input.checklist === null
+      ? []
+      : input.checklist({ store: view as EditorApp['store'] }, character?.id ?? null, {
+          rows: input.rows ?? [],
+          previewed: false,
+        });
   const skeleton = checklist[0]?.glyph === 'done';
   const bound = checklist[2]?.glyph === 'done';
   const blocking = input.rows?.find((row) => row.severity === 'error' && BLOCKING.test(row.code)) ?? null;
@@ -120,21 +129,31 @@ export function progressOf(input: ProgressInput): AutoRigProgress {
   });
   const blocked: Partial<Record<AutoRigStep, string>> = {};
   if (!reachable.markers) blocked.markers = asset ? t.alreadyRigged : t.blockedNoModel;
-  if (!reachable.rig) blocked.rig = asset ? t.alreadyRigged : hasSubject ? t.blockedNoSkeleton : t.blockedNoModel;
+  if (!reachable.rig) {
+    blocked.rig = asset
+      ? t.alreadyRigged
+      : !hasSubject
+        ? t.blockedNoModel
+        : unknown
+          ? t.blockedChecking
+          : t.blockedNoSkeleton;
+  }
   if (!animationsReachable) {
     const why = !hasSubject
       ? t.blockedNoModel
       : asset
         ? t.alreadyRigged
-        : !skeleton
-          ? t.blockedNoSkeleton
-          : !bound
-            ? t.blockedNotBound
-            : blocking !== null
-              ? t.blockedRow(blocking.message)
-              : input.rows === null
-                ? t.blockedChecking
-                : t.blockedNotBound;
+        : unknown
+          ? t.blockedChecking
+          : !skeleton
+            ? t.blockedNoSkeleton
+            : !bound
+              ? t.blockedNotBound
+              : blocking !== null
+                ? t.blockedRow(blocking.message)
+                : input.rows === null
+                  ? t.blockedChecking
+                  : t.blockedNotBound;
     blocked.animations = why;
     blocked.export = why;
   }
@@ -151,7 +170,30 @@ export function subjectRows(app: EditorApp, character: CharacterRecord | null): 
   }
 }
 
-/** `autoRigProgress(app, session)` (§4.3): reads the document, the Validation rows and the session. */
+let checklist: typeof rigChecklist | null = null;
+let checklistLoad: Promise<void> | null = null;
+
+/** Loads the checklist chunk once (a failed load is retried by the next call); resolves when it is there. */
+export function loadChecklist(): Promise<void> {
+  checklistLoad ??= import('./checklist').then(
+    (module) => {
+      checklist = module.rigChecklist;
+    },
+    (error: unknown) => {
+      checklistLoad = null;
+      throw error;
+    },
+  );
+  return checklistLoad;
+}
+
+/** True once the checklist chunk is there (progress then knows skeletons and binding). */
+export const checklistLoaded = (): boolean => checklist !== null;
+
+/**
+ * `autoRigProgress(app, session)` (§4.3): reads the document, the Validation rows and the session. Until
+ * `loadChecklist()` resolved, a subject character's skeleton and binding read as unknown.
+ */
 export const autoRigProgress: AutoRigProgressFn = (app, session) => {
   const { character } = resolveSubject(app.store, session.subject);
   return progressOf({
@@ -159,6 +201,7 @@ export const autoRigProgress: AutoRigProgressFn = (app, session) => {
     subject: session.subject,
     rows: subjectRows(app, character),
     animationsSkipped: session.animations.skipped,
+    checklist,
   });
 };
 
