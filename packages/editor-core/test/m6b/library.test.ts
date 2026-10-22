@@ -268,6 +268,11 @@ describe('Use Clip (§0.4.7)', () => {
 
     await runOk(app, 'edit.undo');
     expect(app.store.get('clips', again.clip)).toBeUndefined();
+    // Redo brings the clip back as the active clip, as Use Clip made it (acceptance fix: redo kept the previous one).
+    expect(app.session.getState().activeClip[character]).not.toBe(again.clip);
+    await runOk(app, 'edit.redo');
+    expect(app.store.get('clips', again.clip)).toBeDefined();
+    expect(app.session.getState().activeClip[character]).toBe(again.clip);
   });
 
   it('a tampered download fails its checksum: the action fails with the toast, the clip is marked failed', async () => {
