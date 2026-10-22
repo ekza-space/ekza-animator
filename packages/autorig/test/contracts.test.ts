@@ -86,8 +86,11 @@ describe('strings and keys split per step (AUTORIG-SPEC §8.1, §8.4, §10.0)', 
 
   it('merges one key list per owner under the autorig scope', () => {
     expect(AUTORIG_KEY_SCOPE).toBe('autorig');
-    // D3's frame rows first (the global keys); the step owners' lists follow (① has none)
+    // D3's frame rows first (the global keys); the step owners' lists follow (① has none), each naming its steps
     expect(AUTORIG_KEYMAP.length).toBeGreaterThan(0);
-    expect(AUTORIG_KEYMAP.every((binding) => binding.steps === 'all')).toBe(true);
+    const firstStepRow = AUTORIG_KEYMAP.findIndex((binding) => binding.steps !== 'all');
+    expect(firstStepRow).toBeGreaterThan(0);
+    expect(AUTORIG_KEYMAP.slice(0, firstStepRow).every((binding) => binding.steps === 'all')).toBe(true);
+    expect(AUTORIG_KEYMAP.slice(firstStepRow).every((binding) => binding.steps !== 'all')).toBe(true);
   });
 });

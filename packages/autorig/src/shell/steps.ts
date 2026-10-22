@@ -63,8 +63,8 @@ export const PERSP_PANE_ID = 'pane-persp';
 export const PERSP_PANES: readonly StepPane[] = [{ id: PERSP_PANE_ID }];
 
 const MODULES: Readonly<Partial<Record<AutoRigStep, StepModule>>> = {
-  markers: markers as StepModule,
-  rig: rig as StepModule,
+  markers,
+  rig,
   animations: animations as StepModule,
   export: exportStep as StepModule,
 };

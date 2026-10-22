@@ -10,7 +10,8 @@ const key = (code: string, mods: Partial<KeyboardEvent> = {}, target: EventTarge
 
 describe('the frame keys (§8.1)', () => {
   it('lists undo/redo, the primary, the five steps and the turned-off Studio chords', () => {
-    const rows = AUTORIG_KEYMAP.map((b) =>
+    // the frame's rows: every step (the step packages' own rows follow them, naming their steps)
+    const rows = AUTORIG_KEYMAP.filter((b) => b.steps === 'all').map((b) =>
       'op' in b.run ? b.run.op : `${b.run.action}${typeof b.run.args === 'number' ? b.run.args : ''}`,
     );
     expect(rows).toEqual([

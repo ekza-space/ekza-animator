@@ -87,7 +87,8 @@ const rig = defineOperator<'autorig.rig', AutoRigRigResult>({
     let character: CharacterId | null = null;
     let committed = false;
     const busy = (): void => {
-      if (app.session.getState().busy === null) app.session.setState({ busy: { label: RIGGING_LABEL, progress: null } });
+      if (app.session.getState().busy === null)
+        app.session.setState({ busy: { label: RIGGING_LABEL, progress: null } });
     };
     // Every step after the commit: the subject is the new character from then on (its id comes with the commit's
     // value, read by the step's args; the step right after the commit is covered by the history check).

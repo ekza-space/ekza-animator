@@ -117,7 +117,13 @@ describe('autorig.rig (§4.5)', () => {
     const truth = TRUTH.tpose;
     const off = joints
       .filter((joint) => joint.humanBone !== null && truth.humanoid[joint.humanBone] !== undefined)
-      .map((joint) => [joint.humanBone, dist(joint.restPosition, truth.humanoid[joint.humanBone as HumanBoneName] as V3) / truth.height] as const)
+      .map(
+        (joint) =>
+          [
+            joint.humanBone,
+            dist(joint.restPosition, truth.humanoid[joint.humanBone as HumanBoneName] as V3) / truth.height,
+          ] as const,
+      )
       .filter(([, e]) => e > 0.05);
     expect(off).toEqual([]);
     expect(joints.filter((joint) => joint.restRotation.join() !== '0,0,0,1').map((joint) => joint.key)).toEqual([]);
