@@ -11,6 +11,7 @@ import {
   beginChannelEditGesture,
   type EditorApp,
   loadMeshKernel,
+  provideNavigation,
   registerBuiltinWorkspaces,
 } from '../../src';
 import { opsApp } from '../builtin/support';
@@ -237,6 +238,22 @@ export const P_C6_ROWS: readonly Row[] = [
   },
   { id: 'library.stop', status: 'checked', owner: 'C12', refuses: 'No clip preview is playing' },
   { id: 'library.useClip', status: 'keys', owner: 'C12' },
+  // AUTORIG-SPEC §4.5 (D0 lands the rows pending; literal update): the Auto-Rig compositions run Studio operators only,
+  // so each row's verdict is the one of what it runs. `autorig.clip.add` = Use Clip, a §3 rule 7 exception.
+  ...pending('D3', 'autorig.sample', 'autorig.intake', 'autorig.inspect', 'autorig.fix'),
+  ...pending('D4', 'autorig.rig', 'autorig.cancel'),
+  { id: 'autorig.clip.add', status: 'keys', owner: 'D5' },
+  ...pending('D6', 'autorig.export'),
+  // D1: the switch runs through a host navigation port (a recording fake here) and never touches the document.
+  {
+    id: 'autorig.navigate',
+    status: 'checked',
+    owner: 'D1',
+    setup: (app) => {
+      provideNavigation(app, { go: async () => {}, takeSubject: () => null });
+      return { to: 'autorig', from: 'studio' };
+    },
+  },
 ];
 
 /** The Cube Lad fixture (an unskinned GLB). */

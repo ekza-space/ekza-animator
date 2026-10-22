@@ -1,6 +1,7 @@
 // URL parameters of the editor (MVP-SPEC §4.8). They take effect only in e2e builds (NEXT_PUBLIC_EKZA_E2E=1)
-// opened with `?e2e=1`; ordinary builds ignore them, so no URL can switch a user's editor into test mode. The one
-// exception is M6a `ws=<id>` (M6A-SPEC §4.8): a deep link to a workspace, read in any build.
+// opened with `?e2e=1`; ordinary builds ignore them, so no URL can switch a user's editor into test mode. The
+// exceptions are M6a `ws=<id>` (M6A-SPEC §4.8), a deep link to a workspace, and AUTORIG-SPEC §3.1/§4.4's `handoff=<id>`
+// (a one-shot handoff record to open) and `from=studio|autorig` (labels the entry), read in any build.
 import type { NavProfile } from '@ekza-studio/editor-core';
 
 export interface EditorParams {
@@ -22,6 +23,10 @@ export interface EditorParams {
   readonly pointerLock: boolean;
   /** M6a `ws=<id>` (any build): open this workspace when it is registered and enabled; null = the remembered one. */
   readonly ws: string | null;
+  /** AUTORIG-SPEC §4.4 `handoff=<id>` (any build): the handoff record this page opens, read once; null = none. */
+  readonly handoff: string | null;
+  /** AUTORIG-SPEC §3.1 `from=studio|autorig` (any build): the shell the user came from (a label only). */
+  readonly from: 'studio' | 'autorig' | null;
 }
 
 export const DEFAULT_PARAMS: EditorParams = {
@@ -34,18 +39,33 @@ export const DEFAULT_PARAMS: EditorParams = {
   storageBlocked: false,
   pointerLock: true,
   ws: null,
+  handoff: null,
+  from: null,
 };
 
 /** A storage namespace from the URL: 1–64 characters of [A-Za-z0-9_-]; anything else is ignored. */
 const NAMESPACE = /^[A-Za-z0-9_-]{1,64}$/;
 /** A workspace id from the URL ('model', 'animate', …); anything else is ignored. */
 const WORKSPACE_ID = /^[a-z][a-z0-9-]{0,31}$/;
+/** A handoff record id (a UUID; any 8–64 characters of [A-Za-z0-9-]); anything else is ignored. */
+const HANDOFF_ID = /^[A-Za-z0-9-]{8,64}$/;
 
 export function parseEditorParams(search: string, buildAllowsE2e: boolean): EditorParams {
   const query = new URLSearchParams(search);
   const wsParam = query.get('ws');
-  const ws = wsParam !== null && WORKSPACE_ID.test(wsParam) ? wsParam : null;
-  if (!buildAllowsE2e || query.get('e2e') !== '1') return ws === null ? DEFAULT_PARAMS : { ...DEFAULT_PARAMS, ws };
+  const handoffParam = query.get('handoff');
+  const fromParam = query.get('from');
+  // Read in any build: deep links and the shell switch (M6a `ws`, AUTORIG-SPEC `handoff`, `from`).
+  const links = {
+    ws: wsParam !== null && WORKSPACE_ID.test(wsParam) ? wsParam : null,
+    handoff: handoffParam !== null && HANDOFF_ID.test(handoffParam) ? handoffParam : null,
+    from: fromParam === 'studio' || fromParam === 'autorig' ? fromParam : null,
+  } as const;
+  if (!buildAllowsE2e || query.get('e2e') !== '1') {
+    return links.ws === null && links.handoff === null && links.from === null
+      ? DEFAULT_PARAMS
+      : { ...DEFAULT_PARAMS, ...links };
+  }
   const nav = query.get('nav');
   const space = query.get('space');
   const platform = query.get('platform');
@@ -59,7 +79,7 @@ export function parseEditorParams(search: string, buildAllowsE2e: boolean): Edit
     ns: ns !== null && NAMESPACE.test(ns) ? ns : null,
     storageBlocked: query.get('storage') === 'blocked',
     pointerLock: query.get('pointerLock') !== 'off',
-    ws,
+    ...links,
   };
 }
 
