@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { charactersSettled } from './helpers/m6b-mvp-script';
 import { keysHash } from './helpers/m6b-rig';
 import {
   boundCubeLad,
@@ -36,6 +37,7 @@ test.describe('E2E-SKIN-02 Paint fix with one undo', () => {
     );
     expect(visible.length).toBeGreaterThan(0);
     const p = visible[0]?.point as number;
+    const container = await call(page, 'containerVersion', lad.character);
     await runOk(page, 'skin.weights.set', { mesh: lad.mesh, points: [p], joint: lad.joint('spine'), value: 1 });
     const seeded = await call(page, 'weights', lad.mesh);
     expect(seeded[p]?.joints).toEqual([lad.joint('spine')]);
@@ -50,6 +52,12 @@ test.describe('E2E-SKIN-02 Paint fix with one undo', () => {
       .toEqual([lad.joint('leftHand')]);
     // The 0-byte gate (§5.25): switching the active influence redraws with uniforms only — no buffer upload. The seed's
     // revision is drawn first (an idle viewport), so only the switch is measured.
+    // INT: the seed's deferred display rebuild (C1: debounced, then on idle) uploads the rebuilt display model; under a
+    // parallel run it can land inside the switch below, so wait for it and for the character registry to settle.
+    await expect
+      .poll(() => call(page, 'containerVersion', lad.character), { timeout: 15_000 })
+      .toBeGreaterThan(container);
+    await charactersSettled(page);
     await settleFrames(page);
     await page.evaluate(() => {
       const probe = { bytes: 0 };
