@@ -2,8 +2,9 @@
 // `AutosaveStore` and keeps `session.autosave` / `session.recovery` current. The browser host starts it once per page
 // (`startAutosave`); headless tests drive it with a fake store and timers. Nothing here runs without a store.
 //
-// - Start: claim a slot (`store.open`), then housekeeping (orphans older than 14 days removed, at most 5 kept) and
-//   the orphan list into `session.recovery`. A missing store or a failed claim turns autosave off with one info toast.
+// - Start: claim a slot (`store.open`), then housekeeping (orphans older than 14 days removed, at most 5 kept; handoff
+//   records older than 10 minutes pruned, AUTORIG-SPEC §4.4) and the orphan list into `session.recovery`. A missing
+//   store or a failed claim turns autosave off with one info toast.
 // - Cadence: every committed batch but 'preview' and 'load' marks the document unsaved; the write runs `delayMs` after
 //   the last such batch but at most `maxIntervalMs` after the first unsaved one, never while a preview (gesture) is
 //   active (it waits for the commit or the cancel), in an idle callback, one write at a time. The idle callback looks
@@ -27,6 +28,8 @@ export const ORPHAN_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 export const MAX_ORPHANS = 5;
 /** The orphan list is read again this long after start (a reloaded page's lock may outlive the reload briefly). */
 export const RECOVERY_RECHECK_MS = 3000;
+/** Handoff records (AUTORIG-SPEC §4.4) older than this are pruned at start; a hand-over is read within seconds. */
+export const HANDOFF_MAX_AGE_MS = 10 * 60 * 1000;
 
 export const AUTOSAVE_BLOCKED_TOAST = 'Autosave is off: this browser blocks storage.';
 export const AUTOSAVE_QUOTA_TOAST =
@@ -336,6 +339,8 @@ export function startAutosave(app: EditorApp, opts?: { readonly clock?: Autosave
     }
     if (disposed) return;
     setStatus({ enabled: prefs().enabled, slot, error: null });
+    // Housekeeping (§4.4): one-shot handoff records nobody took (a closed tab, a blocked pop-up) expire.
+    void store.pruneHandoffs?.(HANDOFF_MAX_AGE_MS).catch(() => {});
     if (firstUnsavedAt !== null) {
       setStatus({ pending: active() });
       schedule();

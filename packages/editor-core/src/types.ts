@@ -1,4 +1,4 @@
-// Contract file: MVP-SPEC §4.5 with the M2A-SPEC §4.5, M6A-SPEC §4.6 and M6B-SPEC §4.6/§0.5 additions, copied verbatim
+// Contract file: MVP-SPEC §4.5 with the M2A-SPEC §4.5, M6A-SPEC §4.6, M6B-SPEC §4.6/§0.5 and AUTORIG-SPEC §4.3–§4.5 additions, copied verbatim
 // (shapes are normative; change the spec first). M6a functions and constants (`meshOperator`, `meshSetOperator`,
 // `WORKSPACE`) and M6b ones (`registerChannelSourceProvider`) live in implementation modules (§4 placement rule).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
@@ -12,7 +12,7 @@ import type { ComponentKind, ComponentSelection, DirtySet, EditMesh, ElementRema
   MeshOp, MeshSetOp, Normals, OpFrame, OpResult, OpWarning, Refusal, SymmetryAxis, SymmetryMap,
   Triangulation } from '@ekza-studio/mesh-core';   // type-only: no kernel code is bundled
 import type { BindReport, PaintOp, SkinBindArgs, SkinWeights } from '@ekza-studio/mesh-core';   // M6b, type-only
-import type { ExportArtifact, ExportKind, ExportProfileDef, ExportReduceSpec, ExportRequest, GlbContainer,
+import type { ExportArtifact, ExportKind, ExportProfileDef, ExportReduceSpec, ExportRequest, GlbContainer, LintIssue,
   StarterPackManifest, ValidationReport } from '@ekza-studio/io';
 import type { ChannelBuffer, ClipSampler, FootPin, LimbId, PoseBuffers, PoseClipboard, QuickRigMarker, QuickRigMarkers,
   RigProgram, SkeletonDesc, SkeletonPreset, TemplateJoint } from '@ekza-studio/rig';
@@ -576,6 +576,19 @@ export interface AutosaveStore {                // changed (M6a): slots carry th
     readonly assets: ReadonlyMap<AssetId, { readonly record: AssetRecord; readonly bytes: Uint8Array }>;
     readonly blob: (id: BlobId) => Promise<Uint8Array | undefined> } | null>;
   remove(slot: string): Promise<void>;
+  // ---------- Auto-Rig (AUTORIG-SPEC §4.4; D0 types, D1 implements; optional, additive) ----------
+  /** One-shot handoff record `handoff:<uuid>` (new tab, reload and two-island switches): written from the live
+   *  document regardless of dirty state or the autosave pause, never touching a slot; shares the `blobs` store under
+   *  the single-owner rule. */
+  writeHandoff?(id: string, data: { readonly snapshotJson: string; readonly assets: readonly AssetRecord[];
+    readonly blobs: readonly BlobId[]; readonly info: HandoffInfo },
+    readAsset: (id: AssetId) => Promise<Uint8Array>, readBlob: (id: BlobId) => Promise<Uint8Array>): Promise<{ readonly bytes: number }>;
+  /** Read-and-delete: the record, or null when it is missing or expired. */
+  takeHandoff?(id: string): Promise<{ readonly snapshot: unknown;
+    readonly assets: ReadonlyMap<AssetId, { readonly record: AssetRecord; readonly bytes: Uint8Array }>;
+    readonly blobs: ReadonlyMap<BlobId, Uint8Array>; readonly info: HandoffInfo } | null>;
+  /** Housekeeping: deletes records older than `olderThanMs` (10 minutes); returns how many. */
+  pruneHandoffs?(olderThanMs: number): Promise<number>;
 }
 
 // ---------- characters and evaluation ----------
@@ -1200,3 +1213,82 @@ export interface ClipLibraryService {
   subscribe(listener: () => void): Disposer;
 }
 // Layout preset ids 'rig-side' (§8.2) and 'rig-markers' (front │ side │ persp, 40/30/30): C7, editor/src/shell/rig/layouts.ts
+
+// ===================================== Auto-Rig (AUTORIG-SPEC §4.3–§4.5; D0, additive) =====================================
+// Types the operator contract (`OperatorMap` rows of the `autorig.*` compositions and the extended M6b rows) and the
+// host ports need. The Auto-Rig shell's own U-state types (session, progress, stages) live in `@ekza-studio/autorig`
+// (`packages/autorig/src/types.ts`), which re-exports these.
+
+/** The five wizard steps (§4.2). */
+export type AutoRigStep = 'model' | 'markers' | 'rig' | 'animations' | 'export';
+/** The character the wizard works on, or the scene meshes that will become it (§4.3). */
+export interface AutoRigSubject {
+  readonly character: CharacterId | null;      // set once a character exists (Create Skeleton, a VRM import)
+  readonly meshes: readonly MeshId[];          // the scene meshes that will become it (before Create Skeleton)
+}
+/** An input's pose class (§4.3): 't' ≤ 5° arm angle below horizontal (the `skel.tpose` limit), 'a' above. */
+export interface AutoRigPoseClass { readonly armAngle: number; readonly kind: 't' | 'a' }   // armAngle in radians
+export interface IntakeReport {                // §5.2; returned by autorig.intake / autorig.inspect / autorig.sample
+  readonly kind: 'static' | 'vrm' | 'rigged-humanoid' | 'rigged-other' | 'project';
+  readonly fileName: string | null; readonly bytes: number | null;
+  readonly meshes: readonly MeshId[];          // the scene meshes found (static kinds); [] for the others
+  readonly triangles: number; readonly textured: boolean;
+  readonly height: number;                     // metres, world bounds
+  /** centred / grounded / facing = rig's `quickRigStartChecks(bounds, bvh)` (CR-AR-3), so ① and ② agree;
+   *  upright and scale are Auto-Rig's own report rows (§5.2), computed in the same operator. */
+  readonly checks: { readonly centred: boolean; readonly grounded: boolean; readonly facing: boolean;
+                     readonly upright: boolean; readonly scale: 'ok' | 'tiny' | 'huge' };
+  readonly weight: 'light' | 'medium' | 'heavy' | 'too-heavy';   // §6.2 tiers
+  /** rig's `guessMarkers(bvh, bounds)` arm angle and its pose class, null when the guess failed or the input is not
+   *  static. */
+  readonly pose: AutoRigPoseClass | null;
+}
+/** Mixamo's clip parameters (§5.5.3); identity = { speed: 1, trim: null, mirror: false, inPlace: false, armSpace: 0 }. */
+export interface ClipParams {
+  readonly speed: number;                      // 0.25 … 3
+  readonly trim: { readonly start: number; readonly end: number } | null;   // seconds of the source clip
+  readonly mirror: boolean;
+  readonly inPlace: boolean;
+  readonly armSpace: number;                   // degrees, −10 … +30 (upper-arm abduction offset)
+}
+/** `autorig.sample` (§4.5): the three static fixtures under `<samplesPath>` and the two shipped VRM samples. */
+export type AutoRigSampleId = 'cube-lad' | 'polybot-tpose' | 'polybot-apose' | 'polybot' | 'seed-san';
+/** `autorig.fix` (§5.2): the one-click fixes of the Model step. */
+export type AutoRigFix = 'center' | 'face' | 'standUp' | 'scale' | 'freeze';
+/** `autorig.export` targets (§5.6.1). */
+export type AutoRigExportTarget = 'ekza-vrm' | 'glb' | 'vrma' | 'omoba-kit';
+export interface AutoRigRigResult {
+  readonly character: CharacterId; readonly skeleton: SkeletonId;
+  readonly straightened: boolean;              // A-posed input: "Straighten to T-Pose" ran (the third undo step)
+}
+export interface AutoRigExportResult {
+  readonly target: AutoRigExportTarget;
+  readonly fileName: string;                   // the saved file (one .vrm / .glb / .vrma, or a .zip)
+  readonly artifacts: readonly ExportArtifact[];
+  readonly lints: readonly LintIssue[];        // every artifact's lints, errors first
+}
+
+// ---------- navigation port (§3.4, §4.4; D0 types, D1 provides it from the host, eager) ----------
+export type ShellRoute = 'autorig' | 'studio' | 'chooser';
+export interface NavigationRequest {
+  readonly to: ShellRoute;
+  readonly workspace?: WorkspaceId;            // Studio's workspace on arrival (`/editor?ws=…`)
+  readonly from?: 'studio' | 'autorig';        // labels the entry (`?from=studio`)
+  readonly newTab?: boolean;                   // the explicit new-tab flow through a handoff record
+  readonly subject?: AutoRigSubject;           // in-memory hand-over to the arriving shell (never in the URL)
+}
+export interface NavigationPort {
+  /** Switches shells: same-page navigation keeping the app (shared layout), or a handoff record (new tab, islands). */
+  go(request: NavigationRequest): Promise<void>;
+  /** The subject handed over by the last `go`, once (the arriving shell reads it), else null. */
+  takeSubject(): AutoRigSubject | null;
+}
+/** What a handoff record carries besides the document (§4.4). */
+export interface HandoffInfo {
+  readonly route: 'autorig' | 'studio';
+  readonly workspace: WorkspaceId | null;
+  readonly subject: AutoRigSubject | null;
+  readonly autorig: { readonly step: AutoRigStep; readonly startPose: AutoRigPoseClass | null } | null;
+  readonly createdAt: number;                  // ms since epoch (pruned after 10 minutes)
+}
+

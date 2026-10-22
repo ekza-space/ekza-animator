@@ -1,25 +1,14 @@
-// The editor shell's imperative core (MVP-SPEC §7 WP-8): what the React shell, the GL host, the input adapter,
-// the dialogs, the panels and the e2e test API share. One Shell per mounted editor; no React state lives here.
+// The editor shell's imperative core (MVP-SPEC §7 WP-8; split by AUTORIG-SPEC §4.4, D1): the HostShell parts
+// (`host/types.ts`) every route shares and the Studio shell on top. No React state lives here.
 import type { Disposer } from '@ekza-studio/anim-core';
-import type {
-  EditorApp,
-  ImporterDef,
-  OperatorResult,
-  PanelKind,
-  PrefsStorage,
-  RunContext,
-} from '@ekza-studio/editor-core';
+import type { ImporterDef, OperatorResult, PanelKind } from '@ekza-studio/editor-core';
 import type { ExportArtifact } from '@ekza-studio/io';
 import type { ViewportManager } from '@ekza-studio/viewport';
 import type { DockviewApi, SerializedDockview } from 'dockview-react';
-import type { StoreApi } from 'zustand/vanilla';
-import type { KeyboardAdapter } from '../input/keyboard';
-import type { CommandPalette } from '../overlays/CommandPalette';
+import type { HostShell, MountedShell } from '../host/types';
 import type { MarkingMenus } from '../overlays/MarkingMenu';
 import type { HoverTarget } from '../input/pointer';
 import type { PanelRegistry } from '../panels/types';
-import type { ToastNotifier } from '../services/notify';
-import type { EditorParams } from '../test-api/params';
 import type { EkzaStudioTestApi } from '../test-api/types';
 import type { ChromePart, ChromeVisibility, PresetDock } from './layout';
 import type { LayoutPresetStore } from './presets';
@@ -222,45 +211,26 @@ export interface FilePipeline {
   cancelImport(): void;
   /** Stops queued files and releases every waiter (shell disposal). */
   dispose(): void;
+  /** Starts loading the pipeline's code on intent (a file dragged over the window); the host's pipeline is lazy. */
+  preload?(): void;
 }
 
 // ---------- the shell ----------
 
-export interface Shell {
-  readonly app: EditorApp;
+/**
+ * The Studio shell (AUTORIG-SPEC §4.4, D1): the HostShell of the page (UI store, frame hooks, probes, toasts, keyboard,
+ * files, exports, autosave, palette, navigation) plus Studio's own parts — the panel registry and the dockview
+ * workspace, the layout presets and the marking menus. Created per mount of the Studio shell over the page's host;
+ * `dispose` releases only Studio's parts (the host outlives a switch to Auto-Rig).
+ */
+export interface Shell extends HostShell, MountedShell {
+  readonly kind: 'studio';
   readonly panels: PanelRegistry;
-  readonly toasts: ToastNotifier | null;
-  readonly storage: PrefsStorage | null;
-  readonly params: EditorParams;
-  readonly ui: StoreApi<ShellUiState>;
-  readonly frame: FrameHooks;
-  /**
-   * Frames the GL host's canvas has run so far (test API `renderedFrames()`, the idle check of ARCHITECTURE §14):
-   * every demand-loop frame counts, whether or not the ViewportManager found dirty panes to draw.
-   */
-  renderedFrames(): number;
-  /** Called by the GL host for every frame of its canvas. */
-  countFrame(): void;
-  /** Points `app.requestFrame` back at the rAF scheduler (the GL host went away or never started). */
-  restoreFallbackFrames(): void;
-  readonly probes: ProbeRegistry;
   readonly workspace: WorkspaceApi;
   /** The user's layout presets per workspace (docs/LAYOUT-PRESETS.md). */
   readonly presets: LayoutPresetStore;
-  readonly files: FilePipeline;
-  readonly exports: ExportRecorder;
-  readonly keyboard: KeyboardAdapter;
   /** M6a (§5.18): the marking menus (pointer presses in panes, `ui.markingMenu`). */
   readonly markingMenus: MarkingMenus;
-  /** M6a (§5.18): the command palette (`Mod+K`). */
-  readonly commandPalette: CommandPalette;
   /** Binds the dockview API once the workspace has mounted. */
   attachWorkspace(api: DockviewApi): Disposer;
-  /** Shows a transient help-line message (cancelled commands, hints). */
-  help(text: string, tone?: HelpMessage['tone']): void;
-  /** Asks the user (modal confirm); resolves true at once in e2e mode. */
-  confirm(request: Omit<ConfirmRequest, 'resolve'>): Promise<boolean>;
-  /** Runs an operator for a UI surface: failures become toasts, cancellations help-line messages. */
-  runFromUi(op: string, args?: unknown, ctx?: RunContext): Promise<OperatorResult<unknown>>;
-  dispose(): void;
 }
