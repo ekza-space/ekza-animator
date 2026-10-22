@@ -74,6 +74,7 @@ import { type ManipMode, type ManipTarget, ManipulatorKit, RING_RADIUS } from '.
 import { onScaleKitLoaded, requestScaleKit, scaleKit } from '../manipulators/scale/load';
 import type { ObjectScaleSession } from '../manipulators/scale/math';
 import type { NavigationController, NavState } from '../navigation/NavigationController';
+import type { NavigationOverride } from '../navigation/override';
 import { isMmbStandIn, type NavGesture, pointerGesture, wheelAction } from '../navigation/profiles';
 import { Backdrop, createGrid } from '../overlays/background';
 import { MarqueeBox } from '../overlays/marquee';
@@ -273,6 +274,8 @@ export class ViewportManager {
   /** M6b (C3): the pointer layer above the tool and the press it owns. */
   private pointerLayer: ViewportPointerLayer | null = null;
   private layerPointer: { readonly paneId: string; readonly pointerId: number } | null = null;
+  /** AUTORIG-SPEC §8.1: the mounted shell's navigation override, asked before the profile on every press. */
+  private navOverride: NavigationOverride | null = null;
   /** M2a §5.18: a plain MMB drag running the Channel Box virtual slider on the selected channels. */
   private virtualDrag: VirtualSliderDrag | null = null;
   /** Pointer Lock for the virtual slider (the e2e URL switch `pointerLock=off` turns it off). */
@@ -543,6 +546,11 @@ export class ViewportManager {
     this.pointerMenus = handler;
   }
   /** M6b (C3): sets the pointer layer above the tool (null removes it); the disposer removes this layer. */
+  /** AUTORIG-SPEC §8.1 (D3): installs (or with null removes) a shell's navigation override. */
+  setNavigationOverride(o: NavigationOverride | null): void {
+    this.navOverride = o;
+  }
+
   setPointerLayer(layer: ViewportPointerLayer | null): Disposer {
     if (this.layerPointer !== null) {
       this.layerPointer = null;
@@ -1468,7 +1476,9 @@ export class ViewportManager {
       this.standIn = null;
       return;
     }
-    const gesture = standIn ? null : pointerGesture(this.profile, e);
+    const gesture = standIn
+      ? null
+      : (this.navOverride?.gesture(e, pane.id, this.local(pane, e)) ?? pointerGesture(this.profile, e));
     if (gesture !== null) {
       e.preventDefault();
       this.capture(pane, e.pointerId);
