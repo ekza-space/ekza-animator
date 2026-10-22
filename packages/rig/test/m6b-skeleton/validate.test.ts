@@ -78,6 +78,22 @@ describe('checkSkeleton', () => {
     const tpose = checkSkeleton({ skeleton, joints: aPosed, meshes: [] }).find((p) => p.code === 'skel.tpose');
     expect(tpose?.ids).toContain(id('leftUpperArm'));
     expect(codes(aPosed)).toContain('skel.symmetry');
+    // INT: a hinge depth set in the side pane (elbow 0.035 m back, knee 0.045 m forward: ≈ 7° out of the front plane)
+    // is rest flexion, not a broken T-pose; an arm reaching 30° forward is.
+    const knee = joints.find((j) => j.id === id('leftLowerLeg')) as JointRecord;
+    const flexed = patch(
+      patch(joints, 'leftLowerArm', { restPosition: [elbow.restPosition[0], elbow.restPosition[1], -0.035] }),
+      'leftLowerLeg',
+      { restPosition: [knee.restPosition[0], knee.restPosition[1], 0.045] },
+    );
+    expect(codes(flexed)).not.toContain('skel.tpose');
+    const reach = Math.tan(30 * (Math.PI / 180)) * Math.abs(elbow.restPosition[0] - 0.18);
+    const forward = patch(joints, 'leftLowerArm', {
+      restPosition: [elbow.restPosition[0], elbow.restPosition[1], reach],
+    });
+    expect(
+      checkSkeleton({ skeleton, joints: forward, meshes: [] }).find((p) => p.code === 'skel.tpose')?.ids,
+    ).toContain(id('leftUpperArm'));
     const splayed = patch(patch(joints, 'leftUpperLeg', { restPosition: [0.04, 0.83, 0] }), 'rightUpperLeg', {
       restPosition: [-0.04, 0.83, 0],
     });

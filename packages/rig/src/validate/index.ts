@@ -2,8 +2,10 @@
 // Severity is the panel's (C7, per export profile); every row here is a finding with the ids it concerns.
 //
 // MVP readings (docs/wp-notes/m6b-skeleton-kernel.md): `skel.tpose` checks the arms (upper arm → lower arm → hand along
-// ±X), the hands' tails and the shins (lower leg → foot along −Y) within 5°, so an A-posed arm is caught while splayed
-// thighs (Polybot) pass; `skel.hinge-bend` measures the bend as δ·(a + b)/(a·b) (the minimum-bend angle);
+// ±X), the hands' tails and the shins (lower leg → foot along −Y) within 5° in the front plane, so an A-posed arm is
+// caught while splayed thighs (Polybot) pass; out of the front plane (depth, the elbow and knee hinge direction) each
+// of those bones may tilt up to 15°: the §0.4.2 minimum bend and a hinge depth the user set in the side pane are rest
+// flexion, not a broken T-pose (INT, docs/wp-notes/m6b-integration.md); `skel.hinge-bend` measures the bend as δ·(a + b)/(a·b) (the minimum-bend angle);
 // `skel.facing` compares the toes' z with the feet's (joints), `skel.grounded` the meshes' min y.
 import { mat4Decompose } from '@ekza-studio/anim-core';
 import type { HumanBoneName, JointRecord } from '@ekza-studio/doc';
@@ -15,8 +17,10 @@ import type { DocSkeletonInput, RigProblem, RigProblemCode } from '../types';
 type V3 = readonly [number, number, number];
 
 export const SKELETON_CHECKS = Object.freeze({
-  /** T-pose tolerance per bone direction (research 14 §4.4). */
+  /** T-pose tolerance per bone direction in the front (XY) plane (research 14 §4.4). */
   tposeDegrees: 5,
+  /** T-pose tolerance out of the front plane (the hinge depth of §0.4.2's rest flexion; INT). */
+  tposeDepthDegrees: 15,
   /** Hinge joints flexed at least this much on their hinge side (research 17 J8). */
   hingeDegrees: 0.5,
   /** Pairs mirror within 0.01 H; meshes grounded within 0.01 H. */
@@ -110,7 +114,13 @@ export function checkSkeleton(input: DocSkeletonInput): readonly RigProblem[] {
     const from = bone(a);
     const to = b === 'tail' ? from?.tail : bone(b)?.restPosition;
     if (from === undefined || to === undefined || to === null) return;
-    if (angleTo(sub(to, from.restPosition), axis) > SKELETON_CHECKS.tposeDegrees * DEG) off.push(from.id);
+    const v = sub(to, from.restPosition);
+    // Front plane (x, y): the T-pose direction; depth (z): the hinge flexion, allowed up to tposeDepthDegrees.
+    const front: V3 = [v[0], v[1], 0];
+    const depth = Math.atan2(Math.abs(v[2]), Math.hypot(v[0], v[1]));
+    if (angleTo(front, axis) > SKELETON_CHECKS.tposeDegrees * DEG || depth > SKELETON_CHECKS.tposeDepthDegrees * DEG) {
+      off.push(from.id);
+    }
   };
   for (const [side, x] of [
     ['left', 1],
