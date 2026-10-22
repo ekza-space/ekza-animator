@@ -344,12 +344,12 @@ describe('WIZARD_OPERATORS in the rig-workspace chunk (AUTORIG-SPEC §4.5, §7.0
       'autorig.fix': 'expects { fix: center | face | standUp | scale | freeze, meshes }',
     };
     expect(reasons).toEqual(WIZARD_IDS.map((id) => landed[id] ?? ARRIVES_WITH_AUTORIG));
-    // the moved M6b stubs are unchanged (A0 replaces them)
-    expect(['skel.pose.tStance', 'skel.pose.applyAsRest'].map((id) => app.operators.poll(id))).toEqual([
-      { ok: false, reason: ARRIVES_AFTER_MVP },
-      { ok: false, reason: ARRIVES_AFTER_MVP },
-    ]);
-    expect(app.operators.get('skel.pose.applyAsRest')?.flags).toMatchObject({ undo: true, internal: true });
+    // A0 replaced the moved M6b stubs: they poll for real (test/autorig-a0/ runs them), one undo step, listed.
+    expect(['skel.pose.tStance', 'skel.pose.applyAsRest'].map((id) => app.operators.poll(id))).not.toContainEqual({
+      ok: false,
+      reason: ARRIVES_AFTER_MVP,
+    });
+    expect(app.operators.get('skel.pose.applyAsRest')?.flags).toEqual({ undo: true });
   });
 
   it('stub metadata: category autorig, scope global, every workspace, no undo, listed in the palette', async () => {

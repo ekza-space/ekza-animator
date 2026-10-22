@@ -42,8 +42,8 @@ test('autorig.* ids load the rig-workspace chunk on first run and refuse as stub
     'autorig.fix': 'expects { fix: center | face | standUp | scale | freeze, meshes }',
   };
   for (const op of WIZARD_IDS) await expectRefused(page, op, landed[op] ?? 'Arrives with Auto-Rig');
-  // the moved M6b stubs are unchanged until A0 lands them
-  await expectRefused(page, 'skel.pose.applyAsRest', 'Arrives after the MVP', { pose: 'tStance' });
+  // the moved M6b stubs: A0 landed them (E2E-AR-A0); without a character they refuse with their own reason
+  await expectRefused(page, 'skel.pose.applyAsRest', 'Make a character from your model first', { pose: 'tStance' });
 
   expect(await autorig(page)).toBeNull();
   expect(loaded(scripts, SHELL_MARKERS.autorig)).toBe(false);

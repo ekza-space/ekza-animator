@@ -43,13 +43,8 @@ export function reparentJoints(
 ): JointEdit {
   return stub('reparentJoints');
 }
-/** Rest rotation rule of §5.7: identity-rest joints stay identity; every other joint takes q(boneWorld). */
-export function applyPoseAsRest(
-  _joints: readonly JointRecord[],
-  _boneWorld: (joint: JointId) => Float64Array /* mat4 */,
-): JointEdit {
-  return stub('applyPoseAsRest');
-}
+/** Rest rotation rule of §5.7: identity-rest joints stay identity; every other joint takes q(boneWorld) (AUTORIG A0). */
+export { applyPoseAsRest } from './rest';
 /** Duplicate Joints (§5.4): each selected joint with its subtree, same parent, names suffixed, humanBone null. */
 export function duplicateJoints(
   _joints: readonly JointRecord[],

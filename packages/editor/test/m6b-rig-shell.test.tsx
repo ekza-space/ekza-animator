@@ -201,6 +201,9 @@ describe('the Rig menus (§0.4.5)', () => {
       'Quick Rig…',
       'Orient Joints…',
       'Mirror Joints…',
+      'T-Stance',
+      'Apply Pose as Rest',
+      'Straighten to T-Pose',
       'Update Control Rig',
       'Snap to Projected Center',
     ]);
