@@ -131,3 +131,9 @@ failures, both fixed: browser-mode unit tests that failed to import their file u
 alone and in the final run: a load flake of vitest's browser mode, not code), and E2E-SKIN-02's 0-byte window catching
 the seed's deferred display rebuild (scenario fixed, `65725da`). Repeated runs under load: E2E-MVP-01 2/2, E2E-RIG-10
 12/12 (four workers), E2E-SKIN-02 + RIG-10 + MVP-01 12/12 (six workers). Benches as in "Budgets".
+
+## Into `dev`
+
+`m6b/integration` was fast-forwarded into `m6b/mvp` and `m6b/mvp` merged into `dev` (`daec252`, `--no-ff`); the
+merged tree is byte-identical to the `m6b/integration` tree the final gate passed on (`dev` was merged into the
+integration branch first). Not pushed, not tagged (the release tag is the owner's call).

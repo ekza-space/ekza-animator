@@ -18,7 +18,7 @@ runtime admits. Integration branch `m6b/mvp` (from `dev`); ≈ 48.5 agent-days +
 - [x] Then: C10 VRM 1.0 writer with the OMOBA runtime lints (5, after C1); C3 Quick Rig UI + joint UI (5, after C2 + C7); C6 weights kernel + skin UI (6, after C1 + C4 + C7).
 - [x] INT (3 + fix round): every package merged on `m6b/integration`, every READY/`test.fixme` gate a failure, AS-MVP-1 "Cube Lad comes alive" scripted (E2E-MVP-01) green and OMOBA's `validate-runtime-vrm` admits its export, E2E-RIG-10, budgets ([ROADMAP](docs/ROADMAP.md#m6b-mvp-budgets)), docs, the integration fixes ([wp-notes](docs/wp-notes/m6b-integration.md)).
 - [ ] Owner: AS-MVP-1 by hand in Chrome ([M6B-SPEC §0.7](docs/M6B-SPEC.md#07-acceptance-as-mvp-1-and-the-mvp-e2e-scenarios), times recorded), step 12 with `node tooling/omoba-validate.mjs <file.vrm>`; review [DECISIONS-OPEN §L](docs/DECISIONS-OPEN.md#l-m6b-mvp-deviations-2026-10-22) (AS-MVP-1's elbow drag 0.02 m, `skel.tpose` hinge depth, info rows never gate).
-- [ ] `m6b/mvp` → `dev` with the full gate (INT's last step; see the integration notes for where it stands).
+- [x] `m6b/mvp` → `dev` (2026-10-22, `daec252`; the merged tree is the one the full gate passed on, `m6b/integration`).
 - [ ] Owner reviews the MVP decisions Q-MVP-1…15 ([M6B-SPEC §0.8](docs/M6B-SPEC.md#08-owner-decisions-taken-for-the-mvp-defaults-the-owner-may-override-any)); release tag is the owner's call (proposed `v0.4.0`).
 
 ## Parked — specs ready, build later (owner decision, 2026-10-20)
