@@ -319,6 +319,18 @@ export function createWizard(host: HostShell): Wizard {
       window.addEventListener('keydown', onKeyDown, { capture: true });
       disposers.push(() => window.removeEventListener('keydown', onKeyDown, { capture: true }));
 
+      // §8.2: a focused control keeps its own Space (a radio of ⑤'s licence, a checkbox, a button). The host's Studio
+      // adapter (bubble phase) takes Space as its tap-hold key and prevents it, which cancels the control's activation;
+      // so a plain Space on a control stops here, before it, and only the browser's default runs (D7 AR-D7-6).
+      const onControlSpace = (e: KeyboardEvent): void => {
+        if (e.code !== 'Space' || e.altKey || e.ctrlKey || e.metaKey) return;
+        if (spaceActivates(e.target)) e.stopPropagation();
+      };
+      for (const type of ['keydown', 'keyup'] as const) {
+        window.addEventListener(type, onControlSpace, { capture: true });
+        disposers.push(() => window.removeEventListener(type, onControlSpace, { capture: true }));
+      }
+
       // files dropped anywhere go to the wizard (① takes them), not to Studio's import dialog
       const onDrop = (e: DragEvent): void => {
         if (e.dataTransfer?.types.includes('Files') !== true) return;
@@ -363,4 +375,17 @@ export function createWizard(host: HostShell): Wizard {
     },
   };
   return wizard;
+}
+
+const SPACE_INPUTS = new Set(['button', 'checkbox', 'radio', 'reset', 'submit', 'file', 'color']);
+const SPACE_ROLES = new Set(['button', 'checkbox', 'radio', 'switch', 'option', 'menuitemcheckbox', 'menuitemradio']);
+
+/** Whether Space activates the element itself (a button, a radio, a checkbox, a switch); text fields are the host's
+ *  own exception already. A sheet with exclusive keys (③'s progress sheet) routes its keys itself. */
+export function spaceActivates(target: EventTarget | null): boolean {
+  if (typeof Element === 'undefined' || !(target instanceof Element)) return false;
+  if (target.closest('[data-ar-exclusive]') !== null) return false;
+  if (target.tagName === 'BUTTON' || target.tagName === 'SUMMARY') return true;
+  if (target.tagName === 'INPUT') return SPACE_INPUTS.has((target as HTMLInputElement).type);
+  return SPACE_ROLES.has(target.getAttribute('role') ?? '');
 }
