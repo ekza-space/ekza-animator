@@ -55,9 +55,11 @@ export class SurfaceLayer {
   private shadeEmpty = true;
   private state = new BufferAttribute(new Uint8Array(0), 1);
   private soft = new BufferAttribute(new Uint8Array(0), 1, true);
-  /** The base colour image's UVs per corner and whether the corner's face samples it (AR-D8-1). */
+  /** The base colour image's UVs per corner and how the corner's face draws its material (AR-D8-1, AR-D9-1): 255 the
+   *  image, 128 the flat base colour, 0 none; `mapTint` the face's base colour factor (linear RGB). */
   private mapUv = new BufferAttribute(new Float32Array(0), 2);
   private mapped = new BufferAttribute(new Uint8Array(0), 1, true);
+  private mapTint = new BufferAttribute(new Float32Array(0), 3);
   private hasMap = false;
   private index = new BufferAttribute(new Uint32Array(0), 1);
   private readonly corners = new Touched(0);
@@ -72,7 +74,6 @@ export class SurfaceLayer {
       uClay: { value: new Color(clay) },
       uMapOn: { value: false },
       uMap: { value: null },
-      uMapFactor: { value: new Color(1, 1, 1) },
       uFlat: { value: false },
       uFaceOrientation: { value: false },
       uFront: { value: new Color(theme.faceFront) },
@@ -149,6 +150,7 @@ export class SurfaceLayer {
     this.soft = tracked(new BufferAttribute(new Uint8Array(C), 1, true));
     this.mapUv = tracked(new BufferAttribute(new Float32Array(2 * C), 2));
     this.mapped = tracked(new BufferAttribute(new Uint8Array(C), 1, true));
+    this.mapTint = tracked(new BufferAttribute(new Float32Array(3 * C), 3));
     this.hasMap = false;
     (this.uniforms['uMap'] as IUniform<Texture | null>).value = null;
     this.index = tracked(new BufferAttribute(new Uint32Array(tri.tris.length), 1));
@@ -160,6 +162,7 @@ export class SurfaceLayer {
     geometry.setAttribute('soft', this.soft);
     geometry.setAttribute('mapUv', this.mapUv);
     geometry.setAttribute('mapped', this.mapped);
+    geometry.setAttribute('mapTint', this.mapTint);
     geometry.setIndex(this.index);
     this.geometry = geometry;
     this.mesh.geometry = geometry;
@@ -352,35 +355,47 @@ export class SurfaceLayer {
   }
 
   /**
-   * An imported model's base colour image (AR-D8-1): `uvs` per corner (2 each, the material's texCoord layer) and
-   * `faceMapped` per face (1: the face's material slot samples the image), drawn with `factor` (linear RGB) where the
-   * palette colours would be (`colours` and `lit`); null draws none.
+   * An imported model's materials (AR-D8-1, AR-D9-1), drawn where the palette colours would be (`colours` and `lit`):
+   * `faceMapped` per face (2: the face's material slot samples the image through `uvs`, 2 per corner; 1: its flat base
+   * colour; 0: none), `faceTint` the face's base colour factor (linear RGB, 3 per face). A null `texture` maps no image
+   * (flat slots only); null draws none.
    */
   writeMap(
     t: Topo,
     map: {
-      readonly texture: Texture;
-      readonly factor: readonly [number, number, number];
-      readonly uvs: ArrayLike<number>;
+      readonly texture: Texture | null;
+      readonly uvs: ArrayLike<number> | null;
       readonly faceMapped: Uint8Array;
+      readonly faceTint: Float32Array;
     } | null,
   ): void {
     const uv = this.mapUv.array as Float32Array;
     const mapped = this.mapped.array as Uint8Array;
+    const tint = this.mapTint.array as Float32Array;
     mapped.fill(0);
     if (map !== null) {
-      const n = Math.min(uv.length, map.uvs.length);
-      for (let i = 0; i < n; i++) uv[i] = map.uvs[i] as number;
+      if (map.uvs !== null) {
+        const n = Math.min(uv.length, map.uvs.length);
+        for (let i = 0; i < n; i++) uv[i] = map.uvs[i] as number;
+      }
       for (let f = 0; f < t.faces; f++) {
-        if (map.faceMapped[f] !== 1) continue;
-        for (let i = t.fstart[f] as number; i < (t.fstart[f + 1] as number); i++) mapped[t.fcorners[i] as number] = 255;
+        const kind = map.faceMapped[f] ?? 0;
+        if (kind === 0) continue;
+        const value = kind === 2 && map.texture !== null && map.uvs !== null ? 255 : 128;
+        for (let i = t.fstart[f] as number; i < (t.fstart[f + 1] as number); i++) {
+          const c = t.fcorners[i] as number;
+          mapped[c] = value;
+          tint[3 * c] = map.faceTint[3 * f] as number;
+          tint[3 * c + 1] = map.faceTint[3 * f + 1] as number;
+          tint[3 * c + 2] = map.faceTint[3 * f + 2] as number;
+        }
       }
     }
     this.hasMap = map !== null;
     (this.uniforms['uMap'] as IUniform<Texture | null>).value = map?.texture ?? null;
-    (this.uniforms['uMapFactor'] as IUniform<Color>).value.setRGB(...(map?.factor ?? [1, 1, 1]));
     uploadAll(this.mapUv);
     uploadAll(this.mapped);
+    uploadAll(this.mapTint);
     this.touch();
   }
 

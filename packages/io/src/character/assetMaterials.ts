@@ -26,6 +26,16 @@ function sniffMime(bytes: Uint8Array): string | null {
   return null;
 }
 
+/**
+ * Whether an adopted asset material carries a colour of its own (AUTORIG-SPEC §6.1; AR-D7-15, round-2 fix): a base
+ * colour image, or a base colour factor other than glTF's default white (a flat-colour material of a low-poly asset).
+ * A mesh whose slots carry none keeps the palette / preset materials.
+ */
+export function assetMaterialCarriesColour(material: CharacterAssetMaterial | null | undefined): boolean {
+  if (material === null || material === undefined) return false;
+  return material.baseColorTexture !== null || material.baseColorFactor.some((channel) => channel !== 1);
+}
+
 const finite = (value: unknown, fallback: number): number =>
   typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 

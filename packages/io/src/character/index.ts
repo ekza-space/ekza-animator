@@ -12,9 +12,10 @@
 // - materials per M6a §5.19 with the swatch shaders of SHADING-SPEC §4 on lit meshes (Lambert: metallic 0 /
 //   roughness 1; Blinn: roughness 1 − glossiness and KHR_materials_specular, in extensionsUsed only), unlit meshes
 //   with KHR_materials_unlit; `format: 'vrm'` forces the palette texture (MToon ignores vertex colours, Q-LP-0);
-//   a mesh without a palette whose slots carry adopted asset materials with an image (`CharacterMeshIn.assetMaterials`,
-//   an imported textured model; AR-D7-15) writes those materials: name, base colour factor and image texture (one
-//   image per source image, its sampler and texCoord), alpha mode and cutoff, double-sidedness;
+//   a mesh without a palette whose slots carry adopted asset materials with a colour of their own — an image or a
+//   non-white base colour factor (`CharacterMeshIn.assetMaterials`, an imported textured or flat-colour model;
+//   AR-D7-15, AR-D9-1) — writes those materials: name, base colour factor and image texture (one image per source
+//   image, its sampler and texCoord), alpha mode and cutoff, double-sidedness;
 // - clips: one animation per `input.clips` entry (tracks on joint nodes, shared input accessors), and
 //   `asset.extras.ekza_animation_v1` when the caller passes the clips' metadata;
 // - one embedded buffer, no `uri`, `extensionsRequired` never set; `asset.extras` carries `ekza_model_v1` and
@@ -37,6 +38,7 @@ import {
 } from '@gltf-transform/core';
 import { KHRMaterialsSpecular, KHRMaterialsUnlit } from '@gltf-transform/extensions';
 import { shaderFactors, shaderKey, shaderLabel } from '../export/author/shading';
+import { assetMaterialCarriesColour } from './assetMaterials';
 import { parseGlb } from '../glb/parse';
 import type { DetailedPrimitive } from '../mesh/toPrimitives';
 import { MODEL_META_KEY, modelBlock } from '../provenance/model';
@@ -387,11 +389,10 @@ function writeMesh(
   if (primitives.length === 0) return null;
   const found = output === 'palette-texture' ? materials.palette(source.paletteId) : null;
   const palette = found === null ? null : { id: source.paletteId as string, texture: found.texture };
-  // Adopted asset materials (AR-D7-15): on a mesh without a palette texture whose slots carry an image.
+  // Adopted asset materials (AR-D7-15, AR-D9-1): on a mesh without a palette texture whose slots carry a colour of
+  // their own (an image, or a flat base colour factor).
   const adopted = source.assetMaterials ?? [];
-  const useAsset =
-    palette === null &&
-    adopted.some((material) => material !== null && material !== undefined && material.baseColorTexture !== null);
+  const useAsset = palette === null && adopted.some(assetMaterialCarriesColour);
   const remap =
     nodeOfJoint === null || source.skin === null
       ? null

@@ -12,7 +12,8 @@ import { makeTestSkeleton } from '@ekza-studio/doc/testing';
 import { humanoidBody } from '@ekza-studio/mesh-core';
 import { inflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { characterAssetMaterials } from '../../../src/write';
+import { Document, WebIO } from '@gltf-transform/core';
+import { assetMaterialCarriesColour, characterAssetMaterials } from '../../../src/write';
 import {
   CC0_DEED_URL,
   CC_BY_DEED_URL,
@@ -268,6 +269,70 @@ describe('adopted asset materials (AUTORIG-SPEC §6.1, AS-AR-6; AR-D7-15)', () =
     const painted = { ...write, meshes: write.meshes.map((mesh) => ({ ...mesh, paletteId: 'pal_A' })) };
     const json = await jsonOf(await writeCharacter(painted, { generator: 't', format: 'vrm' }));
     expect((json['images'] as Json[]).map((image) => image['name'])).toEqual(['palette 0', 'thumbnail']);
+  });
+});
+
+describe('flat-colour asset materials (AUTORIG-SPEC §6.1; AR-D9-1)', () => {
+  // A low-poly asset's factor-only materials (Quaternius, Kenney): an orange body, a dark joint material and glTF's
+  // default white, no textures.
+  const flatAsset = async (): Promise<Uint8Array> => {
+    const doc = new Document();
+    doc.createBuffer();
+    doc.createMaterial('M_Main').setBaseColorFactor([0.8, 0.4, 0.04, 1]);
+    doc.createMaterial('M_Joints').setBaseColorFactor([0.2, 0.08, 0.01, 1]).setDoubleSided(true);
+    doc.createMaterial('M_White');
+    return new WebIO().writeBinary(doc);
+  };
+
+  it('reads a factor-only material (no image); only a non-white factor or an image carries a colour', async () => {
+    const materials = characterAssetMaterials(await flatAsset(), [0, 1, 2], 'ast_flat');
+    expect(materials[0]).toMatchObject({ name: 'M_Main', baseColorTexture: null, alphaMode: 'OPAQUE' });
+    expect(materials[0]?.baseColorFactor.map((c) => Number(c.toFixed(6)))).toEqual([0.8, 0.4, 0.04, 1]);
+    expect(materials[1]?.doubleSided).toBe(true);
+    expect(materials.map(assetMaterialCarriesColour)).toEqual([true, true, false]);
+    expect(assetMaterialCarriesColour(null)).toBe(false);
+  });
+
+  it('a mesh without a palette writes its flat base colour into the VRM (no image); validators and vrm.* clean', async () => {
+    const assetMaterials = characterAssetMaterials(await flatAsset(), [0], 'ast_flat');
+    const { write } = await character(
+      [{ name: 'Mannequin', data: await meshOf('polybot-unskinned-tpose.glb'), bound: true }],
+      { joints: polybotJoints(), paletteId: null, colourOutput: 'vertex-colour', assetMaterials, thumbnailPng: THUMB },
+    );
+    const bytes = await writeCharacter(write, { generator: 'Ekza Studio test', format: 'vrm' });
+    const json = await jsonOf(bytes);
+    const materials = json['materials'] as Json[];
+    expect(materials).toHaveLength(1);
+    expect(materials[0]?.['name']).toBe('M_Main');
+    const pbr = materials[0]?.['pbrMetallicRoughness'] as Json;
+    expect((pbr['baseColorFactor'] as number[]).map((c) => Number(c.toFixed(6)))).toEqual([0.8, 0.4, 0.04, 1]);
+    expect(pbr['baseColorTexture']).toBeUndefined();
+    expect((json['images'] as Json[]).map((image) => image['name'])).toEqual(['thumbnail']);
+    expect(await gltfErrors(bytes)).toEqual([]);
+    expect(await vrmErrors(bytes)).toEqual([]);
+    const lints = await lintExport('bake-into-model', bytes, SPACE);
+    expect(lints.filter((lint) => lint.code.startsWith('vrm.'))).toEqual([]);
+    // glTF's default white carries no colour of its own: the preset material stays
+    const white = characterAssetMaterials(await flatAsset(), [2], 'ast_flat');
+    const plain = await character(
+      [{ name: 'Mannequin', data: await meshOf('polybot-unskinned-tpose.glb'), bound: true }],
+      { joints: polybotJoints(), paletteId: null, colourOutput: 'vertex-colour', assetMaterials: white },
+    );
+    const plainJson = await jsonOf(await writeCharacter(plain.write, { generator: 't', format: 'glb' }));
+    expect((plainJson['materials'] as Json[]).map((material) => material['name'])).toEqual(['Palette']);
+  });
+
+  it('the thumbnail draws the flat colour', async () => {
+    const assetMaterials = characterAssetMaterials(await flatAsset(), [0], 'ast_flat');
+    const { write } = await character(
+      [{ name: 'Mannequin', data: await meshOf('polybot-unskinned-tpose.glb'), bound: true }],
+      { joints: polybotJoints(), paletteId: null, colourOutput: 'vertex-colour', assetMaterials },
+    );
+    const pixels = pngPixels(renderCharacterThumbnail(write.meshes, write.palettes, 64));
+    // the body's centre: red over green over blue (orange), not the grey of no material
+    const [r, g, b] = pixels.rgb(32, 32);
+    expect(r).toBeGreaterThan(g + 30);
+    expect(g).toBeGreaterThan(b + 10);
   });
 });
 

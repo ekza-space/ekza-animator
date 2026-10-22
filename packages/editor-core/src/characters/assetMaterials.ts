@@ -1,8 +1,8 @@
 // The adopted asset materials of a model-sourced character's meshes (AUTORIG-SPEC §6.1, AR-D7-15; lazy: the export
 // and the character-runtime chunks import it): an imported model's materials (its asset slots) read from the asset
-// GLB, so its image textures reach the written file, the display container (Animate, Auto-Rig ④; AR-D8-1) and the
-// thumbnail. A mesh with a palette, an authored mesh or an asset that cannot be read gets none (index-aligned with
-// `meshes`, undefined there).
+// GLB, so its image textures and flat base colours (AR-D9-1) reach the written file, the display container (Animate,
+// Auto-Rig ④; AR-D8-1) and the thumbnail. A mesh with a palette, an authored mesh, an asset that cannot be read or
+// slots without a colour of their own (glTF's default white) get none (index-aligned with `meshes`, undefined there).
 import type { AssetId, MeshRecord } from '@ekza-studio/doc';
 import type { CharacterAssetMaterial } from '@ekza-studio/io';
 import type { EditorApp } from '../types';
@@ -13,7 +13,7 @@ export type AssetMaterialCache = Map<string, Promise<CharacterAssetMaterial | nu
 
 export async function adoptedMaterials(
   app: Pick<EditorApp, 'services'>,
-  write: Pick<WritePath, 'characterAssetMaterials'>,
+  write: Pick<WritePath, 'characterAssetMaterials' | 'assetMaterialCarriesColour'>,
   meshes: readonly { readonly record: MeshRecord }[],
   cache: AssetMaterialCache = new Map(),
 ): Promise<(readonly (CharacterAssetMaterial | null)[] | undefined)[]> {
@@ -51,7 +51,7 @@ export async function adoptedMaterials(
       continue;
     }
     const slots = await Promise.all(material.assetSlots.map((slot) => read(slot.asset, slot.material)));
-    out.push(slots.some((slot) => slot !== null && slot.baseColorTexture !== null) ? slots : undefined);
+    out.push(slots.some(write.assetMaterialCarriesColour) ? slots : undefined);
   }
   return out;
 }

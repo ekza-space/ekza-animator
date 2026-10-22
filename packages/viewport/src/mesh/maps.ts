@@ -1,12 +1,13 @@
-// The base colour images of imported models in mesh-view (AR-D8-1; lazy with the mesh displays): a mesh without a
+// The materials of imported models in mesh-view (AR-D8-1, AR-D9-1; lazy with the mesh displays): a mesh without a
 // palette whose material slots are adopted asset materials (`MeshRecord.material.assetSlots`, an imported static GLB)
-// draws its base colour image in Model, in Auto-Rig ①–③ and on Rig & Skin's skinned surfaces, as the written file and
-// the display model do. One loader per app: the asset's GLB read once per slot set (io's `characterAssetMaterials`),
-// the image decoded once per image (`createImageBitmap`, glTF orientation: no flip), shared by every surface. The
-// first textured slot picks the image; every slot sampling the same image maps, other slots stay clay or palette.
+// draws its base colour image and its flat-colour materials in Model, in Auto-Rig ①–③ and on Rig & Skin's skinned
+// surfaces, as the written file and the display model do. One loader per app: the asset's GLB read once per slot set
+// (io's `characterAssetMaterials`), the image decoded once per image (`createImageBitmap`, glTF orientation: no
+// flip), shared by every surface. The first textured slot picks the image; every slot sampling the same image maps; a
+// slot without an image draws its base colour factor when it is not glTF's default white; other slots stay clay.
 import type { MeshRecord } from '@ekza-studio/doc';
 import type { EditorApp } from '@ekza-studio/editor-core';
-import { type CharacterAssetMaterial, characterAssetMaterials } from '@ekza-studio/io';
+import { assetMaterialCarriesColour, type CharacterAssetMaterial, characterAssetMaterials } from '@ekza-studio/io';
 import type { SurfaceMap } from '@ekza-studio/mesh-view';
 import {
   ClampToEdgeWrapping,
@@ -79,9 +80,18 @@ async function load(
     }
     materials.push(found);
   }
+  // Flat-colour slots (AR-D9-1): no image, a base colour factor of their own.
+  const flat = new Map<number, readonly [number, number, number]>();
+  materials.forEach((m, i) => {
+    if (m !== null && m.baseColorTexture === null && assetMaterialCarriesColour(m)) {
+      flat.set(i, [m.baseColorFactor[0], m.baseColorFactor[1], m.baseColorFactor[2]]);
+    }
+  });
+  const flatOnly = (): SurfaceMap | null =>
+    flat.size === 0 ? null : { texture: null, slots: new Set(), factor: [1, 1, 1], texCoord: 0, flat };
   const first = materials.find((m) => m !== null && m.baseColorTexture !== null);
   const image = first?.baseColorTexture ?? null;
-  if (first === undefined || first === null || image === null) return null;
+  if (first === undefined || first === null || image === null) return flatOnly();
   let texture = images.get(image.key);
   if (texture === undefined) {
     texture = decode(image.image, image.mimeType).then((bitmap) => {
@@ -97,13 +107,13 @@ async function load(
     images.set(image.key, texture);
   }
   const loaded = await texture;
-  if (loaded === null) return null;
+  if (loaded === null) return flatOnly();
   const slots = new Set<number>();
   materials.forEach((m, i) => {
     if (m?.baseColorTexture?.key === image.key) slots.add(i);
   });
   const [r, g, b] = first.baseColorFactor;
-  return { texture: loaded, slots, factor: [r, g, b], texCoord: image.texCoord };
+  return { texture: loaded, slots, factor: [r, g, b], texCoord: image.texCoord, ...(flat.size === 0 ? {} : { flat }) };
 }
 
 /** The app's loader (one per app). */

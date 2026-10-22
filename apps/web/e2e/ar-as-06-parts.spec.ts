@@ -7,7 +7,7 @@ import { expect, type Page, test } from '@playwright/test';
 import { dropModel, exportMeta, nextToMarkers, onStep, primary } from './helpers/ar-as';
 import { checkOf, download, keepExport } from './helpers/ar-export';
 import { openAutoRigReady } from './helpers/ar-host';
-import { polybotWithSword } from './helpers/ar-model';
+import { polybotFlatColour, polybotWithSword } from './helpers/ar-model';
 import { FRONT, markerAt, sampleAtMarkers, wizard } from './helpers/ar-markers';
 import { autoRig, subjectCharacter } from './helpers/ar-rig';
 import { glbJson } from './helpers/g1-viewport';
@@ -122,16 +122,32 @@ test('AS-AR-6: the VRM keeps the body’s image texture; ④ and the thumbnail s
   expect(green).toBeGreaterThan(200);
 });
 
-/** The share of green-dominant pixels (Polybot's texture) in a square around a page point of a pane. */
-async function greenShare(page: Page, paneId: string, at: { x: number; y: number }, half = 12): Promise<number> {
+type Rgb = readonly [number, number, number];
+const isGreen = ([r, g, b]: Rgb): boolean => g > r + 30 && g > b + 30;
+const isOrange = ([r, g, b]: Rgb): boolean => r > g + 30 && g > b + 15;
+
+/** The share of pixels of a colour (Polybot's green texture by default) in a square around a page point of a pane. */
+async function greenShare(
+  page: Page,
+  paneId: string,
+  at: { x: number; y: number },
+  half = 12,
+  colour: (rgb: Rgb) => boolean = isGreen,
+): Promise<number> {
   const read = await call(page, 'pixels', paneId, Math.round(at.x - half), Math.round(at.y - half), 2 * half, 2 * half);
   if (read === null) return 0;
-  let green = 0;
+  let hits = 0;
   for (let i = 0; i < read.data.length; i += 4) {
-    const [r, g, b] = [read.data[i] as number, read.data[i + 1] as number, read.data[i + 2] as number];
-    if (g > r + 30 && g > b + 30) green++;
+    if (colour([read.data[i] as number, read.data[i + 1] as number, read.data[i + 2] as number])) hits++;
   }
-  return green / (read.data.length / 4);
+  return hits / (read.data.length / 4);
+}
+
+/** FRONT's chest on ②: halfway between the chin and the pelvis markers. */
+async function chestOnMarkers(page: Page): Promise<{ x: number; y: number }> {
+  const chin = await markerAt(page, 'chin', 'R', FRONT);
+  const pelvis = await markerAt(page, 'pelvis', 'R', FRONT);
+  return { x: (chin.x + pelvis.x) / 2 + 6, y: (chin.y + pelvis.y) / 2 };
 }
 
 test('AR-D8-1: the textured Polybot shows its texture on ② and in ③ Adjust joints (mesh-view draws the image)', async ({
@@ -139,13 +155,9 @@ test('AR-D8-1: the textured Polybot shows its texture on ② and in ③ Adjust j
 }) => {
   test.setTimeout(180_000);
   await sampleAtMarkers(page, 'polybot-tpose');
-  // the chest: halfway between the chin and the pelvis markers in FRONT
-  const chest = async (): Promise<{ x: number; y: number }> => {
-    const chin = await markerAt(page, 'chin', 'R', FRONT);
-    const pelvis = await markerAt(page, 'pelvis', 'R', FRONT);
-    return { x: (chin.x + pelvis.x) / 2 + 6, y: (chin.y + pelvis.y) / 2 };
-  };
-  await expect.poll(async () => greenShare(page, FRONT, await chest()), { timeout: 15_000 }).toBeGreaterThan(0.3);
+  await expect
+    .poll(async () => greenShare(page, FRONT, await chestOnMarkers(page)), { timeout: 15_000 })
+    .toBeGreaterThan(0.3);
   await autoRig(page);
   const { character } = await subjectCharacter(page);
   await page.getByTestId('ar-rig-adjust').click();
@@ -157,4 +169,45 @@ test('AR-D8-1: the textured Polybot shows its texture on ② and in ③ Adjust j
     return p === null ? { x: -100, y: -100 } : { x: p.x + 10, y: p.y };
   };
   await expect.poll(async () => greenShare(page, FRONT, await torso()), { timeout: 15_000 }).toBeGreaterThan(0.3);
+});
+
+test('AR-D9-1: a flat-colour model keeps its colour on ② and in the VRM and its thumbnail', async ({ page }) => {
+  test.setTimeout(300_000);
+  await openAutoRigReady(page);
+  await dropModel(page, 'polybot-flat.glb', new Uint8Array(polybotFlatColour()));
+  await nextToMarkers(page);
+  // mesh-view draws the material's base colour factor (no image), not the clay
+  await expect
+    .poll(async () => greenShare(page, FRONT, await chestOnMarkers(page), 12, isOrange), { timeout: 15_000 })
+    .toBeGreaterThan(0.3);
+  await autoRig(page);
+  await primary(page, /Animations/);
+  await onStep(page, 'animations');
+  await primary(page, /Export|Skip/);
+  await onStep(page, 'export');
+  await exportMeta(page);
+  const file = await download(page);
+  keepExport('ar-d9-1-polybot-flat.vrm', file.bytes);
+  expect(await validatorErrors(file.bytes)).toEqual({ gltf: [], vrm: [] });
+  const json = glbJson(file.bytes) as unknown as {
+    images?: { name?: string }[];
+    materials?: { name?: string; pbrMetallicRoughness?: { baseColorFactor?: number[]; baseColorTexture?: unknown } }[];
+  };
+  // the asset's material, its factor and no image (the thumbnail is the only image)
+  const material = json.materials?.find((m) => m.name === 'M_Main');
+  expect(material?.pbrMetallicRoughness?.baseColorTexture).toBeUndefined();
+  expect(material?.pbrMetallicRoughness?.baseColorFactor?.map((c) => Math.round(c * 100) / 100)).toEqual([
+    0.8, 0.4, 0.04, 1,
+  ]);
+  expect((json.images ?? []).map((image) => image.name)).toEqual(['thumbnail']);
+  // the thumbnail is orange, not the no-material grey
+  const pixels = decodePalettePng(imageBytes(file.bytes, 0));
+  let orange = 0;
+  for (let y = 0; y < pixels.height; y += 8) {
+    for (let x = 0; x < pixels.width; x += 8) {
+      const [r, g, b] = pixels.rgb(x, y) as [number, number, number];
+      if (isOrange([r, g, b])) orange++;
+    }
+  }
+  expect(orange).toBeGreaterThan(200);
 });

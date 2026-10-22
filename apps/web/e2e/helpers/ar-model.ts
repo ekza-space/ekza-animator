@@ -159,6 +159,25 @@ export function polybotWithSword(): Buffer {
   return writeGlb(json, appendMesh(json, bin, 'Sword', sword.positions, sword.indices));
 }
 
+/**
+ * Polybot with its texture replaced by a flat-colour material (AR-D9-1): an orange base colour factor, no image, as
+ * low-poly game assets (Quaternius, Kenney) ship.
+ */
+export function polybotFlatColour(): Buffer {
+  const { json, bin } = readGlb(fixtureBytes('polybot-unskinned-tpose.glb'));
+  json['materials'] = [
+    {
+      name: 'M_Main',
+      pbrMetallicRoughness: { baseColorFactor: [0.8, 0.4, 0.04, 1], metallicFactor: 0, roughnessFactor: 0.9 },
+    },
+  ];
+  delete json['textures'];
+  delete json['images'];
+  delete json['samplers'];
+  delete json['extensionsUsed'];
+  return writeGlb(json, bin);
+}
+
 /** A flat grid of real triangles (≥ `triangles`), standing up 1.7 m in the XY plane: a heavy but loadable model. */
 export function gridGlb(triangles: number): Buffer {
   const quads = Math.ceil(triangles / 2);

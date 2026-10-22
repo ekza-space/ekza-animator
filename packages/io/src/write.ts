@@ -18,7 +18,7 @@ export { BAKE_MARKER_KEY, BAKE_MARKER_V2_KEY } from './surgeon/marker';
 // M6b (C1, §5.1): the character writer and the display container behind the write path (glTF Transform loads once).
 export { synthesizeContainer, writeCharacter } from './character';
 // AR-D7-15: the adopted asset materials (an imported model's textures) the character writer copies.
-export { characterAssetMaterials } from './character/assetMaterials';
+export { assetMaterialCarriesColour, characterAssetMaterials } from './character/assetMaterials';
 // M6b (C10, §5.22): the character export artifact (writer, lints, read-back) and the thumbnail renderer.
 export { exportCharacterArtifact, readBackCharacter } from './character/artifact';
 export { renderCharacterThumbnail } from './vrm/thumbnail';
