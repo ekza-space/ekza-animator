@@ -838,7 +838,7 @@ call.
 | M6B-INT-10 | **AS-MVP-1 step 3**: the front elbow drag is **0.02 m**, not 0.03 m (0.03 m tilts the T-posed upper arm 6° and step 11's export is refused by `skel.tpose`) | §0.7 amended; E2E-MVP-01 drags 0.02 m | Keep 0.03 m and loosen the front-plane tolerance |
 | M6B-INT-11 | **Info rows never gate**: `skin.joint-without-weights` (e.g. the finger joints of box hands) stays as an info row, so the Export dialog shows the row list instead of "Ready to export"; "Validation clean" in the scenarios = no error or warning row | Built as §0.4.5 says (info never gates) | Hide info rows from the Export dialog, or show "Ready to export" above them |
 | M6B-INT-2 | The Component Editor (optional in the MVP) was not built; its scenario step stays `test.fixme('c6-ce')` | Stub panel | Build it after the MVP (§0.3 C6 row) |
-| §0.4.9 | Eager shares of C3 (≈ 508 B) and C10 (≈ 261 B) over their 0 B allowances, approved by INT from the headroom of C0, C1 and C12; the MVP total is +5,945 B ≤ +6,144 B | Approved | Move C3's help-line texts or C10's profile rows lazy |
+| §0.4.9 | Eager shares of C3 (≈ 508 B) and C10 (≈ 261 B) over their 0 B allowances, approved by INT from the headroom of C0, C1 and C12; the MVP total is +5,940 B ≤ +6,144 B | Approved | Move C3's help-line texts or C10's profile rows lazy |
 | §5.25 | Stroke undo at 10k points 20 ms (≤ 10 ms is report-only until CR-1's weight-only `writeData`) | Report-only miss | CR-1 after the MVP |
 
 ### Integration decisions (M6b MVP)
@@ -846,7 +846,7 @@ call.
 | # | What | Decision | Where |
 |---|---|---|---|
 | M6B-INT-1, -2 | Merge order; READY/`test.fixme` gates | §9.0 order, `--no-ff`; every gate a failure; only `c6-ce` stays `test.fixme` | integration notes |
-| M6B-INT-3 | MVP eager delta over the allowance (+6,151 B) | One eager Rig & Skin viewport hook for C3 and C6 (+5,945 B) | `viewport/src/rig/runtime.ts`, `tools/rig/paint/index.ts` |
+| M6B-INT-3 | MVP eager delta over the allowance (+6,151 B) | One eager Rig & Skin viewport hook for C3 and C6 (+5,940 B) | `viewport/src/rig/runtime.ts`, `tools/rig/paint/index.ts` |
 | M6B-INT-4 | First bind's `MeshRef.joints` empty | Fixed (the record names its skeleton first) | `operators/builtin/rig/bind.ts` |
 | M6B-INT-5 | Projected centre through unclosed shells (Polybot's belt) | A slab left open closes at its last exit | `rig/src/quickrig/raster.ts` |
 | M6B-INT-6, -7 | 0-byte influence switch; idle frames | Per-pane joint-overlay buffers uploaded on change; rig runtime and skinned display invalidate only on what they draw | `viewport/src/rig/**` |

@@ -774,7 +774,7 @@ spec:
 | I-1 | §0.7 AS-MVP-1 step 3: the front elbow drag is **0.02 m** (was 0.03 m) | 0.03 m tilts the T-posed upper arm 6° in the front plane; step 11's export is then refused by `skel.tpose` (5°), which is right for a VRM T-pose |
 | I-2 | §5.21 `skel.tpose`: 5° in the front plane, **15° out of it** (the hinge depth) | §0.4.2 makes a side-pane elbow/knee depth survive Create Skeleton bit-equal and adds the minimum bend; measured in 3D, any such depth beyond ≈ 1° blocked the Ekza export (AS-MVP-1's own side drags did) |
 | I-3 | §0.4.5 reading: "Validation clean" = no error or warning row; info rows (`skin.joint-without-weights`) never gate and stay listed | the Cube Lad's box hands leave finger joints unweighted (info) |
-| I-4 | §0.4.9: the eager shares of C3 (≈ 508 B) and C10 (≈ 261 B) are approved by INT from the headroom of C0, C1 and C12; C3's and C6's two eager viewport hooks are one (MVP total +5,945 B) | the per-package split spent the whole +6,144 B before C3, C6 and C10 measured theirs |
+| I-4 | §0.4.9: the eager shares of C3 (≈ 508 B) and C10 (≈ 261 B) are approved by INT from the headroom of C0, C1 and C12; C3's and C6's two eager viewport hooks are one (MVP total +5,940 B) | the per-package split spent the whole +6,144 B before C3, C6 and C10 measured theirs |
 | I-5 | §0.7 E2E-RIG-10 "stable" = no frame and no display-container rebuild for 2.6 s with nothing in flight in the character registry | a model character's display rebuild is deferred (500 ms debounce, then idle within 2 s, §5.1) and is pending work, not idle |
 
 AS-MVP-1 step 12: OMOBA's `validate-runtime-vrm` admits E2E-MVP-01's `cube-lad.vrm` ("Compatible local humanoid:
