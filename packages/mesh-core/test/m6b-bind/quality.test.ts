@@ -4,7 +4,8 @@
 // the upper bound of island rules, reaches 79.5 %); no weight on a helper; the generated body (smooth and segmented):
 // no weight on `root`, no forearm point dominated by a spine joint, every arm and leg island of the segmented body
 // single-influence; the Cube Lad: every limb box (upper arm, forearm, thigh, shin) and the torso, pelvis, neck and head
-// boxes single-influence, each forearm on its lower arm, no weight on `root`.
+// boxes single-influence, each forearm on its lower arm, no weight on `root`; limb boxes (upper arm with a moved
+// shoulder, mitten hands, feet) rigid on their joint, the torso on `chest`.
 import { describe, expect, it } from 'vitest';
 import { bindSkin, type SkinSkeleton, type SkinWeights, skinGeometryOf, skinIslands } from '../../src';
 import { body, bodySkeletonRows, cubeLad, cubeLadRows, skeletonOf } from './fixtures';
@@ -104,5 +105,45 @@ describe('P-S7 bind quality', () => {
     const limb = points.filter((v) => expected[lad.boxOf[v] as string] !== undefined);
     expect(limb.length).toBe(64);
     expect(limb.map((v) => keysOf(skin, v))).toEqual(limb.map((v) => [expected[lad.boxOf[v] as string]]));
+  });
+
+  it('limb boxes stay rigid on their joint: a shoulder moved into the arm box, mitten hands, feet (acceptance fix)', () => {
+    // M6b acceptance: a 2–5 cm shoulder move split the upper-arm box between the arm and the chest or clavicle, the
+    // mitten hand boxes spread over the finger chain and the foot boxes bound 100 % to the toes (ISLAND_RULE.boxPoints).
+    for (const shift of [0, 0.024, 0.05]) {
+      const truth = cubeLadTruth();
+      const moved = {
+        ...truth,
+        joints: Object.fromEntries(
+          Object.entries(truth.joints).map(([key, joint]) => {
+            if (key !== 'leftUpperArm' && key !== 'rightUpperArm') return [key, joint];
+            const [x, y, z] = joint.position;
+            return [key, { ...joint, position: [x + Math.sign(x) * shift, y, z] as const }];
+          }),
+        ),
+      };
+      const lad = cubeLad(moved);
+      const { skin } = bindSkin(
+        skinGeometryOf(lad.mesh, moved.height),
+        skeletonOf(cubeLadRows(moved)),
+        DEFAULT_ARGS,
+        null,
+      );
+      const expected: Readonly<Record<string, string>> = {
+        'upperArm.R': 'rightUpperArm',
+        'upperArm.L': 'leftUpperArm',
+        'hand.R': 'rightHand',
+        'hand.L': 'leftHand',
+        'foot.R': 'rightFoot',
+        'foot.L': 'leftFoot',
+        torso: 'chest',
+      };
+      const points = [...Array(skin.points).keys()].filter((v) => expected[lad.boxOf[v] as string] !== undefined);
+      expect(points.length, `shift ${shift}`).toBe(56);
+      expect(
+        points.map((v) => keysOf(skin, v)),
+        `shift ${shift}`,
+      ).toEqual(points.map((v) => [expected[lad.boxOf[v] as string]]));
+    }
   });
 });

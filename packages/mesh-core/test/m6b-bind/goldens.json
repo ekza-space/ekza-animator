@@ -217,7 +217,7 @@
     "cgIterations": 0
   },
   "cube-lad/auto-lowpoly": {
-    "manifest": "32b200975d3840b1bd4fec9c0c737d99e0f720ec3ac65c1fbd14cc823da80044",
+    "manifest": "a2e081df47702c0864ef2f0a77ed2dee3f591b2cb9934698d11d483b485608c0",
     "palette": [
       "hips",
       "chest",
@@ -226,24 +226,20 @@
       "leftUpperLeg",
       "rightLowerLeg",
       "leftLowerLeg",
-      "rightToes",
-      "leftToes",
+      "rightFoot",
+      "leftFoot",
       "rightUpperArm",
       "leftUpperArm",
       "rightLowerArm",
       "leftLowerArm",
       "rightHand",
-      "leftHand",
-      "rightMiddleIntermediate",
-      "leftMiddleIntermediate",
-      "rightThumbMetacarpal",
-      "leftThumbMetacarpal"
+      "leftHand"
     ],
     "islands": 16,
-    "rigidIslands": 11,
-    "heatIslands": 5,
+    "rigidIslands": 15,
+    "heatIslands": 1,
     "unreachable": 0,
-    "cgIterations": 34
+    "cgIterations": 2
   },
   "cube-lad/heat": {
     "manifest": "ea508fc85ae819d999fec6eb305e96c2d3200a985cd34c7b6cbb1469e0a4a76b",

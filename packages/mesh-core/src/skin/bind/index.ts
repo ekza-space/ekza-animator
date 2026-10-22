@@ -40,7 +40,14 @@ export const ISLAND_RULE: {
   readonly extent: number;
   /** … or the island holds ≤ this fraction of the mesh's points. */
   readonly smallFraction: number;
-} = Object.freeze({ voteDistance: 1, extent: 1.25, smallFraction: 0.02 });
+  /**
+   * A limb box (an island of at most this many points — one hexahedron — whose c is a side joint) is rigid on c
+   * whatever its votes: heat on eight corners only shears or crumples a box (M6b acceptance: an upper-arm box split
+   * chest/arm by a 2 cm shoulder move, mitten hands spread over the finger chain, feet bound to the toes). Centre boxes
+   * (torso, pelvis, neck, head) keep the vote rule, which picks the joint the box hangs from among several spine joints.
+   */
+  readonly boxPoints: number;
+} = Object.freeze({ voteDistance: 1, extent: 1.25, smallFraction: 0.02, boxPoints: 8 });
 
 /** Segments whose visibility is tested per point (§5.9 "Visibility"). */
 const VISIBLE_TESTED = 3;
@@ -208,11 +215,15 @@ function treeDistance(parent: Int32Array, a: number, b: number): number {
   return Number.POSITIVE_INFINITY;
 }
 
-/** §5.9 auto-lowpoly: rigid on c when every vote is within tree distance 1 of c and the island is short or small. */
+/**
+ * §5.9 auto-lowpoly: rigid on c when every vote is within tree distance 1 of c and the island is short or small; a
+ * limb box (ISLAND_RULE.boxPoints) is rigid on c whatever its votes.
+ */
 function islandIsRigid(ctx: Context, island: number, c: number): boolean {
   const { start, points } = ctx.islands;
   const s = start[island] as number;
   const e = start[island + 1] as number;
+  if (e - s <= ISLAND_RULE.boxPoints && ctx.skeleton.side[c] !== 0) return true;
   const parent = ctx.skeleton.parent;
   for (let k = s; k < e; k++) {
     const v = vote(ctx, points[k] as number);
