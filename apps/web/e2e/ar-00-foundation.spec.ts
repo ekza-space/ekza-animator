@@ -32,7 +32,11 @@ test('autorig.* ids load the rig-workspace chunk on first run and refuse as stub
 
   await expectRefused(page, 'autorig.rig', 'Arrives with Auto-Rig', { straighten: true });
   await expect.poll(() => loaded(scripts, 'ekza-rig-workspace')).toBe(true);
-  for (const op of WIZARD_IDS) await expectRefused(page, op, 'Arrives with Auto-Rig');
+  for (const op of WIZARD_IDS) {
+    // D1 landed `autorig.navigate` (the host's navigation port): without arguments it refuses with its own reason.
+    if (op === 'autorig.navigate') await expectRefused(page, op, "expects { to: 'autorig' | 'studio' | 'chooser' }");
+    else await expectRefused(page, op, 'Arrives with Auto-Rig');
+  }
   // the moved M6b stubs are unchanged until A0 lands them
   await expectRefused(page, 'skel.pose.applyAsRest', 'Arrives after the MVP', { pose: 'tStance' });
 
