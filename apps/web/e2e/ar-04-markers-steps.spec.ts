@@ -91,7 +91,7 @@ test('AS-AR-1 steps 3–4: front │ side │ persp, the guess on the T-pose tru
   // Shift+↓ twice on Knee in FRONT: −2 mm in y, z (and x) bit-equal; the preview follows
   await selectMarker(page, 'knee');
   await hoverPane(page, FRONT);
-  const kneeBefore = marker((await quickRig(page)) as QuickRigView, 'knee');
+  const kneeBefore = marker(await quickRig(page), 'knee');
   await page.keyboard.press('Shift+ArrowDown');
   await page.keyboard.press('Shift+ArrowDown');
   await expect.poll(async () => marker(await quickRig(page), 'knee')[1]).toBeCloseTo(kneeBefore[1]! - 0.002, 9);

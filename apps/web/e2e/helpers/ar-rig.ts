@@ -34,8 +34,14 @@ declare global {
  */
 export async function recordStages(page: Page): Promise<void> {
   await page.evaluate(() => {
-    const record = { stages: [] as string[], rows: [] as string[][], endedAt: null, previewAt: null, stop: false };
-    window.__AR_STAGES__ = record as unknown as StageRecord & { stop: boolean };
+    const record: {
+      stages: string[];
+      rows: string[][];
+      endedAt: number | null;
+      previewAt: number | null;
+      stop: boolean;
+    } = { stages: [], rows: [], endedAt: null, previewAt: null, stop: false };
+    window.__AR_STAGES__ = record;
     let open = false;
     const observe = (): void => {
       if (record.stop) return;
@@ -45,7 +51,7 @@ export async function recordStages(page: Page): Promise<void> {
       if (sheet !== null) open = true;
       if (sheet === null && open) {
         open = false;
-        (record as { endedAt: number | null }).endedAt = performance.now();
+        record.endedAt = performance.now();
       }
       const rows = [...document.querySelectorAll('[data-testid="ar-rig-stages"] li')].map(
         (li) => li.getAttribute('data-stage') ?? '',
@@ -53,7 +59,7 @@ export async function recordStages(page: Page): Promise<void> {
       if (rows.length > 0 && record.rows.at(-1)?.join() !== rows.join()) record.rows.push(rows);
       const badge = document.querySelector('[data-testid="hud-badge-preview-pane-persp"]')?.textContent ?? '';
       if (record.previewAt === null && record.endedAt !== null && badge.startsWith('PREVIEW')) {
-        (record as { previewAt: number | null }).previewAt = performance.now();
+        record.previewAt = performance.now();
       }
     };
     new MutationObserver(observe).observe(document.body, {
