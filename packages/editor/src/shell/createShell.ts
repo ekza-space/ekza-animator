@@ -103,9 +103,15 @@ export function createShell(opts: CreateShellOptions): Shell {
     }),
     app.markingMenus.subscribe(prefetchMenus),
   );
-  // M2A-SPEC §5.20: the Recovery prompt, once per page load (a page that received a handoff record never asks).
+  // M2A-SPEC §5.20: the Recovery prompt, once per page load (a page that received a handoff record never asks; a
+  // `from=autorig` page shows no first-run dialog, AR-D8-6, so the prompt does not wait for it, AR-D9-2).
   disposers.push(
-    promptRecovery({ app, runFromUi: (op, args) => host.runFromUi(op, args), skip: host.params.handoff !== null }),
+    promptRecovery({
+      app,
+      runFromUi: (op, args) => host.runFromUi(op, args),
+      skip: host.params.handoff !== null,
+      firstRun: host.params.from !== 'autorig',
+    }),
   );
   const extraPanels: { kind: PanelKind; title: string }[] = [];
   for (const def of registry.list()) {

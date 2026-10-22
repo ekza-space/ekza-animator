@@ -6,7 +6,7 @@ import { GLOBAL_SCOPE } from '@ekza-studio/editor-core';
 import { describe, expect, it } from 'vitest';
 import { DialogHost } from '../src/dialogs/DialogHost';
 import { relativeTime, sizeText } from '../src/dialogs/RecoveryDialog';
-import { startShellAutosave } from '../src/shell/autosave';
+import { promptRecovery, startShellAutosave } from '../src/shell/autosave';
 import { DEFAULT_PARAMS } from '../src/test-api/params';
 import { byTestId, render, update } from './render';
 import { createTestShell, ShellFrame, waitFor } from './shell-helpers';
@@ -179,6 +179,24 @@ describe('shell autosave', () => {
     store.removed.length = 0;
     target.dispatchEvent(new Event('beforeunload'));
     await waitFor(() => store.removed.includes('as_ownownownownown1'));
+    stop();
+  });
+
+  it('a page without a first-run dialog (from=autorig) prompts at once, before the first run is done (AR-D9-2)', async () => {
+    const { app, shell } = createTestShell();
+    Object.assign(app.services, { autosave: storeWith(SLOTS) });
+    app.prefs.setState({ firstRunDone: false });
+    const runFromUi = (op: string, args?: unknown) => shell.runFromUi(op, args);
+    // Studio's own page waits for the first-run dialog
+    const waiting = promptRecovery({ app, runFromUi });
+    app.session.setState({ recovery: [...SLOTS] });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(app.session.getState().dialog).toBeNull();
+    waiting();
+    // a page that opens none (the hand-over's URL, reloaded) offers the autosave right away
+    const stop = promptRecovery({ app, runFromUi, firstRun: false });
+    await waitFor(() => app.session.getState().dialog === 'recovery');
+    expect(app.prefs.getState().firstRunDone).toBe(false);
     stop();
   });
 
