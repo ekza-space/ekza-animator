@@ -95,7 +95,16 @@ D7**: lazy per-step string tables would take the step strings off the first visi
 
 ## Gates
 
-See the final run below (the builder's last commit).
+`EKZA_E2E_PORT=3166 pnpm run ci` at `eb317fe`, twice: format, lint, typecheck, check:deps, fixtures and licences
+passed; the unit-test step failed both times on one shipped test that D5 does not touch,
+`io/test/project.test.ts` "round-trips a snapshot and its assets" — **a 30 s timeout under machine load** (load average
+100–150 from parallel agents; it took 31 s and 74 s in the parallel turbo run, and 7.9 s for the whole file alone, 11/11
+green). The remaining steps were then run in the gate's order with the unit tests serial
+(`turbo run test test:tooling --concurrency=1`), all green: every package's unit tests (io 356, editor-core 1,527,
+autorig 57, editor 573, viewport 274, headless 201, curve-editor 209, …); clean build; check:size (`/editor` 896,375 B,
+AR-B1 eager delta +687 B ≤ 2,048 B, enforced, pass; `/autorig` 670,506 B, reported over the 660,000 B gate); the full
+e2e suite on local Chrome (port 3166): **287 passed, 24 skipped (the stretch `fixme`s), 0 failed**. The E2E-AR-06 specs
+alone, and with `ar-00`, `ar-01-*`, `ar-03-*`, `ar-12`, `m6b-lib-*`: green.
 
 ## Incident (for the coordinator)
 
