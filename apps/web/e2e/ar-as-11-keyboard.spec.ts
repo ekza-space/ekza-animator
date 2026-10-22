@@ -1,7 +1,8 @@
 // E2E-AR-11 (AUTORIG-SPEC §11 AS-AR-11, §8.1, §8.5; D7): "Private and keyboard-only". AS-AR-1 without the pointer:
 // the file through *Choose file…* (Enter), `Mod+Enter` for every primary button, ② by the marker list (↑ / ↓) and
 // the arrow nudges, ④ by `/`, the grid's roving focus and `A`, ⑤ by the licence radio (arrows / Space), the target
-// radio and `Mod+Enter` for *Download*. Every control used is reachable by Tab (in the tab order, enabled). Every
+// radio and `Mod+Enter` for *Download*. Every control used is reached by real Tab presses (the sequential focus order
+// from the step heading; never `focus()` on the control). Every
 // request of the run stays on the page's origin and none is a POST (§8.5: no telemetry).
 import { expect, type Locator, type Page, test } from '@playwright/test';
 import { foreignRequests, networkLog, onStep } from './helpers/ar-as';
@@ -13,12 +14,23 @@ import { history } from './helpers/autorig';
 import { modKey } from './helpers/m6a-model';
 import { call } from './helpers/test-api';
 
-/** Moves the keyboard focus to a control a Tab press can reach (in the tab order and enabled), as Tab would. */
-async function tabTo(control: Locator): Promise<void> {
+const focused = (control: Locator): Promise<boolean> => control.evaluate((el) => el === document.activeElement);
+
+/**
+ * Reaches `control` by real Tab presses from the step heading (the frame focuses it on every step change): Tab
+ * forwards through the sequential focus order, else Shift+Tab backwards — a control out of the tab order, disabled or
+ * behind a closed sheet is never reached and fails the run. Returns the number of presses.
+ */
+async function tabTo(page: Page, control: Locator, max = 80): Promise<number> {
   await expect(control).toBeEnabled();
-  expect(await control.evaluate((el) => (el as HTMLElement).tabIndex >= 0)).toBe(true);
-  await control.focus();
-  await expect(control).toBeFocused();
+  for (const key of ['Tab', 'Shift+Tab']) {
+    await page.getByRole('heading', { level: 1 }).focus();
+    for (let presses = 0; presses <= max; presses++) {
+      if (await focused(control)) return presses;
+      await page.keyboard.press(key);
+    }
+  }
+  throw new Error('Tab never reached the control');
 }
 
 /** Presses Tab until the focus is on an element whose test id starts with `prefix` (a roving group's one tab stop). */
@@ -58,7 +70,7 @@ test('AS-AR-11: AS-AR-1 by keyboard only; every request same-origin, no POST', a
   await openAutoRigReady(page);
 
   // ① Choose file… by Enter → the browser's file chooser
-  await tabTo(page.getByRole('button', { name: 'Choose file…' }).first());
+  await tabTo(page, page.getByRole('button', { name: 'Choose file…' }).first());
   const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.keyboard.press('Enter')]);
   await chooser.setFiles({
     name: 'polybot-unskinned-tpose.glb',
@@ -71,7 +83,7 @@ test('AS-AR-11: AS-AR-1 by keyboard only; every request same-origin, no POST', a
   await primaryKey(page);
   await onStep(page, 'markers');
   await expect.poll(async () => (await quickRig(page))?.preview?.length ?? 0, { timeout: 30_000 }).toBeGreaterThan(0);
-  await tabTo(page.getByTestId('quickrig-marker-elbow'));
+  await tabTo(page, page.getByTestId('quickrig-marker-elbow'));
   await page.keyboard.press('Enter');
   await expect.poll(async () => (await quickRig(page))?.selected).toBe('elbow');
   await page.keyboard.press('ArrowDown');
@@ -116,7 +128,7 @@ test('AS-AR-11: AS-AR-1 by keyboard only; every request same-origin, no POST', a
   await primaryKey(page);
   await onStep(page, 'export');
   await thumbnailRendered(page);
-  await tabTo(page.getByTestId('vrm-meta-authors'));
+  await tabTo(page, page.getByTestId('vrm-meta-authors'));
   await page.keyboard.type('Tester');
   await page.keyboard.press('Enter');
   // Tab into the licence radio group (one tab stop), then the arrows move to CC0 and Space checks it
