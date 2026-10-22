@@ -268,3 +268,71 @@ export interface ReportLike {
 export async function report(page: Page): Promise<ReportLike | null> {
   return ((await autorig(page))?.intake ?? null) as ReportLike | null;
 }
+
+/**
+ * The Cube Lad as 16 separate meshes, one per box (AR-D10-1: a low-poly character made of parts, as Maya, Kenney and
+ * Quaternius ship them; the forearms, hands, shins and feet touch the body only through other parts), each node named
+ * `<prefix>pCube<n>` (a modelling tool's default names, AR-D10-8) and scaled by `scale` (a 5 m import with 3).
+ * `omit` leaves boxes out (4…9 are the arms: an armless body the One-Click guess finds no arms on, AR-D10-3).
+ */
+export function splitCubeLad(
+  opts: { readonly scale?: number; readonly prefix?: string; readonly omit?: readonly number[] } = {},
+): Buffer {
+  const { json, bin } = readGlb(fixtureBytes('cube-lad.glb'));
+  const scale = opts.scale ?? 1;
+  const prefix = opts.prefix ?? 'Tema_lowpoly_v0_14:';
+  // 384 points interleaved with normals (stride 24 bytes) in view 0, 576 uint16 indices in view 1; 16 boxes of 24
+  // points and 36 indices each
+  const floats = new Float32Array(bin.buffer.slice(bin.byteOffset, bin.byteOffset + 384 * 24));
+  const indices = new Uint16Array(bin.buffer.slice(bin.byteOffset + 384 * 24, bin.byteOffset + 384 * 24 + 576 * 2));
+  const rebased = new Uint16Array(576);
+  for (let i = 0; i < 576; i++) rebased[i] = (indices[i] as number) - 24 * Math.floor(i / 36);
+  const start = pad4(bin.length);
+  const out = Buffer.alloc(start + rebased.byteLength);
+  bin.copy(out, 0);
+  Buffer.from(rebased.buffer).copy(out, start);
+  const views = json.bufferViews ?? [];
+  views.push({ buffer: 0, byteOffset: start, byteLength: rebased.byteLength, target: 34963 });
+  const indexView = views.length - 1;
+  const accessors: Record<string, unknown>[] = [];
+  const meshes: Record<string, unknown>[] = [];
+  const nodes: Record<string, unknown>[] = [];
+  const material = (json.meshes?.[0]?.['primitives'] as { material?: number }[] | undefined)?.[0]?.material;
+  const kept = Array.from({ length: 16 }, (_, b) => b).filter((b) => !(opts.omit ?? []).includes(b));
+  kept.forEach((b, n) => {
+    const lo = [Infinity, Infinity, Infinity];
+    const hi = [-Infinity, -Infinity, -Infinity];
+    for (let v = 24 * b; v < 24 * b + 24; v++) {
+      for (let k = 0; k < 3; k++) {
+        lo[k] = Math.min(lo[k] as number, floats[6 * v + k] as number);
+        hi[k] = Math.max(hi[k] as number, floats[6 * v + k] as number);
+      }
+    }
+    accessors.push(
+      { bufferView: 0, byteOffset: 24 * 24 * b, componentType: 5126, count: 24, type: 'VEC3', min: lo, max: hi },
+      { bufferView: 0, byteOffset: 24 * 24 * b + 12, componentType: 5126, count: 24, type: 'VEC3' },
+      { bufferView: indexView, byteOffset: 36 * 2 * b, componentType: 5123, count: 36, type: 'SCALAR' },
+    );
+    const name = `${prefix}pCube${b}`;
+    meshes.push({
+      name,
+      primitives: [
+        {
+          attributes: { POSITION: 3 * n, NORMAL: 3 * n + 1 },
+          indices: 3 * n + 2,
+          mode: 4,
+          ...(material === undefined ? {} : { material }),
+        },
+      ],
+    });
+    nodes.push({ name, mesh: n, ...(scale === 1 ? {} : { scale: [scale, scale, scale] }) });
+  });
+  json.bufferViews = views;
+  json.accessors = accessors;
+  json.meshes = meshes;
+  json.nodes = nodes;
+  json.scenes = [{ nodes: nodes.map((_, i) => i) }];
+  json['scene'] = 0;
+  json.buffers = [{ byteLength: out.length }];
+  return writeGlb(json, out);
+}
