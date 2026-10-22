@@ -44,6 +44,10 @@ follows (as D0 did).
 | AR-D1-10 | The 390×844 case runs the inner operators Auto-Rig will compose (`mesh.importStatic`, `skel.quickRig.commit`, `skin.bind`) instead of `autorig.rig`/`autorig.sample` | both are D0 stubs until D3/D4 |
 | AR-D1-11 | `/autorig`'s and `/editor`'s loading text comes from the page islands (`next/dynamic` `loading`), fixed over the page | the layout island stays minimal (0.4 kB); on a switch it covers the host until the arriving entry registers |
 | AR-D1-12 | A Studio shell arriving by a switch keeps the session's workspace unless the request names one; only when Studio is the page's first shell does it apply `ws=` or `prefs.lastWorkspace` (as before the split) | Auto-Rig drives `rig`/`animate` itself (§4.2); a switch must not jump to a remembered workspace. `shellShown` marks a host once its first route shell mounted |
+| AR-D1-13 | **Studio's `leave()`** (fix round 1): closes its marking menus, runs `library.stop` when the clip library is loaded, then `edit.escape` (the shipped Esc semantics: cancels a channel/transform gesture, ends the extrude session, else stops playback); the host then closes the palette, the confirm and the dialog. **Quick Rig is not cancelled**: the arriving shell's entry decides (Auto-Rig's ② keeps the session, any other step runs `skel.quickRig.cancel`, §4.2) | §4.4 "before the push the leaving shell stops previews, ends tool sessions and closes its dialogs". The runs go straight to `app.runUntyped` (no help-line message for "No clip preview is playing"); an operator that is not registered is skipped. Unit: `ar-host-navigation.test.ts` ("Studio's leave() stops the library preview, then ends the tool session"). **D3**: the Auto-Rig shell's own `leave()` (it has previews in ③/④) is D3's, with the same order |
+| AR-D1-14 | `autorig.navigate {newTab: true}` from the palette or the MCP bridge opens the tab in `prepare`, after the runner awaited the rig chunk: the gesture's transient activation may have expired and the pop-up can be blocked. The port then hands over through the record **in this tab** (the page-load fallback; the document arrives, the source page is replaced). Documented in the operator's header | UI controls (D3's *Open in Studio (new tab)*) call the port from their own click handler, inside the gesture, as the spec's flow requires; the operator stays a script/MCP convenience |
+| AR-D1-15 | `state().storeVersion` (`app.store.version`) added to the test API's `state()` — one additive line in the contract file `editor/src/test-api/types.ts` (outside D1's Dirs; **for D7's approval and the spec's §4.8 contract copy**) | §10 D1 DoD names "the store version" among what the test API answers on both routes and what a switch keeps; E2E-AR-01 now compares it across `/editor` → `/autorig` → `/editor`, and AS-AR row 5 (D4/D5) needs it too |
+| AR-D1-16 | E2E entries to `/autorig` go through `openAutoRigReady` (D1's `helpers/ar-host.ts`): D0's `openAutoRig` and then `waitForTestApi` | D0's helper returns once the Auto-Rig shell marker is in the DOM; the host installs the API after the shell mounted (through a lazy chunk), so under the full suite's load a call right after it found no API (the fix-round-1 blocker, `file.loadSample: no test API`). D0's helper is unchanged (D7 may fold the wait into it at the merge). E2E-AR-01 also checks the GL host's very canvas and WebGL context (tagged before, `isContextLost() === false` after) instead of a frame count |
 
 **Shared files touched outside the D1 Dirs** (for D7's approval): `.oxlintrc.json` (apps/web may import
 `@ekza-studio/editor/host`), `packages/editor-core/src/index.ts` and `src/workspaces/index.ts` (one export line each for
@@ -54,7 +58,14 @@ macrotask: the pipeline's code now loads first), new test files
 `packages/editor-core/test/autorig/{navigate,handoff-prune}.test.ts`, and the D0 tests updated for the landed
 `autorig.navigate`: `editor-core/test/autorig/composition.test.ts` (its poll reason), `editor-core/test/m6b/keys-hash.test.ts`
 (the D1 row turned `checked` with a recording port), `packages/editor/test/test-api.test.ts` (the params literal),
-`apps/web/e2e/ar-00-foundation.spec.ts` (navigate's own refusal).
+`apps/web/e2e/ar-00-foundation.spec.ts` (navigate's own refusal). Fix round 1 adds `packages/editor/src/test-api/types.ts` (one
+additive `state().storeVersion` line, AR-D1-15).
+
+**For D7 at the merge** (§10.0 shared-file rule): approve the paths above; copy AR-D1-1 (with the measured +11,182 B of
+the sketched layout-level host group), AR-D1-4 (host operators; D2's *Start in* key goes to `host/operators.ts`),
+AR-D1-13 (Studio's `leave()`, Quick Rig left to the arriving shell), AR-D1-14 (palette `newTab` pop-up limitation) and
+AR-D1-15 (`storeVersion` in the §4.8 contract) into DECISIONS-OPEN §M; record `routes.autorig` in `size-baseline.json`;
+take the `/autorig` gate question below to the owner (§7.2).
 
 ## Sizes (production build, `check:size`, gzip -9)
 
@@ -76,6 +87,38 @@ unused; the AR-B1 total is +590 B over the 895,688 B baseline with D0's +44 B). 
 viewport, without dockview, the curve editor, the panels or the Studio shell (every boundary of §7.2 holds). The
 integration agent records `routes.autorig` in `size-baseline.json` at the merge (§10 D1).
 
+### `/autorig` attribution against §7.1 (fix round 1)
+
+`STUDIO_SOURCE_MAPS=1 pnpm --filter web build` (a production build with browser maps; the maps' `sourceMappingURL`
+comments add ≈ 0.1 kB, so this build measures `/autorig` at 655,706 B), then `check:size`'s attribution and
+`attributeFiles(readRouteScripts(nextDir, 'autorig'))` of `scripts/attribute-chunks.mjs` (gzip -9, a chunk's bytes
+shared across its sources by their standalone gzip; 6 initial scripts, 0 without a map):
+
+| Part (§7.1 row) | §7.1 estimate | measured | Δ |
+|---|---:|---:|---:|
+| three 174.3 + R3F 52.2 + camera-controls 9.4 (+ R3F's its-fine, react-use-measure, suspend-react, zustand 3.2) | ≈ 237 kB | 239.1 kB | +2.1 kB |
+| next runtime 127.4 (+ scheduler, use-sync-external-store, shared, @swc/helpers 4.1) | ≈ 127 kB | 131.5 kB | +4.5 kB |
+| editor-core (operators registered eagerly; M6b grew them: operators 41.9, workflows 16.1, edit 12.5, app 5.3, keymap 3.7, session 3.2, history 3.1, workspaces 2.9, evaluation 2.8, …) | ≈ 85 kB | 100.9 kB | **+15.9 kB** |
+| rig 36.9 + viewport 39.2 + doc 23.1 + io 5.7 + anim-core 16.2 + ui 1.4 | ≈ 130 kB | 122.5 kB | −7.5 kB |
+| **host part** = `@ekza-studio/editor` 20.0 (host 4.6, services 3.8, input 3.2, shell contexts/types/autosave/Toaster 3.0, gl 1.9, dialogs 1.6, test-api 0.5, hooks 0.5, overlays 0.5, panels 0.5) + Radix/floating-ui/lucide 29.5 (the host's `TooltipProvider` ≈ 14 kB with popper and floating-ui; the toasts ≈ 10 kB with collection, dismissable layer, presence, portal) + `apps/web` layout island and entry 1.1 | ≈ 30 kB | **50.7 kB** | **+20.7 kB** |
+| `autorig` frame + ① + i18n | ≈ 25 kB | 0.6 kB (D0's placeholder) | — |
+| Turbopack runtime 4.1 + unmapped wrapper 6.3 | — | 10.4 kB | +10.4 kB |
+| **Total** | **≈ 635 kB** | **655.7 kB** | +20.7 kB |
+
+**Headroom warning for D3 and D7.** The normal build measures `/autorig` at 655,591 B (see the table above; the final
+run below confirms it): **4,409 B under the 660,000 B gate**. §7.1 budgets ≈ 25 kB for D3's frame, step ① and the i18n
+table, so **D3's frame as estimated would put `/autorig` at ≈ 680 kB, ≈ 20 kB over the gate**. The overrun is not the
+wizard's: it is editor-core's eager operators (+15.9 kB over §7.1, M6b growth) and the host (+20.7 kB, mostly the
+Radix tooltip/toast layers it provides on both routes), against a few kB saved on rig/viewport/doc. Levers, measured
+above, for D3/D7 before the gate question goes to the owner (§7.2: never raised silently):
+- D3 loads the wizard frame's heavy parts (step ② onwards, sheets, i18n beyond ①) lazily; only the frame and ① are
+  eager;
+- the host's `TooltipProvider` (≈ 14 kB with `@radix-ui/react-tooltip`, popper and floating-ui) could move into the
+  shells if Auto-Rig's step ① shows no tooltip (Studio keeps it eager, its panels use tooltips; Radix tooltips need a
+  provider above them, so D3 decides);
+- editor-core's eager operator registration (100.9 kB) is the largest single lever and is not D1's (§7.1 assumed it
+  eager "as in `/editor`").
+
 ## Tests
 
 - Unit (editor-core): `test/autorig/navigate.test.ts` (no port → refusal; forwarded once, no history step; disposer
@@ -84,11 +127,12 @@ integration agent records `routes.autorig` in `size-baseline.json` at the merge 
 - Unit (editor, Chrome): `ar-host-handoff-store.test.ts` (real IndexedDB: round trip once, never an orphan, own slot
   untouched, shared assets/blobs kept, expiry, pruning), `ar-host-handoff.test.ts` (writer, hand-over),
   `ar-host-navigation.test.ts` (`routeHref`, same-page go, chooser, new tab inside the gesture, failure toast, the
-  no-router fallback, the port's lifetime), `ar-host-shells.test.tsx` (a shell swap keeps the app, history and test
-  API; Studio's operators leave and return; the first-run dialog only with Studio; StrictMode boots one app).
+  no-router fallback, the port's lifetime, Studio's `leave()` stopping the preview and ending the tool session),
+  `ar-host-shells.test.tsx` (a shell swap keeps the app, history, `state().storeVersion` and test API; Studio's
+  operators leave and return; the first-run dialog only with Studio; StrictMode boots one app).
 - E2E-AR-01 (`apps/web/e2e/ar-01-host-*.spec.ts`, helper `helpers/ar-host.ts`): the test API on `/autorig`; the round
-  trip with a document built through operators (page mark, history, counts, selection, slot; Mod+Z undoes "Use Clip
-  Walk" afterwards); the first-run dialog only from Studio and Studio's operators back with its shell; the new-tab
+  trip with a document built through operators (page mark, history, store version, counts, selection, slot, the GL
+  host's very canvas and WebGL context; Mod+Z undoes "Use Clip Walk" afterwards); the first-run dialog only from Studio and Studio's operators back with its shell; the new-tab
   handoff on a clean document with autosave paused (no Recovery dialog although an orphan waits, own fresh slot,
   parameter dropped, source slot untouched, no record left); an expired record; the 390×844 view-only case.
 
