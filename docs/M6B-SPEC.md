@@ -1,6 +1,7 @@
 # Ekza Studio — M6b build specification ("Rig & Skin workspace")
 
-Status: **v1.3 (2026-10-22): §0 revised after the MVP spec review (18 issues, record §0.9)**; v1.2 (2026-10-22): §0
+Status: **v1.4 (2026-10-22): MVP integrated — integration record §0.11** (AS-MVP-1 step 3's elbow drag 0.02 m, `skel.tpose`'s
+hinge depth, info rows never gate); v1.3 (2026-10-22): §0 revised after the MVP spec review (18 issues, record §0.9); v1.2 (2026-10-22): §0
 "MVP cut" added — binding, it wins over every other section where they differ
 ([ADR 0020](adr/0020-m6b-mvp-cut.md)); v1.1 (2026-10-19), the binding build spec for milestone M6b, revised after its design review (45 issues: one
 blocker, twenty-three majors, twenty-one minors, three of them duplicates; the record with every applied change and
@@ -643,7 +644,7 @@ Chrome, times recorded, not gating; INT's scripted twin E2E-MVP-01 replays it th
 |---|---|---|
 | 1 | Model: build the Cube Lad (`buildCubeLad()`); select it; Rig & Skin | the checklist shows ① |
 | 2 | ① Place markers → Quick Rig opens with the R-Markers layout and the guessed markers | nine markers + six mirrored ghosts; every marker within 0.05 H of the truth markers; `history()` unchanged |
-| 3 | front pane: drag the right elbow marker 0.03 m down; side pane: drag the right knee marker 0.02 m forward; panel list: select Elbow, side pane: drag it 0.02 m back | the front drag kept the elbow's z and the side drags kept the knee's and elbow's x bit-equal; the side-pane elbow drag moved the elbow marker (selected marker wins the overlapping pick) and no other marker; the left elbow and knee mirror them; the preview's `rightLowerArm` equals the elbow marker exactly (its bend now exceeds the 2° minimum, §0.4.2 minimum bend) and followed every drag; still no document change |
+| 3 | front pane: drag the right elbow marker 0.02 m down (v1.4: 0.03 m tilted the arm 6°, past `skel.tpose`'s 5°, §0.11); side pane: drag the right knee marker 0.02 m forward; panel list: select Elbow, side pane: drag it 0.02 m back | the front drag kept the elbow's z and the side drags kept the knee's and elbow's x bit-equal; the side-pane elbow drag moved the elbow marker (selected marker wins the overlapping pick) and no other marker; the left elbow and knee mirror them; the preview's `rightLowerArm` equals the elbow marker exactly (its bend now exceeds the 2° minimum, §0.4.2 minimum bend) and followed every drag; still no document change |
 | 4 | Create Skeleton (Standard 33) | one undo step "Create Skeleton"; a model-sourced character with 34 joints (`root` a helper); every humanoid joint within 0.03 H of the truth (with the three drags applied to the truth); the right elbow joint equals the side-dragged marker bit for bit; a control rig with IK legs; the committed joints equal the last preview bit for bit |
 | 5 | (already in Skeleton mode: `rigState().mode === 'skeleton'`, no key press) select the right knee; hold `D` and `W`-drag it 0.01 m in z in the side pane | both knees moved (symmetry); the feet's rests bit-equal; one undo step |
 | 6 | ③ Bind Skin (one click) | one undo step; every point weighted, ≤ 4 influences, sums within 1e-6, no weight on `root`; each forearm box dominated by its lower arm on ≥ 95 % of its points |
@@ -759,6 +760,25 @@ by an Auto-Rig package later, so none is a blocker for the M6b DoD):
 | CR-AR-4 | C7 | export the checklist evaluation `rigChecklist(app, character)` and keep the Validation service usable without the Rig Toolkit panel mounted | D3 adds the export in C7's files |
 | CR-AR-5 | C3, C6 | the markers tool, joint tools and Paint Skin Weights work in any registered `PaneView` (no dockview assumptions); the R-Markers pane ids are exported constants; one browser test mounts them in a plain grid | D4 fixes what fails |
 | CR-AR-6 | C1 | `mesh.importStatic {bytes, name, dropSkin?: boolean}`: with `dropSkin` a skinned file imports its meshes at the bind pose (skin and skeleton ignored) instead of refusing | D3 adds the argument in C1's operator file |
+
+### 0.11 MVP integration record (INT, 2026-10-22)
+
+INT merged every §9.0 package into `m6b/integration` in the §9.0 order, turned every gate into a failure (only the
+optional Component Editor's `test.fixme('c6-ce')` remains) and ran the MVP scenarios, E2E-MVP-01 (AS-MVP-1 scripted)
+and E2E-RIG-10 on the integrated branch. Details, fixes and their tests: [wp-notes/m6b-integration.md](wp-notes/m6b-integration.md)
+(M6B-INT-1…18); owner items: [DECISIONS-OPEN §L](DECISIONS-OPEN.md#l-m6b-mvp-deviations-2026-10-22). Changes to this
+spec:
+
+| # | Change | Why |
+|---|---|---|
+| I-1 | §0.7 AS-MVP-1 step 3: the front elbow drag is **0.02 m** (was 0.03 m) | 0.03 m tilts the T-posed upper arm 6° in the front plane; step 11's export is then refused by `skel.tpose` (5°), which is right for a VRM T-pose |
+| I-2 | §5.21 `skel.tpose`: 5° in the front plane, **15° out of it** (the hinge depth) | §0.4.2 makes a side-pane elbow/knee depth survive Create Skeleton bit-equal and adds the minimum bend; measured in 3D, any such depth beyond ≈ 1° blocked the Ekza export (AS-MVP-1's own side drags did) |
+| I-3 | §0.4.5 reading: "Validation clean" = no error or warning row; info rows (`skin.joint-without-weights`) never gate and stay listed | the Cube Lad's box hands leave finger joints unweighted (info) |
+| I-4 | §0.4.9: the eager shares of C3 (≈ 508 B) and C10 (≈ 261 B) are approved by INT from the headroom of C0, C1 and C12; C3's and C6's two eager viewport hooks are one (MVP total +5,945 B) | the per-package split spent the whole +6,144 B before C3, C6 and C10 measured theirs |
+| I-5 | §0.7 E2E-RIG-10 "stable" = no frame and no display-container rebuild for 2.6 s with nothing in flight in the character registry | a model character's display rebuild is deferred (500 ms debounce, then idle within 2 s, §5.1) and is pending work, not idle |
+
+AS-MVP-1 step 12: OMOBA's `validate-runtime-vrm` admits E2E-MVP-01's `cube-lad.vrm` ("Compatible local humanoid:
+VRM 1.0, 35 nodes, 33 semantic bones"). The owner's run of AS-MVP-1 by hand is open.
 
 ## 1. Scope
 
@@ -2660,7 +2680,7 @@ step, never silent).
 | `skel.unique-names`, `skel.unique-human-bone` | uniqueness per skeleton | error / error (names) | Rename with suffix |
 | `skel.parent-map` | humanoid ancestry matches VRM; humanoid joints under `hips` | error / — | Select |
 | `skel.multiple-roots` | more than one root joint (the writer's `skin.skeleton` is the root, and a chain outside its subtree gets no control) | error / warning | Parent to nearest joint (`skel.joint.reparent` onto the joint whose segment is nearest the chain's root) |
-| `skel.tpose` | VRM T-pose per bone direction within 5° (research 14 §4.4) | error / warning | Apply Pose as Rest (T-Stance) |
+| `skel.tpose` | VRM T-pose per bone direction within 5° (research 14 §4.4) in the front (XY) plane; out of the plane (the elbow/knee hinge depth of §0.4.2's rest flexion) within 15° (v1.4, §0.11) | error / warning | Apply Pose as Rest (T-Stance) |
 | `skel.hinge-bend` | elbows and knees flexed ≥ 0.5° on their hinge side (research 17 J8) | warning / warning | Restore template flexion (`skel.joint.flex`) |
 | `skel.symmetry` | L/R pairs mirror within 0.01 H | warning / warning | Mirror Joint L → R |
 | `skel.grounded`, `skel.facing` | mesh min y within 0.01 H of 0; toes in front of feet | warning / warning | Center and ground; Rotate to face +Z |

@@ -1,6 +1,8 @@
 # Ekza Studio — Modeling plan (M6a, M6b, M6c, M7)
 
-Status: v0.3 (2026-10-19; v0.3 expands M6b on the owner's request into the full **Rig & Skin workspace**, §5, with its
+Status: v0.4 (2026-10-22: **the M6b MVP is integrated** — the owner flow model → Quick Rig → Create Skeleton → Bind
+Skin → paint → CC0 clip library → VRM 1.0 for Space and OMOBA, [M6B-SPEC §0](M6B-SPEC.md#0-mvp-cut-owner-flow-2026-10-22);
+the rest of §5 follows after the MVP); v0.3 (2026-10-19; v0.3 expands M6b on the owner's request into the full **Rig & Skin workspace**, §5, with its
 build spec [M6B-SPEC](M6B-SPEC.md); v0.2 was the plan revised after the design review: one blocker, twenty
 major and nineteen minor findings; every decision, including the rejected and partly applied ones, is in
 [§12](#12-design-review-2026-10-19-decisions)). It **replaces the old ROADMAP M6 "Modeling, splines first"**
@@ -840,6 +842,11 @@ call).
 ---
 
 ## 5. M6b — Rig & Skin workspace (turnkey)
+
+**Status 2026-10-22: the MVP cut ([M6B-SPEC §0](M6B-SPEC.md#0-mvp-cut-owner-flow-2026-10-22), ADR 0020) is integrated**
+(packages C0–C4, C6, C7, C10, C12 and INT; [ROADMAP](ROADMAP.md#m6b-mvp-work-package-status),
+[integration notes](wp-notes/m6b-integration.md)). The deferred parts listed in M6B-SPEC §0.3 (constraints, control
+shapes, the Joint tool, imports recovery, inpainting, the A-pose path) and AS-LP-T remain the turnkey work below.
 
 Build spec: [M6B-SPEC](M6B-SPEC.md) v1.1 (2026-10-19, revised after its design review, §12.5 there) — contracts
 (schema v4), normative behaviours, operator table,
