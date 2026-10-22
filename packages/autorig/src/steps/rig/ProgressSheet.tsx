@@ -3,8 +3,10 @@
 // A-posed input, Checking) as ✓ / ▸ / ○ rows in a polite live region, and *Cancel* during the bind only
 // (`autorig.cancel`; the straighten is one synchronous transaction). A native modal `<dialog>` (`showModal`): the rest
 // of the page is inert (the header's undo/redo, the stepper, the panel, the footer), the focus stays in the sheet with
-// *Cancel* reachable, and `Esc` does not close it (rigging is not stopped by a key); the frame refuses the undo/redo
-// keys while the session is busy.
+// *Cancel* reachable, and `Esc` does not close it (rigging is not stopped by a key). The keyboard is off too: the
+// sheet carries `data-ar-exclusive`, so the key guard (`./exclusive`, registered before the frame's key scope) stops
+// every key but `Tab` and `Enter` / `Space` on *Cancel* (no `Alt+1…5`, no `Mod+Enter`, no undo, no step keys), and an
+// explicit `role="dialog"` makes the host's keyboard adapter (`isInOverlay`) treat it as an overlay.
 import { buttonClass, cn } from '@ekza-studio/ui';
 import { type JSX, useEffect, useRef } from 'react';
 import { formatNumber, messages } from '../../i18n';
@@ -100,7 +102,11 @@ export function ProgressSheet(props: { readonly ctx: WizardContext }): JSX.Eleme
   return (
     <dialog
       ref={sheet}
+      // oxlint-disable-next-line jsx-a11y/no-redundant-roles -- the host's `isInOverlay` matches `[role="dialog"]`, not a native <dialog>
+      role="dialog"
+      aria-modal="true"
       aria-labelledby="ar-rig-sheet-title"
+      data-ar-exclusive=""
       tabIndex={-1}
       className="m-auto w-[min(24rem,calc(100vw-2rem))] flex-col gap-3 rounded-dialog border border-line bg-popover p-4 text-fg shadow-popover outline-none backdrop:bg-scrim open:flex"
       data-testid="ar-rig-sheet"
