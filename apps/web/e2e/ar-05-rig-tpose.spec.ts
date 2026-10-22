@@ -1,12 +1,12 @@
 // E2E-AR-05 (AUTORIG-SPEC §10 D4, §5.4; AS-AR-1 steps 5–6): ③ Rig on the T-posed Polybot through the UI. *Auto-rig ▸*
 // (fingers Thumb + 1) shows the sheet with Skeleton, Skinning and Checking — no Straightening — and makes exactly two
 // undo steps, "Create Skeleton" and "Bind Skin": a model character with 34 joints (Standard 33 + root), every humanoid
-// joint within 0.05 H of the T-pose truth, every point weighted with ≤ 4 influences summing to 1 (1e-6), none on
-// root, the mesh points bit-equal to the import, no `skel.*` / `skin.*` error or warning; ③ review plays `PREVIEW Walk`
-// at once, and the preview changes neither the store version nor the history nor the keys hash. The motion test's
-// Sword and Dance move a hand point over 0.5 s each.
+// joint within 0.05 H of the T-pose truth and equal to the last preview (C2's rule), every point weighted with ≤ 4
+// influences summing to 1 (1e-6), none on root, the mesh points bit-equal to the import, no `skel.*` / `skin.*` error
+// or warning; ③ review plays `PREVIEW Walk` at once, and the preview changes neither the store version nor the history
+// nor the keys hash. The motion test's Sword and Dance move a hand point over 0.5 s each.
 import { expect, test } from '@playwright/test';
-import { dist, polybotMarkers, sampleAtModel, toMarkers, wizard } from './helpers/ar-markers';
+import { dist, polybotMarkers, quickRig, sampleAtModel, toMarkers, wizard } from './helpers/ar-markers';
 import {
   autoRig,
   expectCleanWeights,
@@ -29,6 +29,8 @@ test('AS-AR-1 steps 5–6: Auto-rig makes two steps, a clean Standard 33 rig, an
   await toMarkers(page);
   // step 5: Fingers Thumb + 1, Auto-rig
   await page.getByTestId('ar-markers-fingers').locator('[data-preset="standard33"]').click();
+  const preview = (await quickRig(page))?.preview ?? [];
+  expect(preview.length).toBeGreaterThan(0);
   const before = (await history(page)).undo;
   await recordStages(page);
   await autoRig(page);
@@ -45,6 +47,9 @@ test('AS-AR-1 steps 5–6: Auto-rig makes two steps, a clean Standard 33 rig, an
   const skeleton = await call(page, 'skeleton', character);
   expect(skeleton?.preset).toBe('standard33');
   expect(skeleton?.joints).toHaveLength(34);
+  // C2's rule observed through Auto-Rig: the committed joints are the last preview, bit for bit
+  const committed = new Map((skeleton?.joints ?? []).map((joint) => [joint.key, joint.restPosition]));
+  for (const joint of preview) expect([joint.key, committed.get(joint.key)]).toEqual([joint.key, joint.position]);
   const truth = polybotMarkers('tpose');
   const off = (skeleton?.joints ?? [])
     .filter((joint) => joint.humanBone !== null && truth.humanoid[joint.humanBone] !== undefined)
