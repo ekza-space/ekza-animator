@@ -231,6 +231,17 @@ function Library(props: { readonly ctx: WizardContext }): JSX.Element {
           const query = e.currentTarget.value;
           animationsUi(ctx).set((current) => ({ ...current, query }));
         }}
+        onKeyDown={(e) => {
+          // ↓ goes straight to the results (the grid's roving card), past the category chips (AR-D8-9)
+          if (e.key !== 'ArrowDown') return;
+          const grid = document.querySelector('[data-testid="ar-anim-grid"]');
+          const card =
+            grid?.querySelector<HTMLElement>('[data-clip][tabindex="0"]:not(:disabled)') ??
+            grid?.querySelector<HTMLElement>('[data-clip]:not(:disabled)');
+          if (card === null || card === undefined) return;
+          e.preventDefault();
+          card.focus();
+        }}
       />
       <fieldset aria-label={a.categories} className="m-0 flex flex-wrap gap-1 border-0 p-0">
         {categories.map((category) => (
@@ -300,7 +311,8 @@ function ClipRow(props: {
   const editing = useSession(ctx.session, selectAnimations).editing === record.id;
   const playing = props.active && timeline;
   const source = libraryClipOf(ui.manifest, record);
-  const speed = speedText(recordedParams(record).speed);
+  const params = recordedParams(record);
+  const speed = speedText(params.speed);
   return (
     <li
       className={cn('flex flex-col gap-1 rounded-field border px-2 py-1', editing ? 'border-accent' : 'border-line')}
@@ -320,6 +332,16 @@ function ClipRow(props: {
         </button>
         <span className="min-w-0 flex-1 truncate">{record.name}</span>
         {speed === null ? null : <span className="text-fg-3 tabular-nums">{speed}</span>}
+        {params.mirror ? (
+          <span className="text-fg-3" title={a.mirror} data-testid={`ar-char-clip-mirror-${record.id}`}>
+            {a.rowMirrored}
+          </span>
+        ) : null}
+        {params.inPlace ? (
+          <span className="text-fg-3" data-testid={`ar-char-clip-inplace-${record.id}`}>
+            {a.rowInPlace}
+          </span>
+        ) : null}
         {source === null ? null : (
           <button
             type="button"

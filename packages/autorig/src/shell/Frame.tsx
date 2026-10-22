@@ -402,6 +402,7 @@ function Footer(props: { readonly ctx: WizardContext; readonly footer: SmallStor
         )}
         role={error ? 'alert' : 'status'}
         aria-live={error ? 'assertive' : 'polite'}
+        title={typeof status === 'string' ? status : undefined}
         data-testid="ar-status"
       >
         {status}

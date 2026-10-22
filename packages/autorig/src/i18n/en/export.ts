@@ -14,6 +14,7 @@ export const exportStep = {
   targetVrm0Hint:
     'Your avatar is a VRM 0.x: its animations are baked in and the version stays 0.x, which OMOBA accepts',
   targetGlb: 'GLB with animations',
+  targetGlbRigged: 'GLB (rigged, no animations)',
   targetGlbHint: 'For Unity, Godot, Blender, three.js',
   targetVrma: 'Animations only (.vrma)',
   targetVrmaHint: (clips: number, file: string) => `${clips === 1 ? '1 clip' : `${clips} clips`} → ${file}`,

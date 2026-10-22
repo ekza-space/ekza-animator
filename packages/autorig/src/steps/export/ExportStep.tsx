@@ -176,7 +176,11 @@ const avatarName = (record: CharacterRecord): string =>
 // ---------------------------------------------------------------------------------------------------------------------
 // over the pane: targets, Continue in Studio, metadata
 
-function TargetLabel(props: { readonly target: AutoRigExportTarget; readonly vrm0?: boolean }): JSX.Element {
+function TargetLabel(props: {
+  readonly target: AutoRigExportTarget;
+  readonly vrm0?: boolean;
+  readonly clips?: number;
+}): JSX.Element {
   const m = t();
   if (props.target === 'ekza-vrm') {
     return (
@@ -185,7 +189,8 @@ function TargetLabel(props: { readonly target: AutoRigExportTarget; readonly vrm
       </>
     );
   }
-  return <>{props.target === 'glb' ? m.targetGlb : props.target === 'vrma' ? m.targetVrma : m.targetKit}</>;
+  if (props.target === 'glb') return <>{props.clips === 0 ? m.targetGlbRigged : m.targetGlb}</>;
+  return <>{props.target === 'vrma' ? m.targetVrma : m.targetKit}</>;
 }
 
 function hintOf(target: AutoRigExportTarget, view: ExportView): string {
@@ -271,7 +276,7 @@ function Targets(props: { readonly ctx: WizardContext }): JSX.Element {
               <RadioGroupItem
                 key={target}
                 value={target}
-                label={<TargetLabel target={target} vrm0={view.vrm0} />}
+                label={<TargetLabel target={target} vrm0={view.vrm0} clips={view.clips} />}
                 hint={hintOf(target, view)}
                 className={coarse}
                 data-testid={`ar-export-target-${target}`}
