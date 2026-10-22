@@ -6,8 +6,8 @@ import { call, expectKernelStarted, openEditor, run } from './helpers/test-api';
 // E2E-AR-00 (AUTORIG-SPEC §10 D0): the Auto-Rig contracts on a real build. Every `autorig.*` composition is a stub of
 // the rig-workspace chunk — running one from Studio loads that chunk (never with the route) and refuses with
 // "Arrives with Auto-Rig"; the palette lists them; `/editor` never loads the Auto-Rig shell and its test API answers
-// `autorig()` with null; the placeholder `/autorig` page mounts the shell stub without dockview, the curve editor,
-// the Studio shell or any Rig & Skin chunk.
+// `autorig()` with null; `/autorig` mounts the wizard (D3; D0's placeholder before it) without dockview, the curve
+// editor, the Studio shell or any Rig & Skin chunk. The ids their owners landed refuse with their own argument polls.
 
 const WIZARD_IDS = [
   'autorig.sample',
@@ -32,11 +32,16 @@ test('autorig.* ids load the rig-workspace chunk on first run and refuse as stub
 
   await expectRefused(page, 'autorig.rig', 'Arrives with Auto-Rig', { straighten: true });
   await expect.poll(() => loaded(scripts, 'ekza-rig-workspace')).toBe(true);
-  for (const op of WIZARD_IDS) {
-    // D1 landed `autorig.navigate` (the host's navigation port): without arguments it refuses with its own reason.
-    if (op === 'autorig.navigate') await expectRefused(page, op, "expects { to: 'autorig' | 'studio' | 'chooser' }");
-    else await expectRefused(page, op, 'Arrives with Auto-Rig');
-  }
+  // D1 landed `autorig.navigate` (the host's navigation port), D3 the ① compositions: without arguments each refuses
+  // with its own argument poll; the others are stubs until their owners land them.
+  const landed: Readonly<Record<string, string>> = {
+    'autorig.navigate': "expects { to: 'autorig' | 'studio' | 'chooser' }",
+    'autorig.sample': 'expects { sample: cube-lad | polybot-tpose | polybot-apose | polybot | seed-san }',
+    'autorig.intake': 'expects { bytes, name }',
+    'autorig.inspect': 'expects { meshes }',
+    'autorig.fix': 'expects { fix: center | face | standUp | scale | freeze, meshes }',
+  };
+  for (const op of WIZARD_IDS) await expectRefused(page, op, landed[op] ?? 'Arrives with Auto-Rig');
   // the moved M6b stubs are unchanged until A0 lands them
   await expectRefused(page, 'skel.pose.applyAsRest', 'Arrives after the MVP', { pose: 'tStance' });
 
@@ -60,14 +65,15 @@ test('the command palette lists the Auto-Rig compositions, disabled with their r
   await expect(page.getByTestId('cmdk')).toBeHidden();
 });
 
-test('/autorig mounts the shell placeholder without dockview, the curve editor, the Studio shell or rig chunks', async ({
+test('/autorig mounts the wizard without dockview, the curve editor, the Studio shell or rig chunks', async ({
   page,
 }) => {
   const scripts = scriptsOf(page);
   await openAutoRig(page);
   const shell = page.locator(`[data-shell="${SHELL_MARKERS.autorig}"]`);
   await expect(shell).toBeVisible();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Auto-Rig is on its way');
+  // D3 replaced the placeholder with the wizard: ① Model (no model yet, so no Rig & Skin chunk either)
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Model/);
   await expect(page).toHaveTitle(/Auto-Rig/);
   await expect.poll(() => loaded(scripts, SHELL_MARKERS.autorig)).toBe(true);
   for (const marker of [
@@ -81,7 +87,7 @@ test('/autorig mounts the shell placeholder without dockview, the curve editor, 
   ]) {
     expect([marker, loaded(scripts, marker)]).toEqual([marker, false]);
   }
-  // "Open Studio" leads to the full editor
-  await page.getByRole('link', { name: 'Open Studio' }).click();
-  await expect(page).toHaveURL(/\/editor$/);
+  // "Open in Studio" leads to the full editor (Rig & Skin from ①)
+  await page.getByRole('link', { name: /Open in Studio/ }).click();
+  await expect(page).toHaveURL(/\/editor\?(.*&)?ws=rig/);
 });
