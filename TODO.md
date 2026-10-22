@@ -101,6 +101,19 @@ items (eager allowance, marquee budget miss, bevel limits, feel check, demo scri
 11. [ ] Owner reviews the remaining M6b owner questions ([M6B-SPEC §12.4](docs/M6B-SPEC.md#124-owner-questions-defaults-chosen-the-build-starts-on-them); Q-M6B-1 is superseded by Q-MVP-1) and calibrates the rig marking menus together with Q-MOD-UI-1 before they are built.
 12. [ ] After the MVP: the deferred packages C8a, C8b, C9, C11 and the deferred parts of C2/C3/C5/C6/C7 (Parked list above), then AS-LP-T and the turnkey feel check.
 
+## Next — Auto-Rig mode (after the M6b MVP; owner request 2026-10-22)
+
+A Mixamo-style simple mode next to the full Studio, chosen on opening: upload a model → markers → auto-rig → try
+animations → export an OMOBA/Space VRM, built only from Studio's and M6b's operators (a second shell over the same app
+and document). Spec: [AUTORIG-SPEC](docs/AUTORIG-SPEC.md) v0.1 (draft), [ADR 0021](docs/adr/0021-autorig-mode.md)
+(Proposed). Starts when the M6b MVP has merged into `dev`. ≈ 30.5 agent-days, critical path ≈ 20.5.
+
+- [ ] Owner reviews AUTORIG-SPEC §13 (Q-AR-1…16; defaults stand until overridden), in particular Q-AR-4 (A-pose path
+      first) and Q-AR-16 (send the contract requests CR-AR-1…6 to the running M6b build now).
+- [ ] D0 contracts + `/autorig` size gate → D1 studio host (route group, same-page handoff) → D2 chooser, D3 wizard
+      shell + Model step → D4 Markers + Rig, D5 Animations, D6 Export (parallel) → D7 integration, AS-AR-1…12.
+- [ ] Owner runs AS-AR-1 by hand (static humanoid GLB → OMOBA VRM passing `validate-runtime-vrm`); release tag: owner's call.
+
 ## After the turnkey release
 
 16. [ ] "Publish avatar to Ekza" — the T3 slice of M4a (≈ 2 here + the `studio-upload` scope in the registry repository) ([ROADMAP M4a](docs/ROADMAP.md#m4a--ekza-t1t3--1520-agent-days-in-this-repo--ecosystem-work)).
