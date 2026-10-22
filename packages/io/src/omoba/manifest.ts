@@ -90,6 +90,8 @@ export interface OmobaKitMeta {
   readonly sourceUrl?: string;
   /** The thumbnail's file type when the kit carries one; default `png` (an imported VRM's own may be a JPEG). */
   readonly thumbnailExtension?: 'png' | 'jpg';
+  /** The VRM version of the avatar file; default `1.0` (an imported VRM 0.x avatar keeps its version, AR-D10-9). */
+  readonly vrmVersion?: '0.x' | '1.0';
 }
 
 /**

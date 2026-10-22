@@ -19,7 +19,7 @@ export const exportStep = {
   targetVrma: 'Animations only (.vrma)',
   targetVrmaHint: (clips: number, file: string) => `${clips === 1 ? '1 clip' : `${clips} clips`} → ${file}`,
   targetKit: 'OMOBA local test kit (.zip)',
-  targetKitHint: 'The VRM, its thumbnail, a manifest entry and the validator steps',
+  targetKitHint: 'The VRM, its thumbnail when it has one, a manifest entry and the validator steps',
   developers: 'For developers',
   noTargets: 'Nothing to export yet: an imported avatar exports with its animations baked in. Add an animation first.',
   noTargetsBecause: (reason: string) => `Nothing to export: ${reason}.`,
@@ -30,6 +30,8 @@ export const exportStep = {
       : `Not in the VRM: ${clips} animations have no OMOBA slot`,
   leftOutHint:
     'The VRM keeps one animation per slot (idle, walk, attack…). Give one a free slot to add it; the GLB and the .vrma files keep every animation.',
+  leftOutHintNoGlb:
+    'The VRM keeps one animation per slot (idle, walk, attack…). Give one a free slot to add it; the .vrma files keep every animation.',
   leftOutAs: (slot: string) => `Add as ${slot}`,
   leftOutPick: 'Slot…',
   leftOutPickLabel: (clip: string) => `OMOBA slot for ${clip}`,

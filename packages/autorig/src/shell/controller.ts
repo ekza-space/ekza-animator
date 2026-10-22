@@ -305,7 +305,9 @@ export function createWizard(host: HostShell): Wizard {
         if (app.session.getState().dialog !== null || host.ui.getState().confirm !== null) return;
         const binding = bindingFor(e, session.getState().step, mac);
         if (binding === null) {
-          if (e.code === 'Escape' && app.library.loaded && app.library.service.preview !== null) {
+          // an Esc that closes a menu closes only the menu (AR-D10-5)
+          const inMenu = e.target instanceof Element && e.target.closest('[role="menu"]') !== null;
+          if (e.code === 'Escape' && !inMenu && app.library.loaded && app.library.service.preview !== null) {
             void quiet(app, 'library.stop');
           }
           return;

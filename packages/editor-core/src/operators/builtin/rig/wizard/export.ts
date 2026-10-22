@@ -282,6 +282,8 @@ function kitMeta(app: EditorApp, record: CharacterRecord, slug: string): OmobaKi
     authors: license?.authors ?? [],
     license: text(license?.licenseName) || text(license?.licenseUrl) || KIT_LICENSE_UNSTATED,
     slug,
+    // the bake keeps an imported avatar's VRM version (AR-D8-5); the README says which (AR-D10-9)
+    vrmVersion: record.format === 'vrm0' ? '0.x' : '1.0',
   };
 }
 

@@ -52,7 +52,7 @@ import { attachMeshes, loadMeshKernel, type MeshKernel } from '../../../mesh';
 import { runSeed } from '../../../mesh/seed';
 import type { ApplyContext, EditorApp, OperatorContext, PollResult, SceneObjectId } from '../../../types';
 import { loadWritePath } from '../../../workflows/export';
-import { baseName } from '../../../workflows/names';
+import { baseName, isGenericMeshName } from '../../../workflows/names';
 import { projectRecord } from '../../../workflows/records';
 import { type AnyOperator, defineOperator, fail, isRecord, OK, optionalArgs } from '../define';
 import { uniqueMeshName } from '../../../mesh/records';
@@ -291,7 +291,13 @@ export function createModelCharacter(
   const sources = sourceMeshes(tx, args.objects);
   if (typeof sources === 'string') throw new EkzaError('invalid-input', sources);
   const lead = args.objects.find((id) => id.startsWith('grp_'));
-  const named = lead === undefined ? sources.meshes[0]?.name : tx.get('groups', lead as GroupId)?.name;
+  const first = lead === undefined ? sources.meshes[0]?.name : tx.get('groups', lead as GroupId)?.name;
+  // a default name (pCube10, Mesh.003) gives way to the project's, which an import named after the file (AR-D10-8)
+  const project = tx.get('project', 'project')?.name;
+  const named =
+    first !== undefined && isGenericMeshName(first) && project !== undefined && project !== 'Untitled'
+      ? project
+      : first;
   let order: string | null = null;
   for (const character of tx.list('characters')) if (order === null || character.order > order) order = character.order;
   const character: CharacterRecord = {
@@ -549,12 +555,12 @@ const importStatic = defineOperator<'mesh.importStatic', ImportPlan>({
     const { app, tx } = ctx;
     if (tx === null) throw new EkzaError('unsupported', 'mesh.importStatic needs a transaction');
     // The first import names an untitled project (autosave and Recovery show that name; AR-D8-10) after the model it
-    // brings: its first mesh's name, the name Auto-Rig's header and the character take (AR-D9-7); a file of unnamed
-    // meshes ("Mesh 0") after the file.
+    // brings: its first mesh's name, the name Auto-Rig's header and the character take (AR-D9-7); a file whose first
+    // mesh has no name or a modelling tool's default one ("Mesh 0", "pCube10", "Cube.001") after the file (AR-D10-8).
     const project = tx.get('project', 'project');
     const fileName = typeof args.name === 'string' ? args.name.trim() : '';
     const first = plan.meshes[0]?.name.trim() ?? '';
-    const projectName = first !== '' && !/^Mesh \d+$/.test(first) ? first.slice(0, 64) : baseName(fileName);
+    const projectName = first !== '' && !isGenericMeshName(first) ? first.slice(0, 64) : baseName(fileName);
     if (fileName !== '' && project === undefined) tx.put('project', projectRecord(projectName));
     else if (fileName !== '' && project?.name === 'Untitled') {
       tx.patch('project', 'project', { name: projectName });

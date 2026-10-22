@@ -317,7 +317,7 @@ function Targets(props: { readonly ctx: WizardContext }): JSX.Element {
           view.target === 'ekza-vrm' ||
           view.target === 'omoba-kit' ||
           view.unavailable !== null) ? (
-          <LeftOut ctx={ctx} model={view.model} clips={view.clipRecords} />
+          <LeftOut ctx={ctx} model={view.model} glb={view.available.includes('glb')} clips={view.clipRecords} />
         ) : null}
         <ContinueInStudio ctx={ctx} />
         {meta && view.record !== null ? <AboutAvatar ctx={ctx} character={view.record.id} /> : null}
@@ -333,6 +333,8 @@ function Targets(props: { readonly ctx: WizardContext }): JSX.Element {
 function LeftOut(props: {
   readonly ctx: WizardContext;
   readonly model: boolean;
+  /** A GLB target is offered (not for an imported VRM, AR-D10-9). */
+  readonly glb: boolean;
   readonly clips: readonly ClipRecord[];
 }): JSX.Element | null {
   const { ctx, clips } = props;
@@ -346,7 +348,7 @@ function LeftOut(props: {
   return (
     <section className="flex flex-col gap-1.5 border-t border-line pt-3" data-testid="ar-export-left-out">
       <p className="font-semibold text-warn">{m.leftOutTitle(out.length)}</p>
-      <p className="text-ui-dense text-fg-2">{m.leftOutHint}</p>
+      <p className="text-ui-dense text-fg-2">{props.glb ? m.leftOutHint : m.leftOutHintNoGlb}</p>
       <ul className="flex flex-col gap-1">
         {out.map((clip) => {
           const suggested = suggestedSlot(clip, free);

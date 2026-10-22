@@ -8,11 +8,11 @@ export function omobaValidateCommand(file: string): string {
   return `cargo run --offline -p omoba-passport --bin validate-runtime-vrm -- ${file}`;
 }
 
-/** The README of a kit (plain text, LF line ends, a final newline). */
-export function omobaKitReadme(entry: OmobaManifestEntry): string {
+/** The README of a kit (plain text, LF line ends, a final newline); `version` is the avatar file's VRM version. */
+export function omobaKitReadme(entry: OmobaManifestEntry, version: '0.x' | '1.0' = '1.0'): string {
   const { slug } = entry;
   const files = [
-    `  ${slug}.glb            the avatar: the exported VRM 1.0 file, byte for byte (OMOBA stages VRM files as .glb)`,
+    `  ${slug}.glb            the avatar: the exported VRM ${version} file, byte for byte (OMOBA stages VRM files as .glb)`,
     ...(entry.thumbnail === null ? [] : [`  ${entry.thumbnail}            its thumbnail`]),
     '  manifest-entry.json  one avatar entry in the field names of OMOBA’s avatar manifest',
   ];
@@ -27,7 +27,7 @@ export function omobaKitReadme(entry: OmobaManifestEntry): string {
     '',
     `     ${omobaValidateCommand(`/absolute/path/to/${slug}.glb`)}`,
     '',
-    '   It prints "Compatible local humanoid: VRM 1.0 …" or names the rule the file breaks.',
+    `   It prints "Compatible local humanoid: VRM ${version} …" or names the rule the file breaks.`,
     '',
     `2. Copy ${slug}.glb${entry.thumbnail === null ? '' : ` and ${entry.thumbnail}`} into the avatars folder of OMOBA’s asset`,
     '   root (client/assets/avatars/ in a checkout, or <OMOBA_ASSET_DIR>/avatars/).',

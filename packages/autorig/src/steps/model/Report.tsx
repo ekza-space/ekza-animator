@@ -4,9 +4,10 @@
 // loads only the frame and the drop zone (§7.2).
 import type { AutoRigFix, IntakeReport } from '@ekza-studio/editor-core';
 import { buttonClass, cn } from '@ekza-studio/ui';
-import { type JSX, type ReactNode, useId, useState } from 'react';
+import { type JSX, type ReactNode, useEffect, useId, useState } from 'react';
 import { formatNumber, messages } from '../../i18n';
 import { type ShellUi, useDocument, useSession, type WizardContext } from '../../shell/context';
+import { PERSP_PANE_ID } from '../../shell/steps';
 import { useSmall } from '../../shell/store';
 import type { AutoRigSession } from '../../types';
 import { FIX_LABEL, transformsUniform } from './checks';
@@ -85,6 +86,24 @@ function SizeFix(props: { readonly ctx: WizardContext }): JSX.Element {
   );
 }
 
+/**
+ * Frames ①'s view on the model once its layout settled, and again after a fix moved it (AR-D10-6): a 5 m import stood
+ * in a view framed for a 1.8 m person, showing its shins only.
+ */
+function useFrameModel(ctx: WizardContext, report: IntakeReport, active: boolean): void {
+  const c = report.checks;
+  const key = `${report.fileName ?? ''}|${report.meshes.join(',')}|${report.height.toFixed(3)}|${c.centred}|${c.grounded}|${c.upright}|${c.facing}`;
+  useEffect(() => {
+    if (!active || typeof requestAnimationFrame !== 'function') return undefined;
+    let handle = requestAnimationFrame(() => {
+      handle = requestAnimationFrame(() => {
+        void ctx.app.runUntyped('view.frame', { what: 'all', paneId: PERSP_PANE_ID });
+      });
+    });
+    return () => cancelAnimationFrame(handle);
+  }, [ctx, key, active]);
+}
+
 export function Report(props: { readonly ctx: WizardContext; readonly report: IntakeReport }): JSX.Element {
   const { ctx, report } = props;
   const m = t();
@@ -95,6 +114,7 @@ export function Report(props: { readonly ctx: WizardContext; readonly report: In
   const separate = useDocument(ctx.app, () => new Set(separateMeshes(ctx.app, report.meshes)));
   useHiddenParts(ctx);
   const staticKind = report.kind === 'static' || (report.kind === 'project' && subject.meshes.length > 0);
+  useFrameModel(ctx, report, staticKind && subject.character === null);
   const c = report.checks;
   const tris = formatNumber(report.triangles, { maximumFractionDigits: 0 });
   return (

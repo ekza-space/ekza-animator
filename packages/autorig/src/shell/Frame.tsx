@@ -3,6 +3,7 @@
 // page's ViewportManager, AR-D3-1; the shared canvas draws behind them) and the step panel (≤ 320 px; a bottom sheet
 // below 1024 px), and the footer (*Back*, one status line, one primary button). Landmarks, a polite status line, an
 // assertive error line, focus on the step heading at every step change.
+import { isGenericMeshName } from '@ekza-studio/editor-core';
 import { useHostUi } from '@ekza-studio/editor/host';
 import { buttonClass, cn, Redo2, Undo2 } from '@ekza-studio/ui';
 import {
@@ -61,9 +62,13 @@ function SubjectName(props: { readonly ctx: WizardContext }): JSX.Element {
     const named = (of: AutoRigSession['subject']): string | null => {
       const character = of.character === null ? undefined : ctx.app.store.get('characters', of.character);
       if (character !== undefined) return character.vrm?.name || character.name;
-      return (
-        of.meshes.map((id) => ctx.app.store.get('meshes', id)).find((record) => record !== undefined)?.name ?? null
-      );
+      const first =
+        of.meshes.map((id) => ctx.app.store.get('meshes', id)).find((record) => record !== undefined)?.name ?? null;
+      // a default name (pCube10) gives way to the project's, named after the file (AR-D10-8)
+      const project = ctx.app.store.get('project', 'project')?.name;
+      return first !== null && isGenericMeshName(first) && project !== undefined && project !== 'Untitled'
+        ? project
+        : first;
     };
     return named(subject) ?? intake?.fileName ?? (handed === null ? null : named(handed));
   });

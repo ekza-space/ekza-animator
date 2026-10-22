@@ -99,6 +99,14 @@ const setVrmMeta = defineOperator<'char.setVrmMeta'>({
     const next = nextVrmMeta(record.vrm ?? makeVrmMeta(record.name), record.name, args['patch']);
     if (typeof next === 'string') throw new EkzaError('invalid-input', next);
     tx.patch('characters', id, { vrm: next });
+    // AR-D10-8: a project named after its character (an Auto-Rig import) follows a new VRM name, so Studio's title
+    // and Auto-Rig's header agree after a rename
+    const before = record.vrm?.name || record.name;
+    const project = tx.get('project', 'project');
+    if (next.name !== before && next.name.trim() !== '' && project !== undefined && project.name === before) {
+      tx.patch('project', 'project', { name: next.name });
+      if (app.session.getState().projectName !== next.name) app.session.setState({ projectName: next.name });
+    }
   },
 });
 

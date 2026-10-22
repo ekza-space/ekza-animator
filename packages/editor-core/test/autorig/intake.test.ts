@@ -22,8 +22,9 @@ import {
   weightOf,
 } from '../../src/operators/builtin/rig/wizard/intake';
 import { rigGeometry } from '../../src/operators/builtin/rig/skeleton';
+import { isGenericMeshName } from '../../src/workflows/names';
 import { meshTestApp } from '../mesh/support';
-import { glbWith, heavyGlb, rootTransformed, skinnedCopy } from './glb';
+import { glbWith, heavyGlb, readGlb, rootTransformed, skinnedCopy, writeGlb } from './glb';
 
 const DEG = Math.PI / 180;
 const fixture = (file: string): Uint8Array =>
@@ -149,6 +150,41 @@ describe('autorig.intake (§5.2)', () => {
     await run<IntakeReport>(app, 'autorig.intake', { bytes, name: 'cube-lad.glb' });
     expect(app.store.list('meshes')[0]?.name).toBe('Mesh 0');
     expect(app.store.get('project', 'project')?.name).toBe('cube-lad');
+  });
+
+  it('a modelling tool’s default mesh name gives way to the file: project, character and VRM rename (AR-D10-8)', async () => {
+    for (const name of [
+      'pCube10',
+      'Tema_lowpoly_v0_14:pCube10',
+      'polySurface1',
+      'Cube.001',
+      'Mesh.003',
+      'Box001',
+      'Mesh 0',
+    ])
+      expect([name, isGenericMeshName(name)]).toEqual([name, true]);
+    for (const name of ['Cube Lad', 'Polybot', 'Wang', 'Sword', 'ns:Body'])
+      expect([name, isGenericMeshName(name)]).toEqual([name, false]);
+    const { app } = await meshTestApp();
+    const { json, bin } = readGlb(fixture('cube-lad.glb'));
+    for (const record of [...(json['nodes'] as { name?: string }[]), ...(json['meshes'] as { name?: string }[])])
+      record.name = 'Tema_lowpoly_v0_14:pCube10';
+    const report = await run<IntakeReport>(app, 'autorig.intake', {
+      bytes: writeGlb(json, bin),
+      name: 'wang-static.glb',
+    });
+    expect(app.store.get('project', 'project')?.name).toBe('wang-static');
+    expect(app.session.getState().projectName).toBe('wang-static');
+    // the character takes the project's name, not the mesh's
+    await app.rig.load();
+    await run(app, 'workspace.set', { workspace: 'rig' });
+    await run(app, 'skel.quickRig.start', { meshes: report.meshes });
+    const { character } = await run<{ character: string }>(app, 'autorig.rig', { straighten: false });
+    expect(app.store.get('characters', character as never)?.name).toBe('wang-static');
+    // a new VRM name renames the project named after the character (Studio's title follows)
+    await run(app, 'char.setVrmMeta', { character, patch: { name: 'Wang' } });
+    expect(app.store.get('project', 'project')?.name).toBe('Wang');
+    expect(app.session.getState().projectName).toBe('Wang');
   });
 
   it('reports the A-posed Polybot as an A-pose within 5° of its truth, textured', async () => {

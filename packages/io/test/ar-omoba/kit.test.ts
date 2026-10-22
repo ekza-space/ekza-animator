@@ -155,6 +155,16 @@ describe('README.txt (§5.6.4)', () => {
     expect(readme).toContain('Runtime compatibility is not approval');
     expect(readme.endsWith('\n')).toBe(true);
     expect(omobaKitReadme(omobaManifestEntry(META, false))).not.toContain('.png');
+    expect(readme).toContain('the exported VRM 1.0 file');
+    expect(readme).toContain('"Compatible local humanoid: VRM 1.0 …"');
+  });
+
+  it('names an imported VRM 0.x avatar’s version (AR-D10-9)', () => {
+    const files = unzipSync(packOmobaKit({ vrm: VRM, thumbnail: null, meta: { ...META, vrmVersion: '0.x' } }));
+    const readme = text(files['README.txt']);
+    expect(readme).toContain('the exported VRM 0.x file');
+    expect(readme).toContain('"Compatible local humanoid: VRM 0.x …"');
+    expect(readme).not.toContain('VRM 1.0');
   });
 });
 

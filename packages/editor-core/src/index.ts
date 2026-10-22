@@ -491,6 +491,8 @@ export {
   setQuickRigMarker,
 } from './operators/builtin/rig/quickRigSession';
 export { CHECK_REASONS, REBIND_CONFIRM } from './operators/builtin/rig/quickRig';
+// AR-D10-8: a modelling tool's default mesh name (Auto-Rig's header names such a model after its project)
+export { isGenericMeshName } from './workflows/names';
 // Auto-Rig D4: what `autorig.rig` binds, read by the wizard's lazy runner and ③ view (§4.5, §5.4).
 export { autoRigBindMeshes, autoRigRefitBound } from './operators/builtin/rig/wizard/targets';
 export { ASSET_CHARACTER_REFUSAL, POSED_REFUSAL, rigGeometry } from './operators/builtin/rig/skeleton';

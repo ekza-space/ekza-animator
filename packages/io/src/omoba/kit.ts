@@ -33,7 +33,7 @@ export function unzipFiles(bytes: Uint8Array): Readonly<Record<string, Uint8Arra
 }
 
 export interface OmobaKitInput {
-  /** The exported VRM 1.0 bytes (the Ekza avatar target's file). */
+  /** The exported VRM bytes (the Ekza avatar target's file: VRM 1.0, or an imported avatar's kept 0.x). */
   readonly vrm: Uint8Array;
   /** The thumbnail (a PNG, or a JPEG with `meta.thumbnailExtension: 'jpg'`), or null (the entry's `thumbnail` is then null). */
   readonly thumbnail: Uint8Array | null;
@@ -66,6 +66,6 @@ export function packOmobaKit(input: OmobaKitInput): Uint8Array {
       ? []
       : [{ path: entry.thumbnail, bytes: input.thumbnail, deflate: false }]),
     { path: 'manifest-entry.json', bytes: text.encode(omobaManifestJson(entry)) },
-    { path: 'README.txt', bytes: text.encode(omobaKitReadme(entry)) },
+    { path: 'README.txt', bytes: text.encode(omobaKitReadme(entry, input.meta.vrmVersion ?? '1.0')) },
   ]);
 }
