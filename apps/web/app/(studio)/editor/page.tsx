@@ -1,13 +1,12 @@
 import type { Metadata } from 'next';
+import type { JSX } from 'react';
+import { EditorEntryIsland } from './EditorEntryIsland';
 
 export const metadata: Metadata = {
   title: 'Editor',
 };
 
-/**
- * `/editor` (Studio). The `(studio)` layout's host mounts the Studio shell for this route (AUTORIG-SPEC §4.4); the
- * page itself renders nothing of its own.
- */
-export default function EditorPage(): null {
-  return null;
+/** `/editor` (Studio): its entry registers the host and Studio's shell with the `(studio)` layout (§4.4). */
+export default function EditorPage(): JSX.Element {
+  return <EditorEntryIsland />;
 }

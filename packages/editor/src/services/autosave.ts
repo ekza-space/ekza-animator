@@ -28,9 +28,6 @@ export const LOCK_PREFIX = 'ekza-animator:autosave:';
 export const HEARTBEAT_MS = 5000;
 export const HEARTBEAT_STALE_MS = 20_000;
 
-/** A handoff record older than this is expired (AUTORIG-SPEC §4.4: housekeeping prunes it after 10 minutes too). */
-export const HANDOFF_TTL_MS = 10 * 60 * 1000;
-
 /** A write starts over when an asset it relies on was collected meanwhile; it gives up after this many tries. */
 const MAX_WRITE_ATTEMPTS = 3;
 
@@ -40,7 +37,7 @@ const BLOBS = 'blobs';
 const BASE62 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
 /** One row of `slots`. A row without a snapshot is a claimed slot (heartbeat) with nothing to recover yet. */
-interface SlotRow {
+export interface SlotRow {
   readonly id: string;
   readonly info: Omit<AutosaveSlotInfo, 'id'> | null;
   readonly snapshot: string | null;
@@ -474,27 +471,9 @@ export function createIndexedDbAutosaveStore(opts: IndexedDbAutosaveOptions = {}
     writeHandoff: (id, data, readAsset, readBlob) =>
       put(handoffKey(id), data, readAsset, readBlob, () => ({ info: null, heartbeatAt: null, handoff: data.info })),
 
-    async takeHandoff(id) {
-      const key = handoffKey(id);
-      const row = (await allSlots()).find((candidate) => candidate.id === key);
-      if (row === undefined) return null;
-      try {
-        const info = row.handoff;
-        if (info === undefined || now() - info.createdAt > HANDOFF_TTL_MS) return null;
-        const read = await readRow(key);
-        if (read === null) return null;
-        // Every blob now: the row (and with it the blobs' last reference) goes before this resolves.
-        const blobs = new Map<BlobId, Uint8Array>();
-        for (const blob of row.blobs ?? []) {
-          const bytes = await read.blob(blob);
-          if (bytes !== undefined) blobs.set(blob, bytes);
-        }
-        return { snapshot: read.snapshot, assets: read.assets, blobs, info };
-      } finally {
-        // Read-and-delete: a record is taken once, whatever it held.
-        await removeRow(key);
-      }
-    },
+    // Read once, on a `?handoff=` page only: a lazy chunk with the store's row helpers.
+    takeHandoff: (id) =>
+      import('../host/handoffStore').then((m) => m.takeHandoff({ allSlots, readRow, removeRow, now }, handoffKey(id))),
 
     async pruneHandoffs(olderThanMs) {
       const at = now();

@@ -9,9 +9,9 @@ import {
   autosaveDatabaseName,
   blobsCollected,
   createIndexedDbAutosaveStore,
-  HANDOFF_TTL_MS,
   newSlotId,
 } from '../src/services/autosave';
+import { HANDOFF_TTL_MS } from '../src/host/handoffStore';
 
 const created: string[] = [];
 

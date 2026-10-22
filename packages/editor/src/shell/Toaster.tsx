@@ -1,5 +1,6 @@
-// Toasts (research 09 §6.5): bottom-right above the timeline, at most three, with an optional action (Undo).
-import { Toast, ToastAction, ToastClose, ToastTitle, ToastViewport } from '@ekza-studio/ui';
+// Toasts (research 09 §6.5): bottom-right above the timeline, at most three, with an optional action (Undo). A lazy
+// chunk of the host (AUTORIG-SPEC D1, AR-D1-2): it loads with the page's first toast, Radix's toast provider with it.
+import { Toast, ToastAction, ToastClose, ToastProvider, ToastTitle, ToastViewport } from '@ekza-studio/ui';
 import type { JSX } from 'react';
 import { useStoreSelector } from '../hooks/useStoreSelector';
 import type { ToastItem, ToastNotifier } from '../services/notify';
@@ -25,7 +26,7 @@ export function Toaster(props: { readonly notifier: ToastNotifier }): JSX.Elemen
   const shell = useHost();
   const toasts = useStoreSelector(props.notifier.store, selectToasts);
   return (
-    <>
+    <ToastProvider swipeDirection="right" label="Notifications">
       {toasts.map((toast) => (
         <Toast
           key={toast.id}
@@ -56,6 +57,6 @@ export function Toaster(props: { readonly notifier: ToastNotifier }): JSX.Elemen
         </Toast>
       ))}
       <ToastViewport data-testid="toasts" />
-    </>
+    </ToastProvider>
   );
 }

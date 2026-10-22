@@ -6,24 +6,28 @@
 // history, the selection, the cameras, autosave and the WebGL context — mounted.
 import { seededIdSource, type IdSource } from '@ekza-studio/doc';
 import { createEditorApp, type EditorApp, type EditorServices } from '@ekza-studio/editor-core';
-import { ToastProvider, TooltipProvider } from '@ekza-studio/ui';
-import { type JSX, type ReactNode, Suspense, useEffect, useRef, useState } from 'react';
+import { TooltipProvider } from '@ekza-studio/ui';
+import { type JSX, lazy, type ReactNode, Suspense, useEffect, useRef, useState } from 'react';
 import { DialogHost } from '../dialogs/DialogHost';
 import { GLHost } from '../gl/GLHost';
 import { EditorAppProvider } from '../hooks';
+import { useStoreSelector } from '../hooks/useStoreSelector';
 import { CommandPaletteHost } from '../overlays/CommandPalette';
 import { createShellServices } from '../services/browser';
 import type { ToastNotifier } from '../services/notify';
 import { installSkinWorker } from '../services/skinWorker';
-import { KernelUnavailable } from '../shell/KernelUnavailable';
 import type { Summarizer } from '../shell/summary';
-import { Toaster } from '../shell/Toaster';
 import { useConstant } from '../shell/useConstant';
 import { useWindowInput } from '../shell/useWindowInput';
 import { detectPlatform, type EditorParams, parseEditorParams } from '../test-api/params';
 import { HostProvider, useHostUi } from './context';
 import { createHostShell } from './createHost';
 import type { HostShell } from './types';
+
+/** Shown only when the kernel cannot start: its own chunk (AR-D1-2), never part of a working page's route. */
+const KernelUnavailable = lazy(() =>
+  import('../shell/KernelUnavailable').then((m) => ({ default: m.KernelUnavailable })),
+);
 
 /** `check-size` marker of the StudioHost entry (§7.2 rule 4): counted as initial on `/editor` and `/autorig`. */
 export const STUDIO_HOST_MARKER = 'ekza-studio-host' as const;
@@ -55,8 +59,6 @@ export interface StudioHostProps {
   /** A same-page navigation between the shells (Next's `router.push`); without it a switch reloads the page with a
    *  handoff record (§4.4 fallback). */
   readonly navigate?: (href: string) => void;
-  /** Shown while the route's shell loads. */
-  readonly fallback?: ReactNode;
   /** Called once the host is mounted. */
   readonly onHost?: (host: HostShell) => (() => void) | undefined;
   /** The route's shell. */
@@ -119,6 +121,17 @@ function boot(props: StudioHostProps, push: (href: string) => void): Boot {
     ...(props.summarize === undefined ? {} : { summarize: props.summarize }),
     navigation: { push: props.navigate === undefined ? undefined : push },
   });
+  // AUTORIG-SPEC §4.4: a page opened with `?handoff=<id>` takes that record (a lazy chunk) and drops the parameter.
+  const handoff = params.handoff;
+  if (handoff !== null) {
+    const ready = host;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('handoff');
+    window.history.replaceState(window.history.state, '', url);
+    void import('./handoff')
+      .then((m) => m.receiveHandoff(ready, handoff))
+      .catch((error: unknown) => console.error('Ekza Studio: the hand-over could not be opened', error));
+  }
   return { kind: 'ready', host, toasts };
 }
 
@@ -147,6 +160,22 @@ function DropOverlay(): JSX.Element | null {
   );
 }
 
+/** The toasts (and Radix's toast provider) load with the page's first toast and stay (AR-D1-2). */
+const Toaster = lazy(() => import('../shell/Toaster').then((m) => ({ default: m.Toaster })));
+
+function Toasts(props: { readonly notifier: ToastNotifier }): JSX.Element | null {
+  const any = useStoreSelector(props.notifier.store, (state) => state.toasts.length > 0);
+  // Once shown, the toast layer stays (its viewport, exit animations and focus handling outlive the last toast).
+  const [shown, setShown] = useState(false);
+  if (any && !shown) setShown(true);
+  if (!shown && !any) return null;
+  return (
+    <Suspense fallback={null}>
+      <Toaster notifier={props.notifier} />
+    </Suspense>
+  );
+}
+
 /** Rendered after the route's shell inside its Suspense boundary: mounts once the shell has (its chunk arrived). */
 function ShellReady(props: { readonly onReady: () => void }): null {
   const { onReady } = props;
@@ -160,7 +189,6 @@ function ReadyHost(props: {
   readonly host: HostShell;
   readonly toasts: ToastNotifier;
   readonly onHost: StudioHostProps['onHost'];
-  readonly fallback: ReactNode;
   readonly children?: ReactNode;
 }): JSX.Element {
   const { host, onHost } = props;
@@ -192,19 +220,6 @@ function ReadyHost(props: {
         }, 0),
       );
     };
-  }, [host]);
-
-  // AUTORIG-SPEC §4.4: a page opened with `?handoff=<id>` takes that record (a lazy chunk) and drops the parameter.
-  useEffect(() => {
-    const id = host.params.handoff;
-    if (id === null || handoffTaken.has(host)) return;
-    handoffTaken.add(host);
-    const url = new URL(window.location.href);
-    url.searchParams.delete('handoff');
-    window.history.replaceState(window.history.state, '', url);
-    void import('./handoff')
-      .then(({ receiveHandoff }) => receiveHandoff(host, id))
-      .catch((error: unknown) => console.error('Ekza Studio: the hand-over could not be opened', error));
   }, [host]);
 
   // The e2e test API is a lazy chunk (M2A-SPEC §5.21.2): production pages never load it. Installed by the host on both
@@ -240,32 +255,28 @@ function ReadyHost(props: {
     <HostProvider host={host}>
       <EditorAppProvider app={host.app}>
         <TooltipProvider>
-          <ToastProvider swipeDirection="right" label="Notifications">
-            <div
-              ref={root}
-              className="ekza-editor relative h-dvh w-dvw overflow-hidden text-fg [--ekza-tailwind-smoke:editor]"
-              data-testid="editor-root"
-              data-host={STUDIO_HOST_MARKER}
-              data-ekza-motion={host.params.e2e ? 'off' : undefined}
-            >
-              <GLHost />
-              <Suspense fallback={props.fallback}>
-                {props.children}
-                <ShellReady onReady={onReady} />
-              </Suspense>
-              <DialogHost />
-              <CommandPaletteHost palette={host.commandPalette} />
-              <Toaster notifier={props.toasts} />
-              <DropOverlay />
-            </div>
-          </ToastProvider>
+          <div
+            ref={root}
+            className="ekza-editor relative h-dvh w-dvw overflow-hidden text-fg [--ekza-tailwind-smoke:editor]"
+            data-testid="editor-root"
+            data-host={STUDIO_HOST_MARKER}
+            data-ekza-motion={host.params.e2e ? 'off' : undefined}
+          >
+            <GLHost />
+            <Suspense fallback={null}>
+              {props.children}
+              <ShellReady onReady={onReady} />
+            </Suspense>
+            <DialogHost />
+            <CommandPaletteHost palette={host.commandPalette} />
+            <Toasts notifier={props.toasts} />
+            <DropOverlay />
+          </div>
         </TooltipProvider>
       </EditorAppProvider>
     </HostProvider>
   );
 }
-
-const handoffTaken = new WeakSet<HostShell>();
 
 export function StudioHost(props: StudioHostProps): JSX.Element {
   // The latest `navigate` (Next's router can change identity between renders); the port is created once.
@@ -278,7 +289,7 @@ export function StudioHost(props: StudioHostProps): JSX.Element {
   useDocumentAttribute('data-ekza-editor', '');
   if (booted.kind === 'ready') {
     return (
-      <ReadyHost host={booted.host} toasts={booted.toasts} onHost={props.onHost} fallback={props.fallback ?? null}>
+      <ReadyHost host={booted.host} toasts={booted.toasts} onHost={props.onHost}>
         {props.children}
       </ReadyHost>
     );
@@ -288,7 +299,9 @@ export function StudioHost(props: StudioHostProps): JSX.Element {
       className="ekza-editor relative h-dvh w-dvw overflow-hidden text-fg [--ekza-tailwind-smoke:editor]"
       data-testid="editor-root"
     >
-      <KernelUnavailable error={booted.error} e2e={booted.params.e2e} />
+      <Suspense fallback={null}>
+        <KernelUnavailable error={booted.error} e2e={booted.params.e2e} />
+      </Suspense>
     </div>
   );
 }
