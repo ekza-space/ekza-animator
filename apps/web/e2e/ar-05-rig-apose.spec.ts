@@ -30,7 +30,7 @@ test('AS-AR-2 steps 2–5: three steps to a T-pose rest, undo / redo exact, the 
   const model = await sampleAtModel(page, 'polybot-apose');
   const scene = model.subject.meshes[0] ?? '';
   const imported = await call(page, 'meshPositions', scene, undefined, 'local');
-  const preview = (await toMarkers(page)).preview;
+  const preview = (await toMarkers(page)).preview ?? [];
   expect(preview.length).toBeGreaterThan(0);
   expect((await wizard(page)).startPose).toMatchObject({ kind: 'a' });
   const before = (await history(page)).undo;
