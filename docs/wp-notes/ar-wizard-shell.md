@@ -90,6 +90,16 @@ The model and the frame strings live in `i18n/en/{frame,model}.ts`; a step's own
 | minor: six files outside the Dirs | listed below for D7 (now seven: DECISIONS-OPEN §M) |
 | minor: C2's Center and Ground leaves z (73 m along +Z) | flagged to D7 / C2 (AR-D3-15, AR-D3-S) |
 
+## Fix round 2 (the verifier's findings at `9b05ffe5`)
+
+| Finding | Outcome |
+|---|---|
+| blocker: `/autorig` 669,088 B over the 660,000 B gate (`routes.autorig.enforce=false`) | **Still open, and it cannot be closed inside D3's Dirs.** The builder tried to land AR-D3-G on this branch as an eighth outside-the-Dirs edit for D7: the `TooltipProvider` moved from D1's `host/StudioHost.tsx` into `StudioShell`. The permission system refused the edit as a change to a shared resource (D1's files). It was not retried or worked around, and the tree was left untouched. No further honest lever exists in the Dirs: the wizard's first-visit share is ≈ 14.1 kB, and D1 left 4,410 B. Loading the frame through `React.lazy` from the shell entry would take it out of the measured set while every first visit still loads it, so that would game §7.2 rule 4 and was not done. `size-baseline.json` is outside the Dirs too, so `routes.autorig` stays unrecorded and unenforced. **Action for D7:** land AR-D3-G (the diff is under Sizes; measured 655,798 B for `/autorig` and 896,350 B for `/editor`), record `routes.autorig` with `enforce: true`, and rerun `check:size`. Otherwise take the numbers to the owner under §7.2 / Q-AR-17. Until then, D3's DoD item "/autorig within its gate" is **not met** |
+| major: `WizardPane` instead of `PaneView` (AR-D3-1) | Unchanged; it needs D7's sign-off in DECISIONS-OPEN §M, or D7 provides a host export of the readout measured against `/editor`. The step-view contract for D4 is in *Decisions* and in AR-D3-1 |
+| minor: C2's *Center and Ground* leaves z (AR-D3-15) | Unchanged: `quickRig.ts` is C2's, and *Centred* is C2's start check. For the C2 owner or D7: centre z, then update the AS-AR-5 truth offset in `intake.test.ts` and the e2e |
+| minor: deviations and seven outside-the-Dirs edits awaiting D7 (AR-D3-S, AR-D3-23) | Unchanged; for D7 at the merge, including the shared `placementsAfterDelta` helper for C2 and D3 |
+| minor: notes file name | The spec's D3 Dirs name `ar-wizard-shell.md`, so it is kept (see the top of this file) |
+
 ## Sizes (production build, `check:size`, gzip -9)
 
 | Build | `/editor` (eager + First-run) | D3 delta vs D1 (896,327 B) | `/autorig` |
