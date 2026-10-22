@@ -2,6 +2,9 @@
 
 - Status: Proposed (2026-10-22, with [AUTORIG-SPEC](../AUTORIG-SPEC.md) v0.1; refreshed with v0.2 against the merged
   M6b MVP, `v0.4.0`; v0.3 applied the spec review round); becomes Accepted when the owner accepts the spec.
+- Implemented: 2026-10-22 on `autorig/mvp` (A0, D0…D7; [AUTORIG-SPEC §17](../AUTORIG-SPEC.md#17-integration-record-d7-2026-10-22)).
+  The shared `(studio)` layout shipped (undo history kept across the switch); `/autorig` 658,122 B under its 660,000 B
+  gate; an Auto-Rig export is byte-equal to Studio's (AS-AR-1, AS-AR-2, AS-AR-4).
 - Inputs: the owner's request of 2026-10-22 ("on opening choose the full interface or a simplified auto-rig built on
   the interfaces we already have — like Mixamo … Studio must become a universal combine"); the owner's decision on
   Q-AR-4 (build the A-pose path in this milestone); M6B-SPEC v1.5 §0 and ADR 0020 (the M6b MVP cut, merged on `dev`);

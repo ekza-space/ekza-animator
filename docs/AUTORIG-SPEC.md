@@ -53,7 +53,8 @@ Contents: [1 Goals and non-goals](#1-goals-and-non-goals) · [2 What others do](
 [9 Contract requests to M6b: status](#9-contract-requests-to-m6b--status-after-the-merge) · [10 Work packages](#10-work-packages) ·
 [11 Acceptance](#11-acceptance-scenarios) · [12 Defaults chosen](#12-defaults-chosen) ·
 [13 Open owner questions](#13-open-owner-questions) · [14 Sources](#14-sources) ·
-[15 Change record v0.1 → v0.2](#15-change-record-v01--v02) · [16 Review round v0.2 → v0.3](#16-review-round-v02--v03)
+[15 Change record v0.1 → v0.2](#15-change-record-v01--v02) · [16 Review round v0.2 → v0.3](#16-review-round-v02--v03) ·
+[17 Integration record](#17-integration-record-d7-2026-10-22)
 
 **Two "auto rigs"** (GLOSSARY, D7): *Auto Rig* (no hyphen) is M6b's **control-rig generator** — `rig.autoRig.update`,
 `AUTORIG_OPERATORS`, `AUTORIG_VERSION`, `writeAutoRigUpdate`, `prepareAutoRig` in
@@ -1772,3 +1773,28 @@ was taken; the only parts not taken are the ones marked *not taken*, with the re
 
 Effect on the plan: D0 grows to ≈ 3 agent-days (route-scripts fix, spike), D1 to ≈ 5 (the Shell split); total
 ≈ 38 agent-days, critical path ≈ 21 working days. The work-package list and dependencies are otherwise unchanged.
+
+---
+
+## 17. Integration record (D7, 2026-10-22)
+
+Every package (D0, A0, D1…D6) merged on `autorig/integration` in the §10.0 order and from there into `autorig/mvp`;
+details, approvals and the gate runs in [wp-notes/ar-integration.md](wp-notes/ar-integration.md), decisions AR-D7-1…13
+in [DECISIONS-OPEN §M](DECISIONS-OPEN.md#m-auto-rig-2026-10-22).
+
+- **§11**: AS-AR-1…12 run in full through the UI in `apps/web/e2e/ar-as-*.spec.ts` (AS-AR-1 = E2E-AR-08 on the T-posed
+  Polybot and the Cube Lad, AS-AR-2 = E2E-AR-13, AS-AR-9…11 = E2E-AR-09…11). Two specified checks are held as
+  `test.fail` known gaps of other owners: AS-AR-1 step 12's "moving the elbow back clears it" (AR-D4-T1, C3's Move
+  Joint and the hand tail; AR-D7-7) and AS-AR-6's "the VRM keeps the body's texture" (C10 writes palette textures
+  only; AR-D7-5). AS-AR-3 takes Studio's character through ①'s *From Studio* card and lands on ④ (AR-D7-4, AR-D7-8).
+- **OMOBA** (§11): `node tooling/omoba-validate.mjs` admits the AS-AR-1 exports (Polybot and Cube Lad) and the AS-AR-2
+  export, exit 0, "Compatible local humanoid: VRM 1.0, 35 nodes, 33 semantic bones" — admission only; the T-pose is
+  proven by `skel.tpose` and the read-back directions (≤ 5°).
+- **§7**: `/editor` 896,743 B (AR-B1 +1,055 B of +2,048 B); `/autorig` **658,122 B under its 660,000 B gate, now
+  enforced** (AR-D7-3, after AR-D7-1 the tooltip provider in Studio's shell and AR-D7-2 per-step string tables);
+  dockview never fetched on `/autorig`; idle 0 frames in every step; the §7.3 rows within budget except the bench's
+  first-motion-frame read (report-only, AR-D7-13).
+- **§4.1 / §4.5 rule**: `packages/autorig/test/rule.test.ts` (no store writes, no kernel value imports, no solver calls
+  in the shell; only `autorig.*` compositions without undo flags or nested runs in `apply`).
+- **§8.2**: a plain Space on a focused Auto-Rig control keeps its activation (AR-D7-6; found by AS-AR-11).
+- Open for the owner: AS-AR-1 and AS-AR-2 by hand (timed), Q-AR-17 with the measured numbers, ADR 0021 → Accepted.
