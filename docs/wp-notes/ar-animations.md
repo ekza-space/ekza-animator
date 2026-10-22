@@ -129,3 +129,12 @@ touched. From then on the builder used a private scratch subdirectory and killed
   files (`steps/animations/data.ts`, `animations.test.ts`).
 - The params check copies are pinned (AR-D5-11).
 - The incident above stands; the fix round killed only its own port 3166 listener (Playwright's own server).
+- Gates at `a583335` (load average 125–510 from parallel agents): `EKZA_E2E_PORT=3166 pnpm run ci` passed format, lint,
+  typecheck, check:deps, fixtures and licences; its unit step failed on three shipped editor-core tests D5 does not
+  touch (two 30 s timeouts, `registration.test.ts` and `m6a/mesh-io.test.ts`, and the timing-sensitive
+  `m6b/character-runtime.test.ts` rebuild count), all green alone (34/34). The rest in the gate's order: unit tests
+  serial (`turbo run test test:tooling --concurrency=1`, 16/16, editor-core 1,528, autorig 58, io 356); clean build;
+  check:size (`/editor` 896,375 B unchanged, eager delta +687 B, OK; `/autorig` 670,504 B reported; clip library
+  5.9 kB); full e2e on local Chrome: 287 passed, 24 skipped, 1 failed — `shading-01-blinn` (a viewport pixel poll,
+  5 s, an `/editor` test whose bundle D5's fix leaves byte-identical), green on its rerun together with
+  `ar-06-animations-vrm` (5/5). E2E-AR-06: 7 tests across the two specs, green.
