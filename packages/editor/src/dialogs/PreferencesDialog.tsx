@@ -2,7 +2,7 @@
 // import reduction, Graph Editor handles; Reset Workspace. Preferences are P state, never written to the document.
 // Auto-Rig (AUTORIG-SPEC §3.3, D2): *Start in: Ask / Auto-Rig / Studio* — what the landing page `/` opens on this
 // device. It is the landing's remembered choice in `localStorage` (`./entryChoice`), not a `Prefs` field: `/` reads it
-// before any app code loads.
+// before any app code loads. Blocked storage = Ask.
 import type { Prefs } from '@ekza-studio/editor-core';
 import { Button, Dialog, DialogContent, DialogFooter, NativeSelect } from '@ekza-studio/ui';
 import { type JSX, type ReactNode, useState } from 'react';

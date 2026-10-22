@@ -13,10 +13,10 @@ import {
 import { createFakeEditorApp } from '@ekza-studio/editor-core/testing';
 import type { SkeletonDesc } from '@ekza-studio/rig';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { ENTRY_KEY, readEntryChoice, writeEntryChoice } from '../src/dialogs/entryChoice';
 import { FirstRunDialog } from '../src/dialogs/FirstRunDialog';
+import { ENTRY_KEY, readEntryChoice, writeEntryChoice } from '../src/dialogs/entryChoice';
 import { PreferencesDialog } from '../src/dialogs/PreferencesDialog';
-import { autoRigSubject } from '../src/shell/menuItems';
+import { registerShellMenuItems } from '../src/shell/menuItems';
 import { by, cleanup, mountPlain } from './panels/helpers';
 import { update } from './render';
 import { createTestShell, ShellFrame, waitFor, waveFixtures } from './shell-helpers';
@@ -81,38 +81,56 @@ function recordingPort(app: EditorApp): { readonly requests: NavigationRequest[]
   return { requests, dispose: provideNavigation(app, port) };
 }
 
+/** The subject File › Auto-Rig This Model… hands over (null: the item is disabled), through a recording port. */
+async function subjectOf(app: EditorApp): Promise<unknown> {
+  const dispose = registerShellMenuItems(app, []);
+  const port = recordingPort(app);
+  const result = await app.runUntyped('shell.autoRig', { subject: true });
+  port.dispose();
+  dispose();
+  if (result.status !== 'finished') return null;
+  expect(port.requests).toHaveLength(1);
+  return port.requests[0]?.subject ?? null;
+}
+
 describe('the subject Studio hands to Auto-Rig (§3.4)', () => {
-  it('is null in an empty document', () => {
-    expect(autoRigSubject(createFakeEditorApp())).toBeNull();
+  it('is null in an empty document', async () => {
+    expect(await subjectOf(createFakeEditorApp())).toBeNull();
   });
 
-  it('is the selected scene meshes, else every visible one', () => {
+  it('is the selected scene meshes, else every visible one', async () => {
     const app = createFakeEditorApp();
     const [a, b, c] = ['msh_a', 'msh_b', 'msh_c'].map((id) => putMesh(app, id));
-    expect(autoRigSubject(app)).toEqual({ character: null, meshes: [a, b, c] });
+    expect(await subjectOf(app)).toEqual({ character: null, meshes: [a, b, c] });
     app.session.setState({
       model: { ...app.session.getState().model, hiddenObjects: new Set([b as MeshId]) },
     });
-    expect(autoRigSubject(app)).toEqual({ character: null, meshes: [a, c] });
+    expect(await subjectOf(app)).toEqual({ character: null, meshes: [a, c] });
     select(app, { objects: [c as string] });
-    expect(autoRigSubject(app)).toEqual({ character: null, meshes: [c] });
+    expect(await subjectOf(app)).toEqual({ character: null, meshes: [c] });
   });
 
-  it('is the active character when something of it is selected, else the only character', () => {
+  it('is the selected scene meshes, else the active character (the only one included)', async () => {
     const app = createFakeEditorApp({ snapshot, skeleton });
     const character = app.store.list('characters')[0]?.id as CharacterId;
-    expect(character).toBeDefined();
-    expect(autoRigSubject(app)).toEqual({ character, meshes: [] });
+    // the session keeps an active character whenever one exists (repairSession): §3.4's "only character"
+    expect(app.session.getState().activeCharacter).toBe(character);
+    expect(await subjectOf(app)).toEqual({ character, meshes: [] });
     const box = putMesh(app, 'msh_box');
-    // nothing selected: the visible scene mesh comes before the only character
-    expect(autoRigSubject(app)).toEqual({ character: null, meshes: [box] });
-    app.session.setState({ activeCharacter: character });
-    const control = app.store.list('controls')[0]?.id as string;
-    select(app, { controls: [control] });
-    expect(autoRigSubject(app)).toEqual({ character, meshes: [] });
+    expect(await subjectOf(app)).toEqual({ character, meshes: [] });
     // a selected scene mesh wins over the active character
-    select(app, { objects: [box], controls: [control] });
-    expect(autoRigSubject(app)).toEqual({ character: null, meshes: [box] });
+    select(app, { objects: [box] });
+    expect(await subjectOf(app)).toEqual({ character: null, meshes: [box] });
+  });
+
+  it('a mesh whose parent is hidden is not visible', async () => {
+    const app = createFakeEditorApp();
+    const a = putMesh(app, 'msh_a');
+    const b = putMesh(app, 'msh_b', { parent: a });
+    app.session.setState({ model: { ...app.session.getState().model, hiddenObjects: new Set([a]) } });
+    expect(await subjectOf(app)).toBeNull();
+    app.session.setState({ model: { ...app.session.getState().model, hiddenObjects: new Set() } });
+    expect(await subjectOf(app)).toEqual({ character: null, meshes: [a, b] });
   });
 });
 
@@ -125,11 +143,9 @@ describe("Studio's menu switches (§3.4)", () => {
       args: { subject: true },
       label: 'Auto-Rig This Model…',
     });
-    expect(app.menus.get('shell.help.autoRig')).toMatchObject({
-      menu: 'help',
-      op: 'shell.autoRig',
-      label: 'Switch to Auto-Rig',
-    });
+    expect(app.menus.get('shell.help.autoRig')).toMatchObject({ menu: 'help', op: 'shell.autoRig' });
+    // the Help item shows the operator's label
+    expect(app.operators.get('shell.autoRig')?.label).toBe('Switch to Auto-Rig');
     // the palette lists autorig.navigate; this one is the menus' (internal)
     expect(app.operators.get('shell.autoRig')?.flags?.internal).toBe(true);
     shell.dispose();
@@ -140,7 +156,7 @@ describe("Studio's menu switches (§3.4)", () => {
     const { app, shell } = createTestShell();
     expect(app.operators.poll('shell.autoRig', {}, { subject: true })).toEqual({
       ok: false,
-      reason: 'Load a model to auto-rig',
+      reason: 'Nothing to auto-rig',
     });
     expect(app.operators.poll('shell.autoRig', {}, undefined)).toBe(true);
     putMesh(app, 'msh_a');
@@ -165,15 +181,13 @@ describe("Studio's menu switches (§3.4)", () => {
     shell.dispose();
   });
 
-  it('fails politely without a navigation port', async () => {
+  it('does nothing without a navigation port (a harness)', async () => {
     const { app, shell } = createTestShell();
     const port = recordingPort(app);
-    port.dispose();
     // the host's own port was replaced by the recording one; with it gone there is none
-    expect(app.operators.poll('shell.autoRig', {}, undefined)).toEqual({
-      ok: false,
-      reason: 'No navigation in this host',
-    });
+    port.dispose();
+    await expect(app.runUntyped('shell.autoRig')).resolves.toMatchObject({ status: 'finished' });
+    expect(port.requests).toEqual([]);
     shell.dispose();
   });
 });
@@ -208,12 +222,12 @@ describe("the first-run dialog's third answer (§3.4)", () => {
     shell.dispose();
   });
 
-  it('"Open Auto-Rig next time" remembers Auto-Rig for the landing page', async () => {
+  it('"Open this mode next time" remembers Auto-Rig for the landing page', async () => {
     const { port, shell } = await open();
     await click(by('firstrun-start-autorig'));
     await click(by('firstrun-remember-autorig'));
     await click(by('firstrun-done'));
-    await waitFor(() => port.requests.length === 1);
+    await waitFor(() => port.requests.length === 1 && localStorage.getItem(ENTRY_KEY) !== null);
     expect(JSON.parse(localStorage.getItem(ENTRY_KEY) ?? 'null')).toMatchObject({ choice: 'autorig' });
     expect(readEntryChoice()).toBe('autorig');
     port.dispose();

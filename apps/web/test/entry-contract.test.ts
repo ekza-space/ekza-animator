@@ -1,8 +1,9 @@
-// AUTORIG-SPEC §3.3 (D2): the landing (`app/entry.ts`) and Studio (`packages/editor/src/dialogs/entryChoice.ts`, used
-// by the first-run dialog and Preferences › Start in) keep separate copies of the remembered-choice code, because the
-// app cannot be imported from the editor package and the landing must not load the editor. This holds the copies to
-// one key and one record: the editor's source names the same key, writes `{ choice, at }` and accepts only the two
-// choices; the page renders the cards and the redirect script from `entry.ts`.
+// AUTORIG-SPEC §3.3 (D2): the landing (`app/entry.ts`) and Studio keep separate copies of the remembered-choice code,
+// because the app cannot be imported from the editor package and the landing must not load the editor: Studio's is
+// `packages/editor/src/dialogs/entryChoice.ts` (Preferences › Start in) plus one inline line in the first-run dialog
+// ("Open this mode next time"). This holds the copies to one key and one record:
+// the editor's sources name the same key, write `{ choice, at }` and accept only the two choices; the page renders
+// the cards and the redirect script from `entry.ts`.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { ENTRY_KEY, ENTRY_ROUTES, REDIRECT_SCRIPT } from '../app/entry';
@@ -10,12 +11,20 @@ import { ENTRY_KEY, ENTRY_ROUTES, REDIRECT_SCRIPT } from '../app/entry';
 const read = (path: string): string => readFileSync(new URL(path, import.meta.url), 'utf8');
 
 describe('the remembered-choice contract between the landing and Studio (§3.3)', () => {
-  const editor = read('../../../packages/editor/src/dialogs/entryChoice.ts');
+  const prefs = read('../../../packages/editor/src/dialogs/entryChoice.ts');
+  const firstRun = read('../../../packages/editor/src/dialogs/FirstRunDialog.tsx');
 
-  it('Studio writes the landing key and record', () => {
-    expect(editor).toContain(`export const ENTRY_KEY = '${ENTRY_KEY}';`);
-    expect(editor).toContain('JSON.stringify({ choice, at: Date.now() })');
-    expect(editor).toContain("choice === 'autorig' || choice === 'studio'");
+  it('Studio reads and writes the landing key and record', () => {
+    expect(prefs).toContain(`export const ENTRY_KEY = '${ENTRY_KEY}';`);
+    expect(prefs).toContain('JSON.stringify({ choice, at: Date.now() })');
+    expect(prefs).toContain("choice === 'autorig' || choice === 'studio'");
+  });
+
+  it("the first-run dialog's remember writes the same record; Preferences uses Studio's module", () => {
+    expect(firstRun).toContain(
+      `localStorage.setItem('${ENTRY_KEY}', JSON.stringify({ choice: 'autorig', at: Date.now() }))`,
+    );
+    expect(read('../../../packages/editor/src/dialogs/PreferencesDialog.tsx')).toContain("from './entryChoice'");
   });
 
   it('the redirect script and the cards use the routes and key of entry.ts', () => {

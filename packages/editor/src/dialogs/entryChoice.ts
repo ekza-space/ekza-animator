@@ -1,8 +1,10 @@
-// The remembered entry choice of the landing page `/` (AUTORIG-SPEC §3.3, D2), as Studio's first-run dialog and
-// Preferences › Start in write it. The landing's own module is `apps/web/app/entry.ts` (the app cannot be imported
-// from here); `apps/web/test/entry-contract.test.ts` holds both to the same key and record. Blocked storage = Ask.
+// The landing page's remembered entry choice (AUTORIG-SPEC §3.3, D2) as Studio reads and writes it: Preferences ›
+// Start in (read, write, forget); the first-run dialog's "Open this mode next time" writes the same record inline (its
+// chunk counts in `/editor`'s first visit, and a lazy import costs more there than the line). The landing's own module
+// is `apps/web/app/entry.ts` (the app cannot be imported from here, nor the editor from the landing);
+// `apps/web/test/entry-contract.test.ts` holds both to one key and record. Blocked storage = Ask.
 
-/** `localStorage` key of the remembered choice: `{"choice": "autorig" | "studio", "at": <ms>}`. */
+/** `localStorage` key of the landing's remembered choice: `{"choice": "autorig" | "studio", "at": <ms>}`. */
 export const ENTRY_KEY = 'ekza-studio:entry:v1';
 
 export type EntryChoice = 'autorig' | 'studio';
@@ -18,7 +20,7 @@ export function readEntryChoice(): EntryChoice | null {
   }
 }
 
-/** Remembers `choice`; null forgets it (Ask). Silently does nothing when storage is blocked. */
+/** Remembers `choice`; null forgets it (Ask). Does nothing when storage is blocked. */
 export function writeEntryChoice(choice: EntryChoice | null): void {
   try {
     if (choice === null) localStorage.removeItem(ENTRY_KEY);

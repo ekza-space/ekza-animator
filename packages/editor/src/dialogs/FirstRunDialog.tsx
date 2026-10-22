@@ -4,23 +4,16 @@
 // new — sets the start workspace (`workspace.set`) and `prefs.lastWorkspace`.
 // Auto-Rig (AUTORIG-SPEC §3.4, D2): a third answer, "Auto-rig a character (simple mode)": its button switches to
 // `/autorig` through the host's navigation port (same page, the document kept) and remembers Auto-Rig for `/` only when
-// "Open Auto-Rig next time" is ticked. Closing the dialog without the button keeps Studio (nothing switches).
-import { hostNavigation } from '@ekza-studio/editor-core';
+// "Open this mode next time" is ticked (the switch is Studio's `shell.autoRig`). Studio's start workspace stays Animate.
+// Closing the dialog without the button keeps Studio (nothing switches).
 import { Button, Checkbox, Dialog, DialogContent, DialogFooter, RadioGroup, RadioGroupItem } from '@ekza-studio/ui';
-import { type JSX, useState } from 'react';
+import { type JSX, useRef, useState } from 'react';
 import { usePrefs } from '../hooks';
 import { useShell } from '../shell/context';
-import { writeEntryChoice } from './entryChoice';
 
 type Nav = 'maya' | 'trackpad';
 type Space = 'maya' | 'play';
 type Start = 'animate' | 'model' | 'autorig';
-
-const START_LABEL: Readonly<Record<Start, string>> = {
-  animate: 'Start animating',
-  model: 'Start modeling',
-  autorig: 'Start Auto-Rig',
-};
 
 export function FirstRunDialog(): JSX.Element {
   const shell = useShell();
@@ -30,27 +23,28 @@ export function FirstRunDialog(): JSX.Element {
   const [space, setSpace] = useState<Space>(savedSpace);
   const savedStart = usePrefs((p) => p.lastWorkspace);
   const [start, setStart] = useState<Start>(savedStart === 'model' ? 'model' : 'animate');
-  const [remember, setRemember] = useState(false);
+  // Uncontrolled (read once by `finish`, before the dialog closes): the first-visit chunk counts in /editor's bytes.
+  const rememberBox = useRef<HTMLInputElement>(null);
 
-  /** `go`: the primary button (the Auto-Rig answer switches only from it). */
+  /** `go`: the primary button (the Auto-Rig answer switches only from it; Studio's start workspace stays Animate). */
   const finish = async (go: boolean): Promise<void> => {
-    const workspace = start === 'autorig' ? null : start;
+    const remember = rememberBox.current?.checked === true;
+    const workspace = start === 'model' ? 'model' : 'animate';
     await shell.runFromUi('prefs.set', {
-      patch: {
-        navProfile: nav,
-        spaceBehaviour: space,
-        firstRunDone: true,
-        ...(workspace === null ? {} : { lastWorkspace: workspace }),
-      },
+      patch: { navProfile: nav, spaceBehaviour: space, firstRunDone: true, lastWorkspace: workspace },
     });
-    if (workspace !== null && shell.app.session.getState().workspace !== workspace) {
-      await shell.runFromUi('workspace.set', { workspace });
-    }
+    if (shell.app.session.getState().workspace !== workspace) await shell.runFromUi('workspace.set', { workspace });
     await shell.runFromUi('ui.close');
-    if (workspace === null && go) {
-      if (remember) writeEntryChoice('autorig');
-      await hostNavigation(shell.app)?.go({ to: 'autorig', from: 'studio' });
+    if (start !== 'autorig' || !go) return;
+    // The landing's remembered choice, the record of `./entryChoice` written inline (a lazy import here would cost the
+    // first-visit chunk more than this line; `entry-contract.test.ts` holds it to the key and record).
+    try {
+      if (remember) localStorage.setItem('ekza-studio:entry:v1', JSON.stringify({ choice: 'autorig', at: Date.now() }));
+    } catch {
+      // blocked storage: the landing asks again
     }
+    // Studio's `shell.autoRig` (Help › Switch to Auto-Rig): the navigation port, no chunk load before the push.
+    await shell.runFromUi('shell.autoRig');
   };
 
   return (
@@ -89,17 +83,11 @@ export function FirstRunDialog(): JSX.Element {
               <RadioGroupItem
                 value="autorig"
                 label="Auto-rig a character (simple mode)"
-                hint="Markers, a skinned skeleton, animations and a VRM in a few steps"
                 data-testid="firstrun-start-autorig"
               />
             </RadioGroup>
             {start === 'autorig' ? (
-              <Checkbox
-                label="Open Auto-Rig next time"
-                checked={remember}
-                onChange={(event) => setRemember(event.currentTarget.checked)}
-                data-testid="firstrun-remember-autorig"
-              />
+              <Checkbox label="Open this mode next time" ref={rememberBox} data-testid="firstrun-remember-autorig" />
             ) : null}
             {start === 'model' && nav === 'trackpad' && shell.app.keymap.platform === 'mac' ? (
               <p className="text-ui-dense text-fg-3" data-testid="firstrun-mac-modes">
@@ -172,7 +160,7 @@ export function FirstRunDialog(): JSX.Element {
         </div>
         <DialogFooter>
           <Button variant="primary" data-testid="firstrun-done" onClick={() => void finish(true)}>
-            {START_LABEL[start]}
+            {start === 'model' ? 'Start modeling' : start === 'autorig' ? 'Start Auto-Rig' : 'Start animating'}
           </Button>
         </DialogFooter>
       </DialogContent>

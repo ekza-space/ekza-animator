@@ -1,7 +1,8 @@
 // The remembered entry choice (AUTORIG-SPEC §3.3, D2): `localStorage['ekza-studio:entry:v1'] =
 // {"choice": "autorig" | "studio", "at": <ms>}`. Written when a chooser card is followed with *Remember* ticked (and by
-// Studio's first-run dialog and Preferences › Start in, which keep their own copy of these few lines, see
-// `packages/editor/src/dialogs/entryChoice.ts`); cleared by unticking *Remember* on `/?chooser=1` or by Start in: Ask.
+// Studio's first-run dialog and Preferences › Start in, which keep their own copy of these few lines in
+// `packages/editor/src/dialogs/entryChoice.ts`; `test/entry-contract.test.ts` holds the two to one key and record);
+// cleared by unticking *Remember* on `/?chooser=1` or by Start in: Ask.
 // Every storage access is wrapped in try/catch: storage that is blocked, full or throwing on access means "Ask".
 //
 // `/` applies the choice with `REDIRECT_SCRIPT`, an inline script that runs while the page is parsed (before the first

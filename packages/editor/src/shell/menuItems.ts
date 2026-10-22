@@ -4,13 +4,13 @@
 // small eager operator of the Studio shell that calls the host's navigation port directly (no chunk loads before the
 // push; `autorig.navigate` is the rig chunk's palette/script wrapper of the same port).
 import type { Disposer } from '@ekza-studio/anim-core';
+import type { CharacterId, MeshRecord } from '@ekza-studio/doc';
 import {
   type AutoRigSubject,
   type EditorApp,
   hostNavigation,
   type MenuItemDef,
   type OperatorDef,
-  objectsDrawnIn,
   type PanelKind,
   type ViewportLayout,
   type WorkspaceId,
@@ -42,54 +42,43 @@ const MODEL_LAYOUTS: readonly { readonly layout: ViewportLayout; readonly label:
 ];
 
 /**
- * What Auto-Rig works on when Studio switches to it (§3.4): the selection — selected scene meshes, else the active
- * character when something of it is selected — else every visible scene mesh, else the only character; else null
- * (Auto-Rig starts at its Model step).
+ * What Auto-Rig works on when Studio switches to it (§3.4): the selection — the selected scene meshes, else the active
+ * character — else every visible scene mesh; else null (Auto-Rig starts at its Model step). §3.4's last fallback, "the
+ * only character", is the active character: the session keeps one active whenever a character exists
+ * (`repairSession`). Visible = neither the mesh nor its parent is hidden (Model's Hide; an import's meshes sit under
+ * one group). The Model operators chunk's helper is not imported: this module is eager.
  */
-export function autoRigSubject(app: EditorApp): AutoRigSubject | null {
-  const { selection, activeCharacter } = app.session.getState();
-  const scene = app.store
-    .list('meshes')
-    .filter((mesh) => 'scene' in mesh.owner)
-    .map((mesh) => mesh.id);
-  const picked = scene.filter((id) => selection.objects.includes(id));
-  if (picked.length > 0) return { character: null, meshes: picked };
-  const characters = app.store.list('characters').map((character) => character.id);
-  const { controls, joints, objects } = selection;
-  if (
-    activeCharacter !== null &&
-    characters.includes(activeCharacter) &&
-    controls.length + joints.length + objects.length > 0
-  ) {
-    return { character: activeCharacter, meshes: [] };
-  }
-  const drawn = objectsDrawnIn(app, '');
-  const visible = scene.filter((id) => drawn.includes(id));
-  if (visible.length > 0) return { character: null, meshes: visible };
-  return characters.length === 1 ? { character: characters[0] ?? null, meshes: [] } : null;
+function autoRigSubject(app: EditorApp): AutoRigSubject | null {
+  const { selection, activeCharacter, model } = app.session.getState();
+  const hidden: ReadonlySet<string | null> = model.hiddenObjects;
+  const scene = app.store.list('meshes').filter((mesh) => 'scene' in mesh.owner);
+  const pick = (meshes: readonly MeshRecord[], character: CharacterId | null = null): AutoRigSubject | null =>
+    meshes.length > 0 || character ? { character, meshes: meshes.map((mesh) => mesh.id) } : null;
+  return (
+    pick(scene.filter((mesh) => selection.objects.includes(mesh.id))) ??
+    pick([], activeCharacter) ??
+    pick(scene.filter((mesh) => !hidden.has(mesh.id) && !hidden.has(mesh.parent)))
+  );
 }
 
 /**
- * `shell.autoRig {subject?}`: switches to Auto-Rig on the same page, the document kept. With `subject: true` (File ›
- * Auto-Rig This Model…) it needs meshes or a character and hands `autoRigSubject` over; without (Help › Switch to
- * Auto-Rig) it hands nothing over. Not undoable; hidden from the palette (`autorig.navigate` is listed there).
+ * `shell.autoRig {subject?}`: switches to Auto-Rig on the same page through the host's navigation port, the document
+ * kept. With `subject: true` (File › Auto-Rig This Model…) it needs a subject (meshes or a character) and hands
+ * `autoRigSubject` over; without (Help › Switch to Auto-Rig, the first-run dialog) it hands nothing over. Not undoable;
+ * hidden from the palette (`autorig.navigate` is listed there). Without a port (a harness) it does nothing.
  */
-export function autoRigOperator(app: EditorApp): OperatorDef<{ readonly subject?: boolean } | undefined> {
+function autoRigOperator(app: EditorApp): OperatorDef<{ readonly subject?: boolean } | undefined> {
   return {
     id: 'shell.autoRig',
     label: 'Switch to Auto-Rig',
-    category: 'autorig',
+    category: 'ui',
     scope: 'global',
     flags: { internal: true },
-    poll(_ctx, args) {
-      if (hostNavigation(app) === null) return { ok: false, reason: 'No navigation in this host' };
-      return args?.subject === true && app.store.list('meshes').length + app.store.list('characters').length === 0
-        ? { ok: false, reason: 'Load a model to auto-rig' }
-        : true;
-    },
+    poll: (_ctx, args) =>
+      args?.subject === true && autoRigSubject(app) === null ? { ok: false, reason: 'Nothing to auto-rig' } : true,
     async prepare(_ctx, args) {
       const subject = args?.subject === true ? autoRigSubject(app) : null;
-      await hostNavigation(app)?.go({ to: 'autorig', from: 'studio', ...(subject === null ? {} : { subject }) });
+      await hostNavigation(app)?.go({ to: 'autorig', from: 'studio', ...(subject && { subject }) });
     },
     apply() {},
   };
@@ -133,7 +122,7 @@ export function shellMenuItems(
       menu: 'file',
       op: 'shell.autoRig',
       args: { subject: true },
-      group: 'autorig',
+      group: 'export',
       order: 80,
       label: 'Auto-Rig This Model…',
     },
@@ -179,7 +168,7 @@ export function shellMenuItems(
       op: 'shell.autoRig',
       group: 'help',
       order: 30,
-      label: 'Switch to Auto-Rig',
+      // label: the operator's, "Switch to Auto-Rig"
     },
     {
       id: 'shell.help.about',
