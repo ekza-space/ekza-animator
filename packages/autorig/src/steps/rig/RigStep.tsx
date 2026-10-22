@@ -17,7 +17,7 @@
 // A character whose meshes are not bound yet (the bind was cancelled from the sheet) shows "Skeleton created; skinning
 // cancelled — [Bind again]". *Back* (the frame's) goes to ② and starts M6b's re-run.
 import type { CharacterId, MeshId } from '@ekza-studio/doc';
-import type { RigValidationRow } from '@ekza-studio/editor-core';
+import { autoRigBindMeshes, type RigValidationRow } from '@ekza-studio/editor-core';
 import { buttonClass, cn } from '@ekza-studio/ui';
 import { type JSX, lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { prefersReducedMotion } from '../../a11y';
@@ -42,7 +42,7 @@ import { installRigKeys } from './keys';
 import { useMotionTest, usePreview } from './motion';
 import { watchPaintedSinceBind } from './painted';
 import { ProgressSheet } from './ProgressSheet';
-import { characterMeshes, rebind } from './run';
+import { rebind, wantsStraighten } from './run';
 import { rigUi } from './ui';
 
 const t = (): ReturnType<typeof messages>['rig'] => messages().rig;
@@ -437,7 +437,9 @@ function Unbound(props: { readonly ctx: WizardContext }): JSX.Element {
         className={button('primary')}
         disabled={ui.rebinding}
         data-testid="ar-rig-bind-again"
-        onClick={() => void rebind(ctx, { confirm: false })}
+        onClick={() =>
+          void rebind(ctx, { confirm: false, straighten: wantsStraighten(ctx.app, ctx.session.getState()) })
+        }
       >
         {r.bindAgain}
       </button>
@@ -450,7 +452,7 @@ function Panel(props: { readonly ctx: WizardContext }): JSX.Element {
   const rig = useSession(ctx.session, selectRig);
   const busy = useSession(ctx.session, selectBusy);
   const { id, bound } = useCharacter(ctx);
-  const meshes = useDocument(ctx.app, () => (id === null ? [] : characterMeshes(ctx.app, id)));
+  const meshes = useDocument(ctx.app, () => (id === null ? [] : autoRigBindMeshes(ctx.app, id)));
   const r = t();
   if (busy) {
     return (

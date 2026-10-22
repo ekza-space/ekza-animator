@@ -9,7 +9,7 @@
 import { readFileSync } from 'node:fs';
 import type { CharacterId, HumanBoneName, MeshId, SkeletonId } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
-import { type EditorApp, type SkinWorkerPort, quickRigOf } from '../../src';
+import { autoRigBindMeshes, autoRigRefitBound, type EditorApp, type SkinWorkerPort, quickRigOf } from '../../src';
 import { COMPOSITION_INTERRUPTED } from '../../src/operators/builtin/rig/wizard';
 import { NO_MARKERS, NOTHING_TO_CANCEL } from '../../src/operators/builtin/rig/wizard/rig';
 import { REBIND_CONFIRM } from '../../src/operators/builtin/rig/quickRig';
@@ -230,8 +230,12 @@ describe('autorig.rig (§4.5)', () => {
     const { app } = await opened('cube-lad.glb');
     const { character } = await ok<{ character: CharacterId }>(app, 'autorig.rig');
     const meshes = app.store.query.meshesOfOwner(character).map((mesh) => mesh.id);
+    // the shared bind targets (the operator and the wizard's sheet plan read the same helpers)
+    expect(autoRigBindMeshes(app, character)).toEqual(meshes);
     await ok(app, 'skel.quickRig.start', { meshes });
     expect(quickRigOf(app)?.refit).not.toBeNull();
+    expect(autoRigRefitBound(app, quickRigOf(app)?.refit ?? null)).toBe(true);
+    expect(autoRigRefitBound(app, null)).toBe(false);
     const asked = await refusal(app, 'autorig.rig');
     expect(asked).toEqual({ code: 'confirm-required', message: REBIND_CONFIRM });
     expect(quickRigOf(app)).not.toBeNull();

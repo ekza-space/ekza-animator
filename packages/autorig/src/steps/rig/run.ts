@@ -7,8 +7,14 @@
 // Afterwards: the subject is the new character, ③ opens in review; a re-run of a bound skeleton asks M6b's "Rebind
 // replaces painted weights" first; a bind cancelled from the sheet (`autorig.cancel`) leaves the skeleton and ③ says
 // so with *Bind again*. Nothing here writes the document: every change is an operator run.
-import type { CharacterId, MeshId } from '@ekza-studio/doc';
-import { type EditorApp, quickRigOf, REBIND_CONFIRM } from '@ekza-studio/editor-core';
+import type { CharacterId } from '@ekza-studio/doc';
+import {
+  autoRigBindMeshes,
+  autoRigRefitBound,
+  type EditorApp,
+  quickRigOf,
+  REBIND_CONFIRM,
+} from '@ekza-studio/editor-core';
 import { messages } from '../../i18n';
 import { AUTORIG_PROFILE, resolveSubject } from '../../progress';
 import type { WizardContext } from '../../shell/context';
@@ -86,14 +92,6 @@ function nextFrame(): Promise<void> {
   });
 }
 
-/** The live meshes of a character (Bind Skin's targets). */
-export function characterMeshes(app: EditorApp, character: CharacterId): MeshId[] {
-  return app.store.query
-    .meshesOfOwner(character)
-    .filter((mesh) => mesh.deleted === null && mesh.data !== null)
-    .map((mesh) => mesh.id);
-}
-
 /** After a run: the subject names the character it made (Create Skeleton adopted the scene meshes). */
 function adoptSubject(ctx: WizardContext, character: CharacterId | null): void {
   const subject = ctx.session.getState().subject;
@@ -110,8 +108,8 @@ export async function runAutoRig(ctx: WizardContext, opts: { readonly confirm?: 
   if (state === null || session.getState().busy !== null) return;
   const ui = rigUi(ctx);
   const straighten = wantsStraighten(app, session.getState());
-  const refitBound = state.refit !== null && app.store.query.meshesBoundTo(state.refit).length > 0;
-  const plan = { bind: !refitBound, straighten };
+  // the operator's own rule (`autoRigRefitBound`): a refit of a bound skeleton rebinds inside the commit
+  const plan = { bind: !autoRigRefitBound(app, state.refit), straighten };
   ui.set((current) => ({ ...current, plan, notice: null, error: null }));
   const stop = trackStages(ctx, plan);
   let result: Awaited<ReturnType<EditorApp['runUntyped']>>;
@@ -168,18 +166,32 @@ export function cancelAutoRig(ctx: WizardContext): void {
 /**
  * A plain Bind Skin of the subject character with the wizard's busy state (*Bind again* after a cancel, Done after
  * *Adjust joints*): `confirm: true` reruns with the stored arguments without M6b's question; without it a bound mesh
- * gets the shared `rebindSkin` question (the host's dialog), and the run itself ends without a step.
+ * gets the shared `rebindSkin` question (the host's dialog), and the run itself ends without a step. With `straighten`
+ * (*Bind again* on an A-posed input, `wantsStraighten`) a finished bind is followed by Straighten to T-Pose
+ * (`skel.pose.applyAsRest {character, pose: 'tStance'}`, A0) while the character still has its `skel.tpose` row — the
+ * same two-then-three steps as the first run's, and the sheet lists *Straightening*. Done after *Adjust joints* never
+ * straightens (a `skel.tpose` row there is the joints' placement, §5.4).
  */
-export async function rebind(ctx: WizardContext, opts: { readonly confirm: boolean }): Promise<boolean> {
+export async function rebind(
+  ctx: WizardContext,
+  opts: { readonly confirm: boolean; readonly straighten?: boolean },
+): Promise<boolean> {
   const { app, session } = ctx;
   const character = resolveSubject(app.store, session.getState().subject).character;
   if (character === null || session.getState().busy !== null) return false;
   const ui = rigUi(ctx);
-  ui.set((current) => ({ ...current, rebinding: true, notice: null, error: null }));
-  const stop = trackStages(ctx, { bind: true, straighten: false }, 'skin');
+  const straighten = opts.straighten === true;
+  ui.set((current) => ({
+    ...current,
+    rebinding: true,
+    notice: null,
+    error: null,
+    plan: straighten ? { bind: true, straighten } : current.plan,
+  }));
+  const stop = trackStages(ctx, { bind: true, straighten }, 'skin');
   try {
     const result = await app.runUntyped('skin.bind', {
-      meshes: characterMeshes(app, character.id),
+      meshes: autoRigBindMeshes(app, character.id),
       ...(opts.confirm ? { confirm: true } : {}),
     });
     if (result.status === 'failed' && result.error.code !== 'op-refused' && result.error.code !== 'cancelled') {
@@ -188,10 +200,22 @@ export async function rebind(ctx: WizardContext, opts: { readonly confirm: boole
     if (result.status === 'failed' && result.error.code === 'cancelled') {
       ui.set((current) => ({ ...current, notice: 'cancelled' }));
     }
-    return result.status === 'finished';
+    if (result.status !== 'finished') return false;
+    if (straighten && hasTposeRow(app, character.id)) {
+      const straightened = await app.runUntyped('skel.pose.applyAsRest', { character: character.id, pose: 'tStance' });
+      if (straightened.status === 'failed') {
+        ui.set((current) => ({ ...current, error: messages().markers.rigFailed(straightened.error.message) }));
+      }
+    }
+    return true;
   } finally {
     stop();
     session.set({ busy: null });
-    ui.set((current) => ({ ...current, rebinding: false }));
+    ui.set((current) => ({ ...current, rebinding: false, ...(straighten ? { plan: null } : {}) }));
   }
+}
+
+/** Whether the character's Validation holds `skel.tpose` under the wizard's profile. */
+function hasTposeRow(app: EditorApp, character: CharacterId): boolean {
+  return app.rig.loaded && app.rig.validation.rows(character, AUTORIG_PROFILE).some((row) => row.code === 'skel.tpose');
 }

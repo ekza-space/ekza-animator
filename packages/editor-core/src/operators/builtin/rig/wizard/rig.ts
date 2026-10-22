@@ -20,11 +20,12 @@
 //   stays. A bind still preparing its inputs (no job in the service yet) is cancelled when its job arrives, as long as
 //   the app stays busy. U state, no step.
 import { EkzaError } from '@ekza-studio/anim-core';
-import type { CharacterId, MeshId, SkeletonId } from '@ekza-studio/doc';
+import type { CharacterId, SkeletonId } from '@ekza-studio/doc';
 import type { AutoRigRigResult, EditorApp, PollResult } from '../../../../types';
 import { type AnyOperator, defineOperator, fail, isRecord, OK } from '../../define';
 import { quickRigCommitArgs, quickRigCommitBlock, quickRigOf } from '../quickRigSession';
 import { type CompositionStep, runComposition } from './compose';
+import { autoRigBindMeshes, autoRigRefitBound } from './targets';
 
 /** The poll reason while no Quick Rig session is open (② places the markers). */
 export const NO_MARKERS = 'Place the markers first (Quick Rig is not open)';
@@ -47,14 +48,6 @@ function argsProblem(args: unknown): string | null {
 }
 
 const flag = (args: unknown, key: 'straighten' | 'confirm'): boolean => isRecord(args) && args[key] === true;
-
-/** The meshes of a character that Bind Skin binds (live, with data). */
-function characterMeshes(app: EditorApp, character: CharacterId): MeshId[] {
-  return app.store.query
-    .meshesOfOwner(character)
-    .filter((mesh) => mesh.deleted === null && mesh.data !== null)
-    .map((mesh) => mesh.id);
-}
 
 const rig = defineOperator<'autorig.rig', AutoRigRigResult>({
   id: 'autorig.rig',
@@ -82,8 +75,7 @@ const rig = defineOperator<'autorig.rig', AutoRigRigResult>({
     const straighten = flag(args, 'straighten');
     const commitArgs = { ...quickRigCommitArgs(state), ...(flag(args, 'confirm') ? { confirm: true } : {}) };
     // The M6b re-run: the commit refits in place and rebinds the skeleton's bound meshes itself.
-    const refitBound =
-      state.refit !== null && app.store.query.meshesBoundTo(state.refit).some((mesh) => mesh.deleted === null);
+    const refitBound = autoRigRefitBound(app, state.refit);
 
     let character: CharacterId | null = null;
     let committed = false;
@@ -107,7 +99,7 @@ const rig = defineOperator<'autorig.rig', AutoRigRigResult>({
       steps.push({
         id: 'skin.bind',
         before: after,
-        args: (values: readonly unknown[]) => ({ meshes: characterMeshes(app, made(values)) }),
+        args: (values: readonly unknown[]) => ({ meshes: autoRigBindMeshes(app, made(values)) }),
       });
     }
     if (straighten) {
