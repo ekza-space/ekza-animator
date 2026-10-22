@@ -1279,7 +1279,12 @@ export class ViewportManager {
   private frameUntouchedViews(): boolean {
     const ids = this.sync.characterIds();
     if (ids.length === 0) return false;
-    const key = [...ids].sort().join('|');
+    // A character whose display model is still loading keys apart, so its views frame again once it is there (a frame
+    // on the joints alone cuts the head top and the hands; AR-D8-4).
+    const key = ids
+      .map((id) => (this.sync.model(id) === null ? `${id}?` : id))
+      .sort()
+      .join('|');
     let moved = false;
     for (const pane of this.panes.values()) {
       const resolved = this.resolve(pane);
@@ -1335,8 +1340,10 @@ export class ViewportManager {
     if (!this.tightOrthoFrame())
       for (const entry of this.controls.entries()) if (entry.visible) worlds.push(entry.world);
     for (const set of this.skeleton.jointSets()) worlds.push(set.positions);
+    // Rig & Skin draws bound meshes through mesh-view and hides them in the display model: they count all the same
+    // (else the frame fits the joints alone and cuts the head top and the hands; AR-D8-4).
     return (
-      unionBounds(measureSpatialBounds(models), pointBounds(worlds)) ?? {
+      unionBounds(measureSpatialBounds(models, this.tightOrthoFrame()), pointBounds(worlds)) ?? {
         minX: -0.4,
         maxX: 0.4,
         minY: 0,
