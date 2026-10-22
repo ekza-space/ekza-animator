@@ -112,6 +112,7 @@ function Overlay(props: { readonly ctx: WizardContext }): JSX.Element {
   const m = t();
   const ui = useSmall(modelUi(ctx));
   const intake = useSession(ctx.session, selectIntake);
+  const handed = useSmall(ctx.ui, selectFromStudio);
   // the document's subject, not the session's ids (an undone import, or a reload before Continue)
   const loaded = useProgress(ctx).done.model;
   if (ui.loading !== null) {
@@ -123,7 +124,8 @@ function Overlay(props: { readonly ctx: WizardContext }): JSX.Element {
       </div>
     );
   }
-  if (loaded) {
+  // a model loaded, or a Studio hand-over waiting on the From Studio card (its character is in view): the strip only
+  if (loaded || handed !== null) {
     return (
       <div
         className="pointer-events-auto absolute bottom-2 left-2 flex flex-wrap items-center gap-2 rounded-field bg-panel/90 px-2 py-1"
@@ -201,10 +203,23 @@ function useModelFooter(ctx: WizardContext): void {
   const subject = useSession(ctx.session, selectSubject);
   const step = useSession(ctx.session, selectStep);
   const ui = useSmall(modelUi(ctx));
+  const handed = useSmall(ctx.ui, selectFromStudio);
   const progress = useProgress(ctx);
   const uniform = useDocument(ctx.app, () => transformsUniform(ctx, subject.meshes));
   useEffect(() => {
     if (step !== 'model') return;
+    // A Studio hand-over waits on the From Studio card: "Use these" is the step's primary (AR-D8-7).
+    if (handed !== null && !progress.done.model && ui.loading === null) {
+      ctx.setFooter({
+        status: t().hintFromStudio,
+        tone: 'info',
+        primary: {
+          label: t().useThese,
+          run: async () => (await import('./fixes')).acceptFromStudio(ctx, handed),
+        },
+      });
+      return;
+    }
     const m = t();
     const f = messages().frame;
     const asset =
@@ -249,7 +264,7 @@ function useModelFooter(ctx: WizardContext): void {
       },
     };
     ctx.setFooter(footer);
-  }, [ctx, step, intake, model.heavyConfirmed, subject, ui.loading, ui.error, progress, uniform]);
+  }, [ctx, step, intake, model.heavyConfirmed, subject, ui.loading, ui.error, progress, uniform, handed]);
 }
 
 /** Re-reads the report when the document changes under ① (an undo of a fix, an edit in Studio's palette). */

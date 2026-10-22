@@ -45,6 +45,7 @@ const coarse = 'pointer-coarse:min-h-11 pointer-coarse:min-w-11';
 const selectStep = (s: AutoRigSession): AutoRigStep => s.step;
 const selectSubject = (s: AutoRigSession): AutoRigSession['subject'] => s.subject;
 const selectIntake = (s: AutoRigSession): AutoRigSession['intake'] => s.intake;
+const selectHanded = (u: { readonly fromStudio: AutoRigSession['subject'] | null }) => u.fromStudio;
 
 // ---------------------------------------------------------------------------------------------------------------------
 // header
@@ -54,11 +55,17 @@ function SubjectName(props: { readonly ctx: WizardContext }): JSX.Element {
   const subject = useSession(ctx.session, selectSubject);
   const intake = useSession(ctx.session, selectIntake);
   const [editing, setEditing] = useState(false);
+  // a Studio hand-over waiting on ①'s card names the header too (AR-D8-7)
+  const handed = useSmall(ctx.ui, selectHanded);
   const name = useDocument(ctx.app, () => {
-    const character = subject.character === null ? undefined : ctx.app.store.get('characters', subject.character);
-    if (character !== undefined) return character.vrm?.name || character.name;
-    const mesh = subject.meshes.map((id) => ctx.app.store.get('meshes', id)).find((record) => record !== undefined);
-    return mesh?.name ?? intake?.fileName ?? null;
+    const named = (of: AutoRigSession['subject']): string | null => {
+      const character = of.character === null ? undefined : ctx.app.store.get('characters', of.character);
+      if (character !== undefined) return character.vrm?.name || character.name;
+      return (
+        of.meshes.map((id) => ctx.app.store.get('meshes', id)).find((record) => record !== undefined)?.name ?? null
+      );
+    };
+    return named(subject) ?? intake?.fileName ?? (handed === null ? null : named(handed));
   });
   // a model character's VRM name (`char.setVrmMeta`), else the first scene mesh's (`scene.rename`); an imported
   // avatar's name is its file's

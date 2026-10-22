@@ -70,6 +70,7 @@ export const model = {
   useThese: 'Use these',
   // footer status
   hintLoad: 'Load a model to begin.',
+  hintFromStudio: 'Your model from Studio is here: press “Use these” to continue, or load another model.',
   hintFix: (fix: string) => `Some checks failed: press “${fix}” before the markers.`,
   hintReady: 'The model is ready for the markers.',
   hintVrm: 'The avatar is rigged: continue with Animations.',

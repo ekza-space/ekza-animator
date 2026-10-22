@@ -56,6 +56,19 @@ export async function takeFromStudio(ctx: WizardContext, subject: AutoRigSubject
   }
 }
 
+/**
+ * "Use these" (the From Studio card and ①'s primary while it waits, AR-D8-7): the card closes; a character continues
+ * on ④ once reachable (AS-AR-3, AR-D7-4); scene meshes stay on ① for their report.
+ */
+export async function acceptFromStudio(ctx: WizardContext, handed: AutoRigSubject): Promise<void> {
+  ctx.ui.set((u) => ({
+    ...u,
+    fromStudio: null,
+    pendingStep: handed.character === null ? u.pendingStep : 'animations',
+  }));
+  await takeFromStudio(ctx, handed);
+}
+
 /** A project with several characters: the chosen one becomes the subject. */
 export function chooseCharacter(ctx: WizardContext, character: CharacterId): void {
   const intakeReport = ctx.session.getState().intake;

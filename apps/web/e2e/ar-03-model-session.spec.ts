@@ -92,6 +92,13 @@ test('From Studio: the scene meshes Studio hands over wait for "Use these" on â‘
   await expect(card).toBeVisible();
   await expect(card).toContainText('1 mesh from your Studio scene');
   expect((await autorig(page))?.subject).toEqual({ character: null, meshes: [] });
+  // AR-D8-7: the card is the step's one action â€” no drop zone over the model (the strip stays), the status points at
+  // it, the header names the handed model, and the footer's primary is "Use these"
+  await expect(page.getByTestId('ar-drop-zone')).toHaveCount(0);
+  await expect(page.getByTestId('ar-drop-strip')).toBeVisible();
+  await expect(page.getByTestId('ar-status')).toHaveText(/Your model from Studio is here/);
+  await expect(page.getByTestId('ar-subject-name')).not.toHaveText('untitled');
+  await expect(page.getByTestId('ar-primary')).toHaveText(/^Use these/);
   await card.getByRole('button', { name: 'Use these' }).click();
   await expect.poll(async () => (await autorig(page))?.subject.meshes).toEqual(meshes);
   await expect(page.getByTestId('ar-model-report')).toBeVisible();
@@ -99,6 +106,19 @@ test('From Studio: the scene meshes Studio hands over wait for "Use these" on â‘
   expect((await autorig(page))?.intake).toMatchObject({ kind: 'static', checks: { centred: true } });
   expect((await autorig(page))?.startPose).toMatchObject({ kind: 't' });
   // "From Studio never replaces anything": the import is still the one undo step
+  expect((await history(page)).undo).toEqual(['Import Static Model']);
+});
+
+test('From Studio (AR-D8-7): the footer primary takes the hand-over like the card', async ({ page }) => {
+  await openEditor(page);
+  const meshes = await importStatic(page, 'cube-lad.glb');
+  await navigate(page, { to: 'autorig', from: 'studio' });
+  await waitForTestApi(page);
+  await expect(page.getByTestId('ar-from-studio')).toBeVisible();
+  await page.getByTestId('ar-primary').click();
+  await expect.poll(async () => (await autorig(page))?.subject.meshes).toEqual(meshes);
+  await expect(page.getByTestId('ar-from-studio')).toHaveCount(0);
+  await expect(page.getByTestId('ar-primary')).toHaveText(/Next: Markers/);
   expect((await history(page)).undo).toEqual(['Import Static Model']);
 });
 

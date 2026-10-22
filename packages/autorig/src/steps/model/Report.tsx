@@ -10,7 +10,7 @@ import { type ShellUi, useDocument, useSession, type WizardContext } from '../..
 import { useSmall } from '../../shell/store';
 import type { AutoRigSession } from '../../types';
 import { FIX_LABEL, transformsUniform } from './checks';
-import { applyFix, takeFromStudio } from './fixes';
+import { acceptFromStudio, applyFix } from './fixes';
 import { reinspect, subjectMeshes } from './flow';
 import { separateMeshes, setPart } from './parts';
 
@@ -215,20 +215,7 @@ export function FromStudio(props: { readonly ctx: WizardContext }): JSX.Element 
         {m.fromStudioTitle}
       </h2>
       <p>{name === null ? m.fromStudioBody(handed.meshes.length) : m.fromStudioCharacter(name)}</p>
-      <button
-        type="button"
-        className={button('primary')}
-        onClick={() => {
-          // A character from Studio is an already rigged input: like an imported VRM it continues on ④ once that is
-          // reachable (AS-AR-3; the frame's pending step, D7 AR-D7-4); scene meshes stay on ① for their report.
-          ctx.ui.set((u) => ({
-            ...u,
-            fromStudio: null,
-            pendingStep: handed.character === null ? u.pendingStep : 'animations',
-          }));
-          void takeFromStudio(ctx, handed);
-        }}
-      >
+      <button type="button" className={button('primary')} onClick={() => void acceptFromStudio(ctx, handed)}>
         {m.useThese}
       </button>
     </section>
