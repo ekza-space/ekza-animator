@@ -52,8 +52,10 @@ If something looks wrong:
 
 Search the CC0 library (Quaternius' Universal Animation Library: idle, walk, run, attacks, dance, jumps…), click a
 card to see it on your character, set **Speed**, **Trim**, **Mirror**, **In place** and **Arm space** (lifts or lowers
-the arms for bulky bodies), then **Add to character**. Add as many as you like; ✎ edits one, ✕ removes it. You can
-also drop your own `.vrma` files here. Animations are optional: OMOBA plays its own motion library on any VRM.
+the arms for bulky bodies), then **Add to character**. Add as many as you like; ✎ edits one, ✕ removes it. A card
+marked *no slot* (Jog, Punch, Pistol shoot, Jump loop, Jump land) has no OMOBA slot: give it one under its name after
+adding it, or it stays out of the VRM. You can also drop your own `.vrma` files here. Animations are optional: OMOBA
+plays its own motion library on any VRM. The rig's controls stay hidden on steps ②–④; Studio shows them.
 
 ## ⑤ Export
 
@@ -74,7 +76,8 @@ To check a file locally against OMOBA's validator: `node tooling/omoba-validate.
 **Open in Studio ▸** in the header takes the same document — with its undo history — into Studio's Rig & Skin (or
 Animate from step ④). In Studio, *File › Auto-Rig This Model…* or *Help › Switch to Auto-Rig* brings it back. `⋯ ›
 Open in Studio (new tab)` opens a copy in a new tab. If you reload the page, the wizard offers *Continue where you left
-off*.
+off* (`Ctrl/⌘+Enter` takes it); Studio reloaded after a hand-over offers the same work in its *Recover unsaved work*
+dialog.
 
 ## Keys
 
@@ -92,5 +95,6 @@ off*.
 ## Limits, said plainly
 
 Humanoids only (no quadrupeds or tails), symmetric bodies, no facial expressions or spring bones; a textured model
-keeps its base colour image in the VRM, but other maps (normal, emission) are not written, and a model you painted
-with a palette exports the palette colours instead; FBX and OBJ arrive later.
+keeps its base colour image and a flat-colour model its material colours in the VRM, but other maps (normal,
+emission) are not written, and a model you painted with a palette exports the palette colours instead; FBX and OBJ
+arrive later.

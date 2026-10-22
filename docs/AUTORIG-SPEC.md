@@ -1830,3 +1830,23 @@ Fixes of the first Auto-Rig acceptance run on `dev` (5 major, 5 minor findings),
   Studio's Animate (the display container carries the adopted materials) and in the VRM thumbnail (AR-D8-1).
 - **§4.4**: Studio's first-run dialog never opens over a hand-over from Auto-Rig (AR-D8-6).
 
+## 19. Acceptance fix round 2 (D9, 2026-10-23)
+
+Fixes of the second Auto-Rig acceptance run on `dev` (2 major, 10 minor findings), decisions AR-D9-1…12 in
+[DECISIONS-OPEN §M](DECISIONS-OPEN.md#m-auto-rig-2026-10-22); each fix with a regression test. Amendments to this spec:
+
+- **§6.1 Textured models** (now also *flat-colour models*): a material with a non-white base colour factor and no image
+  is adopted like an image material — ①–③ draw its colour, ④, Studio's Animate, the thumbnail and the VRM carry it
+  (AR-D9-1).
+- **§5.2 ①**: a static import names an untitled project after its first mesh (the header's name), after the file only
+  when the meshes have no names (AR-D9-7; amends AR-D8-10). After a reload *Continue* is the footer's primary (AR-D9-10).
+- **§5.3 ②**: Quick Rig's start frames the three panes on the whole body (AR-D9-11).
+- **§5.4 ③ / §5.5 ④**: the rig's controls stay hidden on ②–④ (the session's per-user hidden set, not pane flags);
+  Studio shows them (AR-D9-8). Skeleton mode restores x-ray and controls flag by flag (AR-D9-3).
+- **§5.5 ④**: the library footer counts the filtered clips; a card without an OMOBA slot reads "no slot" and its *Add*
+  says it stays out of the VRM until it has one; a new subject starts with no clip selected; ▶ of an added clip closes
+  the preview panel (AR-D9-4, AR-D9-5, AR-D9-9).
+- **§4.4**: a reload of a `from=autorig` Studio page offers the autosave through the Recovery dialog (it opens no
+  first-run dialog to wait for, AR-D9-2).
+- Open for the owner: ⑤'s auto thumbnail is still an undo step (AR-D9-6); one control-size rule for model characters
+  (AR-D9-3).
