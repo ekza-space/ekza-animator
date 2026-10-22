@@ -1,13 +1,14 @@
 import { expect, type Page, test } from '@playwright/test';
-import { drag } from './helpers/g1-viewport';
+import { drag, paneRect } from './helpers/g1-viewport';
 import { enterModel } from './helpers/m6a-model';
 import { cubeLadTruth } from './helpers/m6b-cube-lad';
-import { enterRig, RIG_SIDE_PANE } from './helpers/m6b-rig';
+import { enterRig, RIG_FRONT_PANE, RIG_SIDE_PANE } from './helpers/m6b-rig';
 import {
   buildAPosedCubeLad,
   createSkeleton,
   cubeLadInRig,
   dist,
+  jointAt,
   jointsByKey,
   markerAt,
   type QuickRigView,
@@ -69,6 +70,17 @@ test(`E2E-QR-02: Create Skeleton on the Cube Lad, Full 52, the re-run in place`,
     new Map(Object.entries(truth.joints).map(([key, joint]) => [key, joint.position])),
     truth.height,
   );
+  // Frame All over the front and side panes fills them with the character for joint fitting (acceptance fix: the
+  // bounding-sphere fit left it at about a third of the side pane's height).
+  for (const [pane, least] of [
+    [RIG_FRONT_PANE, 0.45],
+    [RIG_SIDE_PANE, 0.6],
+  ] as const) {
+    await runOk(page, 'view.frame', { paneId: pane, what: 'all' });
+    const head = await jointAt(page, joints.get('head')?.id ?? '', pane);
+    const foot = await jointAt(page, joints.get('leftFoot')?.id ?? '', pane);
+    expect(Math.abs(foot.y - head.y) / (await paneRect(page, pane)).h, pane).toBeGreaterThan(least);
+  }
 
   // Full 52: undo, Quick Rig again on the scene mesh, the template select, Create Skeleton.
   await runOk(page, 'edit.undo');

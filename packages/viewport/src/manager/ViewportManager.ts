@@ -51,6 +51,7 @@ import {
   Raycaster,
   Scene,
   Vector2,
+  Vector3,
   type WebGLRenderer,
 } from 'three';
 import {
@@ -67,7 +68,7 @@ import {
 } from '../cameras/cameras';
 import { type ControlEntry, ControlLayer, multiplyAt } from '../controls/ControlLayer';
 import { measureSpatialBounds, pointBounds, type SpatialBounds, unionBounds } from '../framing/bounds';
-import { fitCameraFrame, fitOrthoHeight } from '../framing/fit';
+import { fitCameraFrame, fitOrthoHeight, fitOrthoViewHeight } from '../framing/fit';
 import { applyMainLayers, LAYER } from '../layers';
 import { type DragControl, type DragSession, dragControl, rotateDrag, translateDrag } from '../manipulators/drag';
 import { type ManipMode, type ManipTarget, ManipulatorKit, RING_RADIUS } from '../manipulators/ManipulatorKit';
@@ -424,6 +425,11 @@ export class ViewportManager {
   }
 
   /** The pane's state for the panel (header, HUD), or null for an unknown pane. */
+  /** Rig & Skin frames orthographic panes tightly (M6b acceptance: the character fills the front and side panes). */
+  private tightOrthoFrame(): boolean {
+    return this.app.session.getState().workspace === 'rig';
+  }
+
   paneState(id: string): PaneState | null {
     return this.panes.get(id)?.state ?? null;
   }
@@ -894,7 +900,7 @@ export class ViewportManager {
     const bounds = this.boundsFor(what);
     const rect = pane.element.getBoundingClientRect();
     const aspect = rect.width > 0 && rect.height > 0 ? rect.width / rect.height : 1;
-    const apply = (): void => frameCamera(resolved.nav, bounds, aspect);
+    const apply = (): void => frameCamera(resolved.nav, bounds, aspect, this.tightOrthoFrame());
     if (resolved.kind === 'shot') {
       this.withShotPreview(resolved.shot, () => apply());
     } else {
@@ -1282,7 +1288,7 @@ export class ViewportManager {
     const pane = this.panes.get(paneId);
     const rect = pane?.element.getBoundingClientRect();
     const aspect = rect !== undefined && rect.width > 0 && rect.height > 0 ? rect.width / rect.height : 1;
-    frameCamera(view.nav, this.boundsFor('all'), aspect);
+    frameCamera(view.nav, this.boundsFor('all'), aspect, this.tightOrthoFrame());
     this.picker.forget(paneId);
   }
 
@@ -2137,7 +2143,7 @@ function directionalLight(): DirectionalLight {
 }
 
 /** Frames bounds keeping the camera's view direction (perspective: distance; orthographic: zoom). */
-function frameCamera(nav: NavigationController, bounds: SpatialBounds, aspect: number): void {
+function frameCamera(nav: NavigationController, bounds: SpatialBounds, aspect: number, tight: boolean): void {
   const camera = nav.camera;
   const target = nav.target();
   const dir = camera.position.clone().sub(target);
@@ -2150,7 +2156,13 @@ function frameCamera(nav: NavigationController, bounds: SpatialBounds, aspect: n
     return;
   }
   if (camera instanceof OrthographicCamera) {
-    const height = fitOrthoHeight(bounds, aspect);
+    // Rig & Skin fits the bounds as the view sees them (its right and up axes) for joint fitting; elsewhere the padded
+    // bounding sphere keeps the room around the content that Model's reference image planes rely on.
+    const right = new Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+    const up = new Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+    const height = tight
+      ? fitOrthoViewHeight(bounds, [right.x, right.y, right.z], [up.x, up.y, up.z], aspect)
+      : fitOrthoHeight(bounds, aspect);
     const c = {
       x: (bounds.minX + bounds.maxX) / 2,
       y: (bounds.minY + bounds.maxY) / 2,
