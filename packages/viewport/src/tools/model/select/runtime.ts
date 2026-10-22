@@ -450,7 +450,13 @@ export class ModelSelectRuntime {
       const scene = this.app.store
         .list('meshes')
         .filter((mesh) => mesh.deleted === null && 'scene' in mesh.owner && !hidden.has(mesh.id));
-      return bounds(this.meshPoints(scene.map((mesh) => mesh.id)));
+      // Quick Rig's markers and their mirrors count too: on an arms-down model the guess puts the arm markers out to
+      // the side, beyond the body, where FRONT cut the wrist off (AR-R4-6)
+      const quick = state.rig.quickRig;
+      const markers: number[] = [];
+      for (const point of Object.values(quick?.markers ?? {})) markers.push(...point, -point[0], point[1], point[2]);
+      for (const joint of quick?.preview ?? []) markers.push(...joint.position);
+      return bounds([...this.meshPoints(scene.map((mesh) => mesh.id)), Float32Array.from(markers)]);
     }
     if (state.workspace !== 'model') return null;
     if (what === 'selection') {
