@@ -59,7 +59,9 @@ also drop your own `.vrma` files here. Animations are optional: OMOBA plays its 
 
 - **Ekza avatar · VRM 1.0** (recommended): for OMOBA and Ekza Space. Fill in the author and choose a licence; a
   thumbnail is rendered for you. The checklist must be all ✓ before *Download* — it includes OMOBA's own runtime rules,
-  and "T-pose rest".
+  and "T-pose rest". The VRM keeps one animation per OMOBA slot (idle, walk, attack…): an animation without a slot is
+  listed under *Not in the VRM* with a button that gives it a free slot (the GLB and VRMA keep every animation). A VRM
+  0.x you brought stays a VRM 0.x, which OMOBA accepts.
 - **GLB with animations**, **Animations as VRMA**, and under *For developers* the **OMOBA local test kit** (the VRM, a
   thumbnail and a roster entry for OMOBA's local avatar manifest, with a README).
 
@@ -80,7 +82,7 @@ off*.
 |---|---|
 | `Ctrl/⌘+Enter` | the step's main button |
 | `Alt+1` … `Alt+5` | go to a step |
-| `Ctrl/⌘+Z`, `Ctrl/⌘+Shift+Z` | undo, redo |
+| `Ctrl/⌘+Z`, `Ctrl/⌘+Shift+Z` | undo, redo (on ② Markers: your marker moves) |
 | `Esc` | stop the preview, cancel a gesture |
 | `↑` `↓` in the marker list; arrows elsewhere | select a marker; nudge it (Shift: finer) |
 | `G` | guess the markers again |

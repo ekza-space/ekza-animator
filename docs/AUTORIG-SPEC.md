@@ -790,7 +790,7 @@ compiled), so the parameters are applied to the bytes before that point, never t
 - Slot chips: click to choose the slot from the Ekza slot vocabulary through the shipped clip settings operator.
 - Dropping `.vrma` files on the step = shipped `file.importAnimation` onto the subject.
 - **Export ▸** is enabled with zero clips (OMOBA needs none); the footer says "No animations — the VRM still works in
-  OMOBA, which plays its own".
+  OMOBA, which plays its own motion library." (sentence completed, AR-D8-9).
 
 ### 5.6 ⑤ Export
 
@@ -895,7 +895,7 @@ Under the targets: "Want to keyframe your own motion? **Continue in Studio ▸**
 |---|---|---|
 | Non-humanoid (prop, quadruped) | C2's `guessMarkers` returns null (no leg split or arm run) | markers placed from template proportions with C2's message, plus Auto-Rig's: "This does not look like a person standing. Auto-Rig makes humanoid (VRM) skeletons. You can still place the markers by hand." Auto-rig stays possible; ⑤'s checks decide |
 | T-posed input, but `skel.tpose` fires after the bind (a marker dragged off the arm line in FRONT, a bent shin) | `session.startPose.kind = 't'` and the row present | **no** straighten (no mesh bake on a T-posed body); ③ shows the row with *Adjust joints* first and *Straighten to T-Pose* as a secondary Fix (§5.4); the VRM target stays blocked until it is clean |
-| A-posed arms (> 5° below horizontal) | `IntakeReport.pose.kind = 'a'` on ① (or the guess's `armAngle` recorded on ② for a *From Studio* subject) → `session.startPose.kind = 'a'`; C2's `guess.aPose` notice above 15° on ② | the skeleton follows the arms (C2's fit along the marker line, 0–50°); `autorig.rig {straighten: true}` binds in the mesh's own pose and then runs A0's *Straighten to T-Pose* (`skel.pose.applyAsRest {pose: 'tStance'}`: T-Stance computed, the bound meshes baked by LBS, the joint rests set to the T-pose), a third undo step; ③ onward and ⑤'s VRM see a T-pose rest, `skel.tpose` clean (AS-AR-2). If straightening fails (e.g. an arm chain the T-Stance cannot reach within 5°) ③ shows the `skel.tpose` row with its Fix and the reason; the VRM target stays blocked, GLB/VRMA stay allowed (`local/generic` warns) |
+| A-posed arms (> 5° below horizontal) | `IntakeReport.pose.kind = 'a'` on ① (or the guess's `armAngle` recorded on ② for a *From Studio* subject) → `session.startPose.kind = 'a'`; Auto-Rig's own notice on ② ("Auto-rig straightens it for you."; C2's `guess.aPose` notice is Studio's and hidden in Auto-Rig, AR-D8-8) | the skeleton follows the arms (C2's fit along the marker line, 0–50°); `autorig.rig {straighten: true}` binds in the mesh's own pose and then runs A0's *Straighten to T-Pose* (`skel.pose.applyAsRest {pose: 'tStance'}`: T-Stance computed, the bound meshes baked by LBS, the joint rests set to the T-pose), a third undo step; ③ onward and ⑤'s VRM see a T-pose rest, `skel.tpose` clean (AS-AR-2). If straightening fails (e.g. an arm chain the T-Stance cannot reach within 5°) ③ shows the `skel.tpose` row with its Fix and the reason; the VRM target stays blocked, GLB/VRMA stay allowed (`local/generic` warns) |
 | Several meshes (body, hair, sword …) | `IntakeReport.meshes.length > 1` | the Model panel lists them with checkboxes *Part of the character* (default: all visible meshes); unticked ones stay in the scene, visible and untouched (`view.hide` hides the selection only, and hiding is not needed), and are left out of `subject.meshes`, so `skel.quickRig.start {meshes}` and the commit adopt only the ticked ones. A mesh whose bounds lie outside the body's (a weapon on the floor) is unticked by default with "Looks separate" |
 | Already-rigged VRM | `kind: 'vrm'` | straight to ④ (FR-AR-09); ②/③ show the already-rigged notice (C11 is deferred) |
 | Rigged non-VRM humanoid GLB | `kind: 'rigged-humanoid'` | ④; ⑤ shows the targets Studio offers for it |
@@ -1072,7 +1072,7 @@ D1's measurement, the D0 spike's and every later `/editor` number count only onc
 
 | Keys | Where | Action |
 |---|---|---|
-| `Mod+Z` / `Mod+Shift+Z` | everywhere | undo / redo (shipped) |
+| `Mod+Z` / `Mod+Shift+Z` | everywhere | undo / redo (shipped); on ② the marker edits instead, never the document (AR-D8-3) |
 | `Mod+Enter` | everywhere (not in text fields) | the step's primary button |
 | `Alt+1`…`Alt+5` | everywhere | go to step 1…5 when reachable (Auto-Rig has no layout presets; the browser default is prevented as in Studio) |
 | `Esc` | everywhere | stop the preview / cancel the gesture / close the sheet (never leaves the step) |
@@ -1609,7 +1609,7 @@ it in full; D4 owns steps 2–4 and the motion test of step 5 at its merge):
 | Step | Action | Checks |
 |---|---|---|
 | 1 | `/autorig`; drop `polybot-unskinned.glb` (A-posed Polybot) | `kind = 'static'`; the Pose row says "A-pose (arms N° down)", N within **5°** of the truth's arm angle; centred, grounded, facing ✓ |
-| 2 | *Next* | ② markers within **0.05 H** of the A-pose truth markers; the A-pose notice (A0's text) when N > 15°; Auto-rig enabled |
+| 2 | *Next* | ② markers within **0.05 H** of the A-pose truth markers; Auto-Rig's A-pose notice (AR-D8-8: A0's Studio text is not shown in Auto-Rig); Auto-rig enabled |
 | 3 | **Auto-rig** (Standard 33) | the sheet shows *Skeleton*, *Skinning*, **Straightening to a T-pose**, *Checking*; exactly **three** undo steps "Create Skeleton", "Bind Skin", "Straighten to T-Pose"; no `skel.tpose` row; every humanoid joint within **0.05 H** of the **T-pose** truth; every template joint's `restRotation` identity; ≤ 4 influences, sums within 1e-6 |
 | 4 | `Mod+Z` once, read; `Mod+Shift+Z`, read | undo returns the A-posed rest, points and the `skel.tpose` row bit-equal to after "Bind Skin"; the weights read before and after the redo are bit-equal (the straighten never touches weights); the redo restores the T-pose |
 | 5 | Motion test Walk; **Animations ▸** add Walk | the hands swing below the shoulders (the T-pose rest makes the library's arms right: at Walk's first frame each hand is lower than its upper arm by ≥ 0.3 × arm length); one undo step "Use Clip Walk" |
@@ -1804,3 +1804,29 @@ in [DECISIONS-OPEN §M](DECISIONS-OPEN.md#m-auto-rig-2026-10-22).
   in the shell; only `autorig.*` compositions without undo flags or nested runs in `apply`).
 - **§8.2**: a plain Space on a focused Auto-Rig control keeps its activation (AR-D7-6; found by AS-AR-11).
 - Open for the owner: AS-AR-1 and AS-AR-2 by hand (timed), Q-AR-17 with the measured numbers, ADR 0021 → Accepted.
+
+## 18. Acceptance fix round 1 (D8, 2026-10-22)
+
+Fixes of the first Auto-Rig acceptance run on `dev` (5 major, 5 minor findings), decisions AR-D8-1…10 in
+[DECISIONS-OPEN §M](DECISIONS-OPEN.md#m-auto-rig-2026-10-22); each with a regression test. Amendments to this spec:
+
+- **§5.2 ① From Studio**: while the card waits, ① shows the drop strip (not the drop zone), the header names the handed
+  model, the status points at the card and the footer's primary is *Use these* (AR-D8-7). A static import names an
+  untitled project after its file (autosave and *Continue* show it), a `.glb`/`.vrm` that is no GLB is "damaged"
+  (AR-D8-10).
+- **§5.3 ②**: `Mod+Z` / `Mod+Shift+Z` and the header's Undo / Redo act on the marker edits while ② is shown (a drag, a
+  nudge or a guess is one *Marker Move*) and never on the document; Studio's A-pose and re-run lines and the template
+  select are not shown (the fingers choice is the template); a re-run's seeded markers read "placed" (AR-D8-3,
+  AR-D8-8). ② and *Adjust joints* hide the rig's controls in their panes; every pane frames the whole body after
+  *Auto-rig* (AR-D8-4).
+- **§5.4 ③**: the review pane frames the character once per character; a re-rig asks M6b's rebind question only when
+  weights could be lost (the wizard's own bind's revisions changed or painting was seen) (AR-D8-8, AR-D8-9).
+- **§5.5 / §5.6**: the Ekza VRM carries the clips with an OMOBA slot (model characters: a slot; imported avatars: an
+  Ekza clip name); ⑤ lists the clips it leaves out, each with a one-click suggested free slot and a slot list, instead of
+  the target disappearing (AR-D8-2). An imported VRM 0.x avatar's target reads "Ekza avatar · VRM 0.x, kept as it is"
+  and its humanoid check "VRM 0.x humanoid (kept as it is)" (AR-D8-5; converting 0.x to 1.0 is not built). The GLB of a
+  character without clips reads "GLB (rigged, no animations)" (AR-D8-9).
+- **§6.1 Textured models**: the texture shows on ①–③ (mesh-view draws the adopted base colour image), on ④ and in
+  Studio's Animate (the display container carries the adopted materials) and in the VRM thumbnail (AR-D8-1).
+- **§4.4**: Studio's first-run dialog never opens over a hand-over from Auto-Rig (AR-D8-6).
+
