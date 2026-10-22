@@ -16,6 +16,8 @@ export interface RigUi {
   readonly adjustFrom: number | null;
   /** A rebind (Done, Bind again) is running. */
   readonly rebinding: boolean;
+  /** *Show weights* in review (Skin mode with the Select tool, C6's greyscale display). */
+  readonly showWeights: boolean;
 }
 
 const uis = new WeakMap<WizardContext['session'], SmallStore<RigUi>>();
@@ -23,7 +25,14 @@ const uis = new WeakMap<WizardContext['session'], SmallStore<RigUi>>();
 export function rigUi(ctx: Pick<WizardContext, 'session'>): SmallStore<RigUi> {
   let store = uis.get(ctx.session);
   if (store === undefined) {
-    store = smallStore<RigUi>({ plan: null, notice: null, error: null, adjustFrom: null, rebinding: false });
+    store = smallStore<RigUi>({
+      plan: null,
+      notice: null,
+      error: null,
+      adjustFrom: null,
+      rebinding: false,
+      showWeights: false,
+    });
     uis.set(ctx.session, store);
   }
   return store;

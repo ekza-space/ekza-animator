@@ -2,7 +2,7 @@
 // *Paint weights* (Skin mode, C6's tool, the reduced controls): a stroke sets `rig.paintedSinceBind`; after it,
 // *Adjust joints* → move → *Done* runs plain Bind Skin, so M6b's "Rebind replaces painted weights" question opens in
 // the shared dialog host (*Rebind* → a "Bind Skin" step, the flag cleared); with no weight edit since the bind, Done
-// rebinds without the question. *Show weights* switches C6's display. `Space` (focus on no control) toggles the motion
+// rebinds without the question. *Show weights* shows C6's display in review (Skin mode with the Select tool). `Space` (focus on no control) toggles the motion
 // test. *Back* goes to ② and starts M6b's re-run: the markers seeded from the joints, the template locked; *Auto-rig*
 // asks the rebind question first (answered in e2e) and refits in place in one "Refit Skeleton" step. At 390×844 *Paint
 // weights* says "Painting needs a larger screen".
@@ -50,19 +50,23 @@ test('paint sets paintedSinceBind; Done then asks before rebinding; Show weights
   await expect.poll(async () => (await rigSlice(page)).motionTest).toBe(true);
   expect((await call(page, 'state')).maximizedPane).toBeNull();
 
-  // Show weights: C6's display on every pane, and off again
+  // Show weights: C6's greyscale display in review (Skin mode with the Select tool: no brush), and off again
   const showWeights = page.getByTestId('ar-rig-show-weights');
-  const shown = await showWeights.isChecked();
+  await expect(showWeights).not.toBeChecked();
   await showWeights.click();
-  await expect.poll(async () => (await call(page, 'paint')).display !== 'off').toBe(!shown);
+  await expect.poll(async () => (await call(page, 'rigState')).mode).toBe('skin');
+  await expect.poll(async () => (await call(page, 'state')).tool).toBe('select');
+  expect((await call(page, 'paint')).display).toBe('greyscale');
+  await expect.poll(async () => (await call(page, 'library'))?.preview?.clip).toBe('walk');
   await showWeights.click();
-  await expect.poll(async () => (await call(page, 'paint')).display !== 'off').toBe(shown);
+  await expect.poll(async () => (await call(page, 'rigState')).mode).toBe('object');
+  await showWeights.click();
+  await expect.poll(async () => (await call(page, 'rigState')).mode).toBe('skin');
 
   // Paint weights: one stroke sets paintedSinceBind
   await page.getByTestId('ar-rig-paint').click();
   await expect.poll(async () => (await call(page, 'state')).tool).toBe('paintSkinWeights');
   await expect.poll(async () => (await call(page, 'library'))?.preview ?? null).toBeNull();
-  if ((await call(page, 'paint')).display === 'off') await showWeights.click();
   await page.getByTestId(`pw-influence-${id('leftUpperArm')}`).click();
   const positions = await call(page, 'meshPositions', mesh, undefined, 'local');
   const forearm = boxPoints(positions, 'forearm.L');
@@ -73,6 +77,10 @@ test('paint sets paintedSinceBind; Done then asks before rebinding; Show weights
   await expect.poll(async () => (await rigSlice(page)).paintedSinceBind).toBe(true);
   await page.getByTestId('ar-rig-done').click();
   await expect.poll(async () => (await rigSlice(page)).sub).toBe('review');
+  // back in review with Show weights still on: Skin mode, the Select tool; off: Object mode
+  await expect.poll(async () => (await call(page, 'state')).tool).toBe('select');
+  await showWeights.click();
+  await expect.poll(async () => (await call(page, 'rigState')).mode).toBe('object');
 
   // Adjust joints after painting: Done asks "Rebind replaces painted weights" (the shared dialog); Rebind binds
   await adjustOnce(page, id('leftUpperArm'));

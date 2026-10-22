@@ -2,7 +2,7 @@
 //
 // - **Review** (default after rigging): CHECK IT — the motion test (Walk, Sword, Dance through C12's library preview,
 //   restarted after every committed change while it is on; with reduced motion only on *Play*), FIX — *Adjust joints*,
-//   *Paint weights* and *Show weights* (C6's greyscale display on every pane), and the C7 Validation summary of the
+//   *Paint weights* and *Show weights* (C6's greyscale display: review then works in Skin mode with the Select tool), and the C7 Validation summary of the
 //   `skel.*` / `skin.*` / `xform.*` rows with their Fix buttons (an error blocks *Animations ▸*; warnings are listed).
 //   A `skel.tpose` row on a T-posed input (not straightened, §4.5) offers *Adjust joints* first and *Straighten to
 //   T-Pose* as the secondary Fix.
@@ -17,7 +17,7 @@
 // A character whose meshes are not bound yet (the bind was cancelled from the sheet) shows "Skeleton created; skinning
 // cancelled — [Bind again]". *Back* (the frame's) goes to ② and starts M6b's re-run.
 import type { CharacterId, MeshId } from '@ekza-studio/doc';
-import { paneDisplayPort, type RigValidationRow } from '@ekza-studio/editor-core';
+import type { RigValidationRow } from '@ekza-studio/editor-core';
 import { buttonClass, cn } from '@ekza-studio/ui';
 import { type JSX, lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { prefersReducedMotion } from '../../a11y';
@@ -36,7 +36,8 @@ import { useSmall } from '../../shell/store';
 import type { AutoRigSession } from '../../types';
 import { PaneLabels, useScreenClass } from '../markers/panes';
 import { rigPanes } from './index';
-import { MOTION_CLIPS, type RigSub, SUB_MODE, withMotionClip, withSub } from './slice';
+import { applySubMode, setWeightDisplay } from './mode';
+import { MOTION_CLIPS, type RigSub, withMotionClip, withSub } from './slice';
 import { installRigKeys } from './keys';
 import { useMotionTest, usePreview } from './motion';
 import { watchPaintedSinceBind } from './painted';
@@ -82,10 +83,7 @@ async function setSub(ctx: WizardContext, sub: RigSub): Promise<void> {
   }
   const patch = withSub(ctx.session.getState().rig, sub);
   if (Object.keys(patch).length > 0) ctx.session.patch('rig', patch);
-  const mode = SUB_MODE[sub];
-  if (app.session.getState().workspace === 'rig' && app.session.getState().rig.mode !== mode) {
-    await app.runUntyped('rig.mode', { mode });
-  }
+  await applySubMode(ctx);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -187,30 +185,20 @@ function MotionTest(props: {
   );
 }
 
-/** C6's weight display on every pane: greyscale or off. */
+/** *Show weights* (§5.4): C6's greyscale display in review too (Skin mode with the Select tool while on). */
 function ShowWeights(props: { readonly ctx: WizardContext }): JSX.Element {
-  const { app } = props.ctx;
-  const [, bump] = useState(0);
-  const port = paneDisplayPort(app);
-  const on = (port?.panes() ?? []).some((pane) => {
-    const mode = port?.display(pane)?.weights;
-    return mode !== undefined && mode !== 'off';
-  });
+  const { ctx } = props;
+  const on = useSmall(rigUi(ctx), (ui) => ui.showWeights);
   return (
     <label className="flex items-center gap-2">
       <input
         type="checkbox"
         checked={on}
-        disabled={port === null}
         data-testid="ar-rig-show-weights"
         onChange={() => {
-          for (const pane of port?.panes() ?? []) {
-            const display = port?.display(pane);
-            if (display !== null && display !== undefined) {
-              port?.setDisplay(pane, { ...display, weights: on ? 'off' : 'greyscale' });
-            }
-          }
-          bump((n) => n + 1);
+          rigUi(ctx).set((current) => ({ ...current, showWeights: !on }));
+          if (on) setWeightDisplay(ctx, false);
+          void applySubMode(ctx);
         }}
       />
       {t().showWeights}
