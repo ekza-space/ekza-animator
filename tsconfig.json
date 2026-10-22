@@ -39,6 +39,9 @@
       "path": "./packages/editor"
     },
     {
+      "path": "./packages/autorig"
+    },
+    {
       "path": "./packages/headless-tests"
     },
     {

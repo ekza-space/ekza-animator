@@ -1,4 +1,4 @@
-// Contract file: MVP-SPEC §4.8 with the M2A-SPEC §4.8, M6A-SPEC §4.8 and M6B-SPEC §4.8/§0.5 additions, copied verbatim (shapes are normative; change the spec first).
+// Contract file: MVP-SPEC §4.8 with the M2A-SPEC §4.8, M6A-SPEC §4.8, M6B-SPEC §4.8/§0.5 and AUTORIG-SPEC §10 D0 additions, copied verbatim (shapes are normative; change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
 import type { ChannelId } from '@ekza-studio/doc';
 import type { ManipHandle } from '@ekza-studio/editor-core';
@@ -191,4 +191,7 @@ export interface EkzaStudioTestApi {
   screenOfMarker(marker: string, side: 'R' | 'L', paneId: string): { x: number; y: number } | null; // C3
   library(): { clips: { id: string; label: string; slot: string | null; ok: boolean }[];
     preview: { character: string; clip: string; seconds: number } | null } | null;                 // C12
+
+  // ---------- Auto-Rig (AUTORIG-SPEC §10 D0; `test-api/autorig.ts`, fed by the shell's provider; null without it) ----------
+  autorig(): { step: string; reachable: Record<string, boolean>; done: Record<string, boolean>; subject: { character: string | null; meshes: readonly string[] }; intake: unknown; startPose: { armAngle: number; kind: 't' | 'a' } | null; busy: { stage: string; fraction: number | null } | null; slices: Record<string, unknown> } | null;
 }

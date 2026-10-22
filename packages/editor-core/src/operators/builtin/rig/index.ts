@@ -18,11 +18,13 @@ import { PROP_OPERATORS } from './prop';
 import { QUICK_RIG_OPERATORS } from './quickRig';
 import { QUICK_RIG_SESSION_OPERATORS } from './quickRigSession';
 import { RECOVERY_OPERATORS } from './recovery';
+import { REST_POSE_OPERATORS } from './restPose';
 import { ROM_OPERATORS } from './rom';
 import { RIG_SHADOW_OPERATORS } from './shadows';
 import { SHAPE_OPERATORS } from './shapes';
 import { SKELETON_OPERATORS } from './skeleton';
 import { WEIGHT_OPERATORS } from './weights';
+import { WIZARD_OPERATORS } from './wizard';
 // The Rig & Skin services live in this chunk (§0.4.9); `app.rig.load()` creates them.
 export { createRigServices } from '../../../rig/chunk/services';
 
@@ -34,6 +36,7 @@ export const RIG_WORKSPACE_OPERATORS: readonly AnyOperator[] = [
   ...CHARACTER_OPERATORS,
   ...AUTORIG_OPERATORS,
   ...SKELETON_OPERATORS,
+  ...REST_POSE_OPERATORS,
   ...QUICK_RIG_OPERATORS,
   ...QUICK_RIG_SESSION_OPERATORS,
   ...PROP_OPERATORS,
@@ -49,6 +52,7 @@ export const RIG_WORKSPACE_OPERATORS: readonly AnyOperator[] = [
   ...CHARACTER_EXPORT_OPERATORS,
   ...MAKE_CHARACTER_EDITABLE_OPERATORS,
   ...RECOVERY_OPERATORS,
+  ...WIZARD_OPERATORS,
 ];
 
 /** Registers the chunk's operators that this app does not have yet (a host or an extension may have registered one). */

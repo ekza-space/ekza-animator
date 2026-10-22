@@ -8,6 +8,8 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
+    "./host": "./src/host/index.ts",
+    "./bodies": "./src/bodies.ts",
     "./testing": "./src/testing/index.ts"
   },
   "scripts": {

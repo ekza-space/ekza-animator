@@ -237,6 +237,13 @@ export const P_C6_ROWS: readonly Row[] = [
   },
   { id: 'library.stop', status: 'checked', owner: 'C12', refuses: 'No clip preview is playing' },
   { id: 'library.useClip', status: 'keys', owner: 'C12' },
+  // AUTORIG-SPEC §4.5 (D0 lands the rows pending; literal update): the Auto-Rig compositions run Studio operators only,
+  // so each row's verdict is the one of what it runs. `autorig.clip.add` = Use Clip, a §3 rule 7 exception.
+  ...pending('D3', 'autorig.sample', 'autorig.intake', 'autorig.inspect', 'autorig.fix'),
+  ...pending('D4', 'autorig.rig', 'autorig.cancel'),
+  { id: 'autorig.clip.add', status: 'keys', owner: 'D5' },
+  ...pending('D6', 'autorig.export'),
+  ...pending('D1', 'autorig.navigate'),
 ];
 
 /** The Cube Lad fixture (an unskinned GLB). */
