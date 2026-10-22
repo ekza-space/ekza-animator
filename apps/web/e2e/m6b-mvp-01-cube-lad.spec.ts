@@ -36,7 +36,6 @@ import {
   enterSkin,
   partnersOf,
   positionsOf,
-  screenCentroid,
   stroke,
   weightMaps,
 } from './helpers/m6b-skin-ui';
@@ -189,7 +188,13 @@ test('E2E-MVP-01: AS-MVP-1 — the Cube Lad comes alive (model → markers → s
     // Zoom the side pane in around the knee (wheel): at the whole-body framing 0.01 m is under a pixel.
     const kneeAt = await jointAt(page, knee?.id ?? '', RIG_SIDE_PANE);
     await page.mouse.move(kneeAt.x, kneeAt.y);
-    for (let i = 0; i < 5; i++) {
+    // Wheel in until 0.01 m is a few pixels (Rig & Skin frames the side pane tightly since the acceptance fix, so
+    // fewer notches are needed and too many would push the ankle off screen).
+    const span = Math.abs((knee?.restPosition[1] ?? 0) - (before.get('rightFoot')?.restPosition[1] ?? 0));
+    for (let i = 0; i < 8; i++) {
+      const k = await call(page, 'screenOfJoint', knee?.id ?? '', RIG_SIDE_PANE);
+      const a = await call(page, 'screenOfJoint', before.get('rightFoot')?.id ?? '', RIG_SIDE_PANE);
+      if (k !== null && a !== null && Math.abs(k.y - a.y) / span > 450) break;
       await page.mouse.wheel(0, -240);
       await page.waitForTimeout(50);
     }
@@ -272,20 +277,17 @@ test('E2E-MVP-01: AS-MVP-1 — the Cube Lad comes alive (model → markers → s
     expect(shoulder.length).toBe(1);
     const before = await weightMaps(page, mesh);
     const steps = (await undoLabels(page)).length;
-    // The stroke starts on the torso's front face just inside its top outer (shoulder) corner (front pane, ortho:
-    // placed from the two bottom front corners, which the weight labels list), so its 40 px reach covers the corner.
-    const torso = boxPoints(positions, 'torso');
-    const at = (x: number, y: number) =>
-      torso.find(
-        (v) =>
-          Math.abs((positions[v]?.[0] ?? 0) - x) < 1e-5 &&
-          Math.abs((positions[v]?.[1] ?? 0) - y) < 1e-5 &&
-          (positions[v]?.[2] ?? 0) > 0,
-      ) as number;
-    const left = await screenCentroid(page, mesh, [at(0.18, 1.0)], RIG_FRONT_PANE);
-    const right = await screenCentroid(page, mesh, [at(-0.18, 1.0)], RIG_FRONT_PANE);
-    const ppm = Math.abs(left.x - right.x) / 0.36;
-    const start = { x: left.x + 0.1 * (right.x - left.x), y: left.y - 0.36 * ppm };
+    // The stroke starts on the torso's front face just inside its top outer (shoulder) corner, at (0.144, 1.36) (front
+    // pane, ortho), so its 40 px reach covers the corner. Placed from the upper-arm joints (not posed by the elbow test):
+    // the torso's silhouette corners themselves can fail the weight labels' visibility ray at some framings.
+    const armL = joints.get('leftUpperArm');
+    const armR = joints.get('rightUpperArm');
+    const l = await jointAt(page, armL?.id ?? '', RIG_FRONT_PANE);
+    const r = await jointAt(page, armR?.id ?? '', RIG_FRONT_PANE);
+    const lx = armL?.restPosition[0] ?? 0;
+    const ly = armL?.restPosition[1] ?? 0;
+    const ppm = Math.abs(l.x - r.x) / Math.abs(lx - (armR?.restPosition[0] ?? 0));
+    const start = { x: l.x - (lx - 0.144) * ppm, y: l.y + (ly - 1.36) * ppm };
     await stroke(page, start, 6, 0);
     await expect.poll(async () => (await undoLabels(page)).length).toBe(steps + 1);
     expect((await undoLabels(page)).at(-1)).toBe('Paint Skin Weights');

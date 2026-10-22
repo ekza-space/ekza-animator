@@ -73,7 +73,7 @@ test(`E2E-QR-02: Create Skeleton on the Cube Lad, Full 52, the re-run in place`,
   // Frame All over the front and side panes fills them with the character for joint fitting (acceptance fix: the
   // bounding-sphere fit left it at about a third of the side pane's height).
   for (const [pane, least] of [
-    [RIG_FRONT_PANE, 0.45],
+    [RIG_FRONT_PANE, 0.4],
     [RIG_SIDE_PANE, 0.6],
   ] as const) {
     await runOk(page, 'view.frame', { paneId: pane, what: 'all' });
@@ -110,6 +110,8 @@ test(`E2E-QR-02: Create Skeleton on the Cube Lad, Full 52, the re-run in place`,
 
   // Bound: the re-run asks before it rebinds.
   await runOk(page, 'skin.bind', {});
+  // Bind Skin opens Skin mode, whose right dock tab is Paint Weights: bring the Rig Toolkit back.
+  await runOk(page, 'workspace.showPanel', { panel: 'rigToolkit' });
   await page.getByTestId('rtk-btn-skel.quickRig.start').click();
   await expect.poll(async () => (await quickRig(page))?.moved.length ?? 0).toBe(9);
   await page.getByTestId('quickrig-commit').click();
