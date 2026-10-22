@@ -12,6 +12,7 @@ import { DEFAULT_PROFILE, profileRows, type RawRow, rawRows } from './rows';
 export { type ChecklistGlyph, type ChecklistStep, checklistSummary, rigChecklist } from './checklist';
 export { DEFAULT_PROFILE, profileKind, RIG_PROFILES, SEVERITY } from './rows';
 export { type RowSelection, selectValidationRow } from './select';
+export { crossLimbParts, type LimbRegion, type PartReach, rigidPartBinds } from './limbs';
 
 /** The rows that make the tab glyph ◐ besides errors (§5.21). */
 const ATTENTION_CODES: ReadonlySet<string> = new Set(['skin.review', 'skin.unweighted-vertex', 'skel.tpose']);

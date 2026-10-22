@@ -24,7 +24,8 @@ import type { CharacterId, SkeletonId } from '@ekza-studio/doc';
 import type { AutoRigRigResult, EditorApp, PollResult } from '../../../../types';
 import { type AnyOperator, defineOperator, fail, isRecord, OK } from '../../define';
 import { autoRigBlock, quickRigCommitArgs, quickRigOf } from '../quickRigSession';
-import { type CompositionStep, runComposition } from './compose';
+import { rigidPartBinds } from '../../../../rig/validation/limbs';
+import { type CompositionOutcome, type CompositionStep, runComposition } from './compose';
 import { autoRigBindMeshes, autoRigRefitBound } from './targets';
 
 /** The poll reason while no Quick Rig session is open (② places the markers). */
@@ -39,15 +40,19 @@ const prepared = new WeakSet<EditorApp>();
 
 function argsProblem(args: unknown): string | null {
   if (args === undefined || args === null) return null;
-  if (!isRecord(args)) return 'expects { straighten? }';
+  if (!isRecord(args)) return 'expects { straighten?, rigidParts? }';
   if (args['straighten'] !== undefined && typeof args['straighten'] !== 'boolean') {
     return 'straighten must be true or false';
+  }
+  if (args['rigidParts'] !== undefined && typeof args['rigidParts'] !== 'boolean') {
+    return 'rigidParts must be true or false';
   }
   if (args['confirm'] !== undefined && typeof args['confirm'] !== 'boolean') return 'confirm must be true or false';
   return null;
 }
 
-const flag = (args: unknown, key: 'straighten' | 'confirm'): boolean => isRecord(args) && args[key] === true;
+const flag = (args: unknown, key: 'straighten' | 'confirm' | 'rigidParts'): boolean =>
+  isRecord(args) && args[key] === true;
 
 const rig = defineOperator<'autorig.rig', AutoRigRigResult>({
   id: 'autorig.rig',
@@ -102,25 +107,47 @@ const rig = defineOperator<'autorig.rig', AutoRigRigResult>({
         args: (values: readonly unknown[]) => ({ meshes: autoRigBindMeshes(app, made(values)) }),
       });
     }
-    if (straighten) {
-      steps.push({
-        id: 'skel.pose.applyAsRest',
-        before: after,
-        args: (values: readonly unknown[]) => ({ character: made(values), pose: 'tStance' }),
-      });
-    }
     const alive = (): boolean =>
       committed
         ? character === null || app.store.get('characters', character) !== undefined
         : state.meshes.some((id) => app.store.get('meshes', id) !== undefined);
+    // AR-R4-5: after the bind (or the refit's own rebind), the separate parts that reach two limbs bind rigidly to their
+    // best joint, one Bind Skin per joint, before the straighten bakes the meshes
+    const rigid = (made: CharacterId): CompositionStep[] =>
+      flag(args, 'rigidParts')
+        ? rigidPartBinds(app, made).map((group) => ({
+            id: 'skin.bind',
+            before: after,
+            args: { meshes: group.meshes, method: 'rigid-islands', joints: [group.joint], confirm: true },
+          }))
+        : [];
+    const fail = (outcome: Exclude<CompositionOutcome, { status: 'finished' }>): never => {
+      if (outcome.status === 'interrupted') throw new EkzaError('op-refused', outcome.message);
+      throw new EkzaError(outcome.code, outcome.message);
+    };
 
     busy();
     let result: AutoRigRigResult;
     try {
       const outcome = await runComposition(app, steps, { alive });
-      if (outcome.status === 'interrupted') throw new EkzaError('op-refused', outcome.message);
-      if (outcome.status === 'failed') throw new EkzaError(outcome.code, outcome.message);
-      const value = outcome.values[0] as { readonly character: CharacterId; readonly skeleton: SkeletonId };
+      if (outcome.status !== 'finished') fail(outcome);
+      const value = (outcome as Extract<CompositionOutcome, { status: 'finished' }>).values[0] as {
+        readonly character: CharacterId;
+        readonly skeleton: SkeletonId;
+      };
+      character = value.character;
+      const rest: CompositionStep[] = rigid(value.character);
+      if (straighten) {
+        rest.push({
+          id: 'skel.pose.applyAsRest',
+          before: after,
+          args: { character: value.character, pose: 'tStance' },
+        });
+      }
+      if (rest.length > 0) {
+        const more = await runComposition(app, rest, { alive });
+        if (more.status !== 'finished') fail(more);
+      }
       result = { character: value.character, skeleton: value.skeleton, straightened: straighten };
     } finally {
       if (app.session.getState().busy?.label === RIGGING_LABEL) app.session.setState({ busy: null });

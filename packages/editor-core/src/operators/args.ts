@@ -536,7 +536,8 @@ export interface OperatorMap {
   'autorig.inspect': { args: { readonly meshes: readonly MeshId[] }; result: IntakeReport };                       // D3 (U)
   'autorig.fix': { args: { readonly fix: AutoRigFix; readonly meshes: readonly MeshId[]; readonly height?: number;
     readonly with?: readonly MeshId[] }; result: void };                                                           // D3; `with` AR-D10-2
-  'autorig.rig': { args: { readonly straighten?: boolean } | void; result: AutoRigRigResult };                     // D4
+  'autorig.rig': { args: { readonly straighten?: boolean; readonly rigidParts?: boolean } | void;
+    result: AutoRigRigResult };                                                                                    // D4; `rigidParts` AR-R4-5
   'autorig.cancel': { args: void; result: void };                                                                  // D4 (U)
   'autorig.clip.add': { args: { readonly character: CharacterId; readonly clip: string; readonly params: ClipParams;
     readonly replace?: ClipId }; result: { readonly clip: ClipId } };                                              // D5

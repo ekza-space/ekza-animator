@@ -14,6 +14,7 @@ import { checkSkeleton, type RigProblem } from '@ekza-studio/rig';
 import { meshKernel } from '../../mesh/kernel';
 import type { EditorApp, OperatorId, RigValidationRow, RigValidationSeverity } from '../../types';
 import { characterMeshes, characterSkeleton, docSkeletonInput, meshData, skinOf, skinSkeletonOf } from './inputs';
+import { bodyMeshOf, crossesLimbs, limbRegions, partName, reachOf, regionList } from './limbs';
 
 /** The profile the panel starts with (§0.4.6: the Ekza avatar profile is the default). */
 export const DEFAULT_PROFILE = 'ekza/space-avatar-v1';
@@ -42,6 +43,7 @@ export const SEVERITY: Readonly<Record<string, readonly [Sev, Sev]>> = {
   'skel.symmetry': ['warning', 'warning'],
   'skel.grounded': ['warning', 'warning'],
   'skel.facing': ['warning', 'warning'],
+  'skel.height': ['warning', 'warning'],
   'skel.orientation-mixed': ['info', 'info'],
   'xform.scale': ['error', 'error'],
   'xform.not-frozen': ['error', 'error'],
@@ -54,6 +56,7 @@ export const SEVERITY: Readonly<Record<string, readonly [Sev, Sev]>> = {
   'skin.joint-without-weights': ['info', 'info'],
   'skin.non-deforming-weighted': ['warning', 'warning'],
   'skin.limb-unweighted': ['error', 'warning'],
+  'skin.cross-limb': ['warning', 'warning'],
   'rig.out-of-sync': ['warning', 'warning'],
   'vrm.meta-required': ['error', null],
   'vrm.licence-unset': ['error', null],
@@ -199,6 +202,9 @@ export function rawRows(app: Pick<EditorApp, 'store' | 'meshes'>, character: Cha
     // AR-D10-3: the limb joints no bound mesh carries weight on (every skin read, at least one)
     let unweighted = null as Set<string> | null;
     let allRead = true;
+    // AR-R4-5: the separate parts (every mesh but the body, the tallest) whose weights reach two limbs that do not meet
+    const body = bodyMeshOf(app, meshes);
+    const regions = body === null ? null : limbRegions(skeleton.joints);
     for (const mesh of meshes) {
       const skin = skinOf(app, mesh);
       if (skin === null) {
@@ -211,14 +217,36 @@ export function rawRows(app: Pick<EditorApp, 'store' | 'meshes'>, character: Cha
       const without = new Set(problems.find((problem) => problem.code === 'skin.joint-without-weights')?.joints ?? []);
       const before: Set<string> | null = unweighted;
       unweighted = before === null ? without : new Set([...before].filter((joint: string) => without.has(joint)));
+      const data = regions === null || mesh.id === body ? null : meshData(app, mesh);
+      if (data !== null && regions !== null) {
+        const reach = reachOf(mesh.id, skin, data.position, skeleton.joints, regions);
+        if (crossesLimbs(reach)) {
+          rows.push({
+            code: 'skin.cross-limb',
+            message: `${partName(mesh.name)} moves with ${regionList(reach.regions)}: it stretches between them`,
+            ids: [mesh.id],
+          });
+        }
+      }
       for (const problem of problems) {
+        // AR-R4-4: a joint that moves no point of one part may move another: a multi-part character gets one row for
+        // the joints no part carries weight on (below), named after the character
+        if (problem.code === 'skin.joint-without-weights' && meshes.length > 1) continue;
         rows.push({
           code: problem.code,
-          message: skinMessage(problem, mesh.name),
+          message: skinMessage(problem, problem.code === 'skin.joint-without-weights' ? record.name : mesh.name),
           ids: problem.joints.length > 0 && problem.points.length === 0 ? [mesh.id, ...problem.joints] : [mesh.id],
           points: { [mesh.id]: problem.points },
         });
       }
+    }
+    if (meshes.length > 1 && allRead && unweighted !== null && unweighted.size > 0) {
+      const joints = skeleton.joints.filter((joint) => unweighted?.has(joint.id) === true).map((joint) => joint.id);
+      rows.push({
+        code: 'skin.joint-without-weights',
+        message: `${plural(joints.length, 'joint')} of ${record.name} influence nothing`,
+        ids: joints,
+      });
     }
     const limbs = allRead && unweighted !== null ? limbsWithoutWeights(skeleton.joints, unweighted) : [];
     if (limbs.length > 0) {

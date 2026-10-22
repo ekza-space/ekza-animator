@@ -123,3 +123,63 @@ export function skinnedCopy(bytes: Uint8Array): Uint8Array {
   scenes[0]?.nodes.push(nodes.length - 1);
   return writeGlb(json, out);
 }
+
+type Box = readonly [readonly [number, number, number], readonly [number, number, number]];
+
+/**
+ * One mesh of axis-aligned boxes (each its own island: 8 shared corners, 12 outward triangles), named `name` — a
+ * synthetic part such as a hairdo of a top box and two side boxes (AR-R4-5).
+ */
+export function boxesGlb(name: string, boxes: readonly Box[]): Uint8Array {
+  const positions: number[] = [];
+  const indices: number[] = [];
+  // the 12 triangles of a box over its corners (bit 0 = x max, bit 1 = y max, bit 2 = z max), counter-clockwise outside
+  const tris = [
+    [0, 2, 1],
+    [1, 2, 3],
+    [4, 5, 6],
+    [5, 7, 6],
+    [0, 1, 4],
+    [1, 5, 4],
+    [2, 6, 3],
+    [3, 6, 7],
+    [0, 4, 2],
+    [2, 4, 6],
+    [1, 3, 5],
+    [3, 7, 5],
+  ];
+  for (const [lo, hi] of boxes) {
+    const base = positions.length / 3;
+    for (let c = 0; c < 8; c++) {
+      positions.push(c & 1 ? hi[0] : lo[0], c & 2 ? hi[1] : lo[1], c & 4 ? hi[2] : lo[2]);
+    }
+    for (const tri of tris) indices.push(...tri.map((i) => base + i));
+  }
+  const pos = new Float32Array(positions);
+  const idx = new Uint16Array(indices);
+  const start = pad4(pos.byteLength);
+  const bin = new Uint8Array(start + pad4(idx.byteLength));
+  bin.set(new Uint8Array(pos.buffer), 0);
+  bin.set(new Uint8Array(idx.buffer), start);
+  const lo = [0, 1, 2].map((k) => Math.min(...boxes.map((box) => box[0][k] as number)));
+  const hi = [0, 1, 2].map((k) => Math.max(...boxes.map((box) => box[1][k] as number)));
+  return writeGlb(
+    {
+      asset: { version: '2.0' },
+      scene: 0,
+      scenes: [{ nodes: [0] }],
+      nodes: [{ name, mesh: 0 }],
+      meshes: [{ name, primitives: [{ attributes: { POSITION: 0 }, indices: 1 }] } as never],
+      accessors: [
+        { bufferView: 0, componentType: 5126, count: pos.length / 3, type: 'VEC3', min: lo, max: hi },
+        { bufferView: 1, componentType: 5123, count: idx.length, type: 'SCALAR' },
+      ],
+      bufferViews: [
+        { buffer: 0, byteOffset: 0, byteLength: pos.byteLength },
+        { buffer: 0, byteOffset: start, byteLength: idx.byteLength },
+      ],
+      buffers: [{ byteLength: bin.length }],
+    },
+    bin,
+  );
+}
