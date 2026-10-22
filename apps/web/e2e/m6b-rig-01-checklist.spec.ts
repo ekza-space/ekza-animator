@@ -35,7 +35,20 @@ test('E2E-RIG-01 (MVP part): the checklist starts at ①, the empty state, Getti
   });
   // The empty state over the viewport, and the Getting started card with the owner flow (dismissible).
   await expect(page.getByTestId('rig-empty')).toContainText('Select a mesh to turn into a character');
+  // AR-D9-12: with no character the Getting started card is folded to its title, so it covers none of the empty
+  // state's actions; its title unfolds the owner flow
   const card = page.getByTestId('rig-getting-started');
+  await expect(card).toHaveAttribute('data-expanded', 'false');
+  const a = await page.getByTestId('rig-empty').boundingBox();
+  const b = await card.boundingBox();
+  expect(a).not.toBeNull();
+  expect(b).not.toBeNull();
+  if (a !== null && b !== null) {
+    const apart = a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y;
+    expect(apart, `empty state ${JSON.stringify(a)} and Getting started ${JSON.stringify(b)}`).toBe(true);
+  }
+  await expect(page.getByTestId('rig-empty-sample')).toBeVisible();
+  await page.getByTestId('rig-getting-started-toggle').click();
   await expect(card).toContainText('Quick Rig');
   await page.getByTestId('rig-getting-started-dismiss').click();
   await expect(card).toBeHidden();

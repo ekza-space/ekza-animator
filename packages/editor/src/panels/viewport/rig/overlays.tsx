@@ -16,7 +16,7 @@ import {
   type SessionState,
   type ViewportBadgeProvider,
 } from '@ekza-studio/editor-core';
-import { type ComponentType, type JSX, useRef, useSyncExternalStore } from 'react';
+import { type ComponentType, type JSX, useRef, useState, useSyncExternalStore } from 'react';
 import { useDocQuery, useRunOperator, useSession } from '../../../hooks';
 import { scopeChain } from '../../../input/keyboard';
 import { type PaneOverlayProps, type PaneOverlaySlot, paneOverlay, registerPaneOverlay } from '../../../overlays/slots';
@@ -211,6 +211,11 @@ function RigGettingStarted(props: PaneOverlayProps): JSX.Element | null {
     rigGettingStartedDismissed,
     rigGettingStartedDismissed,
   );
+  // While the empty state shows (no character yet) the card folds to its title: both sit at the pane's top and the
+  // card covered the empty state's actions (AR-D9-12); a click on the title unfolds it, a character unfolds it.
+  const empty = useDocQuery(noCharacter, ['characters']);
+  const [open, setOpen] = useState<boolean | null>(null);
+  const expanded = open ?? !empty;
   const card = useRef<HTMLDivElement>(null);
   useOwnPointer(card);
   if (host !== props.paneId || dismissed || quickRig) return null;
@@ -219,9 +224,18 @@ function RigGettingStarted(props: PaneOverlayProps): JSX.Element | null {
       ref={card}
       className="pointer-events-auto w-64 rounded-md border border-line bg-[color-mix(in_srgb,var(--bg-panel,#232428)_92%,transparent)] p-2 text-[11px] text-fg-2 shadow"
       data-testid="rig-getting-started"
+      data-expanded={expanded}
     >
-      <div className="mb-1 flex items-center justify-between">
-        <span className="font-semibold text-fg">Getting started</span>
+      <div className={`${expanded ? 'mb-1 ' : ''}flex items-center justify-between`}>
+        <button
+          type="button"
+          className="pointer-events-auto font-semibold text-fg hover:underline"
+          aria-expanded={expanded}
+          data-testid="rig-getting-started-toggle"
+          onClick={() => setOpen(!expanded)}
+        >
+          Getting started {expanded ? '▾' : '▸'}
+        </button>
         <button
           type="button"
           className="pointer-events-auto px-1 text-fg-3 hover:text-fg"
@@ -232,11 +246,13 @@ function RigGettingStarted(props: PaneOverlayProps): JSX.Element | null {
           ✕
         </button>
       </div>
-      <ol className="list-decimal space-y-0.5 pl-4">
-        {gettingStartedSteps(props.app, props.paneId).map((step) => (
-          <li key={step}>{step}</li>
-        ))}
-      </ol>
+      {expanded ? (
+        <ol className="list-decimal space-y-0.5 pl-4">
+          {gettingStartedSteps(props.app, props.paneId).map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+      ) : null}
     </div>
   );
 }

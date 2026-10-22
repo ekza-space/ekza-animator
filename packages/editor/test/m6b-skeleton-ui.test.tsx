@@ -277,6 +277,31 @@ describe('the empty state and Getting started give way to a running Quick Rig (a
   });
 });
 
+describe('Getting started folds while the empty state shows (AR-D9-12)', () => {
+  it('no character: the card shows its title only, the empty state its actions; the title unfolds the steps', async () => {
+    setRigGettingStartedDismissed(false);
+    const test = await shell(null);
+    const host = 'pane-persp';
+    await mountPlain(
+      <ShellFrame shell={test.shell}>
+        <RigEmptyState app={test.app} paneId={host} state={null} />
+        <RigCards app={test.app} paneId={host} state={null} />
+      </ShellFrame>,
+    );
+    test.app.session.setState({ viewportLayout: 'rig-markers' });
+    await act(async () => {});
+    expect(document.querySelector('[data-testid="rig-empty"]')).not.toBeNull();
+    const card = by('rig-getting-started');
+    expect(card.getAttribute('data-expanded')).toBe('false');
+    expect(card.querySelector('ol')).toBeNull();
+    await act(async () => {
+      by('rig-getting-started-toggle').click();
+    });
+    expect(by('rig-getting-started').getAttribute('data-expanded')).toBe('true');
+    expect(by('rig-getting-started').textContent).toMatch(/Quick Rig/);
+  });
+});
+
 describe('FK FOR TEST and the test API (§5.17, §0.5)', () => {
   it('the badge shows while the test pose holds an IK limb in FK', async () => {
     const test = await shell(null);
