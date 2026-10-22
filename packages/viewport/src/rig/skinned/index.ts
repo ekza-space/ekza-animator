@@ -120,11 +120,14 @@ export class SkinnedCharacterDisplay {
     const kernel = meshKernel();
     const wanted = character === null || runtime === undefined || kernel === null ? [] : this.boundMeshes(character);
     const keep = new Set(wanted.map((mesh) => mesh.id));
+    // INT (§5.25 idle gate): a frame only when something drawn changed — not on every session or store event.
+    let changed = false;
     for (const [id, entry] of this.entries) {
       if (keep.has(id)) continue;
       entry.dispose();
       entry.surface.dispose();
       this.entries.delete(id);
+      changed = true;
     }
     this.character = wanted.length === 0 ? null : character;
     if (runtime !== undefined && kernel !== null) {
@@ -176,11 +179,12 @@ export class SkinnedCharacterDisplay {
         entry.record = record;
         entry.skeleton = runtime.skeleton;
         entry.pose = -1;
+        changed = true;
       }
     }
-    this.applyHides();
+    if (this.applyHides()) changed = true;
     this.update();
-    this.target.invalidate();
+    if (changed) this.target.invalidate();
   }
 
   /** Sets the bones of every surface whose character pose changed (once per pose version). */
@@ -216,10 +220,14 @@ export class SkinnedCharacterDisplay {
   }
 
   /** Hides the ModelLoader display's skinned meshes of the shown character (restores the previous ones). */
-  private applyHides(): void {
+  /** Hides the character's own skinned meshes under the surfaces; true when the hidden set changed. */
+  private applyHides(): boolean {
+    const before = this.hidden;
     for (const object of this.hidden) object.visible = true;
     this.hidden = [];
-    if (this.character === null || this.entries.size === 0) return;
+    const same = (): boolean =>
+      before.length === this.hidden.length && before.every((object, i) => object === this.hidden[i]);
+    if (this.character === null || this.entries.size === 0) return !same();
     const handle = this.app.characters.get(this.character)?.display?.handle as
       | { readonly skinnedMeshes?: readonly { visible: boolean }[] }
       | undefined;
@@ -228,6 +236,7 @@ export class SkinnedCharacterDisplay {
       object.visible = false;
       this.hidden.push(object);
     }
+    return !same();
   }
 
   dispose(): void {
