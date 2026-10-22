@@ -1322,8 +1322,11 @@ export class ViewportManager {
       .map((id) => this.sync.model(id)?.root)
       .filter((root): root is NonNullable<typeof root> => root !== undefined);
     const worlds: Float32Array[] = [];
-    for (const entry of this.controls.entries()) if (entry.visible) worlds.push(entry.world);
+    // Rig & Skin frames the character (meshes and joints) for joint fitting: IK pole targets sit far in front of the
+    // knees and would shrink the side view to a third (M6b acceptance). Controls count when nothing else is there.
     for (const set of this.skeleton.jointSets()) worlds.push(set.positions);
+    const characterOnly = this.tightOrthoFrame() && (models.length > 0 || worlds.length > 0);
+    if (!characterOnly) for (const entry of this.controls.entries()) if (entry.visible) worlds.push(entry.world);
     return (
       unionBounds(measureSpatialBounds(models), pointBounds(worlds)) ?? {
         minX: -0.4,
