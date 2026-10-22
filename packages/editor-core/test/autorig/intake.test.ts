@@ -18,6 +18,7 @@ import {
   sniffFile,
   tooHeavyMessage,
   UNSUPPORTED_FILE,
+  DAMAGED_FILE,
   weightOf,
 } from '../../src/operators/builtin/rig/wizard/intake';
 import { rigGeometry } from '../../src/operators/builtin/rig/skeleton';
@@ -75,7 +76,9 @@ describe('sniffing and tiers (§5.2, §6.2)', () => {
     expect(sniffFile('walk.vrma', fixture('cube-lad.glb'))).toBe('vrma');
     expect(sniffFile('scene.ekzanim', new Uint8Array([1, 2, 3]))).toBe('project');
     expect(sniffFile('model.fbx', new TextEncoder().encode('Kaydara FBX Binary'))).toBe('unsupported');
-    expect(sniffFile('model.glb', new Uint8Array(10))).toBe('unsupported');
+    expect(sniffFile('model.glb', new Uint8Array(10))).toBe('damaged');
+    expect(sniffFile('avatar.vrm', new Uint8Array(10))).toBe('damaged');
+    expect(sniffFile('model.bin', new Uint8Array(10))).toBe('unsupported');
     expect(sniffFile('clip.glb', glbWith({ extensionsUsed: ['VRMC_vrm_animation'] }))).toBe('vrma');
   });
 
@@ -113,6 +116,11 @@ describe('autorig.intake (§5.2)', () => {
     expect(report.meshes).toHaveLength(1);
     expect(app.store.get('meshes', report.meshes[0] as MeshId)?.owner).toEqual({ scene: true });
     expect(undoLabels(app)).toEqual(['Import Static Model']);
+    // AR-D8-10: the untitled project takes the file's name (autosave and Recovery show it); a second import keeps it
+    expect(app.store.get('project', 'project')?.name).toBe('cube-lad');
+    expect(app.session.getState().projectName).toBe('cube-lad');
+    await run<IntakeReport>(app, 'autorig.intake', { bytes, name: 'other.glb' });
+    expect(app.store.get('project', 'project')?.name).toBe('cube-lad');
   });
 
   it('reports the A-posed Polybot as an A-pose within 5° of its truth, textured', async () => {
@@ -177,6 +185,11 @@ describe('autorig.intake (§5.2)', () => {
     expect(await refused(new TextEncoder().encode('Kaydara FBX Binary  '), 'model.fbx')).toMatchObject({
       status: 'failed',
       error: { message: UNSUPPORTED_FILE },
+    });
+    // AR-D8-10: a .glb whose bytes are no GLB is damaged, not an unsupported format
+    expect(await refused(new Uint8Array([7, 1, 3, 9, 4, 4, 4, 4, 0, 0, 0, 0]), 'corrupt.glb')).toMatchObject({
+      status: 'failed',
+      error: { message: DAMAGED_FILE },
     });
     expect(await refused(heavyGlb(250_000), 'heavy.glb')).toMatchObject({
       status: 'failed',

@@ -229,6 +229,11 @@ test('an animation or an unsupported file is refused on ① with its hint, nothi
   await expect(page.getByTestId('ar-status')).toHaveText(
     'Auto-Rig reads GLB and VRM. In Blender: File › Export › glTF 2.0 (.glb).',
   );
+  // AR-D8-10: a .glb whose bytes are no GLB is called damaged, not an unsupported format
+  await chooseFile(page, 'corrupt.glb', Buffer.from([7, 1, 3, 9, 4, 4, 4, 4, 0, 0, 0, 0, 5, 5]));
+  await expect(page.getByTestId('ar-status')).toHaveText(
+    'This file could not be read: it may be damaged or incomplete. Export it again as glTF 2.0 (.glb) or VRM.',
+  );
   expect(await history(page)).toEqual({ undo: [], redo: [] });
   await expect(page.getByTestId('ar-drop-zone')).toBeVisible();
 });

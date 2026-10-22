@@ -52,6 +52,8 @@ import { attachMeshes, loadMeshKernel, type MeshKernel } from '../../../mesh';
 import { runSeed } from '../../../mesh/seed';
 import type { ApplyContext, EditorApp, OperatorContext, PollResult, SceneObjectId } from '../../../types';
 import { loadWritePath } from '../../../workflows/export';
+import { baseName } from '../../../workflows/names';
+import { projectRecord } from '../../../workflows/records';
 import { type AnyOperator, defineOperator, fail, isRecord, OK, optionalArgs } from '../define';
 import { uniqueMeshName } from '../../../mesh/records';
 
@@ -543,9 +545,21 @@ const importStatic = defineOperator<'mesh.importStatic', ImportPlan>({
     return isRecord(raw) && raw['bytes'] instanceof Uint8Array ? OK : fail('expects { bytes, name }');
   },
   prepare: prepareImport,
-  apply(ctx, _args, plan) {
+  apply(ctx, args, plan) {
     const { app, tx } = ctx;
     if (tx === null) throw new EkzaError('unsupported', 'mesh.importStatic needs a transaction');
+    // The first import names an untitled project after its file, as a model import does (autosave and Recovery show
+    // that name; AR-D8-10).
+    const project = tx.get('project', 'project');
+    const fileName = typeof args.name === 'string' ? args.name.trim() : '';
+    if (fileName !== '' && project === undefined) tx.put('project', projectRecord(baseName(fileName)));
+    else if (fileName !== '' && project?.name === 'Untitled') {
+      tx.patch('project', 'project', { name: baseName(fileName) });
+    }
+    const projectName = tx.get('project', 'project')?.name;
+    if (projectName !== undefined && projectName !== app.session.getState().projectName) {
+      app.session.setState({ projectName });
+    }
     const meshes = attachMeshes(app);
     if (meshes === null) throw new EkzaError('mesh-loading', 'Mesh tools are loading');
     if (tx.get('assets', plan.asset.id) === undefined) tx.put('assets', plan.asset);

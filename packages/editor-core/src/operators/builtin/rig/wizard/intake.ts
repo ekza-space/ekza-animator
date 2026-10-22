@@ -33,6 +33,9 @@ import { type RigGeometry, rigGeometry } from '../skeleton';
 
 export const ANIMATION_FILE = 'This is an animation. Rig a model first, then add it in step 4.';
 export const UNSUPPORTED_FILE = 'Auto-Rig reads GLB and VRM. In Blender: File › Export › glTF 2.0 (.glb).';
+/** A `.glb` / `.vrm` whose bytes are no GLB (AR-D8-10): damaged, cut short, or another format renamed. */
+export const DAMAGED_FILE =
+  'This file could not be read: it may be damaged or incomplete. Export it again as glTF 2.0 (.glb) or VRM.';
 /** §6.2 too-heavy: the hard limit is io's (`MAKE_EDITABLE_MAX_TRIANGLES`); Auto-Rig says it before importing. */
 export const MAX_TRIANGLES = 200_000;
 export const tooHeavyMessage = (triangles: number): string =>
@@ -99,7 +102,7 @@ interface GltfLike {
   readonly animations?: readonly unknown[];
 }
 
-export type SniffedKind = 'static' | 'skinned' | 'vrm' | 'vrma' | 'project' | 'unsupported';
+export type SniffedKind = 'static' | 'skinned' | 'vrm' | 'vrma' | 'project' | 'damaged' | 'unsupported';
 
 const GLB_MAGIC = 0x46546c67;
 const JSON_CHUNK = 0x4e4f534a;
@@ -127,7 +130,10 @@ export function sniffFile(name: string, bytes: Uint8Array): SniffedKind {
   const lower = name.toLowerCase();
   if (lower.endsWith('.ekzanim') || lower.endsWith('.ekzanim.json')) return 'project';
   const json = glbJson(bytes);
-  if (json === null) return lower.endsWith('.vrma') ? 'vrma' : 'unsupported';
+  if (json === null) {
+    if (lower.endsWith('.vrma')) return 'vrma';
+    return /\.(glb|vrm)$/.test(lower) ? 'damaged' : 'unsupported';
+  }
   if (hasExtension(json, 'VRMC_vrm_animation') || lower.endsWith('.vrma')) return 'vrma';
   if (hasExtension(json, 'VRMC_vrm') || hasExtension(json, 'VRM')) return 'vrm';
   const skinned = (json.skins ?? []).length > 0 || (json.nodes ?? []).some((node) => node.skin !== undefined);
@@ -315,6 +321,7 @@ export async function intakeFile(ctx: Parameters<typeof forward>[0], args: Intak
   const kind = sniffFile(name, bytes);
   if (kind === 'vrma') throw new EkzaError('autorig.animation', ANIMATION_FILE);
   if (kind === 'unsupported') throw new EkzaError('unsupported', UNSUPPORTED_FILE);
+  if (kind === 'damaged') throw new EkzaError('unsupported', DAMAGED_FILE);
   if (kind === 'project') {
     await forward(ctx, 'file.openProject', { name, bytes });
     const meshes = app.store.list('meshes').filter((mesh) => 'scene' in mesh.owner);
