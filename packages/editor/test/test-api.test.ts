@@ -47,6 +47,8 @@ describe('URL parameters (e2e builds only)', () => {
       storageBlocked: false,
       pointerLock: true,
       ws: null, // M6a (literal update, M6A-SPEC §4.8)
+      handoff: null, // AUTORIG-SPEC D1 (literal update, §4.4)
+      from: null,
     });
     expect(parseEditorParams('?e2e=1&nav=blender&platform=amiga', true)).toEqual({ ...DEFAULT_PARAMS, e2e: true });
     expect(parseEditorParams('?e2e=1&firstRun=1', false)).toEqual(DEFAULT_PARAMS);

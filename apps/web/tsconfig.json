@@ -7,5 +7,9 @@
     "plugins": [{ "name": "next" }]
   },
   "include": ["env.d.ts", "app/**/*"],
-  "references": [{ "path": "../../packages/editor/src" }, { "path": "../../packages/ui/src" }]
+  "references": [
+    { "path": "../../packages/editor/src" },
+    { "path": "../../packages/ui/src" },
+    { "path": "../../packages/autorig/src" }
+  ]
 }
