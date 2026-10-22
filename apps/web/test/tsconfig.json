@@ -5,5 +5,5 @@
     "rootDir": "..",
     "outDir": "../.tsbuild/test"
   },
-  "include": ["./**/*", "../scripts/**/*.d.mts"]
+  "include": ["./**/*", "../scripts/**/*.d.mts", "../app/entry.ts"]
 }

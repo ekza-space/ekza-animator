@@ -1,7 +1,20 @@
 // Menu items contributed by the shell for its own operators (dialogs, panels, workspace, help). Built-in editing
 // commands come from WP-7b's BUILTIN_MENU_ITEMS; items with the same operator and arguments are shown once.
+// Auto-Rig (AUTORIG-SPEC §3.4, D2): File › Auto-Rig This Model… and Help › Switch to Auto-Rig run `shell.autoRig`, a
+// small eager operator of the Studio shell that calls the host's navigation port directly (no chunk loads before the
+// push; `autorig.navigate` is the rig chunk's palette/script wrapper of the same port).
 import type { Disposer } from '@ekza-studio/anim-core';
-import type { EditorApp, MenuItemDef, PanelKind, ViewportLayout, WorkspaceId } from '@ekza-studio/editor-core';
+import {
+  type AutoRigSubject,
+  type EditorApp,
+  hostNavigation,
+  type MenuItemDef,
+  type OperatorDef,
+  objectsDrawnIn,
+  type PanelKind,
+  type ViewportLayout,
+  type WorkspaceId,
+} from '@ekza-studio/editor-core';
 import { ANIMATE_SLOTS, type ChromePart, MODEL_SLOTS } from './layout';
 import { BUILTIN_PRESETS, type LayoutPresetStore } from './presets';
 import { RIG_LAYOUTS } from './rig/layouts';
@@ -27,6 +40,60 @@ const MODEL_LAYOUTS: readonly { readonly layout: ViewportLayout; readonly label:
   { layout: 'quad', label: 'Four View' },
   { layout: 'split', label: 'Front | Persp (Side)' },
 ];
+
+/**
+ * What Auto-Rig works on when Studio switches to it (§3.4): the selection — selected scene meshes, else the active
+ * character when something of it is selected — else every visible scene mesh, else the only character; else null
+ * (Auto-Rig starts at its Model step).
+ */
+export function autoRigSubject(app: EditorApp): AutoRigSubject | null {
+  const { selection, activeCharacter } = app.session.getState();
+  const scene = app.store
+    .list('meshes')
+    .filter((mesh) => 'scene' in mesh.owner)
+    .map((mesh) => mesh.id);
+  const picked = scene.filter((id) => selection.objects.includes(id));
+  if (picked.length > 0) return { character: null, meshes: picked };
+  const characters = app.store.list('characters').map((character) => character.id);
+  const { controls, joints, objects } = selection;
+  if (
+    activeCharacter !== null &&
+    characters.includes(activeCharacter) &&
+    controls.length + joints.length + objects.length > 0
+  ) {
+    return { character: activeCharacter, meshes: [] };
+  }
+  const drawn = objectsDrawnIn(app, '');
+  const visible = scene.filter((id) => drawn.includes(id));
+  if (visible.length > 0) return { character: null, meshes: visible };
+  return characters.length === 1 ? { character: characters[0] ?? null, meshes: [] } : null;
+}
+
+/**
+ * `shell.autoRig {subject?}`: switches to Auto-Rig on the same page, the document kept. With `subject: true` (File ›
+ * Auto-Rig This Model…) it needs meshes or a character and hands `autoRigSubject` over; without (Help › Switch to
+ * Auto-Rig) it hands nothing over. Not undoable; hidden from the palette (`autorig.navigate` is listed there).
+ */
+export function autoRigOperator(app: EditorApp): OperatorDef<{ readonly subject?: boolean } | undefined> {
+  return {
+    id: 'shell.autoRig',
+    label: 'Switch to Auto-Rig',
+    category: 'autorig',
+    scope: 'global',
+    flags: { internal: true },
+    poll(_ctx, args) {
+      if (hostNavigation(app) === null) return { ok: false, reason: 'No navigation in this host' };
+      return args?.subject === true && app.store.list('meshes').length + app.store.list('characters').length === 0
+        ? { ok: false, reason: 'Load a model to auto-rig' }
+        : true;
+    },
+    async prepare(_ctx, args) {
+      const subject = args?.subject === true ? autoRigSubject(app) : null;
+      await hostNavigation(app)?.go({ to: 'autorig', from: 'studio', ...(subject === null ? {} : { subject }) });
+    },
+    apply() {},
+  };
+}
 
 export function shellMenuItems(
   extraPanels: readonly { readonly kind: PanelKind; readonly title: string }[],
@@ -60,6 +127,15 @@ export function shellMenuItems(
       group: 'recovery',
       order: 70,
       label: 'Recover…',
+    },
+    {
+      id: 'shell.file.autoRig',
+      menu: 'file',
+      op: 'shell.autoRig',
+      args: { subject: true },
+      group: 'autorig',
+      order: 80,
+      label: 'Auto-Rig This Model…',
     },
     {
       id: 'shell.file.export',
@@ -96,6 +172,14 @@ export function shellMenuItems(
       group: 'help',
       order: 20,
       label: 'Getting Started',
+    },
+    {
+      id: 'shell.help.autoRig',
+      menu: 'help',
+      op: 'shell.autoRig',
+      group: 'help',
+      order: 30,
+      label: 'Switch to Auto-Rig',
     },
     {
       id: 'shell.help.about',
@@ -311,7 +395,7 @@ export function registerShellMenuItems(
   extraPanels: readonly { readonly kind: PanelKind; readonly title: string }[],
   state?: ShellMenuState,
 ): Disposer {
-  const disposers: Disposer[] = [];
+  const disposers: Disposer[] = [app.contribute({ kind: 'operator', def: autoRigOperator(app) })];
   for (const def of shellMenuItems(extraPanels, state)) {
     if (app.menus.get(def.id) !== undefined) continue;
     disposers.push(app.contribute({ kind: 'menu', def }));
