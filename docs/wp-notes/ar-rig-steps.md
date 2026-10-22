@@ -111,4 +111,18 @@ unnecessary once ② and ③ export a step module — the linter's error), and t
 
 ## Gates
 
-See the end of this file (filled in after the final run).
+Local, on `autorig/rig-steps`, `EKZA_E2E_PORT=3165`, local Chrome (machine load average 90–330 from other agents during
+the run):
+
+- `pnpm run ci`: format:check, lint, typecheck, check:deps, check:fixtures, check:licenses green; `pnpm run test`: 15 of
+  16 packages green (autorig 61, editor-core 1,524, viewport 274, headless 203, …); `@ekza-studio/editor` failed one
+  test, `input.test.ts` "a focused dropdown keeps type-ahead only while hovered…" (a KeyboardAdapter timing case D4 does
+  not touch), green alone (24/24) and in the package's full rerun (573 passed, 1 skipped).
+- The remaining stages run once more after that: `clean:next`, production build, `check:size` (`/editor` 896,386 B,
+  AR-B1 eager delta +698 B ≤ 2,048 B, enforced, pass; `/autorig` 671,404 B, reported) and the full e2e suite: **293
+  passed, 24 skipped (the stretch `fixme`s), 2 failed** — E2E-07 (`07-wave-block-cycle`, a playback frame-wrap poll
+  under load, untouched by D4) and `ar-05-rig-tpose` (the stage recorder stopped before the preview badge appeared
+  under load: a test-helper race, fixed — the recorder keeps watching). Rerun after the fix: every Auto-Rig spec
+  (`ar-00`, `ar-01-*`, `ar-03-*`, `ar-04-*`, `ar-05-*`, `ar-12`, `ar-a0`) and E2E-07: **42 passed, 0 failed**.
+- D4's own specs while iterating: `ar-05-rig-cancel` `--repeat-each=3` 3/3; C6's and C3's panel specs (`m6b-skin-02`,
+  `m6b-rig-04`, `m6b-rig-01`, `m6b-skin-10`, `m6b-mvp-01`, `m6b-qr-01`, `m6b-qr-02`) green.
