@@ -137,3 +137,22 @@ the seed's deferred display rebuild (scenario fixed, `65725da`). Repeated runs u
 `m6b/integration` was fast-forwarded into `m6b/mvp` and `m6b/mvp` merged into `dev` (`daec252`, `--no-ff`); the
 merged tree is byte-identical to the `m6b/integration` tree the final gate passed on (`dev` was merged into the
 integration branch first). Not pushed, not tagged (the release tag is the owner's call).
+
+## Package review findings closed on `dev` (M6B-INT-19…25)
+
+The package reviews left findings that the merge itself did not close; INT closed them on `dev` after the merge.
+
+| # | Finding (package) | Decision | Where |
+|---|---|---|---|
+| M6B-INT-19 | C7 edited files outside its Dirs, three of them closed by §9.1 (`editor-core/src/types.ts` `ViewportLayout`, the e2e helper pane constants, the foundation spec) | **Approved by INT**: the closed-file edits are additive and are accepted as contract changes (spec §0.11 I-7); every shared or M6a row is approved as listed; `hide.ts` and `modelManifest.ts` confirmed per §6.3 | [`m6b-rig-shell.md`](m6b-rig-shell.md) table |
+| M6B-INT-20 | P-S7 "exact ≥ 85 %" unreachable (C4: measured 74.3 % T-pose, 74.2 % A-pose, within one joint 98.2 %; one-joint-per-island rules top out at 91.6 %, rigid nearest-centroid 79.5 %) | **INT accepts C4's contract PR**: P-S7 = within one joint ≥ 98 % and exact ≥ 70 % (spec §0.11 I-6, §5.26 row amended); an owner review item ([DECISIONS-OPEN §L](../DECISIONS-OPEN.md#l-m6b-mvp-deviations-2026-10-22)) | `mesh-core/test/m6b-bind/quality.test.ts` (unchanged, now matches the spec) |
+| M6B-INT-21 | Static (unbound) character meshes under a root joint with a non-identity rest were offset by that rest in the display container and exports (C1, major) | **Fixed**: the static mesh node carries the inverse of the root's rest (TRS); an identity root writes the same bytes as before | `io/src/character/index.ts`; test "places a static mesh in character space under a displaced and rotated root" (`io/test/m6b/character-runtime/from-doc.test.ts`, fails without the fix) |
+| M6B-INT-22 | Joint and constraint selection undo in Rig & Skin (C3/C7: `SelectionSnapshot` has no joints field, a closed contract) | **MVP deferral**: control and object selections record undo parts (M6B-C7-23); joint and constraint parts wait for the `SelectionSnapshot` contract change after the MVP (TODO) | — |
+| M6B-INT-23 | C4: occluders are only the bound mesh's own triangles (M6B-C4-3); full Bind/Rebind replace held weights (M6B-C4-10) | **Accepted as MVP deviations** (Maya-like; masked runs keep holds); owner may override (DECISIONS-OPEN §L) | — |
+| M6B-INT-24 | C3's eager share: the review measured **+800 B** on the base `1dafd81` (893,293 → 894,093 B), not the ≈ 508 B in C3's notes | **Approved by INT** within I-4; the measured MVP total after M6B-INT-3 is +5,940 B ≤ +6,144 B, which is the gate. Recorded in [`m6b-skeleton-ui.md`](m6b-skeleton-ui.md) | `check:size` |
+| M6B-INT-25 | C2: skip the rebind confirm on a no-op Quick Rig re-run of a bound character (M6B-C2-31) | **Kept as the spec says** (commit always confirms when a mesh is bound; E2E-QR-02 relies on it) | — |
+
+Already closed before this pass and verified on `dev`: C7's keying in Rig & Skin (M6B-C7-22, `rigKeyingRefusal` in the
+runner and `operators.poll`), control selection undo (M6B-C7-23), the Skin-mode skinned display mount (C1 → C6/C3,
+`viewport/src/rig/skinned`), and C6's `skin.cross-side` row (`editor-core/src/rig/validation/rows.ts` passes the skin
+geometry).

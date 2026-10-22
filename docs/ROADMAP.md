@@ -119,7 +119,7 @@ Branches `m6b/<slug>` from and back into the integration branch **`m6b/mvp`** (f
 | C10 | `character-writer` | VRM 1.0 writer (meta, thumbnail, shaders, clips), `vrm.*` = OMOBA runtime lints, plain GLB local only, export dialog | 5 | C1 | **Done** (merged by INT, 2026-10-22) |
 | C3 | `skeleton-ui` | Quick Rig panel and markers (front x/y, side z/y), live preview, joint display and edits, Orient/Mirror boxes | 5 | C2, C7 | **Done** (merged by INT, 2026-10-22) |
 | C6 | `skin-ui` | weights kernel (C5 subset) + Paint Skin Weights, display, Paint Weights panel, Toolkit Skin section | 6 | C1, C4, C7 | **Done** (merged by INT, 2026-10-22) |
-| INT | `integration` | AS-MVP-1 scripted (E2E-MVP-01) + owner run, OMOBA validator on the export, E2E-RIG-10, budgets, docs; fix round (≈ 3) | 3 | all | **Done** ([notes](wp-notes/m6b-integration.md), M6B-INT-1…); the owner run of AS-MVP-1 is open |
+| INT | `integration` | AS-MVP-1 scripted (E2E-MVP-01) + owner run, OMOBA validator on the export, E2E-RIG-10, budgets, docs; fix round (≈ 3) | 3 | all | **Done** ([notes](wp-notes/m6b-integration.md), M6B-INT-1…25; package review findings closed on `dev`); the owner run of AS-MVP-1 is open |
 
 ### M6b work-package status
 

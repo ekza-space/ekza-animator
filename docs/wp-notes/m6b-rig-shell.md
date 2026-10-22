@@ -72,36 +72,37 @@ display in Skin mode: C6), IK → FK for `E` on joints (C3), Skeleton/Skin help-
 selection parts (C3 with the `SelectionSnapshot` contract PR, M6B-C7-23). The view-only banner and the per-mode dock
 tab memory, listed here in round 1, are implemented in round 2 (M6B-C7-25, M6B-C7-12).
 
-## Edits outside C7's Dirs — INT approval requested (§9.0, §9.1)
+## Edits outside C7's Dirs — approved by INT (§9.0, §9.1)
 
-C7 touched the files below beyond its Dirs. None has a recorded INT approval yet: **INT, please approve (or route)
-each row when merging `m6b/rig-shell`**, and record the decision here. Rows marked *closed* are files §9.1 closes
+C7 touched the files below beyond its Dirs. **INT decision (2026-10-22, M6B-INT-19): every row approved.** The
+closed-file edits are additive and accepted as contract changes (M6B-SPEC §0.11 I-7); `hide.ts`/`modelManifest.ts`
+confirmed per §6.3. Rows marked *closed* are files §9.1 closes
 after C0 (they need a contract PR); the others are unlisted shared or M6a files (§9.0: INT's approval).
 
 | File | Change | Why | Status |
 |---|---|---|---|
-| `editor-core/src/types.ts` (*closed*) | `ViewportLayout` + `'rig-side' \| 'rig-markers'` (additive) | the R-Side/R-Markers pane ids §10 names (M6B-C7-1) | contract PR requested |
-| `apps/web/e2e/helpers/m6b-rig.ts` (*closed*) | `RIG_FRONT_PANE = 'pane-front'`, `RIG_PERSP_PANE = 'pane-persp'`, + `RIG_SIDE_PANE` | C0's constants named Animate's split panes (M6B-C7-1) | contract PR requested |
-| `apps/web/e2e/m6b-00-foundation.spec.ts` (*closed*) | the menubar check now expects Skeleton and Skin (C0's comment said C7 extends it) | C7's menus exist | contract PR requested |
-| `editor-core/src/edit/channels.ts`, `operators/builtin/key.ts` | one redirect line each (`redirectedChannelEdit`); round 2 adds nothing to `key.ts` (keying is refused in the runner, M6B-C7-22) | test poses through the shipped edit paths (M6B-C7-4) | pending |
-| `editor-core/src/evaluation/service.ts` | two reads of `rigValues` (Channel Box / manipulators show the pose on screen) | M6B-C7-4 | pending |
-| `editor-core/src/operators/builtin/workspace.ts` | `workspace.set` prepare loads the rig chunk; the M6b display flags | §2.1, M6B-C7-14 | pending |
-| `editor-core/src/workspaces/switch.ts` | `rig` default view (R-Side); entering Rig & Skin starts the chunk load | §8.2, M6B-C7-15 | pending |
-| `editor-core/src/operators/builtin/index.ts` | one line: contribute `RIG_SHADOW_KEYMAP` with the preset | M6B-C7-15 | pending |
-| `editor-core/src/operators/builtin/hide.ts`, `modelManifest.ts` (generated) | the Rig variants | §6.3 names C7 for this change (M6B-C7-16) | owner per §6.3; INT to confirm |
-| `editor-core/src/index.ts` | barrel lines for C7's exports | — | pending |
-| `editor/src/input/keyboard.ts` | CR-4 call site (`def.keyModes`) | CR-4 (C7's by §0.4.1) | pending |
-| `editor/src/shell/{createShell.ts,StatusLine.tsx,menuItems.ts,presets.ts}` | the rig shell hook; the Rig layout list in the status line and Windows › Layout; the preset validator accepts the two layouts | M6B-C7-1, M6B-C7-5 | pending |
-| `editor/src/panels/viewport/ViewportPanel.tsx`, `viewport/src/panes/layout.ts`, `viewport/src/manager/workspaceViews.ts` | the two pane grids and `RIG_DISPLAY` | §8.2 (M6B-C7-1) | pending |
-| `ui/src/icons/custom.tsx` | the two layout icons | — | pending |
-| tests: `editor-core/test/builtin/registration.test.ts`, `m6b/foundation.test.ts`, `m6b/keys-hash.test.ts`, `editor/test/test-api.test.ts`, `apps/web/test/m6a-size.test.ts`, `apps/web/e2e/m6a-shell.spec.ts`, the four `test/m6b-ready.ts` | literal updates, assertions kept (§3 rule 9; M6B-C7-13) and the READY flag | — | pending |
-| `editor-core/src/operators/{runner.ts,registry.ts}` (round 2) | one `rigRunRefusal` check each, before the operator's poll | keying refused from every surface, view-only below 1024 px (M6B-C7-22, -25) | pending |
-| `editor-core/src/operators/builtin/select.ts` (round 2) | `selectControlsGesture`: the control selection operators record a selection part in Rig & Skin | M6B-C7-23 | pending |
-| `editor-core/src/operators/builtin/selectMesh.ts`, `modelManifest.ts` (generated) (round 2) | `select.objects` in Rig & Skin Object mode; reason texts | M6B-C7-24 | pending |
-| `viewport/src/tools/selectTool.ts` (round 2) | `rigObjectClick`: mesh pick in Rig & Skin Object mode | M6B-C7-24 | pending |
-| `editor/src/overlays/CommandPalette/controller.ts` (round 2) | keying entries left out in Rig & Skin (two lines) | M6B-C7-22 | pending |
-| `editor/src/shell/createShell.ts` (round 2) | the rig shell hook also gets `dockview` | M6B-C7-12 | pending |
-| `apps/web/scripts/{check-size.d.mts,size-baseline.json}` | the MVP gate (`enforce: true`, per-package allowances) | §9.1 gives C7 the gate through the B9 owner's review | pending |
+| `editor-core/src/types.ts` (*closed*) | `ViewportLayout` + `'rig-side' \| 'rig-markers'` (additive) | the R-Side/R-Markers pane ids §10 names (M6B-C7-1) | approved (INT; contract change §0.11 I-7) |
+| `apps/web/e2e/helpers/m6b-rig.ts` (*closed*) | `RIG_FRONT_PANE = 'pane-front'`, `RIG_PERSP_PANE = 'pane-persp'`, + `RIG_SIDE_PANE` | C0's constants named Animate's split panes (M6B-C7-1) | approved (INT; contract change §0.11 I-7) |
+| `apps/web/e2e/m6b-00-foundation.spec.ts` (*closed*) | the menubar check now expects Skeleton and Skin (C0's comment said C7 extends it) | C7's menus exist | approved (INT; contract change §0.11 I-7) |
+| `editor-core/src/edit/channels.ts`, `operators/builtin/key.ts` | one redirect line each (`redirectedChannelEdit`); round 2 adds nothing to `key.ts` (keying is refused in the runner, M6B-C7-22) | test poses through the shipped edit paths (M6B-C7-4) | approved (INT) |
+| `editor-core/src/evaluation/service.ts` | two reads of `rigValues` (Channel Box / manipulators show the pose on screen) | M6B-C7-4 | approved (INT) |
+| `editor-core/src/operators/builtin/workspace.ts` | `workspace.set` prepare loads the rig chunk; the M6b display flags | §2.1, M6B-C7-14 | approved (INT) |
+| `editor-core/src/workspaces/switch.ts` | `rig` default view (R-Side); entering Rig & Skin starts the chunk load | §8.2, M6B-C7-15 | approved (INT) |
+| `editor-core/src/operators/builtin/index.ts` | one line: contribute `RIG_SHADOW_KEYMAP` with the preset | M6B-C7-15 | approved (INT) |
+| `editor-core/src/operators/builtin/hide.ts`, `modelManifest.ts` (generated) | the Rig variants | §6.3 names C7 for this change (M6B-C7-16) | confirmed (INT, §6.3) |
+| `editor-core/src/index.ts` | barrel lines for C7's exports | — | approved (INT) |
+| `editor/src/input/keyboard.ts` | CR-4 call site (`def.keyModes`) | CR-4 (C7's by §0.4.1) | approved (INT) |
+| `editor/src/shell/{createShell.ts,StatusLine.tsx,menuItems.ts,presets.ts}` | the rig shell hook; the Rig layout list in the status line and Windows › Layout; the preset validator accepts the two layouts | M6B-C7-1, M6B-C7-5 | approved (INT) |
+| `editor/src/panels/viewport/ViewportPanel.tsx`, `viewport/src/panes/layout.ts`, `viewport/src/manager/workspaceViews.ts` | the two pane grids and `RIG_DISPLAY` | §8.2 (M6B-C7-1) | approved (INT) |
+| `ui/src/icons/custom.tsx` | the two layout icons | — | approved (INT) |
+| tests: `editor-core/test/builtin/registration.test.ts`, `m6b/foundation.test.ts`, `m6b/keys-hash.test.ts`, `editor/test/test-api.test.ts`, `apps/web/test/m6a-size.test.ts`, `apps/web/e2e/m6a-shell.spec.ts`, the four `test/m6b-ready.ts` | literal updates, assertions kept (§3 rule 9; M6B-C7-13) and the READY flag | — | approved (INT) |
+| `editor-core/src/operators/{runner.ts,registry.ts}` (round 2) | one `rigRunRefusal` check each, before the operator's poll | keying refused from every surface, view-only below 1024 px (M6B-C7-22, -25) | approved (INT) |
+| `editor-core/src/operators/builtin/select.ts` (round 2) | `selectControlsGesture`: the control selection operators record a selection part in Rig & Skin | M6B-C7-23 | approved (INT) |
+| `editor-core/src/operators/builtin/selectMesh.ts`, `modelManifest.ts` (generated) (round 2) | `select.objects` in Rig & Skin Object mode; reason texts | M6B-C7-24 | approved (INT) |
+| `viewport/src/tools/selectTool.ts` (round 2) | `rigObjectClick`: mesh pick in Rig & Skin Object mode | M6B-C7-24 | approved (INT) |
+| `editor/src/overlays/CommandPalette/controller.ts` (round 2) | keying entries left out in Rig & Skin (two lines) | M6B-C7-22 | approved (INT) |
+| `editor/src/shell/createShell.ts` (round 2) | the rig shell hook also gets `dockview` | M6B-C7-12 | approved (INT) |
+| `apps/web/scripts/{check-size.d.mts,size-baseline.json}` | the MVP gate (`enforce: true`, per-package allowances) | §9.1 gives C7 the gate through the B9 owner's review | approved (INT) |
 
 ## Fix round 1 (review of `c078648`)
 

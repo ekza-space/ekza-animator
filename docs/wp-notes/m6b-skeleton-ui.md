@@ -101,6 +101,12 @@ lazy `viewport-rig` chunk), the pointer-layer lines in `ViewportManager` and the
 The per-package split (C0 2,048 · C7 2,560 · C12 1,024 · C1 512) already spends the whole +6,144 B, so INT decides:
 re-split (C0 + C7 measured 4,016 of their 4,608 B) or tell C3 which part to move.
 
+**Review measurement and INT approval (M6B-INT-24, 2026-10-22).** The review measured C3's own delta on a scratch
+build of the base `1dafd81` (C2 + C7 merged, before any C3 commit): 893,293 B → 894,093 B at `b93cb6e`, i.e.
+**+800 B** (the ≈ +508 B above was derived from C7's figure on a different base). INT approved C3's eager share from
+the headroom of C0, C1 and C12 (M6B-SPEC §0.11 I-4); after M6B-INT-3 merged C3's and C6's hooks the measured MVP total
+is +5,940 B ≤ +6,144 B, the enforced gate.
+
 ## Gates (local Chrome, port 3167; HEAD before this section)
 
 `EKZA_E2E_PORT=3167 pnpm run ci`: format:check, lint (`oxlint --type-aware`), typecheck, check:deps, check:fixtures,

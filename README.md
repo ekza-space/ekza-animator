@@ -79,8 +79,8 @@ panel help a model stay game-ready. **Static GLB export** writes the model with 
 `ekza/omoba-handheld-v1` profile; imported characters can be **made editable** and baked back with their skin
 weights, expressions and MToon looks.
 
-Known gaps, said plainly: no subdivision preview, booleans, sculpting, UV editor or texture painting (M6c), no
-skeleton or skinning for your own models yet (M6b), no Live Mirror (Symmetry plus Mesh › Mirror instead), and the
+Known gaps, said plainly: no subdivision preview, booleans, sculpting, UV editor or texture painting (M6c), rigging
+and skinning your own models is the M6b MVP (see "Rig & Skin" below; constraints and the full joint tools come later), no Live Mirror (Symmetry plus Mesh › Mirror instead), and the
 M6a-stretch items listed in the e2e report as `test.fixme` (Extrude Manifold, Select Similar, lasso, Poke, edge snap,
 ramp swatches, `.gpl` palettes, component pick-walk, selection constraints, unequal Bridge, Multi-Cut across faces,
 Maya's per-component Normal, Retain component spacing).

@@ -840,6 +840,9 @@ call.
 | M6B-INT-2 | The Component Editor (optional in the MVP) was not built; its scenario step stays `test.fixme('c6-ce')` | Stub panel | Build it after the MVP (§0.3 C6 row) |
 | §0.4.9 | Eager shares of C3 (≈ 508 B) and C10 (≈ 261 B) over their 0 B allowances, approved by INT from the headroom of C0, C1 and C12; the MVP total is +5,940 B ≤ +6,144 B | Approved | Move C3's help-line texts or C10's profile rows lazy |
 | §5.25 | Stroke undo at 10k points 20 ms (≤ 10 ms is report-only until CR-1's weight-only `writeData`) | Report-only miss | CR-1 after the MVP |
+| M6B-INT-20 | **P-S7 auto-skin quality**: exact dominant joint on ≥ 70 % of Polybot's points (spec said 85 %; measured 74.3 / 74.2 %), within one joint ≥ 98 % (measured 98.2 %) | INT accepted C4's contract PR (spec §0.11 I-6) | A new island-joint rule aiming at 85 % (one-joint-per-island tops out at 91.6 %) |
+| M6B-INT-22 | **Joint/constraint selection undo** in Rig & Skin not built (controls and objects record undo) | MVP deferral: needs a `SelectionSnapshot` contract change (joints, constraints) | Build it after the MVP |
+| M6B-INT-23 | **Auto-skin occluders and holds**: visibility uses only the bound mesh's triangles (not the character's other meshes); a full Bind/Rebind replaces held weights (masked runs keep them) | Accepted as MVP deviations (Maya-like) | Occluder triangles in `bindSkin`'s input; holds applied on full runs |
 
 ### Integration decisions (M6b MVP)
 
@@ -853,3 +856,7 @@ call.
 | M6B-INT-8 | Checklist ⑤ after a cold `library.preview` run | The library watcher also attaches on evaluation | `rig/chunk/workspace.ts` |
 | M6B-INT-12 … 16 | Scenario readings (Skeleton mode after Create Skeleton, mesh adoption ids, idle settling, INT test API, E2E-MVP-01 readings) | As in the integration notes | `apps/web/e2e`, `editor/src/test-api/m6b/integration.ts` |
 | M6B-INT-17 | `vrm-validator` for the e2e specs | Web devDependency, allowed in check-deps and the e2e import rule | `apps/web/package.json`, `tooling/check-deps.mjs`, `.oxlintrc.json` |
+| M6B-INT-19 | C7's edits outside its Dirs (three closed files) | Approved; closed-file edits accepted as additive contract changes (spec §0.11 I-7) | `wp-notes/m6b-rig-shell.md` |
+| M6B-INT-21 | Static character meshes offset by a non-identity root rest (C1 review) | Fixed: static mesh node = inverse root rest (spec §0.11 I-8) | `io/src/character/index.ts` |
+| M6B-INT-24 | C3's eager share measured +800 B (not ≈ 508 B) | Approved within §0.11 I-4; MVP total +5,940 B ≤ +6,144 B | `wp-notes/m6b-skeleton-ui.md` |
+| M6B-INT-25 | No-op Quick Rig re-run of a bound character | Keeps the rebind confirm, as the spec says | — |

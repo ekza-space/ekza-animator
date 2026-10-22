@@ -1,6 +1,7 @@
 # Ekza Studio — M6b build specification ("Rig & Skin workspace")
 
-Status: **v1.4 (2026-10-22): MVP integrated — integration record §0.11** (AS-MVP-1 step 3's elbow drag 0.02 m, `skel.tpose`'s
+Status: **v1.5 (2026-10-22): package review findings closed on `dev` — §0.11 I-6…I-8** (P-S7 exact ≥ 70 %, C7's
+closed-file contract changes, static meshes in character space); v1.4 (2026-10-22): MVP integrated — integration record §0.11 (AS-MVP-1 step 3's elbow drag 0.02 m, `skel.tpose`'s
 hinge depth, info rows never gate); v1.3 (2026-10-22): §0 revised after the MVP spec review (18 issues, record §0.9); v1.2 (2026-10-22): §0
 "MVP cut" added — binding, it wins over every other section where they differ
 ([ADR 0020](adr/0020-m6b-mvp-cut.md)); v1.1 (2026-10-19), the binding build spec for milestone M6b, revised after its design review (45 issues: one
@@ -776,6 +777,9 @@ spec:
 | I-3 | §0.4.5 reading: "Validation clean" = no error or warning row; info rows (`skin.joint-without-weights`) never gate and stay listed | the Cube Lad's box hands leave finger joints unweighted (info) |
 | I-4 | §0.4.9: the eager shares of C3 (≈ 508 B) and C10 (≈ 261 B) are approved by INT from the headroom of C0, C1 and C12; C3's and C6's two eager viewport hooks are one (MVP total +5,940 B) | the per-package split spent the whole +6,144 B before C3, C6 and C10 measured theirs |
 | I-5 | §0.7 E2E-RIG-10 "stable" = no frame and no display-container rebuild for 2.6 s with nothing in flight in the character registry | a model character's display rebuild is deferred (500 ms debounce, then idle within 2 s, §5.1) and is pending work, not idle |
+| I-6 | §5.26 P-S7: dominant joint within one joint of the artist's on ≥ 98 % and **exact on ≥ 70 %** (was 85 %) | C4's contract PR (M6B-INT-20): measured 74.3 % (T-pose), 74.2 % (A-pose), 98.2 % within one joint; any one-joint-per-island rule tops out at 91.6 % and rigid nearest-centroid at 79.5 %, so 85 % is not reachable by threshold tuning. Owner review item |
+| I-7 | §9.1 closed files: `ViewportLayout` + `'rig-side' \| 'rig-markers'` (editor-core `types.ts`), the e2e helper pane constants and the foundation spec's Skeleton/Skin menus — accepted as additive contract changes | C7's R-Side/R-Markers panes and menus (M6B-INT-19) |
+| I-8 | Character writer: a static (unbound) mesh node under the first root joint carries the inverse of that joint's rest, so its points stay in character space (§4.4 layout) | a root moved in Skeleton mode offset every static mesh (M6B-INT-21) |
 
 AS-MVP-1 step 12: OMOBA's `validate-runtime-vrm` admits E2E-MVP-01's `cube-lad.vrm` ("Compatible local humanoid:
 VRM 1.0, 35 nodes, 33 semantic bones"). The owner's run of AS-MVP-1 by hand is open.
@@ -2890,7 +2894,7 @@ The checklist collapses to one line (`Setup 6/7 · ●`) once ⑥ is done.
 | P-S4 symmetrized bind | on a symmetric generated body, `w(v)` equals `M(w(p(v)))` exactly after `skin.bind` | C4 |
 | P-S5 bind determinism | the same input gives the same manifest hash in Node, the skin worker and Chromium | C4 |
 | P-S6 compaction | `compact` keeps every point's (joint key, weight) pairs | C5 |
-| P-S7 quality | Polybot without weights, skeleton from its truth file, `auto-lowpoly`: dominant joint within one joint of the artist's on ≥ 98 % of points and exact on ≥ 85 % (calibrated in C4's spike); **no point of Polybot or of the generated body (smooth and segmented) has weight on `root`** (or any helper); the generated body: no forearm point dominated by a spine joint; the **segmented** generated body (variant C′): every upper/lower arm and upper/lower leg island single-influence (100 % of their points); split-vertex crack distance ≤ 1e-6 m over the ROM clip | C4 |
+| P-S7 quality | Polybot without weights, skeleton from its truth file, `auto-lowpoly`: dominant joint within one joint of the artist's on ≥ 98 % of points and exact on ≥ 70 % (calibrated in C4's spike; v1.5, §0.11 I-6 — was 85 %); **no point of Polybot or of the generated body (smooth and segmented) has weight on `root`** (or any helper); the generated body: no forearm point dominated by a spine joint; the **segmented** generated body (variant C′): every upper/lower arm and upper/lower leg island single-influence (100 % of their points); split-vertex crack distance ≤ 1e-6 m over the ROM clip | C4 |
 | P-S8 inpainting | generated body, insert a loop then replace one forearm's weights by zeros: the fill is within 0.05 (max abs) of a fresh bind on matched points and no forearm point is dominated by the spine; variant with a large `U` (half a limb unmatched): the factorized solve's relative residual ≤ 1e-10 and the same bounds | C5 |
 | P-S9 add influence | `skin.weights.autoForJoints` on a bound body after Add Chain ▸ Tail: weights of every point outside `autoWeightPoints` bit-equal; the tail's points weighted; `MeshRecord.skin.bind` unchanged | C4 |
 | P-C1 rest exactness | every constraint type and offset mode with rest-derived offsets, default channels and attributes: bone locals equal the rest within 1e-9 (Seed-san, Polybot, a synthetic rig); with a snap and a stored-offset constraint, the `bind` channel source (constraint-free program) gives `boneLocal = rest` within 1e-9 | C8a (kernel), C7 (channel source) |

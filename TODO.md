@@ -19,6 +19,7 @@ runtime admits. Integration branch `m6b/mvp` (from `dev`); ≈ 48.5 agent-days +
 - [x] INT (3 + fix round): every package merged on `m6b/integration`, every READY/`test.fixme` gate a failure, AS-MVP-1 "Cube Lad comes alive" scripted (E2E-MVP-01) green and OMOBA's `validate-runtime-vrm` admits its export, E2E-RIG-10, budgets ([ROADMAP](docs/ROADMAP.md#m6b-mvp-budgets)), docs, the integration fixes ([wp-notes](docs/wp-notes/m6b-integration.md)).
 - [ ] Owner: AS-MVP-1 by hand in Chrome ([M6B-SPEC §0.7](docs/M6B-SPEC.md#07-acceptance-as-mvp-1-and-the-mvp-e2e-scenarios), times recorded), step 12 with `node tooling/omoba-validate.mjs <file.vrm>`; review [DECISIONS-OPEN §L](docs/DECISIONS-OPEN.md#l-m6b-mvp-deviations-2026-10-22) (AS-MVP-1's elbow drag 0.02 m, `skel.tpose` hinge depth, info rows never gate).
 - [x] `m6b/mvp` → `dev` (2026-10-22, `daec252`; the merged tree is the one the full gate passed on, `m6b/integration`).
+- [x] Package review findings closed on `dev` (M6B-INT-19…25, [wp-notes](docs/wp-notes/m6b-integration.md#package-review-findings-closed-on-dev-m6b-int-1925)): C7's out-of-Dirs edits approved, P-S7 at exact ≥ 70 % (spec §0.11 I-6, owner review item), static character meshes kept in character space under a moved root (fix + test), merged `m6b-*` worktrees removed (branches kept).
 - [ ] Owner reviews the MVP decisions Q-MVP-1…15 ([M6B-SPEC §0.8](docs/M6B-SPEC.md#08-owner-decisions-taken-for-the-mvp-defaults-the-owner-may-override-any)); release tag is the owner's call (proposed `v0.4.0`).
 
 ## Parked — specs ready, build later (owner decision, 2026-10-20)
@@ -31,7 +32,10 @@ Focus is the modeling base (M6a) first. These tracks are fully specified and par
       inpainting), the Joint tool / Insert / Split / Remove / Delete / Duplicate / Add Chain, the A-pose path (T-Stance,
       Apply Pose as Rest), Auto Weights for Selected Joints, the Component Editor (if not built in C6), numbers overlay,
       Lock-Relative, Copy/Move/Hammer weights, the ROM clip, Rig Outliner variant and marking menus (CR-3, CR-5),
-      CR-1/CR-6/CR-8/CR-9/CR-10, §1.2 stretch items, AS-LP-T "Lowpoly Lad and his sword".
+      CR-1/CR-6/CR-8/CR-9/CR-10, §1.2 stretch items, AS-LP-T "Lowpoly Lad and his sword"; from the MVP integration:
+      joint/constraint selection undo (`SelectionSnapshot` contract change, M6B-INT-22), auto-skin occluders from the
+      character's other meshes and holds on full binds (M6B-INT-23), V/J snaps on joint moves, CR-AR-2 (library
+      preview from in-memory clips, fallback owner D5).
 - [ ] **M-AI — Agent bridge (MCP)**: headless tool layer, `ekza-animator-mcp` server, live bridge with pairing,
       see-tools, analysis, evals: [MCP-SPEC](docs/MCP-SPEC.md) v0.2, [ADR 0018](docs/adr/0018-agent-bridge-mcp.md),
       research 20–22. Spec branch `mcp/spec`; started code branches `mcp/contracts-foundation` (D0),
