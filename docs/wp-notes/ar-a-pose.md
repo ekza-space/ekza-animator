@@ -104,6 +104,15 @@ guess max 0.043 H (thumb metacarpal; the other arm joints ≤ 0.031 H).
 - `rig/src/joints/index.ts`' header comment still lists Apply Pose as Rest among the deferred stubs (only the stub line
   was A0's).
 
+## Local gate (`EKZA_E2E_PORT=3161`, local Chrome)
+
+format:check, lint, typecheck, check:deps, check:fixtures, check:licenses green; `pnpm run test` (turbo) failed twice
+under a machine load average of 80–165 (other agents) on suites A0 does not touch (mesh-view browser module fetches,
+an editor-core undo timing budget, an io round-trip 30 s timeout), each green alone; the same `turbo run test
+test:tooling --concurrency=1` is 16/16 green. Build + `check:size` green (`/editor` 895,728 B). Full e2e suite: 254
+passed, 6 failed under that load (E2E-07, acceptance-round1 Graph Editor, M2A-08/10/11, M6A-INT-50), all 15 tests of
+those 6 specs green on a re-run; E2E-AR-A0 green in the full run.
+
 ## Observed
 
 - `editor-core/test/builtin/m2a-a4-mirror-properties.test.ts` (a property test) failed once under the full parallel
