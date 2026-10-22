@@ -655,7 +655,11 @@ again]". *Cancel* is not offered during `straighten` (synchronous, one transacti
   document change; while `rig.motionTest` is on, Auto-Rig restarts it after the change commits (never during a gesture).
 - **Adjust joints** (`rig.sub: 'adjust'`): front │ side │ persp panes, `rig.mode {mode: 'skeleton'}`, Go to Bind Pose,
   the C3 joint tools with symmetry (`W` drag = joint + children, `D`+`W` = this joint only, `E` = rest rotation before
-  binding). After a bind, rest edits keep the mesh (Move Skinned Joints, M6B §5.7); on **Done** Auto-Rig reruns
+  binding). After a bind, rest edits keep the mesh (Move Skinned Joints, M6B §5.7). On **Done**, when an elbow or a
+  wrist moved, each hand turns with its forearm first (its subtree — tail and fingers — about the wrist by the
+  forearm's turn, so the hand keeps its angle to the forearm and an elbow moved back onto the arm line clears
+  `skel.tpose`: `skin.unbind`, one `skel.joint.rotateRest {mode: 'subtree'}` per hand; not after a weight edit; D7 fix
+  round, AR-D7-16); then Auto-Rig reruns
   `skin.bind {confirm: true}` (the stored bind arguments, no question) when no weight edit ran since the last bind —
   Auto-Rig tracks it in its U session as `rig.paintedSinceBind`, set by a **listener that sees every finished
   document run** (the shipped `onBeforeDocumentRun` registry hook, confirmed by a new history step; any
@@ -900,7 +904,7 @@ Under the targets: "Want to keyframe your own motion? **Continue in Studio ▸**
 | Off-centre, lying down, wrong facing, centimetres | §5.2 checks | one-click fixes on ① (same functions as C2's start checks) |
 | Non-uniform or negative object scale | C1's refusal "Freeze Transformations first" | the row offers **Freeze** = shipped `mesh.freezeTransforms` |
 | Open meshes, holes, non-manifold | C4 binds anyway (visibility rules); `skin.unreachable-island` etc. | ③ lists C7's rows with their Fix buttons |
-| Textured models (AI generators) | `IntakeReport.textured` | textures stay asset materials (C1 adoption keeps them); a D7 acceptance case checks they reach the VRM (AS-AR-6); if C10 does not carry them, that is a C10 bug, not an Auto-Rig workaround |
+| Textured models (AI generators) | `IntakeReport.textured` | textures stay asset materials (C1 adoption keeps them); a D7 acceptance case checks they reach the VRM (AS-AR-6); C10's writer copies the adopted asset materials, image included, onto a mesh without a palette (D7 fix round, AR-D7-15) |
 | A file over the shipped input budget (`io` `DEFAULT_INPUT_BUDGET`) | intake error | the shipped message, plus the conversion hint |
 
 ### 6.2 Heavy meshes
@@ -1619,7 +1623,7 @@ the test API, operators or the earlier packages' helpers (never from a later pac
 
 | ID | Name | Full scenario (D7) → assertions | Merge-time parts (owner) |
 |---|---|---|---|
-| AS-AR-3 (E2E-AR-01 part, full in `ar-as-03`) | **Open in Studio and back** | after AS-AR-1 step 7: *Open in Studio* → `/editor?ws=animate`, the clip Walk is active in the Graph Editor, `Mod+Z` undoes "Use Clip Walk" (same-page history; with two islands: the handoff toast and no undo across); *Help › Switch to Auto-Rig* → ④ shows Walk gone; a new-tab handoff opens the same document without the Recovery dialog | D1: the same assertions on a document built through operators (`mesh.importStatic`, `skel.quickRig.*`, `skin.bind`, `library.useClip`), the shells switched through the navigation port |
+| AS-AR-3 (E2E-AR-01 part, full in `ar-as-03`) | **Open in Studio and back** | after AS-AR-1 step 7: *Open in Studio* → `/editor?ws=animate`, the clip Walk is active in the Graph Editor, `Mod+Z` undoes "Use Clip Walk" (same-page history; with two islands: the handoff toast and no undo across); *Help › Switch to Auto-Rig* → ① with the *From Studio* card; one click takes the character and the wizard continues on ④, which shows Walk gone (amended in D7's fix round, AR-D7-19: Auto-Rig never takes a Studio document silently, AR-D7-4, AR-D7-8); a new-tab handoff opens the same document without the Recovery dialog | D1: the same assertions on a document built through operators (`mesh.importStatic`, `skel.quickRig.*`, `skin.bind`, `library.useClip`), the shells switched through the navigation port |
 | AS-AR-4 (full in `ar-as-04`) | **VRM skips to animations** | drop `polybot.vrm` → ④ directly; ②/③ show the already-rigged notice; add Walk; ⑤ offers the asset bake targets and the Space profile passes | D3: ① routes a VRM to ④ and the notice on ②/③; D5: add Walk on `polybot.vrm`; D6: the ⑤ targets |
 | AS-AR-5 (E2E-AR-03) | **Bad placement** | Z-up ×100 off-centre Cube Lad → *Upright*, *Size*, *Centred* rows fail; three fixes = three undo steps; then ② guesses within 0.05 H | D3 (the ② guess is read through `autorig.inspect`'s `pose` and C2's `guessMarkers`, not ②'s UI) |
 | AS-AR-6 (full in `ar-as-06`) | **Several meshes and textures** | a textured two-mesh scene (Polybot + a box "sword" on the floor) → the box unticked by default; rig the body; the VRM keeps the body's texture; the box stays a scene mesh | D3: the unticked box and `subject.meshes`; D6: texture in the VRM from a character built by operators |
@@ -1779,17 +1783,19 @@ Effect on the plan: D0 grows to ≈ 3 agent-days (route-scripts fix, spike), D1 
 ## 17. Integration record (D7, 2026-10-22)
 
 Every package (D0, A0, D1…D6) merged on `autorig/integration` in the §10.0 order and from there into `autorig/mvp`;
-details, approvals and the gate runs in [wp-notes/ar-integration.md](wp-notes/ar-integration.md), decisions AR-D7-1…13
+details, approvals and the gate runs in [wp-notes/ar-integration.md](wp-notes/ar-integration.md), decisions AR-D7-1…19
 in [DECISIONS-OPEN §M](DECISIONS-OPEN.md#m-auto-rig-2026-10-22).
 
 - **§11**: AS-AR-1…12 run in full through the UI in `apps/web/e2e/ar-as-*.spec.ts` (AS-AR-1 = E2E-AR-08 on the T-posed
-  Polybot and the Cube Lad, AS-AR-2 = E2E-AR-13, AS-AR-9…11 = E2E-AR-09…11). Two specified checks are held as
-  `test.fail` known gaps of other owners: AS-AR-1 step 12's "moving the elbow back clears it" (AR-D4-T1, C3's Move
-  Joint and the hand tail; AR-D7-7) and AS-AR-6's "the VRM keeps the body's texture" (C10 writes palette textures
-  only; AR-D7-5). AS-AR-3 takes Studio's character through ①'s *From Studio* card and lands on ④ (AR-D7-4, AR-D7-8).
-- **OMOBA** (§11): `node tooling/omoba-validate.mjs` admits the AS-AR-1 exports (Polybot and Cube Lad) and the AS-AR-2
-  export, exit 0, "Compatible local humanoid: VRM 1.0, 35 nodes, 33 semantic bones" — admission only; the T-pose is
-  proven by `skel.tpose` and the read-back directions (≤ 5°).
+  Polybot and the Cube Lad, AS-AR-2 = E2E-AR-13, AS-AR-9…11 = E2E-AR-09…11), **every specified check green, none held
+  as `test.fail`** after the fix round: AS-AR-1 step 12's "moving the elbow back clears it" (the hands follow their
+  forearms on *Done*, AR-D7-16; AR-D4-T1 closed), AS-AR-6's "the VRM keeps the body's texture" (C10 copies the adopted
+  asset materials, AR-D7-15), AS-AR-5's body at the origin (*Center and Ground* centres z, AR-D7-14). AS-AR-3 takes
+  Studio's character through ①'s *From Studio* card and lands on ④ (row amended, AR-D7-19). AS-AR-11 reaches its
+  controls by real Tab presses.
+- **OMOBA** (§11): `node tooling/omoba-validate.mjs` admits the AS-AR-1 exports (Polybot and Cube Lad), the AS-AR-2
+  export and (fix round) the textured AS-AR-6 export, exit 0, "Compatible local humanoid: VRM 1.0, 35 nodes, 33
+  semantic bones" — admission only; the T-pose is proven by `skel.tpose` and the read-back directions (≤ 5°).
 - **§7**: `/editor` 896,743 B (AR-B1 +1,055 B of +2,048 B); `/autorig` **658,122 B under its 660,000 B gate, now
   enforced** (AR-D7-3, after AR-D7-1 the tooltip provider in Studio's shell and AR-D7-2 per-step string tables);
   dockview never fetched on `/autorig`; idle 0 frames in every step; the §7.3 rows within budget except the bench's

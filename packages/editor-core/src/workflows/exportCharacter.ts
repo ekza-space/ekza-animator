@@ -19,18 +19,21 @@
 //   and referenced by `CharacterRecord.vrm.thumbnail`; exports read the stored bytes.
 import { EkzaError, type Frame } from '@ekza-studio/anim-core';
 import {
+  type AssetId,
   type AssetRecord,
   type CharacterId,
   type CharacterRecord,
   type CharacterVrmMeta,
   type ClipRecord,
   type DerivedFrom,
+  type MeshRecord,
   makeVrmMeta,
   type PaletteId,
   type ReadView,
 } from '@ekza-studio/doc';
 import {
   type BakedClip,
+  type CharacterAssetMaterial,
   type CharacterExportRequest,
   type CharacterMeshIn,
   type CharacterReadBack,
@@ -52,7 +55,7 @@ import { computeStepSchedule, type TrackKey } from '@ekza-studio/rig';
 import { loadCharacterRuntime } from '../characters/runtimeChunk';
 import { loadMeshKernel } from '../mesh';
 import type { EditorApp } from '../types';
-import { clipMeta, influenceKeepFrames, inPlaceNode, loadWritePath } from './export';
+import { clipMeta, influenceKeepFrames, inPlaceNode, loadWritePath, type WritePath } from './export';
 import { threeReadBack } from './exportModel';
 import { yieldToHost } from './host';
 import { EDITOR_VERSION } from './samples';
@@ -261,6 +264,47 @@ function bakeRange(clip: ClipRecord): { readonly start: Frame; readonly end: Fra
   return { start, end: Math.max(start, Math.round(clip.range.end)) };
 }
 
+/**
+ * The adopted asset materials of each part mesh without a palette (AUTORIG-SPEC §6.1, AR-D7-15): an imported model's
+ * materials (its asset slots) read from the asset GLB, so its image textures reach the file. A mesh with a palette, an
+ * authored mesh or an asset that cannot be read gets none (index-aligned with `meshes`, undefined there).
+ */
+async function adoptedMaterials(
+  app: EditorApp,
+  write: WritePath,
+  meshes: readonly { readonly record: MeshRecord }[],
+): Promise<(readonly (CharacterAssetMaterial | null)[] | undefined)[]> {
+  const bytes = new Map<AssetId, Promise<Uint8Array | null>>();
+  const out: (readonly (CharacterAssetMaterial | null)[] | undefined)[] = [];
+  for (const { record } of meshes) {
+    const material = record.material;
+    if (record.palette !== null || !('assetSlots' in material) || material.assetSlots.length === 0) {
+      out.push(undefined);
+      continue;
+    }
+    const slots: (CharacterAssetMaterial | null)[] = [];
+    for (const slot of material.assetSlots) {
+      let file = bytes.get(slot.asset);
+      if (file === undefined) {
+        file = app.services.assets.get(slot.asset).catch(() => null);
+        bytes.set(slot.asset, file);
+      }
+      const data = await file;
+      let found: CharacterAssetMaterial | null = null;
+      if (data !== null) {
+        try {
+          found = write.characterAssetMaterials(data, [slot.material], slot.asset)[0] ?? null;
+        } catch {
+          found = null;
+        }
+      }
+      slots.push(found);
+    }
+    out.push(slots.some((slot) => slot !== null && slot.baseColorTexture !== null) ? slots : undefined);
+  }
+  return out;
+}
+
 /** The writer input of a character plus its baked clips (the export's records at this document state). */
 export async function characterWriteInput(
   app: EditorApp,
@@ -276,14 +320,17 @@ export async function characterWriteInput(
   const parts = chunk.modelParts(app, plan.character);
   if (parts === null) throw new EkzaError('unsupported', 'Create the skeleton first (Rig & Skin › Quick Rig)');
   if (parts === 'loading') throw new EkzaError('mesh-not-ready', 'The meshes of the character are still loading');
-  const meshes: CharacterMeshIn[] = chunk.characterMeshes(app.store, kernel, parts).map((mesh) =>
-    plan.material === null
+  const adopted = await adoptedMaterials(app, write, parts.meshes);
+  const meshes: CharacterMeshIn[] = chunk.characterMeshes(app.store, kernel, parts).map((own, i) => {
+    const assetMaterials = adopted[i];
+    const mesh = assetMaterials === undefined ? own : { ...own, assetMaterials };
+    return plan.material === null
       ? mesh
       : {
           ...mesh,
           materials: mesh.materials.map((material) => ({ ...material, preset: plan.material as 'unlit' | 'lit' })),
-        },
-  );
+        };
+  });
   const palettes = new Map<string, readonly StaticSwatch[]>();
   for (const mesh of meshes) {
     if (mesh.paletteId !== null && !palettes.has(mesh.paletteId)) {

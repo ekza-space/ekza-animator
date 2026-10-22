@@ -235,10 +235,9 @@ test('AS-AR-6 (⑤ part): the body rigged without the sword exports a clean VRM;
   expect(sword?.owner).not.toContain(character);
 });
 
-// AUTORIG-SPEC §6.1 "Textured models": the adopted asset material's image texture must reach the VRM. C10's writer
-// (io/src/character/index.ts) writes palette textures only, so the body's image is dropped — a C10 bug, not an
-// Auto-Rig workaround (§6.1); reported in docs/wp-notes/ar-export.md for D7 / the C10 owner. Un-fixme when fixed.
-test.fixme('AS-AR-6 (⑤ part): the body’s image texture reaches the VRM', async ({ page }) => {
+// AUTORIG-SPEC §6.1 "Textured models": the adopted asset material's image texture reaches the VRM (C10's writer copies
+// the asset slots' materials of a mesh without a palette, AR-D7-15; was a fixme until D7's fix round).
+test('AS-AR-6 (⑤ part): the body’s image texture reaches the VRM', async ({ page }) => {
   test.setTimeout(240_000);
   const { json } = await texturedBodyVrm(page);
   const images = (json['images'] ?? []) as { name?: string }[];

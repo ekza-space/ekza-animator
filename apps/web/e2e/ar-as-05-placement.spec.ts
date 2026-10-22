@@ -1,13 +1,16 @@
 // E2E-AR-03's AS-AR-5 in full (AUTORIG-SPEC §11; D7): "Bad placement". A Z-up, ×100, off-centre Cube Lad dropped on
-// ① fails Upright, Size and Centred; the three one-click fixes are three undo steps; then *Next* opens ② and its
-// guess lies within 0.05 H of the truth (scaled to the fixed 1.70 m; C2's *Center and Ground* leaves z, AR-D3-15, so
-// the truth moves along z by the body's centre).
+// ① fails Upright, Size and Centred; the three one-click fixes are three undo steps and leave the body at the origin
+// (bounds centred in x and z, standing on y = 0: C2's *Center and Ground* centres z too, AR-D7-14); then *Next* opens ②
+// and its guess lies within 0.05 H of the truth scaled to the fixed 1.70 m (no shift); *Auto-rig* puts the hips over
+// the origin.
 import { expect, type Page, test } from '@playwright/test';
 import { dropModel, nextToMarkers } from './helpers/ar-as';
 import { openAutoRigReady } from './helpers/ar-host';
 import { badCubeLad, checkRow, report } from './helpers/ar-model';
 import { cubeLadMarkers, dist, MARKERS, wizard } from './helpers/ar-markers';
+import { autoRig, subjectCharacter } from './helpers/ar-rig';
 import { history } from './helpers/autorig';
+import { call } from './helpers/test-api';
 
 const fix = (page: Page, name: string) => page.locator(`[data-testid="ar-model-report"] [data-fix="${name}"]`).first();
 
@@ -40,15 +43,28 @@ test('AS-AR-5: three fixes, three undo steps, then ② guesses within 0.05 H', a
     (ids) => ids.flatMap((id) => window.__EKZA_STUDIO_TEST__?.meshPositions(id, undefined, 'world') ?? []),
     meshes,
   );
-  const zs = points.map((p) => p[2] ?? 0);
-  const z = (Math.min(...zs) + Math.max(...zs)) / 2;
+  const centre = (k: number): number => {
+    const values = points.map((p) => p[k] ?? 0);
+    return (Math.min(...values) + Math.max(...values)) / 2;
+  };
+  // at the origin: centred in x and z (not 73 m along +Z), standing on y = 0
+  expect(Math.abs(centre(0))).toBeLessThan(1e-6);
+  expect(Math.abs(centre(2))).toBeLessThan(1e-6);
+  expect(Math.abs(Math.min(...points.map((p) => p[1] ?? 0)))).toBeLessThan(1e-6);
   const guessed = await nextToMarkers(page);
   const truth = cubeLadMarkers();
   const k = 1.7 / truth.height;
   const off = MARKERS.filter((name) => {
     const t = truth.markers[name] ?? [0, 0, 0];
-    return dist(guessed.markers[name] ?? [], [t[0] * k, t[1] * k, t[2] * k + z]) / 1.7 > 0.05;
+    return dist(guessed.markers[name] ?? [], [t[0] * k, t[1] * k, t[2] * k]) / 1.7 > 0.05;
   });
   expect(off).toEqual([]);
   expect((await history(page)).undo).toEqual(steps);
+
+  // ③: the rigged hips stand over the origin (the exported VRM's hips are not tens of metres away)
+  await autoRig(page);
+  const { character } = await subjectCharacter(page);
+  const hips = (await call(page, 'skeleton', character))?.joints.find((joint) => joint.humanBone === 'hips');
+  expect(Math.abs(hips?.restPosition[0] ?? Number.NaN)).toBeLessThan(0.01 * 1.7);
+  expect(Math.abs(hips?.restPosition[2] ?? Number.NaN)).toBeLessThan(0.05 * 1.7);
 });

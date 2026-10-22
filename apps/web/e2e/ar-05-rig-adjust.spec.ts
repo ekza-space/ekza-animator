@@ -3,10 +3,9 @@
 // does **not** straighten: exactly two undo steps, the mesh points bit-equal to the import, and ③ shows the
 // `skel.tpose` row with *Adjust joints* first and *Straighten to T-Pose* as the secondary Fix, *Animations ▸* blocked.
 // *Adjust joints* (front │ side │ persp, Skeleton mode): `D` + `W` drags the elbow joint back onto the line (one
-// "Move Joint" step, its partner follows); *Done* rebinds without a question (no weight edit since the bind).
-// KNOWN GAP (AR-D4-T1, DECISIONS-OPEN §M; not specified behaviour): AS-AR-1 step 12 says moving the elbow back clears
-// the row; today it still names the two hands, whose tails C3's Move Joint leaves on the old forearm line. The block
-// marked TODO(AR-D4-T1) below records today's state and flips to "the row is gone" when C3's fix lands.
+// "Move Joint" step, its partner follows); *Done* turns each hand with its forearm (AR-D7-16: "Unbind Skin", one
+// "Rotate Joints" per hand) and rebinds without a question (no weight edit since the bind): the `skel.tpose` row is
+// gone (AS-AR-1 step 12; AR-D4-T1 closed) and *Animations ▸* opens.
 import { expect, test } from '@playwright/test';
 import { FRONT, hoverPane, sampleAtMarkers, selectMarker, wizard } from './helpers/ar-markers';
 import { autoRig, markerOf, nudge, quickRig, rows, stepsSince, subjectCharacter } from './helpers/ar-rig';
@@ -88,23 +87,29 @@ test('AS-AR-1 negative: the elbow 8° off the line rigs in two steps with the sk
   await expect.poll(async () => (await history(page)).undo.at(-1), { timeout: 30_000 }).toBe('Bind Skin');
   expect((await call(page, 'state')).dialog).toBeNull();
   await expect.poll(async () => (await wizard(page)).slices['rig']).toMatchObject({ sub: 'review' });
-  // The upper arm is back on the line.
-  // TODO(AR-D4-T1, DECISIONS-OPEN §M — C3 Move Joint re-aims a moved joint's child tails): KNOWN GAP, not the
-  // specified behaviour. AS-AR-1 step 12 says the row is gone after the move; today it stays for the two hands: the
-  // hand → tail segment still runs ~8° up along the old forearm line. When C3's fix lands, replace this block with
-  //   expect((await rows(page)).map((r) => r.code)).not.toContain('skel.tpose');
-  //   await expect(page.getByTestId('ar-primary')).toBeEnabled();
-  const tpose = (await rows(page)).filter((r) => r.code === 'skel.tpose');
-  expect(tpose.map((r) => r.count)).toEqual([2]);
+  // the hands turned with their forearms, then the rebind (AR-D7-16)
+  expect((await history(page)).undo.slice(steps.length)).toEqual([
+    'Move Joint',
+    'Unbind Skin',
+    'Rotate Joints',
+    'Rotate Joints',
+    'Bind Skin',
+  ]);
+  // the row is gone: the arm segments and each hand's tail run along ±X (AS-AR-1 step 12)
+  expect((await rows(page)).map((r) => r.code)).not.toContain('skel.tpose');
   const after = await call(page, 'skeleton', character);
-  const handJoint = after?.joints.find((joint) => joint.humanBone === 'rightHand');
-  const tail = handJoint?.tail ?? [];
-  const tailAngle = Math.atan2(
-    tail[1]! - handJoint!.restPosition[1]!,
-    Math.abs(tail[0]! - handJoint!.restPosition[0]!),
-  );
-  expect(tailAngle / DEG).toBeGreaterThan(5);
-  await expect(page.getByTestId('ar-primary')).toBeDisabled();
-  // end TODO(AR-D4-T1)
+  for (const side of ['left', 'right']) {
+    const handJoint = after?.joints.find((joint) => joint.humanBone === `${side}Hand`);
+    const tail = handJoint?.tail ?? [];
+    const tailAngle = Math.atan2(
+      Math.abs(tail[1]! - handJoint!.restPosition[1]!),
+      Math.abs(tail[0]! - handJoint!.restPosition[0]!),
+    );
+    expect(tailAngle / DEG).toBeLessThan(5);
+    // the wrist stays where it was: the hand turns about it
+    if (side === 'right') expect(handJoint?.restPosition).toEqual(hand);
+  }
+  await expect(page.getByTestId('ar-primary')).toBeEnabled();
+  expect((await wizard(page)).reachable.animations).toBe(true);
   expect((await call(page, 'rigState')).mode).toBe('object');
 });

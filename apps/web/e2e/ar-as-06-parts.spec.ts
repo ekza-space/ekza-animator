@@ -1,8 +1,7 @@
 // AUTORIG-SPEC §11 AS-AR-6 (D7, in full; D3 and D6 own its parts): "Several meshes and textures". A textured two-mesh
 // scene (Polybot and a box "Sword" on the floor) dropped on ①: the box is unticked by default and left out of the
-// subject; the body is rigged through ② and ③; ⑤ writes a clean VRM of the body alone and the sword stays a scene mesh.
-// The texture half — "the VRM keeps the body's texture" — fails today: C10's writer writes palette textures only (a
-// C10 gap, docs/wp-notes/ar-export.md, DECISIONS-OPEN §M AR-D7-5); its test is `test.fail` until that lands.
+// subject; the body is rigged through ② and ③; ⑤ writes a clean VRM of the body alone and the sword stays a scene mesh;
+// the VRM keeps the body's image texture (C10's writer copies the adopted asset material, AR-D7-15).
 import { expect, type Page, test } from '@playwright/test';
 import { dropModel, exportMeta, nextToMarkers, onStep, primary } from './helpers/ar-as';
 import { checkOf, download, keepExport } from './helpers/ar-export';
@@ -63,16 +62,24 @@ test('AS-AR-6: the sword is unticked, the body alone becomes a clean VRM, the sw
   expect(swordMesh?.owner ?? []).not.toContain(character);
 });
 
-test('AS-AR-6: the VRM keeps the body’s image texture (known gap: C10 writes palette textures only)', async ({
-  page,
-}) => {
-  test.fail(true, 'C10 writer gap (io/src/character): an adopted image texture does not reach the VRM (AR-D7-5)');
+test('AS-AR-6: the VRM keeps the body’s image texture', async ({ page }) => {
   test.setTimeout(300_000);
   const { bytes } = await rigBodyAndExport(page);
+  keepExport('as-ar-6-polybot-textured.vrm', bytes);
   const json = glbJson(bytes) as unknown as {
-    images?: { name?: string }[];
-    materials?: { pbrMetallicRoughness?: { baseColorTexture?: unknown } }[];
+    images?: { name?: string; mimeType?: string }[];
+    textures?: { source?: number }[];
+    materials?: { pbrMetallicRoughness?: { baseColorTexture?: { index: number } } }[];
+    meshes: { primitives: { attributes: Record<string, number> }[] }[];
   };
-  expect((json.images ?? []).filter((image) => image.name !== 'thumbnail').length).toBeGreaterThanOrEqual(1);
-  expect((json.materials ?? []).some((m) => m.pbrMetallicRoughness?.baseColorTexture !== undefined)).toBe(true);
+  const images = (json.images ?? []).filter((image) => image.name !== 'thumbnail');
+  expect(images.length).toBeGreaterThanOrEqual(1);
+  expect(images[0]?.mimeType).toBe('image/png');
+  const textured = (json.materials ?? []).filter((m) => m.pbrMetallicRoughness?.baseColorTexture !== undefined);
+  expect(textured.length).toBeGreaterThanOrEqual(1);
+  // the material samples the body's image (not the thumbnail) through the body's UVs
+  const texture = json.textures?.[textured[0]?.pbrMetallicRoughness?.baseColorTexture?.index ?? -1];
+  expect(json.images?.[texture?.source ?? -1]?.name).not.toBe('thumbnail');
+  expect(Object.keys(json.meshes[0]?.primitives[0]?.attributes ?? {})).toContain('TEXCOORD_0');
+  expect(await validatorErrors(bytes)).toEqual({ gltf: [], vrm: [] });
 });

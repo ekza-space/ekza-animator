@@ -235,7 +235,7 @@ the palette and the keymap list only the MVP operators (§0.6).
   bounds: **centred** `|centre x| ≤ 0.01 H`, **grounded** `|min y| ≤ 0.01 H` and **facing +Z** (the toes' front extent
   — the mean z of the inside samples of the lowest 0.05 H band — lies in front of the band's slab midpoint). A failed
   check shows a notice in the Quick Rig panel with its fix: *Center and ground* (translates the meshes' placements so
-  that centre x = 0 and min y = 0) or *Rotate to face +Z* (180° about Y around the centre), each one undo step, run
+  that centre x = 0, centre z = 0 and min y = 0; z added by AUTORIG D7's fix round, AR-D7-14) or *Rotate to face +Z* (180° about Y around the centre), each one undo step, run
   before any marker is guessed (the guess re-runs after the fix). Create Skeleton is disabled with the reason until
   every check passes. Validation keeps `skel.grounded` and `skel.facing` (§5.21) for later edits.
 - **Re-run** (C2 operator, C3 panel): `skel.quickRig.start` on a character that already has a template skeleton seeds

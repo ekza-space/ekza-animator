@@ -119,13 +119,14 @@ until the owner accepts the spec). Integration branch `autorig/mvp` (from `dev`)
 - [x] D7 integration: every package merged on `autorig/integration`; AS-AR-1…12 scripted in full through the UI
       (`apps/web/e2e/ar-as-*.spec.ts`, E2E-AR-08…11, E2E-AR-13); OMOBA's validator admits the AS-AR-1 and AS-AR-2
       exports; `/autorig` 658,122 B under its enforced 660,000 B gate, `/editor` +1,055 B of AR-B1's +2,048 B; the
-      bench ([ROADMAP](docs/ROADMAP.md#auto-rig-budgets)); docs; fix round (AR-D7-1…14,
-      [wp-notes](docs/wp-notes/ar-integration.md)).
+      bench ([ROADMAP](docs/ROADMAP.md#auto-rig-budgets)); docs; fix round 1 (AR-D7-1…19,
+      [wp-notes](docs/wp-notes/ar-integration.md)): every §11 check green, none held as `test.fail` — the hands follow
+      their forearms on *Adjust joints*' Done (AR-D4-T1 closed), the VRM keeps an imported model's image texture,
+      *Center and Ground* centres z (AR-D3-15 closed).
 - [ ] Owner: AS-AR-1 and AS-AR-2 by hand in Chrome (timed), the demo in the [D7 notes](docs/wp-notes/ar-integration.md#owner-demo--10-minutes);
       review [DECISIONS-OPEN §M](docs/DECISIONS-OPEN.md#m-auto-rig-2026-10-22) and §13 (Q-AR-1…20; defaults stand).
-- [ ] Known gaps for their owners: AR-D4-T1 (C3: Move Joint leaves the hand's tail, AS-AR-1 step 12's last check),
-      C10 image textures in the VRM (AS-AR-6), C2 *Center and Ground* leaving z (AR-D3-15), the shared placement
-      helper (AR-D3-23).
+- [ ] For its owners: the shared placement helper (AR-D3-23); optionally a `vrm.*` lint on hips far from the origin
+      (C11, AR-D7-14).
 - [ ] Release tag: the owner's call (after `v0.4.0`).
 
 ## After the turnkey release

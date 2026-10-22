@@ -346,6 +346,25 @@ export interface CharacterMeshIn {
   readonly materials: readonly { readonly preset: 'unlit' | 'lit'; readonly name: string }[];
   readonly colourOutput: ColourOutput; readonly paletteId: string | null;
   readonly prop: boolean;                                    // bound only to prop joints
+  /** The adopted asset material of each face-material slot (C1 keeps an import's materials as asset slots; AUTORIG
+   *  §6.1, AR-D7-15): the writer copies them, image texture included, onto a mesh without a palette. Absent or empty:
+   *  the palette / preset materials only. */
+  readonly assetMaterials?: readonly (CharacterAssetMaterial | null)[];
+}
+/** An asset material as the character writer copies it (`characterAssetMaterials` reads it from the asset GLB). */
+export interface CharacterAssetMaterial {
+  readonly name: string;
+  readonly baseColorFactor: readonly [number, number, number, number];
+  readonly baseColorTexture: {
+    /** Identifies the image within the export (the same key writes one image). */
+    readonly key: string;
+    readonly image: Uint8Array; readonly mimeType: string;
+    readonly texCoord: number;
+    readonly sampler: { readonly magFilter: number | null; readonly minFilter: number | null;
+      readonly wrapS: number; readonly wrapT: number };
+  } | null;
+  readonly alphaMode: 'OPAQUE' | 'MASK' | 'BLEND'; readonly alphaCutoff: number | null;
+  readonly doubleSided: boolean;
 }
 export interface CharacterWriteInput {
   readonly skeleton: SkeletonDesc;                           // skeletonFromDoc; node i = written joint node i

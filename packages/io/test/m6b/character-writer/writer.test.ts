@@ -11,6 +11,7 @@ import { makeVrmMeta } from '@ekza-studio/doc';
 import { makeTestSkeleton } from '@ekza-studio/doc/testing';
 import { humanoidBody } from '@ekza-studio/mesh-core';
 import { describe, expect, it } from 'vitest';
+import { characterAssetMaterials } from '../../../src/write';
 import {
   CC0_DEED_URL,
   CC_BY_DEED_URL,
@@ -176,6 +177,96 @@ describe('plain GLB (format glb) and the profiles', () => {
     expect(
       (await lintExport('bake-into-model', bytes, SPACE)).filter((l) => l.code.startsWith('vrm.')).map((l) => l.code),
     ).toEqual(['vrm.spec-version']);
+  });
+});
+
+describe('adopted asset materials (AUTORIG-SPEC §6.1, AS-AR-6; AR-D7-15)', () => {
+  const polybot = async () => {
+    const file = fixture('polybot-unskinned-tpose.glb');
+    const assetMaterials = characterAssetMaterials(file, [0, 7], 'ast_polybot');
+    const { write } = await character(
+      [{ name: 'Polybot', data: await meshOf('polybot-unskinned-tpose.glb'), bound: true }],
+      {
+        joints: polybotJoints(),
+        paletteId: null,
+        assetMaterials,
+        thumbnailPng: THUMB,
+      },
+    );
+    return { write, assetMaterials, file };
+  };
+
+  it('reads the material of the asset GLB: name, factor, the embedded PNG and its sampler; an unknown index is null', async () => {
+    const { assetMaterials, file } = await polybot();
+    expect(assetMaterials[1]).toBeNull();
+    const material = assetMaterials[0];
+    expect(material).toMatchObject({
+      name: 'mat_51',
+      baseColorFactor: [1, 1, 1, 1],
+      alphaMode: 'OPAQUE',
+      alphaCutoff: null,
+      doubleSided: false,
+    });
+    expect(material?.baseColorTexture).toMatchObject({
+      key: 'ast_polybot#image0',
+      mimeType: 'image/png',
+      texCoord: 0,
+      sampler: { magFilter: 9729, minFilter: 9729, wrapS: 10497, wrapT: 10497 },
+    });
+    const png = material?.baseColorTexture?.image as Uint8Array;
+    expect(pngSize(png)).not.toBeNull();
+    const source = (await parseGlb(file)).json as unknown as {
+      images: { bufferView: number }[];
+      bufferViews: { byteLength: number }[];
+    };
+    expect(png.byteLength).toBe(source.bufferViews[source.images[0]?.bufferView ?? 0]?.byteLength);
+  });
+
+  it('a mesh without a palette writes its image texture into the VRM (TEXCOORD_0, sampler); validators and vrm.* clean; deterministic', async () => {
+    const { write, assetMaterials } = await polybot();
+    const bytes = await writeCharacter(write, { generator: 'Ekza Studio test', format: 'vrm' });
+    const json = await jsonOf(bytes);
+    const images = json['images'] as Json[];
+    expect(images.map((image) => image['name'])).toEqual(['image 0', 'thumbnail']);
+    expect(images[0]).toMatchObject({ mimeType: 'image/png' });
+    const materials = json['materials'] as Json[];
+    expect(materials).toHaveLength(1);
+    expect(materials[0]?.['name']).toBe('mat_51');
+    const pbr = materials[0]?.['pbrMetallicRoughness'] as Json;
+    expect(pbr['baseColorTexture']).toEqual({ index: 0 });
+    const textures = json['textures'] as Json[];
+    const samplers = json['samplers'] as Json[];
+    expect(textures[0]).toMatchObject({ source: 0 });
+    expect(samplers[textures[0]?.['sampler'] as number]).toEqual({
+      magFilter: 9729,
+      minFilter: 9729,
+      wrapS: 10497,
+      wrapT: 10497,
+    });
+    const mesh = (json['meshes'] as Json[])[0] as Json;
+    const primitive = (mesh['primitives'] as Json[])[0] as Json;
+    expect(Object.keys(primitive['attributes'] as Json)).toContain('TEXCOORD_0');
+    // the written image is the asset's PNG, byte for byte
+    const container = await parseGlb(bytes);
+    const views = json['bufferViews'] as Json[];
+    const view = views[images[0]?.['bufferView'] as number] as Json;
+    const offset = (view['byteOffset'] as number | undefined) ?? 0;
+    const length = view['byteLength'] as number;
+    const written = container.bin === null ? null : container.bin.subarray(offset, offset + length);
+    expect(written).toEqual(assetMaterials[0]?.baseColorTexture?.image);
+    expect(await gltfErrors(bytes)).toEqual([]);
+    expect(await vrmErrors(bytes)).toEqual([]);
+    const lints = await lintExport('bake-into-model', bytes, SPACE);
+    expect(lints.filter((lint) => lint.code.startsWith('vrm.'))).toEqual([]);
+    expect(lints.filter((lint) => lint.severity === 'error')).toEqual([]);
+    expect(await writeCharacter(write, { generator: 'Ekza Studio test', format: 'vrm' })).toEqual(bytes);
+  });
+
+  it('a mesh with a palette keeps the palette texture (the asset image is not written)', async () => {
+    const { write } = await polybot();
+    const painted = { ...write, meshes: write.meshes.map((mesh) => ({ ...mesh, paletteId: 'pal_A' })) };
+    const json = await jsonOf(await writeCharacter(painted, { generator: 't', format: 'vrm' }));
+    expect((json['images'] as Json[]).map((image) => image['name'])).toEqual(['palette 0', 'thumbnail']);
   });
 });
 

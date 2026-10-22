@@ -2,7 +2,8 @@
 // (`skel.quickRig.commit {preset, markers, meshes, flexion}`: a new character through `char.fromModel` and its template
 // skeleton fitted to the markers in one step, or a re-run that refits an existing template skeleton in place — same
 // ids, "Refit Skeleton", the bound meshes rebound behind the `rebindSkin` confirm) and the start-check fixes
-// `skel.quickRig.center` (Center and Ground) and `skel.quickRig.faceForward` (Rotate to Face +Z), one undo step each.
+// `skel.quickRig.center` (Center and Ground: the bounds centred in x and z, min y = 0; AR-D7-14) and
+// `skel.quickRig.faceForward` (Rotate to Face +Z), one undo step each.
 //
 // The helpers C3's Quick Rig session uses: `quickRigFit` (the live preview; Create Skeleton calls the same function with
 // the same inputs, so the committed joints equal the last preview bit for bit) and `quickRigStartInfo` (the start
@@ -533,8 +534,13 @@ function fixOperator(
 const center = fixOperator(
   'skel.quickRig.center',
   'Center and Ground',
-  'Moves the meshes so their bounds sit on x = 0 and y = 0 (Quick Rig start check).',
-  ({ bounds }) => ({ t: [-(bounds[0][0] + bounds[1][0]) / 2, -bounds[0][1], 0], q: [0, 0, 0, 1], s: [1, 1, 1] }),
+  'Moves the meshes so their bounds are centred on x = 0 and z = 0 and stand on y = 0 (Quick Rig start check).',
+  // AR-D7-14: z is centred too, so a model far along z (AS-AR-5's off-centre file) ends at the origin, not 73 m away.
+  ({ bounds }) => ({
+    t: [-(bounds[0][0] + bounds[1][0]) / 2, -bounds[0][1], -(bounds[0][2] + bounds[1][2]) / 2],
+    q: [0, 0, 0, 1],
+    s: [1, 1, 1],
+  }),
 );
 
 const faceForward = fixOperator(

@@ -7,7 +7,8 @@
 //   A `skel.tpose` row on a T-posed input (not straightened, §4.5) offers *Adjust joints* first and *Straighten to
 //   T-Pose* as the secondary Fix.
 // - **Adjust joints**: front │ side │ persp, Skeleton mode with the M6b joint tools (`W`, `D`+`W`, `E`), *Go to Bind
-//   Pose*, the selected joint's position in centimetres; *Done* reruns Bind Skin when the joints changed — with the
+//   Pose*, the selected joint's position in centimetres; *Done* turns each hand with its forearm when an elbow or a
+//   wrist moved (`hands.ts`, AR-D7-16) and reruns Bind Skin when the joints changed — with the
 //   stored arguments and no question (`confirm: true`) unless a weight edit ran since the last bind
 //   (`rig.paintedSinceBind`), then plain `skin.bind`, whose "Rebind replaces painted weights" question the host's dialog
 //   asks.
@@ -36,6 +37,7 @@ import { useSmall } from '../../shell/store';
 import type { AutoRigSession } from '../../types';
 import { PaneLabels, useScreenClass } from '../markers/panes';
 import { rigPanes } from './index';
+import { armSnapshot, characterJoints, handsFollowForearms } from './hands';
 import { applySubMode, setWeightDisplay } from './mode';
 import { MOTION_CLIPS, type RigSub, withMotionClip, withSub } from './slice';
 import { installRigKeys } from './keys';
@@ -80,7 +82,9 @@ function useCharacter(ctx: WizardContext): { readonly id: CharacterId | null; re
 async function setSub(ctx: WizardContext, sub: RigSub): Promise<void> {
   const { app } = ctx;
   if (sub === 'adjust') {
-    rigUi(ctx).set((current) => ({ ...current, adjustFrom: app.history.peekUndo()?.id ?? null }));
+    const character = resolveSubject(app.store, ctx.session.getState().subject).character;
+    const adjustArms = character === null ? null : armSnapshot(characterJoints(app, character.id));
+    rigUi(ctx).set((current) => ({ ...current, adjustFrom: app.history.peekUndo()?.id ?? null, adjustArms }));
   }
   const patch = withSub(ctx.session.getState().rig, sub);
   if (Object.keys(patch).length > 0) ctx.session.patch('rig', patch);
@@ -344,10 +348,23 @@ function Adjust(props: { readonly ctx: WizardContext }): JSX.Element {
   );
   const joint = useDocument(app, () => (lead === null ? null : (app.store.get('joints', lead) ?? null)));
   const done = async (): Promise<void> => {
-    const from = rigUi(ctx).get().adjustFrom;
+    const { adjustFrom: from, adjustArms: arms } = rigUi(ctx).get();
     const changed = (app.history.peekUndo()?.id ?? null) !== from;
-    if (changed) await rebind(ctx, { confirm: !ctx.session.getState().rig.paintedSinceBind });
-    rigUi(ctx).set((current) => ({ ...current, adjustFrom: null }));
+    if (changed) {
+      const painted = ctx.session.getState().rig.paintedSinceBind;
+      // the hands follow their forearms (AR-D7-16), then the rebind; painted weights keep the hands where they are
+      const character = resolveSubject(app.store, ctx.session.getState().subject).character;
+      if (!painted && arms !== null && character !== null) {
+        rigUi(ctx).set((current) => ({ ...current, rebinding: true }));
+        try {
+          await handsFollowForearms(app, character.id, arms);
+        } finally {
+          rigUi(ctx).set((current) => ({ ...current, rebinding: false }));
+        }
+      }
+      await rebind(ctx, { confirm: !painted });
+    }
+    rigUi(ctx).set((current) => ({ ...current, adjustFrom: null, adjustArms: null }));
     await setSub(ctx, 'review');
   };
   return (
