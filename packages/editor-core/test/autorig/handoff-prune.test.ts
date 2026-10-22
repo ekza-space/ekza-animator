@@ -44,10 +44,7 @@ describe('handoff pruning in autosave housekeeping (§4.4)', () => {
   });
 
   it('a failed prune is ignored, and a store without the member starts as before', async () => {
-    for (const autosave of [
-      store({ pruneHandoffs: () => Promise.reject(new Error('blocked')) }),
-      store(),
-    ]) {
+    for (const autosave of [store({ pruneHandoffs: () => Promise.reject(new Error('blocked')) }), store()]) {
       const { app } = opsAppWith({ services: { ...createFakeServices(), autosave } });
       const controller = startAutosave(app);
       await controller.ready;

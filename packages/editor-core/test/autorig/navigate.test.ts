@@ -6,7 +6,10 @@ import { hostNavigation, type NavigationRequest, provideNavigation } from '../..
 import { NO_NAVIGATION } from '../../src/operators/builtin/rig/wizard/navigate';
 import { opsApp } from '../builtin/support';
 
-function recordingPort(): { readonly calls: NavigationRequest[]; readonly port: Parameters<typeof provideNavigation>[1] } {
+function recordingPort(): {
+  readonly calls: NavigationRequest[];
+  readonly port: Parameters<typeof provideNavigation>[1];
+} {
   const calls: NavigationRequest[] = [];
   return { calls, port: { go: async (request) => void calls.push(request), takeSubject: () => null } };
 }

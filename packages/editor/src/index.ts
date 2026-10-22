@@ -1,4 +1,7 @@
 export { Editor, type EditorProps } from './Editor';
+// AUTORIG-SPEC §4.4 (D1): the `/editor` route's shell inside the `(studio)` layout's `StudioHost`
+// (`@ekza-studio/editor/host`); `Editor` above is both in one tree.
+export { STUDIO_SHELL_MARKER, StudioShell, type StudioShellProps } from './shell/EditorShell';
 export {
   EditorAppProvider,
   useDocQuery,

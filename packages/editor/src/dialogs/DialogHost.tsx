@@ -6,6 +6,9 @@
 // hashes). Each dialog and the prompt sit in an error boundary: a failure closes that dialog (the prompt answers
 // Cancel), says so in a toast and leaves the editor running; the next open loads the chunk again (`React.lazy` keeps a
 // rejected load for good, so a failed attempt's lazy component is replaced).
+//
+// AUTORIG-SPEC §4.4 (D1): the dialog host is the HostShell's (mounted by `StudioHost` on every route). The dialogs read
+// `useShell()`: the mounted Studio shell is provided to them here, and on a route without it the host answers.
 import type { UiDialog } from '@ekza-studio/editor-core';
 import {
   Component,
@@ -16,10 +19,13 @@ import {
   lazy,
   type ReactNode,
   Suspense,
+  useContext,
 } from 'react';
+import { useHost, useHostUi } from '../host/context';
 import { useSession } from '../hooks';
-import { useShell, useShellUi } from '../shell/context';
-import type { ConfirmRequest } from '../shell/types';
+import { useStoreSelector } from '../hooks/useStoreSelector';
+import { ShellContext } from '../shell/context';
+import type { ConfirmRequest, Shell } from '../shell/types';
 
 /** A dialog chunk's module: the component as its default export. */
 type Module<P extends object> = { readonly default: ComponentType<P> };
@@ -221,7 +227,7 @@ class DialogBoundary extends Component<BoundaryProps, { readonly failed: boolean
 }
 
 function CurrentDialog(): JSX.Element | null {
-  const shell = useShell();
+  const shell = useHost();
   const dialog = useSession((s) => s.dialog);
   if (dialog === null) return null;
   const Lazy = dialogChunk(dialog)?.component();
@@ -256,8 +262,8 @@ function requestKey(request: ConfirmRequest): number {
 
 /** The shell's confirmation prompt (`shell.confirm`), a lazy chunk like the dialogs; a failure answers Cancel. */
 function ConfirmPrompt(): JSX.Element | null {
-  const shell = useShell();
-  const request = useShellUi((s) => s.confirm);
+  const shell = useHost();
+  const request = useHostUi((s) => s.confirm);
   if (request === null) return null;
   const ConfirmDialog = confirmChunk().component();
   const onError = (error: unknown): void => {
@@ -274,11 +280,20 @@ function ConfirmPrompt(): JSX.Element | null {
   );
 }
 
+/** The Studio shell mounted in the host, else null (Auto-Rig, or between two shells). */
+function useMountedStudio(): Shell | null {
+  const mounted = useStoreSelector(useHost().mounted, (shell) => shell);
+  return mounted?.kind === 'studio' ? (mounted as Shell) : null;
+}
+
 export function DialogHost(): JSX.Element {
+  const studio = useMountedStudio();
+  // Inside a ShellProvider (unit tests mount dialogs under the shell) its shell stands; on the page, the mounted one.
+  const outer = useContext(ShellContext);
   return (
-    <>
+    <ShellContext value={outer ?? studio}>
       <CurrentDialog />
       <ConfirmPrompt />
-    </>
+    </ShellContext>
   );
 }

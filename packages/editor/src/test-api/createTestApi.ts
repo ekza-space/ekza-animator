@@ -34,6 +34,7 @@ import {
 } from '@ekza-studio/editor-core';
 import { applyOverrides, controlWorld, footPivotWorlds, type LimbId } from '@ekza-studio/rig';
 import { asArtifacts } from '../shell/exports';
+import type { HostShell } from '../host/types';
 import { type Shell, type TweenPanel, tweenProbeKey } from '../shell/types';
 // M6a (M6A-SPEC §4.8): one file per owner, spread into the API below; each owner fills only its own file.
 import { integrationTestApi } from './m6a/integration';
@@ -136,8 +137,23 @@ function resultOf(result: OperatorResult<unknown>): Awaited<ReturnType<EkzaStudi
   }
 }
 
-export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngine } = {}): TestApiHandle {
-  const { app, ui } = shell;
+/**
+ * The Studio shell's view of a HostShell for the owner groups (AUTORIG-SPEC §4.4, D1): the mounted Studio shell's
+ * members while one is mounted (marking menus, the dockview workspace, presets), else the host's — so one test API,
+ * installed by the host, serves `/editor`, `/autorig` and the switches between them.
+ */
+export function studioView(host: HostShell): Shell {
+  return new Proxy(host, {
+    get(target, key) {
+      const mounted = target.mounted.getState();
+      return Reflect.get(mounted?.kind === 'studio' && key in mounted ? mounted : target, key) as unknown;
+    },
+  }) as Shell;
+}
+
+export function createTestApi(host: HostShell, opts: { readonly engine?: CurveEngine } = {}): TestApiHandle {
+  const shell = studioView(host);
+  const { app, ui } = host;
   const engine = opts.engine ?? curveEngine;
   const store = app.store;
 

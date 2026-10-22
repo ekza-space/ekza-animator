@@ -23,10 +23,12 @@ const navigate = defineOperator<'autorig.navigate'>({
   scope: GLOBAL_SCOPE,
   poll({ app }, args) {
     if (hostNavigation(app) === null) return fail(NO_NAVIGATION);
-    if (!isRecord(args) || !ROUTES.includes(args['to'] as ShellRoute)) return fail(EXPECTS);
+    if (!isRecord(args) || !ROUTES.includes(args.to)) return fail(EXPECTS);
     const { workspace, from, newTab } = args;
     if (workspace !== undefined && typeof workspace !== 'string') return fail('workspace must be a workspace id');
-    if (from !== undefined && from !== 'studio' && from !== 'autorig') return fail("from must be 'studio' or 'autorig'");
+    if (from !== undefined && from !== 'studio' && from !== 'autorig') {
+      return fail("from must be 'studio' or 'autorig'");
+    }
     if (newTab !== undefined && typeof newTab !== 'boolean') return fail('newTab must be true or false');
     return OK;
   },

@@ -1,17 +1,18 @@
 // Window-level listeners of the DOM input adapter (MVP-SPEC §7 WP-8): keymap dispatch, hovered panel tracking,
 // Space tap/hold, blur/visibility reset, browser-default suppression (MMB autoscroll and paste, context menu,
-// pinch-zoom), global drag-and-drop of files and the unsaved-changes guard.
+// pinch-zoom), global drag-and-drop of files and the unsaved-changes guard. The page's host installs them once
+// (AUTORIG-SPEC §4.4): they serve both shells.
 import { type RefObject, useEffect } from 'react';
 import { isClosedMenuTrigger, isDropdown, isInOverlay, isTextEntry, menuTriggerKeyRoute } from '../input/focus';
 import { keyInputOf } from '../input/keyboard';
 import { hoverTargetOf, sameHover } from '../input/pointer';
 import { prefetchForFileDrag, prefetchModelLoading, SAMPLE_SELECTOR } from './prefetch';
-import type { Shell } from './types';
+import type { HostShell } from '../host/types';
 
 const hasFiles = (event: DragEvent): boolean => event.dataTransfer?.types.includes('Files') === true;
 
 /** Installs the listeners while mounted. `root` is the editor's root element (context menu and wheel scope). */
-export function useWindowInput(shell: Shell, root: RefObject<HTMLElement | null>): void {
+export function useWindowInput(shell: HostShell, root: RefObject<HTMLElement | null>): void {
   useEffect(() => {
     const { app, ui, keyboard } = shell;
     const inEditor = (target: EventTarget | null): boolean =>
