@@ -181,6 +181,8 @@ export const ALLOWED = {
       'gltf-validator',
       'playwright',
       'tailwindcss',
+      // E2E-MVP-01 (AS-MVP-1 step 11): the exported VRM 1.0 through vrm-validator (pinned as in io, headless-tests).
+      'vrm-validator',
     ],
   },
 };

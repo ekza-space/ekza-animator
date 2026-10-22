@@ -1580,9 +1580,10 @@
                   "!@ekza-studio/io",
                   "!@ekza-studio/doc",
                   "!gltf-validator",
+                  "!vrm-validator",
                   "!node:*"
                 ],
-                "message": "apps/web e2e specs may import only: @playwright/test, @ekza-studio/editor, @ekza-studio/io, @ekza-studio/doc, gltf-validator, node:* (ARCHITECTURE \u00a73)."
+                "message": "apps/web e2e specs may import only: @playwright/test, @ekza-studio/editor, @ekza-studio/io, @ekza-studio/doc, gltf-validator, vrm-validator, node:* (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-studio/[^/]+/[^/]+/",
