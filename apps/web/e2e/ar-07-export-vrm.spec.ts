@@ -127,11 +127,11 @@ test('an error saves nothing: Download stays disabled, a scripted export toasts 
     'vrm.meta-required',
     'vrm.licence-unset',
   ]);
-  await expect(page.getByText(/cube-lad\.vrm was not saved: Set the VRM meta/)).toBeVisible();
+  await expect(page.getByTestId('toast').getByText(/cube-lad\.vrm was not saved: Set the VRM meta/)).toBeVisible();
   // the kit is blocked with the VRM
   const kit = await run(page, 'autorig.export', { character, target: 'omoba-kit', fileName: '' });
   expect((kit.value as { fileName: string }).fileName).toBe('cube-lad-omoba-kit.zip');
-  await expect(page.getByText(/cube-lad-omoba-kit\.zip was not saved/)).toBeVisible();
+  await expect(page.getByTestId('toast').getByText(/cube-lad-omoba-kit\.zip was not saved/)).toBeVisible();
   await page.waitForTimeout(500);
   expect(downloads).toBe(0);
   expect(await call(page, 'lastExport')).toBeNull();

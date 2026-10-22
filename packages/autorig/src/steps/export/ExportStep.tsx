@@ -324,12 +324,12 @@ const TONE: Readonly<Record<ChecklistItem['state'], string>> = {
   warning: 'text-warn',
   info: 'text-fg-3',
 };
-const STATE_TEXT: Readonly<Record<ChecklistItem['state'], string>> = {
-  ok: 'passed',
-  pending: 'checked when you download',
-  error: 'error, blocks the download',
-  warning: 'warning',
-  info: 'note',
+const STATE_TEXT: Readonly<Record<ChecklistItem['state'], () => string>> = {
+  ok: () => t().stateOk,
+  pending: () => t().statePending,
+  error: () => t().stateError,
+  warning: () => t().stateWarning,
+  info: () => t().stateInfo,
 };
 
 /** The meta rows the fields beside the checklist fix (§5.6.3): their Fix focuses the field (no Studio dialog). */
@@ -401,7 +401,7 @@ function Checklist(props: {
             </span>
             <span className={cn('min-w-0 flex-1', item.state === 'pending' ? 'text-fg-3' : 'text-fg')}>
               {item.label}
-              <span className="sr-only">: {STATE_TEXT[item.state]}</span>
+              <span className="sr-only">: {STATE_TEXT[item.state]()}</span>
               {detail === null || detail === item.label ? null : (
                 <span className="block text-ui-dense text-fg-3">{detail}</span>
               )}
