@@ -551,7 +551,9 @@ function PanelWithFooter(props: { readonly ctx: WizardContext }): JSX.Element {
   useFrameOnce(ctx);
   const rig = useSession(ctx.session, selectRig);
   const markers = useSession(ctx.session, selectMarkersSlice);
-  useHiddenControls(ctx, rig.sub === 'adjust', `${rig.sub}:${markers.pane}`);
+  // A clean character while the deformation is judged (AR-D9-8): no IK rings, root arrows or pole targets on any of
+  // ③'s sub-steps (AR-D8-4 hid them in *Adjust joints* only); Studio keeps its own pane flags.
+  useHiddenControls(ctx, true, `${rig.sub}:${markers.pane}`);
   useEffect(() => watchPaintedSinceBind(ctx.app, ctx.session), [ctx]);
   return <Panel ctx={ctx} />;
 }
