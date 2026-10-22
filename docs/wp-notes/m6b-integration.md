@@ -156,3 +156,13 @@ Already closed before this pass and verified on `dev`: C7's keying in Rig & Skin
 runner and `operators.poll`), control selection undo (M6B-C7-23), the Skin-mode skinned display mount (C1 → C6/C3,
 `viewport/src/rig/skinned`), and C6's `skin.cross-side` row (`editor-core/src/rig/validation/rows.ts` passes the skin
 geometry).
+
+## Gate on `dev` after the review closure
+
+Main checkout, `dev` at the fix and docs commits above, local Chrome with the GPU, port 3100:
+**`EKZA_E2E_PORT=3100 pnpm run ci` green** — format, lint, typecheck, check:deps/fixtures/licenses, `test` 15/15 turbo
+tasks (io 341), build, check:size **895,510 B** (gate 900,000 B), `test:e2e` **254 passed**, 24 skipped (the stretch
+`test.fixme`s and `c6-ce`). One earlier run failed in M6a's viewport browser test "Esc (cancel) during a drag" (a
+screenshot timeout under the parallel turbo load); the file passes alone (29/29) and in the green run. The merged
+`m6b-*` worktrees were removed (branches kept); an orphaned vitest worker from the C2 worktree (parent launchd, 5 h at
+100 % CPU) was stopped first.
