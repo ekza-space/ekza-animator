@@ -75,7 +75,7 @@ export async function readStages(page: Page): Promise<StageRecord> {
   return page.evaluate(() => {
     const record = window.__AR_STAGES__;
     if (record === undefined) throw new Error('no stage recorder');
-    record.stop = true;
+    // the recorder keeps running: the preview badge after the sheet may come later
     return { stages: record.stages, rows: record.rows, endedAt: record.endedAt, previewAt: record.previewAt };
   });
 }
