@@ -157,3 +157,8 @@ touched. From then on the builder used a private scratch subdirectory and killed
 - **Minor, open for D7 / the coordinator (a decision, not D5 rework):** Play/Stop instead of play/pause (AR-D5-10), ④'s
   keys not in the shortcuts sheet (AR-D5-9), preview ≡ playback proven in Node only (AR-D5-17), `/autorig` over its
   reported-only 660,000 B gate (Sizes).
+- Gates at `233826b`: `EKZA_E2E_PORT=3166 pnpm run ci` exited 0 — format, lint, typecheck, check:deps, fixtures,
+  licences; unit tests 16/16 tasks (8 fresh: io, editor-core, autorig and their dependents); clean build;
+  check:size (`/editor` 896,374 B ≤ 900,000 B, Auto-Rig eager delta +686 B ≤ 2,048 B, enforced, pass; `/autorig`
+  670,501 B, reported over 660,000 B); full e2e on local Chrome: **289 passed, 24 skipped, 0 failed** (E2E-AR-06: 8).
+  Only Playwright's own port-3166 server was started; nothing listens there afterwards.
