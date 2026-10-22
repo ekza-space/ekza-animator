@@ -13,7 +13,13 @@
 // warns above 250 kB; and with source maps in the build (`STUDIO_SOURCE_MAPS=1`) the eager scripts' bytes are
 // attributed to packages (the chunk attribution report, `attribute-chunks.mjs`).
 //
-// Usage: node scripts/check-size.mjs [--next <dir>] [--json <file>] [--baseline <file>]
+// AUTORIG-SPEC §7.2 (D0): the gate runs once per app route (`ROUTES`: `/editor`, and `/autorig` when the build has it;
+// `--route <name>` picks one). Each route has its gate, target, first-visit groups and boundaries: `/editor` keeps the
+// shipped ones plus the `autorig-shell` boundary; `/autorig` (gate 660,000 B, target 620,000 B — reported, not
+// enforced, until D1 records its baseline under `routes.autorig` in `size-baseline.json`) adds the dockview,
+// curve-editor and Studio-shell boundaries and opens no First-run dialog.
+//
+// Usage: node scripts/check-size.mjs [--next <dir>] [--route <name>] [--json <file>] [--baseline <file>]
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -83,6 +89,42 @@ export const BOUNDARIES = [
   },
   { id: 'clip-library', label: 'clip library (panel, preview, Use Clip)', markers: ['ekza-clip-library'] },
 ];
+
+/**
+ * AUTORIG-SPEC §7.2: boundaries of one route only. `/editor` must never load the Auto-Rig shell; `/autorig` must never
+ * load dockview, the curve editor (Graph Editor, Dope Sheet) or the Studio shell (marker referenced by the Studio
+ * shell's entry, D1). Each is recognised by strings only its code contains.
+ */
+export const ROUTE_BOUNDARIES = {
+  editor: [{ id: 'autorig-shell', label: 'Auto-Rig shell', markers: ['ekza-autorig-shell'] }],
+  autorig: [
+    { id: 'dockview', label: 'dockview (Studio docking)', markers: ['dv-dockview'] },
+    {
+      id: 'curve-editor',
+      label: 'curve editor (Graph Editor, Dope Sheet)',
+      markers: ['Absolute, normalized or stacked curves', 'DopeSheetController: the canvas'],
+    },
+    { id: 'studio-shell', label: 'Studio shell', markers: ['ekza-studio-shell'] },
+  ],
+};
+
+/** The routes `check:size` measures (AUTORIG-SPEC §7.2); `/editor` is required, the others when the build has them. */
+export const ROUTES = ['editor', 'autorig'];
+
+/** `/autorig` first-visit gate and target (AUTORIG-SPEC §7.2, AR-D8; gzip -9, decimal bytes). */
+export const AUTORIG_GATE_BYTES = 660_000;
+export const AUTORIG_TARGET_BYTES = 620_000;
+
+/** Per-route gate, target and first-visit groups (the Auto-Rig shell never opens the First-run dialog, §4.4). */
+export const ROUTE_LIMITS = {
+  editor: { gate: 900_000, target: 850_000, firstVisit: ['dialog-first-run'] },
+  autorig: { gate: AUTORIG_GATE_BYTES, target: AUTORIG_TARGET_BYTES, firstVisit: [] },
+};
+
+/** The boundaries checked on a route: every shipped one plus the route's own. */
+export function boundariesFor(route) {
+  return [...BOUNDARIES, ...(ROUTE_BOUNDARIES[route] ?? [])];
+}
 
 /** M6B-SPEC §0.4.9: warning thresholds of the M6b lazy chunks (gzip -9, decimal bytes). */
 export const M6B_CHUNK_WARN_BYTES = {
@@ -157,17 +199,25 @@ const has = (source, markers) => markers.some((marker) => source.includes(marker
  * `ok` is the gate verdict.
  */
 export function checkSize(nextDir, opts = {}) {
-  const gate = opts.gate ?? GATE_BYTES;
-  const target = opts.target ?? TARGET_BYTES;
+  const routeName = opts.route ?? 'editor';
+  const limits = ROUTE_LIMITS[routeName] ?? { gate: GATE_BYTES, target: TARGET_BYTES, firstVisit: [] };
   const baseline = opts.baseline === undefined ? readBaseline() : opts.baseline;
-  const route = readRouteScripts(nextDir, opts.route ?? 'editor');
+  // `/editor` uses the file's top-level record; another route its `routes.<name>` record (D1 records `/autorig`'s).
+  const routeRecord = routeName === 'editor' ? null : (baseline?.routes?.[routeName] ?? null);
+  const gate = opts.gate ?? routeRecord?.gate ?? limits.gate;
+  const target = opts.target ?? routeRecord?.target ?? limits.target;
+  const gateEnforced = routeName === 'editor' || opts.gate !== undefined || routeRecord?.enforce === true;
+  const firstVisitIds = routeName === 'editor' ? FIRST_VISIT : limits.firstVisit;
+  const boundaries = boundariesFor(routeName);
+  const labels = [...boundaries, ...Object.values(ROUTE_BOUNDARIES).flat()];
+  const route = readRouteScripts(nextDir, routeName);
   const initial = route.initial.map((file) => ({ file, bytes: route.sizes.get(file) ?? 0 }));
   const eager = initial.reduce((sum, { bytes }) => sum + bytes, 0);
   const initialSource = route.initial.map((file) => route.sources.get(file) ?? '').join('\n');
-  const violations = BOUNDARIES.filter((boundary) => has(initialSource, boundary.markers)).map((b) => b.id);
+  const violations = boundaries.filter((boundary) => has(initialSource, boundary.markers)).map((b) => b.id);
   const lazy = route.lazy.map((group) => {
     const source = group.files.map((file) => route.sources.get(file) ?? '').join('\n');
-    const boundary = BOUNDARIES.find((candidate) => has(source, candidate.markers));
+    const boundary = labels.find((candidate) => has(source, candidate.markers));
     return {
       id: group.id,
       label: boundary?.label ?? `lazy chunk group ${group.id}`,
@@ -176,16 +226,19 @@ export function checkSize(nextDir, opts = {}) {
       bytes: group.files.reduce((sum, file) => sum + (route.sizes.get(file) ?? 0), 0),
     };
   });
-  const firstVisit = lazy.filter((group) => group.boundary !== null && FIRST_VISIT.includes(group.boundary));
+  const firstVisit = lazy.filter((group) => group.boundary !== null && firstVisitIds.includes(group.boundary));
   const total = eager + firstVisit.reduce((sum, group) => sum + group.bytes, 0);
   const problems = [];
   const warnings = [];
   if (route.missing.length > 0) problems.push(`initial scripts missing from the build: ${route.missing.join(', ')}`);
-  if (total > gate)
-    problems.push(`initial route ${total.toLocaleString('en')} B > gate ${gate.toLocaleString('en')} B`);
+  if (total > gate) {
+    const text = `initial route ${total.toLocaleString('en')} B > gate ${gate.toLocaleString('en')} B`;
+    if (gateEnforced) problems.push(text);
+    else warnings.push(`/${routeName} ${text}; not enforced: ${routeRecord?.pending ?? 'no recorded baseline yet'}`);
+  }
   for (const id of violations)
-    problems.push(`lazy boundary broken: ${BOUNDARIES.find((b) => b.id === id)?.label} is in the initial route`);
-  const delta = eagerDelta(total, baseline, route.e2eBuild);
+    problems.push(`lazy boundary broken: ${boundaries.find((b) => b.id === id)?.label} is in the initial route`);
+  const delta = routeName === 'editor' ? eagerDelta(total, baseline, route.e2eBuild) : null;
   if (delta !== null && delta.over && delta.comparable) {
     const text =
       `${delta.label} +${delta.delta.toLocaleString('en')} B over the ${delta.baseline.toLocaleString('en')} B ` +
@@ -212,16 +265,19 @@ export function checkSize(nextDir, opts = {}) {
     if (mapped.length > 0) attribution = attributeFiles(nextDir, route, route.initial);
   }
   return {
+    route: routeName,
+    segment: route.segment,
     e2eBuild: route.e2eBuild,
     initial,
     eager,
     firstVisit,
     total,
     gate,
+    gateEnforced,
     target,
     lazy,
     violations,
-    present: BOUNDARIES.filter((boundary) => lazy.some((group) => group.boundary === boundary.id)).map((b) => b.id),
+    present: labels.filter((boundary) => lazy.some((group) => group.boundary === boundary.id)).map((b) => b.id),
     eagerDelta: delta,
     modelChunk: model,
     attribution:
@@ -234,13 +290,26 @@ export function checkSize(nextDir, opts = {}) {
   };
 }
 
+/** Whether a build has a route's prerendered page (`server/app/<route>.html`). */
+export function hasRoute(nextDir, route) {
+  return existsSync(join(nextDir, 'server', 'app', `${route}.html`));
+}
+
+/** The reports of every route the build has (`/editor` always; it throws without it). */
+export function checkRoutes(nextDir, opts = {}) {
+  const routes = opts.routes ?? ROUTES.filter((route) => route === 'editor' || hasRoute(nextDir, route));
+  const reports = {};
+  for (const route of routes) reports[route] = checkSize(nextDir, { ...opts, route });
+  return { reports, ok: Object.values(reports).every((report) => report.ok) };
+}
+
 function print(report) {
   const out = (line) => process.stdout.write(`${line}\n`);
   const bytes = (n) => `${n.toLocaleString('en')} B`;
   const firstVisitFiles = report.firstVisit.reduce((sum, group) => sum + group.files.length, 0);
   out(
-    `check:size — /editor initial route, first visit (${report.e2eBuild ? 'e2e build: includes the test routes' : 'production build'}): ` +
-      `${report.initial.length + firstVisitFiles} scripts, ${bytes(report.total)} gzip -9 (gate ${bytes(report.gate)}, target ≤ ${bytes(report.target)})`,
+    `check:size — /${report.route} initial route, first visit (${report.e2eBuild ? 'e2e build: includes the test routes' : 'production build'}; segment ${report.segment}): ` +
+      `${report.initial.length + firstVisitFiles} scripts, ${bytes(report.total)} gzip -9 (gate ${bytes(report.gate)}${report.gateEnforced ? '' : ', reported only'}, target ≤ ${bytes(report.target)})`,
   );
   out(`eager scripts (every visit): ${report.initial.length}, ${bytes(report.eager)}`);
   for (const { file, bytes: size } of [...report.initial].sort((a, b) => b.bytes - a.bytes)) {
@@ -256,9 +325,11 @@ function print(report) {
   for (const group of [...report.lazy].sort((a, b) => b.bytes - a.bytes)) {
     out(`  ${kB(group.bytes).padStart(10)}  ${group.label}  [${group.files.join(', ')}]`);
   }
-  const absent = BOUNDARIES.filter((b) => !report.present.includes(b.id) && !report.violations.includes(b.id));
+  const absent = boundariesFor(report.route).filter(
+    (b) => !report.present.includes(b.id) && !report.violations.includes(b.id),
+  );
   if (absent.length > 0)
-    out(`boundaries not in this build (no marker anywhere): ${absent.map((b) => b.id).join(', ')}`);
+    out(`boundaries not in this route's scripts (no marker reachable): ${absent.map((b) => b.id).join(', ')}`);
   const delta = report.eagerDelta;
   if (delta !== null) {
     out(
@@ -289,9 +360,15 @@ function print(report) {
   for (const warning of report.warnings) out(`WARN: ${warning}`);
   if (report.ok) {
     const headroom = report.gate - report.total;
+    if (headroom < 0) {
+      out(`REPORTED: /${report.route} ${bytes(report.total)} > ${bytes(report.gate)} (gate not enforced yet)`);
+      return;
+    }
     const verdict =
       report.total <= report.target ? 'target met' : `above the target by ${bytes(report.total - report.target)}`;
-    out(`OK: ${bytes(report.total)} ≤ ${bytes(report.gate)} (headroom ${bytes(headroom)}); ${verdict}`);
+    out(
+      `OK: /${report.route} ${bytes(report.total)} ≤ ${bytes(report.gate)} (headroom ${bytes(headroom)}); ${verdict}`,
+    );
   } else {
     for (const problem of report.problems) out(`FAIL: ${problem}`);
   }
@@ -305,21 +382,29 @@ function main() {
     process.stderr.write(`check:size: no production build at ${nextDir}; run \`pnpm build\` first.\n`);
     process.exit(1);
   }
-  let report;
+  let result;
   try {
     const baseline = args.includes('--baseline')
       ? readBaseline(resolve(args[args.indexOf('--baseline') + 1]))
       : undefined;
-    report = checkSize(nextDir, baseline === undefined ? {} : { baseline });
+    const routes = args.includes('--route') ? [args[args.indexOf('--route') + 1]] : undefined;
+    result = checkRoutes(nextDir, {
+      ...(baseline === undefined ? {} : { baseline }),
+      ...(routes === undefined ? {} : { routes }),
+    });
   } catch (error) {
     process.stderr.write(`check:size: ${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
-  print(report);
+  const reports = Object.values(result.reports);
+  reports.forEach((report, index) => {
+    if (index > 0) process.stdout.write('\n');
+    print(report);
+  });
   if (args.includes('--json')) {
-    writeFileSync(args[args.indexOf('--json') + 1], `${JSON.stringify(report, null, 2)}\n`);
+    writeFileSync(args[args.indexOf('--json') + 1], `${JSON.stringify(result.reports, null, 2)}\n`);
   }
-  if (!report.ok) process.exit(1);
+  if (!result.ok) process.exit(1);
 }
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

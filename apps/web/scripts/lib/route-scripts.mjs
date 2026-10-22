@@ -10,9 +10,10 @@
 //   counted as initial even when the host loads the shell with `React.lazy`). The budget bench's `editor route JS`
 //   test records the same set from the network (`e2e/bench/budgets.bench.ts`), and the two totals were cross-checked
 //   once (wp-notes).
-// - **lazy groups** — every other Turbopack chunk-list loader (`import()` / `React.lazy` boundaries): the loader's
-//   module id, its target module and the files it fetches that are not initial; and every web-worker loader (`new
-//   Worker(new URL(…))`: the skin worker, M6B-SPEC §2.1), whose chunks load only when the worker starts (target −1).
+// - **lazy groups** — every other Turbopack chunk-list loader the route can reach (`import()` / `React.lazy`
+//   boundaries defined in an initial chunk or in a reachable lazy group's chunk): the loader's module id, its target
+//   module and the files it fetches that are not initial; and every web-worker loader (`new Worker(new URL(…))`: the
+//   skin worker, M6B-SPEC §2.1), whose chunks load only when the worker starts (target −1).
 //
 // Route groups (`app/(studio)/editor/page.tsx`) keep the URL and the prerendered HTML path (`server/app/editor.html`)
 // but move the server-side build manifests (`server/app/(studio)/editor/page/react-loadable-manifest.json`). The
@@ -232,12 +233,25 @@ export function readRouteScripts(nextDir, route = 'editor', opts = {}) {
   }
   const initialSet = new Set(initial);
   const missing = initial.filter((file) => !sources.has(file));
+  // Lazy groups are the loaders the route can reach: defined in an initial chunk, or in a chunk of a reachable lazy
+  // group (AUTORIG-SPEC §7.2: one build holds both routes, and a group only another route reaches is not this
+  // route's).
+  const reachable = new Set(initial);
   const lazy = [];
-  for (const loader of sorted) {
-    const files = loader.files.filter((file) => file.endsWith('.js') && !initialSet.has(file));
-    if (files.length === 0) continue;
-    lazy.push({ id: loader.id, target: loader.target, definedIn: loader.definedIn, files });
+  const visited = new Set();
+  for (let grown = true; grown; ) {
+    grown = false;
+    for (const loader of sorted) {
+      if (visited.has(loader.id) || !reachable.has(loader.definedIn)) continue;
+      visited.add(loader.id);
+      const files = loader.files.filter((file) => file.endsWith('.js') && !initialSet.has(file));
+      if (files.length === 0) continue;
+      lazy.push({ id: loader.id, target: loader.target, definedIn: loader.definedIn, files });
+      for (const file of files) reachable.add(file);
+      grown = true;
+    }
   }
+  lazy.sort((x, y) => x.id - y.id);
   const size = (file) => (sources.has(file) ? gzip9(sources.get(file)) : 0);
   const sizes = new Map([...sources.keys()].map((file) => [file, size(file)]));
   return {

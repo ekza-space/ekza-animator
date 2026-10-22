@@ -7,6 +7,9 @@ export interface LazyGroup {
   readonly bytes: number;
 }
 export interface SizeReport {
+  /** AUTORIG-SPEC §7.2: the measured route ('editor', 'autorig') and its app-paths segment. */
+  readonly route: string;
+  readonly segment: string;
   readonly e2eBuild: boolean;
   /** Eager scripts: every visit loads them. */
   readonly initial: readonly { readonly file: string; readonly bytes: number }[];
@@ -17,6 +20,8 @@ export interface SizeReport {
   /** The measured initial route of a first visit: `eager` plus `firstVisit` (gated, compared to the target). */
   readonly total: number;
   readonly gate: number;
+  /** False while a route's gate is reported only (`/autorig` until D1 records its baseline). */
+  readonly gateEnforced: boolean;
   readonly target: number;
   readonly lazy: readonly LazyGroup[];
   readonly violations: readonly string[];
@@ -53,6 +58,19 @@ export interface SizeBaseline {
     readonly packages?: Readonly<Record<string, number>>;
   };
   readonly modelChunk?: { readonly warnBytes?: number; readonly boundaries?: readonly string[] };
+  /** AUTORIG-SPEC §7.2: per-route records of the routes other than `/editor` (D1 records `/autorig`'s). */
+  readonly routes?: Readonly<
+    Record<
+      string,
+      {
+        readonly gate?: number;
+        readonly target?: number;
+        readonly enforce?: boolean;
+        readonly total?: number | null;
+        readonly pending?: string;
+      }
+    >
+  >;
   /** The record this baseline replaced (kept for the history; never compared). */
   readonly previous?: Readonly<Record<string, unknown>>;
 }
@@ -87,6 +105,27 @@ export declare const M6B_CHUNK_WARN_BYTES: Readonly<Record<string, number>>;
 export declare function readBaseline(file?: string): SizeBaseline | null;
 export declare function eagerDelta(total: number, baseline: SizeBaseline | null, e2eBuild: boolean): EagerDelta | null;
 export declare function modelChunk(lazy: readonly LazyGroup[], baseline: SizeBaseline | null): ModelChunk;
+export declare const ROUTES: readonly string[];
+export declare const AUTORIG_GATE_BYTES: number;
+export declare const AUTORIG_TARGET_BYTES: number;
+export declare const ROUTE_BOUNDARIES: Readonly<
+  Record<string, readonly { readonly id: string; readonly label: string; readonly markers: readonly string[] }[]>
+>;
+export declare const ROUTE_LIMITS: Readonly<
+  Record<string, { readonly gate: number; readonly target: number; readonly firstVisit: readonly string[] }>
+>;
+export declare function boundariesFor(
+  route: string,
+): readonly { readonly id: string; readonly label: string; readonly markers: readonly string[] }[];
+export declare function hasRoute(nextDir: string, route: string): boolean;
+export declare function checkRoutes(
+  nextDir: string,
+  opts?: {
+    readonly routes?: readonly string[];
+    readonly baseline?: SizeBaseline | null;
+    readonly attribute?: boolean;
+  },
+): { readonly reports: Readonly<Record<string, SizeReport>>; readonly ok: boolean };
 export declare function checkSize(
   nextDir: string,
   opts?: {

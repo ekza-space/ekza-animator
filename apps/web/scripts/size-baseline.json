@@ -21,11 +21,29 @@
     "warnBytes": 250000,
     "boundaries": ["mesh-kernel", "mesh-view", "marking-menu"]
   },
+  "routes": {
+    "autorig": {
+      "gate": 660000,
+      "target": 620000,
+      "enforce": false,
+      "total": null,
+      "pending": "D1 records the /autorig baseline at its merge (AUTORIG-SPEC §7.2); until then the gate is reported, not enforced",
+      "placeholder": {
+        "total": 134011,
+        "recorded": "2026-10-22, D0 placeholder page (no EditorApp yet), docs/wp-notes/ar-contracts.md"
+      }
+    }
+  },
   "previous": {
     "label": "M6b MVP: dev before M6b C0 (m6b/mvp 906520c, code = dev 6f9fab9)",
     "total": 889569,
     "allowance": 6144,
-    "packages": { "c0": 2048, "c7": 2560, "c12": 1024, "c1": 512 },
+    "packages": {
+      "c0": 2048,
+      "c7": 2560,
+      "c12": 1024,
+      "c1": 512
+    },
     "measuredAtRelease": 895688,
     "recorded": "2026-10-22, docs/wp-notes/m6b-rig-contracts.md (Eager route); closed by AR-B1",
     "previous": {
