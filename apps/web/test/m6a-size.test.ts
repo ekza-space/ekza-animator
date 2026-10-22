@@ -38,6 +38,7 @@ function fixtureBuild(chunks: Readonly<Record<string, string>>, opts: { readonly
     'server/app/editor.html',
     '<!DOCTYPE html><html><head><script src="/_next/static/chunks/main.js" async=""></script></head></html>',
   );
+  write('server/app-paths-manifest.json', JSON.stringify({ '/editor/page': 'app/editor/page.js' }));
   write('server/app/editor/page/react-loadable-manifest.json', JSON.stringify({}));
   if (opts.e2e === true) write('server/app/e2e/vrma-check.html', '<html></html>');
   for (const [name, text] of Object.entries(chunks)) write(`static/chunks/${name}`, text);

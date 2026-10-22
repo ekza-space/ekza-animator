@@ -38,6 +38,7 @@ function fixtureBuild(chunks: Readonly<Record<string, string>>, opts: { readonly
       '<script src="/_next/static/chunks/main.js?dpl=abc" async=""></script>' +
       '<script>self.__next_f.push([1,"inline"])</script></head></html>',
   );
+  write('server/app-paths-manifest.json', JSON.stringify({ '/editor/page': 'app/editor/page.js' }));
   write(
     'server/app/editor/page/react-loadable-manifest.json',
     JSON.stringify({ 7: { id: 7, files: ['static/chunks/editor-a.js', 'static/chunks/editor-b.js'] } }),
