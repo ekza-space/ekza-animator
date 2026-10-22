@@ -3,9 +3,10 @@
 // canvas, the dialogs, the command palette, the toasts and the drop target on every route. `StudioShell` is the
 // `/editor` route's shell: it creates the Studio shell core over the page's host when it mounts and disposes it when
 // it unmounts (a switch to Auto-Rig), and it alone opens the first-run dialog.
-import { type EditorApp, switchWorkspace } from '@ekza-studio/editor-core';
+import { switchWorkspace } from '@ekza-studio/editor-core';
 import { type JSX, useEffect } from 'react';
 import { useHost } from '../host/context';
+import { shellShown } from '../host/StudioHost';
 import type { HostShell } from '../host/types';
 import { MarkingMenuHost } from '../overlays/MarkingMenu';
 import { ShellOverlays } from '../overlays/slots';
@@ -54,18 +55,15 @@ export function EditorShell(): JSX.Element {
   );
 }
 
-/** Apps whose page has had a Studio shell (the first one applies `ws=` or the remembered workspace). */
-const entered = new WeakSet<EditorApp>();
-
 /**
  * The workspace a Studio shell starts in (M6A-SPEC §4.8, §5.17; AUTORIG-SPEC §3.4): the one a switch from Auto-Rig
- * asked for; else, on the page's first Studio shell, `ws=<id>` or the workspace the user left (`prefs.lastWorkspace`);
- * else the current one. Applied through `workspace.set`'s switching rules before the shell builds its layout.
+ * asked for; else, when Studio is the page's first shell, `ws=<id>` or the workspace the user left
+ * (`prefs.lastWorkspace`); else the current one. Applied through `workspace.set`'s switching rules before the shell builds its layout.
  */
 function startStudio(host: HostShell, panels: PanelRegistry | undefined): Shell {
   const { app } = host;
-  const first = !entered.has(app);
-  entered.add(app);
+  // The page's first shell applies `ws=` or the remembered workspace; a shell arriving by a switch keeps the session's.
+  const first = !shellShown.has(host);
   const startIn =
     host.navigation.takeWorkspace() ?? (first ? (host.params.ws ?? app.prefs.getState().lastWorkspace) : null);
   if (

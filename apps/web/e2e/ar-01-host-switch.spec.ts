@@ -3,8 +3,10 @@ import { autorig, hasTestApi, history, loaded, openAutoRig, SHELL_MARKERS, scrip
 import {
   buildAnimatedCubeLad,
   documentState,
+  enterRigWorkspace,
   expectAutoRigShown,
   expectStudioShown,
+  importStatic,
   markPage,
   navigate,
   pageMark,
@@ -80,9 +82,19 @@ test("the first-run dialog is Studio's only; Studio's operators come back with i
   await page.waitForTimeout(300);
   await expect(page.getByTestId('firstrun-dialog')).toHaveCount(0);
   expect((await call(page, 'state')).dialog).toBeNull();
+  // A page that started on /autorig keeps its host too: the document made there reaches Studio.
+  await enterRigWorkspace(page);
+  await importStatic(page, 'cube-lad.glb');
+  const made = await documentState(page);
+  expect(made.history.undo).toEqual(['Import Static Model']);
+  await markPage(page);
   // … Studio, on the same page, asks once.
   await navigate(page, { to: 'studio', from: 'autorig' });
   await expectStudioShown(page);
+  expect(await pageMark(page)).toBe('kept');
+  expect(await documentState(page)).toEqual(made);
+  // Arriving by a switch without a workspace, Studio keeps the session's (Rig & Skin), not the remembered one.
+  expect((await call(page, 'state')).workspace).toBe('rig');
   const dialog = page.getByTestId('firstrun-dialog');
   await expect(dialog).toBeVisible();
   await page.getByTestId('firstrun-done').click();

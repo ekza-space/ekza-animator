@@ -160,6 +160,9 @@ function DropOverlay(): JSX.Element | null {
   );
 }
 
+/** Hosts that have shown a route shell: a Studio shell mounting later arrives by a switch (it keeps the workspace). */
+export const shellShown = new WeakSet<HostShell>();
+
 /** Rendered after the route's shell inside its Suspense boundary: mounts once the shell has (its chunk arrived). */
 function ShellReady(props: { readonly onReady: () => void }): null {
   const { onReady } = props;
@@ -178,7 +181,10 @@ function ReadyHost(props: {
   const { host, onHost } = props;
   const root = useRef<HTMLDivElement>(null);
   const [shellReady, setShellReady] = useState(false);
-  const [onReady] = useState(() => () => setShellReady(true));
+  const [onReady] = useState(() => () => {
+    shellShown.add(host);
+    setShellReady(true);
+  });
   useWindowInput(host, root);
 
   // Dispose on a real unmount only: StrictMode's effect replay re-runs the setup immediately and cancels it. The host
