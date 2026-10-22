@@ -32,15 +32,43 @@ export async function enterWorkspace(app: EditorApp, step: AutoRigStep): Promise
   if (app.session.getState().workspace !== workspace) await quiet(app, 'workspace.set', { workspace });
 }
 
-/** §4.2's entry order for `step`; `hasModel` false keeps ① off the rig chunk until a model arrives. */
-export async function enterStep(ctx: WizardContext, step: AutoRigStep, hasModel: boolean): Promise<void> {
+/**
+ * §4.2's entry order for `step`; `hasModel` false keeps ① off the rig chunk until a model arrives. `current()` false
+ * (a later step change superseded this entry) stops it before its next stage, so a superseded entry never runs its
+ * workspace switch, mode or step start after the later step's.
+ */
+export async function enterStep(
+  ctx: WizardContext,
+  step: AutoRigStep,
+  hasModel: boolean,
+  current: () => boolean = () => true,
+): Promise<void> {
   const { app } = ctx;
   await endSessions(app, step === 'markers');
-  if (step === 'model' && !hasModel) return;
+  if (!current() || (step === 'model' && !hasModel)) return;
   await enterWorkspace(app, step);
+  if (!current()) return;
   const mode = STEP_MODE[step];
   if (mode !== null && app.session.getState().workspace === 'rig' && app.session.getState().rig.mode !== mode) {
     await quiet(app, 'rig.mode', { mode });
   }
+  if (!current()) return;
   await stepModule(step).stepEnter?.(ctx);
+}
+
+/**
+ * Serializes step entries (§4.2): each entry runs after the previous one finished, and one superseded by a later
+ * request before or while it runs stops at its next stage (`current()` false). Returns the request function; its
+ * promise settles when that entry finished or was skipped (a failing entry does not block the next).
+ */
+export function entryQueue(): (run: (current: () => boolean) => Promise<void>) => Promise<void> {
+  let generation = 0;
+  let tail: Promise<void> = Promise.resolve();
+  return (run) => {
+    generation += 1;
+    const mine = generation;
+    const current = (): boolean => mine === generation;
+    tail = tail.then(() => (current() ? run(current) : undefined)).catch(() => {});
+    return tail;
+  };
 }
