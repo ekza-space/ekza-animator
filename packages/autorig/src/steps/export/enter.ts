@@ -2,10 +2,13 @@
 // entry per subject character of this wizard, a model character with no thumbnail gets one (`char.renderThumbnail`,
 // one undo step) and one with no author gets the remembered author (`char.setVrmMeta`, one undo step). Every change
 // is an operator run; an undo of either is respected (it does not run again for that character in this wizard).
-import { isModelCharacter } from '@ekza-studio/editor-core';
+import type { CharacterRecord } from '@ekza-studio/doc';
 import { resolveSubject } from '../../progress';
 import type { WizardContext } from '../../shell/context';
 import { rememberedAuthor } from './author';
+
+/** A live model-sourced character (editor-core's `isModelCharacter`, written out: this chunk stays off its root). */
+const isModel = (record: CharacterRecord): boolean => record.deleted === null && record.source.kind === 'model';
 
 const prepared = new WeakMap<WizardContext, Set<string>>();
 
@@ -16,7 +19,7 @@ export function exportCharacter(ctx: Pick<WizardContext, 'app' | 'session'>) {
 
 export async function enterExport(ctx: WizardContext): Promise<void> {
   const record = exportCharacter(ctx);
-  if (record === null || !isModelCharacter(record)) return;
+  if (record === null || !isModel(record)) return;
   let done = prepared.get(ctx);
   if (done === undefined) {
     done = new Set();
