@@ -444,8 +444,12 @@ export class ModelSelectRuntime {
       !this.app.store.list('characters').some((c) => c.deleted === null)
     ) {
       // Rig & Skin before any character (Quick Rig's markers on scene meshes): `A` frames the scene meshes, arms and
-      // fingertips included; else the shipped bounds held only a default box (AR-D9-11)
-      const scene = this.app.store.list('meshes').filter((mesh) => mesh.deleted === null && 'scene' in mesh.owner);
+      // fingertips included; else the shipped bounds held only a default box (AR-D9-11). Hidden meshes are not framed
+      // (Auto-Rig's left-out parts, AR-D10-1)
+      const hidden = state.model.hiddenObjects;
+      const scene = this.app.store
+        .list('meshes')
+        .filter((mesh) => mesh.deleted === null && 'scene' in mesh.owner && !hidden.has(mesh.id));
       return bounds(this.meshPoints(scene.map((mesh) => mesh.id)));
     }
     if (state.workspace !== 'model') return null;

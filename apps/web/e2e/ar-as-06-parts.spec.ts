@@ -50,7 +50,12 @@ async function rigBodyAndExport(
   await expect(parts.locator(`[data-part="${body}"] input`)).toBeChecked();
   expect((await wizard(page)).subject.meshes).toEqual([body]);
 
+  // the unticked sword is hidden while Auto-Rig shows the model, and ②'s panes frame the body without it (AR-D10-1)
+  await expect.poll(async () => (await call(page, 'model')).hiddenObjects).toEqual([sword]);
   await nextToMarkers(page);
+  await expect
+    .poll(async () => Math.abs((await call(page, 'cameraOf', FRONT)).position[0] ?? 1), { timeout: 10_000 })
+    .toBeLessThan(0.05);
   await autoRig(page);
   const { character } = await subjectCharacter(page);
   expect((await wizard(page)).done['rig']).toBe(true);
@@ -81,6 +86,8 @@ test('AS-AR-6: the sword is unticked, the body alone becomes a clean VRM, the sw
   const swordMesh = (await call(page, 'meshes')).find((mesh) => mesh.id === sword);
   expect(swordMesh).toBeDefined();
   expect(swordMesh?.owner ?? []).not.toContain(character);
+  // still hidden on ⑤, as the VRM leaves it out (AR-D10-1)
+  expect((await call(page, 'model')).hiddenObjects).toEqual([sword]);
 });
 
 test('AS-AR-6: the VRM keeps the body’s image texture; ④ and the thumbnail show it (AR-D8-1)', async ({ page }) => {
