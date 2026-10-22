@@ -197,6 +197,14 @@ D7). D7 records the approval of each, or moves the change to its owner, at the m
 
 ## Gates
 
+**Fix round 1** (`autorig/wizard-shell` after the fix-round commits): `EKZA_E2E_PORT=3164 pnpm run ci` — **exit 0**:
+format, lint, typecheck, check:deps, fixtures, licences, every package's unit tests (autorig 46, editor-core 1,512,
+viewport 274, editor 573, headless 201, …), clean build, check:size (`/editor` 896,390 B, AR-B1 eager delta +702 B ≤
+2,048 B, enforced, pass; `autorig-shell` absent from `/editor`; `/autorig` 669,088 B, reported over the 660,000 B gate,
+see *The `/autorig` gate*), and the full e2e suite on local Chrome: **281 passed, 24 skipped (the stretch `fixme`s),
+0 failed**. Every Auto-Rig spec (`ar-00`, `ar-01-*`, `ar-03-*`, `ar-12`) with `--repeat-each=2` before it: 54/54.
+
+First round:
 Final run on `autorig/wizard-shell` (after `fix(ui)`): `EKZA_E2E_PORT=3164 pnpm run ci` — format, lint, typecheck,
 check:deps, fixtures, licences, every package's unit tests (autorig 37, editor-core 1,512, viewport 274, editor 573,
 headless 201, …), clean build, check:size (`/editor` 896,390 B, AR-B1 eager delta +702 B ≤ 2,048 B, enforced, pass;
