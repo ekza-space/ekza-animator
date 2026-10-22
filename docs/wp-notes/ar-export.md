@@ -85,4 +85,16 @@ base, `5bac937`):
 
 ## Gates
 
-GATES_PLACEHOLDER
+Run in this worktree on local Chrome (GPU), `EKZA_E2E_PORT=3167`, never the SwiftShader project, never `CI=1`:
+
+- `EKZA_E2E_PORT=3167 pnpm run ci` (final run at `35214e9`): format:check, lint, typecheck, check:deps,
+  check:fixtures, check:licenses, test (16/16 turbo tasks: io 9 new, editor-core 9 new, autorig 11 new; every earlier
+  suite unchanged), clean build, check:size (above: `/editor` 896,388 B, AR-B1 delta +700 B, pass; `/autorig`
+  670,678 B reported), test:e2e 287 passed / 25 skipped / **1 failed: E2E-RIG-01** (`m6b-rig-01-checklist.spec.ts`,
+  the joint drag of Rig & Skin under suite load — not touched by D6; the previous run's lone failure was another such
+  flake, E2E-M2A-23 "no runtime yet"). Both pass alone (targeted rerun with `ar-07`, `ar-00`: 15 passed, 1 skipped).
+- Full e2e suite rerun on the same build (`pnpm run test:e2e`): **288 passed, 25 skipped, 0 failed** (the skips are
+  the suite's existing `fixme`/conditional ones plus D6's AS-AR-6 texture `fixme`).
+- E2E-AR-07: `ar-07-export-vrm.spec.ts` 3 passed, `ar-07-export-targets.spec.ts` 4 passed + 1 fixme.
+- Local OMOBA admission (not in `ci`): `node tooling/omoba-validate.mjs` on the kept exports → exit 0, "Compatible
+  local humanoid: VRM 1.0, 35 nodes, 33 semantic bones, 2 scene-0 roots" for the Cube Lad and the textured Polybot.
