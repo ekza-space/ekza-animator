@@ -107,8 +107,10 @@ test(`E2E-RIG-01: the MVP checklist on the Cube Lad`, async ({ page }) => {
   const bound = (await call(page, 'meshes')).find((row) => row.owner === `char:${character}`)?.id ?? '';
   await enterSkin(page);
   await runOk(page, 'workspace.showPanel', { panel: 'paintWeights' });
-  const upperArm = (await call(page, 'skeleton', character))?.joints.find((j) => j.humanBone === 'leftUpperArm');
-  await page.getByTestId(`pw-influence-${upperArm?.id ?? ''}`).click();
+  // The upper-arm box binds rigidly on leftUpperArm (limb boxes, M6B-AF-12), so the stroke paints the lower arm into
+  // it: a Replace of the weight it already has would change nothing and record no step.
+  const lowerArm = (await call(page, 'skeleton', character))?.joints.find((j) => j.humanBone === 'leftLowerArm');
+  await page.getByTestId(`pw-influence-${lowerArm?.id ?? ''}`).click();
   await stroke(page, await screenCentroid(page, bound, boxPoints(await positionsOf(page, bound), 'upperArm.L')));
   await expect.poll(async () => (await call(page, 'history')).undo.at(-1)).toBe('Paint Skin Weights');
   // The panel says how to reach hidden or inner points (acceptance fix): Volume with Front faces only off.
