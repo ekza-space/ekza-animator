@@ -79,10 +79,11 @@ take the `/autorig` gate question below to the owner (§7.2).
 | + lazy toasts | 892,999 B | −2,733 B | 653,115 B |
 | toasts eager again (E2E-M2A-22), lazy file pipeline | 896,410 B | +678 B | 660,294 B |
 | + host operators of their own (AR-D1-4) | 896,248 B | +516 B | 655,553 B |
-| + arrival keeps the workspace (AR-D1-12) — **shipped**, the final `pnpm run ci` | **896,278 B** | **+546 B** | **655,591 B** |
+| + arrival keeps the workspace (AR-D1-12) | 896,278 B | +546 B | 655,591 B |
+| + Studio's `leave()` (AR-D1-13), `storeVersion` (AR-D1-15) — **shipped** (fix round 1, the final `pnpm run ci`) | **896,327 B** | **+595 B** | **655,590 B** |
 
-`/editor` eager scripts 889,424 B + First-run dialog 6,854 B; the D1 delta +546 B is within its 1,408 B (862 B
-unused; the AR-B1 total is +590 B over the 895,688 B baseline with D0's +44 B). `/autorig` 655,591 B is under the
+`/editor` 896,327 B (eager scripts + First-run dialog 6,854 B); the D1 delta +595 B is within its 1,408 B (813 B
+unused; the AR-B1 total is +639 B over the 895,688 B baseline with D0's +44 B, limit 897,736 B). `/autorig` 655,591 B is under the
 660,000 B gate (target 620,000 B): the host, the kernel, three.js, R3F and the
 viewport, without dockview, the curve editor, the panels or the Studio shell (every boundary of §7.2 holds). The
 integration agent records `routes.autorig` in `size-baseline.json` at the merge (§10 D1).
@@ -105,8 +106,8 @@ shared across its sources by their standalone gzip; 6 initial scripts, 0 without
 | Turbopack runtime 4.1 + unmapped wrapper 6.3 | — | 10.4 kB | +10.4 kB |
 | **Total** | **≈ 635 kB** | **655.7 kB** | +20.7 kB |
 
-**Headroom warning for D3 and D7.** The normal build measures `/autorig` at 655,591 B (see the table above; the final
-run below confirms it): **4,409 B under the 660,000 B gate**. §7.1 budgets ≈ 25 kB for D3's frame, step ① and the i18n
+**Headroom warning for D3 and D7.** The normal build measures `/autorig` at 655,590 B (the final run, table above):
+**4,410 B under the 660,000 B gate**. §7.1 budgets ≈ 25 kB for D3's frame, step ① and the i18n
 table, so **D3's frame as estimated would put `/autorig` at ≈ 680 kB, ≈ 20 kB over the gate**. The overrun is not the
 wizard's: it is editor-core's eager operators (+15.9 kB over §7.1, M6b growth) and the host (+20.7 kB, mostly the
 Radix tooltip/toast layers it provides on both routes), against a few kB saved on rig/viewport/doc. Levers, measured
@@ -138,7 +139,16 @@ above, for D3/D7 before the gate question goes to the owner (§7.2: never raised
 
 ## Gates
 
-`EKZA_E2E_PORT=3162 pnpm run ci` green on `0246590` (format, lint, typecheck, check:deps, fixtures, licences, every
+Fix round 1, on the final commit: `EKZA_E2E_PORT=3162 pnpm run ci` **green** (format, lint, typecheck, check:deps,
+fixtures, licences, every package's unit tests, clean build, check:size — `/editor` 896,327 B, AR-B1 +639 B ≤ 2,048 B,
+`/autorig` 655,590 B, every boundary holds — and the full e2e suite on local Chrome: 263 passed, 24 skipped — the
+stretch `fixme`s — 0 failed). The D1 specs plus `ar-00` with `--repeat-each=5` at the default worker count: 45/45.
+Two earlier full runs in this round lost tests to load timing outside D1, each passing alone and in the final run:
+`input.test.ts` (KeyboardAdapter type-ahead, 30 s timeout under turbo's parallel load; 3/3 alone), and
+`m2a-25-upgrade-m1-rig` ("has no runtime yet") with `m6b-rig-01-checklist` (the joint drag's "Move Joint"), 16/16 with
+`--repeat-each=4`. The reviewer's blocker (`file.loadSample: no test API` in `ar-01-host-handoff`) did not recur.
+
+Round 0: `EKZA_E2E_PORT=3162 pnpm run ci` green on `0246590` (format, lint, typecheck, check:deps, fixtures, licences, every
 package's unit tests, clean build, check:size on both routes as above, the full e2e suite on local Chrome: 263 passed,
 24 skipped — the stretch `fixme`s — 0 failed). An earlier run lost one editor unit test to a 30 s timeout under turbo's
 parallel load (`input.test.ts`, untouched by D1; it passes alone and in the next run); an earlier full e2e run under
