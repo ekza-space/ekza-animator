@@ -275,6 +275,13 @@ function Brush(props: { readonly brush: BrushSettings }): JSX.Element {
         onChange={() => void run('skin.paint.mirrorToggle', undefined, CTX)}
         data-testid="pw-mirror"
       />
+      {/* M6b acceptance: Surface stays on the part under the brush and Front faces only skips hidden points, so the
+          inner end of a limb box (inside the torso, or on the far side) is out of reach until both are relaxed. */}
+      <p className="text-[10px] leading-snug text-fg-3" data-testid="pw-reach-hint">
+        {brush.reach === 'volume' && !brush.frontOnly
+          ? 'Volume, all faces: the brush reaches every point inside its sphere, hidden and inner ones too.'
+          : 'Hidden or inner points (a limb’s end inside the torso, the far side)? Use Volume and untick Front faces only.'}
+      </p>
     </section>
   );
 }

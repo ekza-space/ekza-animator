@@ -111,6 +111,12 @@ test(`E2E-RIG-01: the MVP checklist on the Cube Lad`, async ({ page }) => {
   await page.getByTestId(`pw-influence-${upperArm?.id ?? ''}`).click();
   await stroke(page, await screenCentroid(page, bound, boxPoints(await positionsOf(page, bound), 'upperArm.L')));
   await expect.poll(async () => (await call(page, 'history')).undo.at(-1)).toBe('Paint Skin Weights');
+  // The panel says how to reach hidden or inner points (acceptance fix): Volume with Front faces only off.
+  const hint = page.getByTestId('pw-reach-hint');
+  await expect(hint).toContainText('Use Volume and untick Front faces only');
+  await page.getByTestId('pw-reach-volume').check();
+  await page.getByTestId('pw-front').uncheck();
+  await expect(hint).toContainText('reaches every point inside its sphere');
   // ⑤ Preview a library clip.
   await runOk(page, 'library.preview', { character, clip: 'walk' });
   await expect.poll(async () => (await call(page, 'library'))?.preview?.clip ?? null).toBe('walk');
