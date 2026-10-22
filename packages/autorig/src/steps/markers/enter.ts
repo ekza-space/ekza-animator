@@ -39,6 +39,19 @@ export function markerMeshes(
   return { meshes: resolved.meshes, scene: true };
 }
 
+const MARKER_PANES = ['pane-front', 'pane-side', 'pane-persp'] as const;
+
+/**
+ * Frames ②'s three panes on the whole body once their layout settled (two frames): wide T-posed bodies and A-posed
+ * arms stood cropped in the narrow front pane and the 3D pane (AR-D9-11; Rig & Skin's `A` frames the scene meshes
+ * before a character exists).
+ */
+async function frameMarkerPanes(app: EditorApp): Promise<void> {
+  if (typeof requestAnimationFrame !== 'function') return;
+  await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  for (const paneId of MARKER_PANES) await app.runUntyped('view.frame', { what: 'all', paneId });
+}
+
 const sameIds = (a: readonly string[], b: readonly string[]): boolean =>
   a.length === b.length && a.every((id) => b.includes(id));
 
@@ -69,6 +82,7 @@ export async function enterMarkers(ctx: WizardContext): Promise<void> {
     if (result.status === 'finished') {
       recordStartPose(ctx);
       ui.set({ starting: false, error: null });
+      if (scene) await frameMarkerPanes(app);
       return;
     }
     const reason = result.status === 'cancelled' ? result.reason : result.error.message;
