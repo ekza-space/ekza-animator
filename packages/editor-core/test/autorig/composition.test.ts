@@ -334,8 +334,16 @@ describe('WIZARD_OPERATORS in the rig-workspace chunk (AUTORIG-SPEC §4.5, §7.0
       const poll = app.operators.poll(id);
       return poll === true ? 'ok' : poll.reason;
     });
-    // D1 landed `autorig.navigate`: without a host navigation port (Node) it refuses with its own reason.
-    expect(reasons).toEqual(WIZARD_IDS.map((id) => (id === 'autorig.navigate' ? NO_NAVIGATION : ARRIVES_WITH_AUTORIG)));
+    // D1 landed `autorig.navigate`: without a host navigation port (Node) it refuses with its own reason. D3 landed
+    // the ① compositions: without arguments each refuses with its own argument poll.
+    const landed: Readonly<Record<string, string>> = {
+      'autorig.navigate': NO_NAVIGATION,
+      'autorig.sample': 'expects { sample: cube-lad | polybot-tpose | polybot-apose | polybot | seed-san }',
+      'autorig.intake': 'expects { bytes, name }',
+      'autorig.inspect': 'expects { meshes }',
+      'autorig.fix': 'expects { fix: center | face | standUp | scale | freeze, meshes }',
+    };
+    expect(reasons).toEqual(WIZARD_IDS.map((id) => landed[id] ?? ARRIVES_WITH_AUTORIG));
     // the moved M6b stubs are unchanged (A0 replaces them)
     expect(['skel.pose.tStance', 'skel.pose.applyAsRest'].map((id) => app.operators.poll(id))).toEqual([
       { ok: false, reason: ARRIVES_AFTER_MVP },

@@ -240,7 +240,19 @@ export const P_C6_ROWS: readonly Row[] = [
   { id: 'library.useClip', status: 'keys', owner: 'C12' },
   // AUTORIG-SPEC §4.5 (D0 lands the rows pending; literal update): the Auto-Rig compositions run Studio operators only,
   // so each row's verdict is the one of what it runs. `autorig.clip.add` = Use Clip, a §3 rule 7 exception.
-  ...pending('D3', 'autorig.sample', 'autorig.intake', 'autorig.inspect', 'autorig.fix'),
+  // D3: the ① compositions import (one step) or move scene meshes (one step) and inspect them (U); never keys.
+  checked('D3', 'autorig.sample', () => {
+    const original = globalThis.fetch;
+    const sampleFetch = async (url: string | URL | Request, init?: RequestInit): Promise<Response> =>
+      (typeof url === 'string' ? url : url instanceof URL ? url.href : url.url).endsWith('/cube-lad.glb')
+        ? new Response(cubeLadBytes())
+        : original(url, init);
+    globalThis.fetch = sampleFetch;
+    return { sample: 'cube-lad' };
+  }),
+  checked('D3', 'autorig.intake', () => ({ bytes: cubeLadBytes(), name: 'cube-lad.glb' })),
+  checked('D3', 'autorig.inspect', async (app) => ({ meshes: await importedLad(app) })),
+  checked('D3', 'autorig.fix', async (app) => ({ fix: 'scale', meshes: await importedLad(app), height: 1 })),
   ...pending('D4', 'autorig.rig', 'autorig.cancel'),
   { id: 'autorig.clip.add', status: 'keys', owner: 'D5' },
   ...pending('D6', 'autorig.export'),
@@ -259,6 +271,13 @@ export const P_C6_ROWS: readonly Row[] = [
 /** The Cube Lad fixture (an unskinned GLB). */
 function cubeLadBytes(): Uint8Array {
   return new Uint8Array(readFileSync(new URL('../../../../fixtures/models/cube-lad.glb', import.meta.url)));
+}
+
+/** The Cube Lad imported as scene meshes (`mesh.importStatic`), for the Auto-Rig ① rows. */
+async function importedLad(app: EditorApp): Promise<string[]> {
+  const result = await app.runUntyped('mesh.importStatic', { bytes: cubeLadBytes(), name: 'cube-lad.glb' });
+  if (result.status !== 'finished') throw new Error(`mesh.importStatic: ${JSON.stringify(result)}`);
+  return (result.value as { meshes: string[] }).meshes;
 }
 
 /** A cube made in Model (the mesh kernel loaded first), as the scene mesh to adopt. */
