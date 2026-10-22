@@ -2,7 +2,7 @@
 // browser (C10 bench, report-only): the bound Cube Lad with five 60-frame slot clips, `file.exportCharacter` (VRM 1.0,
 // Space profile, validator off) timed three times; the median goes to annotations, stdout and
 // `.acceptance/budgets/m6b-export.json`. The headless twin (`packages/headless-tests/test/m6b.writer.bench.test.ts`)
-// measures the same row on Polybot's 2,130 triangles now; this one needs the template and the bind (gates c2, c4).
+// measures the same row on Polybot's 2,130 triangles; this one needs the template and the bind (C2, C4: merged).
 // Run: `EKZA_E2E_PORT=<port> pnpm --filter web exec playwright test -c e2e/bench/playwright.config.ts m6b-export`.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { type Page, test } from '@playwright/test';
@@ -11,7 +11,6 @@ import { enterRig } from '../helpers/m6b-rig';
 import { expectKernelStarted, openEditor, runOk } from '../helpers/test-api';
 
 const OUT = new URL('../../../../.acceptance/budgets/', import.meta.url);
-const GATES = 'c2, c4';
 const SLOTS = ['idle', 'walk', 'attack', 'cast', 'death'] as const;
 
 async function timedExport(page: Page, character: string): Promise<number> {
@@ -25,7 +24,7 @@ async function timedExport(page: Page, character: string): Promise<number> {
   }, character);
 }
 
-test.fixme(`character export, bound Cube Lad, five clips × 60 frames (gates: ${GATES})`, async ({ page }) => {
+test('character export, bound Cube Lad, five clips × 60 frames', async ({ page }) => {
   test.setTimeout(300_000);
   await openEditor(page);
   await expectKernelStarted(page);
