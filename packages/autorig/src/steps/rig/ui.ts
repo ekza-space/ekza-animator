@@ -21,6 +21,11 @@ export interface RigUi {
   readonly rebinding: boolean;
   /** *Show weights* in review (Skin mode with the Select tool, C6's greyscale display). */
   readonly showWeights: boolean;
+  /**
+   * The bound meshes' revisions right after the wizard's own bind (`weightsKey`, AR-D8-8): while they are unchanged
+   * nothing was painted (here or in Studio: every weight edit writes a revision), so a re-rig asks no rebind question.
+   */
+  readonly boundKey: string | null;
 }
 
 const uis = new WeakMap<WizardContext['session'], SmallStore<RigUi>>();
@@ -36,6 +41,7 @@ export function rigUi(ctx: Pick<WizardContext, 'session'>): SmallStore<RigUi> {
       adjustArms: null,
       rebinding: false,
       showWeights: false,
+      boundKey: null,
     });
     uis.set(ctx.session, store);
   }

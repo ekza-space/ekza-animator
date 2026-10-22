@@ -76,8 +76,8 @@ test('AS-AR-2: an A-posed GLB becomes a T-pose OMOBA VRM, byte-equal to Studio, 
   const guessed = await nextToMarkers(page);
   expect(markersOff(guessed, aTruth)).toEqual([]);
   if (shown > 15) {
-    await expect(page.getByTestId('quickrig-apose')).toContainText('A-posed arms');
     await expect(page.getByTestId('ar-markers-notice-apose')).toHaveText('Auto-rig straightens it for you.');
+    await expect(page.getByTestId('quickrig-apose')).toHaveCount(0); // AR-D8-8: no Studio jargon on ②
   }
   expect((await wizard(page)).startPose).toMatchObject({ kind: 'a' });
   await expect(page.getByTestId('ar-primary')).toBeEnabled();

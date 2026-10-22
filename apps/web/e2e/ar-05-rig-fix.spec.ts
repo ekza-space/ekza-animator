@@ -104,6 +104,8 @@ test('paint sets paintedSinceBind; Done then asks before rebinding; Show weights
   await expect.poll(async () => (await wizard(page)).step).toBe('markers');
   await expect.poll(async () => (await quickRig(page))?.moved.length ?? 0, { timeout: 20_000 }).toBe(9);
   await expect(page.getByTestId('ar-markers-notice-rerun')).toBeVisible();
+  // AR-D8-8: the re-run's markers read "placed" (seeded from the skeleton), not "moved"
+  await expect(page.getByTestId('quickrig-marker-elbow')).toContainText('placed');
   await expect(page.getByTestId('ar-markers-fingers').locator('[data-preset="full52"]')).toBeDisabled();
   const rerun = (await history(page)).undo;
   await autoRig(page);

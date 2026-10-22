@@ -158,10 +158,11 @@ test('AS-AR-2 step 2: the A-posed Polybot — markers on the A-pose truth, the A
     .map(([name]) => name);
   expect(off).toEqual([]);
   expect(state.aPose).toBe(true);
-  await expect(page.getByTestId('quickrig-apose')).toHaveText(
-    'A-posed arms: the skeleton follows them; after Bind Skin, Straighten to T-Pose makes the rest a VRM T-pose',
-  );
+  // AR-D8-8: Auto-Rig's own notice only — Studio's ("…after Bind Skin, Straighten to T-Pose…") is not shown here,
+  // nor the template select (the fingers choice is the template)
   await expect(page.getByTestId('ar-markers-notice-apose')).toHaveText('Auto-rig straightens it for you.');
+  await expect(page.getByTestId('quickrig-apose')).toHaveCount(0);
+  await expect(page.getByTestId('quickrig-preset')).toHaveCount(0);
   expect((await wizard(page)).startPose).toMatchObject({ kind: 'a' });
   await expect(page.getByTestId('ar-primary')).toBeEnabled();
   // the body's own Create Skeleton row is hidden: Auto-rig ▸ replaces it

@@ -227,7 +227,7 @@ function Panel(props: { readonly ctx: WizardContext }): JSX.Element {
       <div className="flex gap-2">
         <div className="min-w-0 flex-1">
           <Suspense fallback={null}>
-            <QuickRigPanelBody app={ctx.app} compact hideCommit />
+            <QuickRigPanelBody app={ctx.app} compact hideCommit simple />
           </Suspense>
         </div>
         <Pictogram

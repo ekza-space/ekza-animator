@@ -103,6 +103,35 @@ function adoptSubject(ctx: WizardContext, character: CharacterId | null): void {
   }
 }
 
+/** The bound meshes of a character and their revisions (`id:manifest`), or null without a bound mesh (AR-D8-8). */
+export function weightsKey(app: EditorApp, character: CharacterId | null): string | null {
+  if (character === null) return null;
+  const parts = app.store.query
+    .meshesOfOwner(character)
+    .filter((mesh) => mesh.deleted === null && mesh.skin !== null && 'skeleton' in mesh.skin && mesh.data !== null)
+    .map((mesh) => `${mesh.id}:${mesh.data?.manifest}`);
+  return parts.length === 0 ? null : parts.join('|');
+}
+
+/**
+ * Whether a re-rig (a refit that rebinds) skips M6b's rebind question (AR-D8-8): nothing was painted since the
+ * wizard's own bind — the flag is clear and the bound meshes are the revisions that bind wrote.
+ */
+export function rebindUnasked(
+  plan: { readonly bind: boolean },
+  painted: boolean,
+  boundKey: string | null,
+  nowKey: string | null,
+): boolean {
+  return !plan.bind && !painted && boundKey !== null && boundKey === nowKey;
+}
+
+/** Records the weights the wizard's own bind wrote (a later re-rig with these weights asks nothing). */
+function rememberBound(ctx: WizardContext, character: CharacterId | null): void {
+  const boundKey = weightsKey(ctx.app, character);
+  rigUi(ctx).set((current) => ({ ...current, boundKey }));
+}
+
 /** *Auto-rig ▸* (§5.3): runs `autorig.rig` and moves to ③. Resolves when it ended (any outcome). */
 export async function runAutoRig(ctx: WizardContext, opts: { readonly confirm?: boolean } = {}): Promise<void> {
   const { app, session } = ctx;
@@ -112,11 +141,23 @@ export async function runAutoRig(ctx: WizardContext, opts: { readonly confirm?: 
   const straighten = wantsStraighten(app, session.getState());
   // the operator's own rule (`autoRigRefitBound`): a refit of a bound skeleton rebinds inside the commit
   const plan = { bind: !autoRigRefitBound(app, state.refit), straighten };
+  // AR-D8-8: weights exactly as the wizard's own bind wrote them (nothing painted since, here or in Studio) lose
+  // nothing in the refit's rebind, so M6b's "Rebind replaces painted weights" is not asked
+  const current = resolveSubject(app.store, session.getState().subject).character?.id ?? null;
+  const unpainted = rebindUnasked(
+    plan,
+    session.getState().rig.paintedSinceBind,
+    ui.get().boundKey,
+    weightsKey(app, current),
+  );
   ui.set((current) => ({ ...current, plan, notice: null, error: null }));
   const stop = trackStages(ctx, plan);
   let result: Awaited<ReturnType<EditorApp['runUntyped']>>;
   try {
-    result = await app.runUntyped('autorig.rig', { straighten, ...(opts.confirm === true ? { confirm: true } : {}) });
+    result = await app.runUntyped('autorig.rig', {
+      straighten,
+      ...(opts.confirm === true || unpainted ? { confirm: true } : {}),
+    });
   } catch (error) {
     result = { status: 'failed', error: { code: 'internal', message: String(error) } };
   } finally {
@@ -131,6 +172,7 @@ export async function runAutoRig(ctx: WizardContext, opts: { readonly confirm?: 
     await nextFrame();
     if (app.rig.loaded) app.rig.validation.rows(value.character, AUTORIG_PROFILE);
     session.patch('rig', { sub: 'review', paintedSinceBind: false });
+    rememberBound(ctx, value.character);
     session.set({ busy: null });
     ui.set((current) => ({ ...current, plan: null }));
     ctx.go('rig');
@@ -203,11 +245,12 @@ export async function rebind(
       ui.set((current) => ({ ...current, notice: 'cancelled' }));
     }
     if (result.status !== 'finished') return false;
+    rememberBound(ctx, character.id);
     if (straighten && hasTposeRow(app, character.id)) {
       const straightened = await app.runUntyped('skel.pose.applyAsRest', { character: character.id, pose: 'tStance' });
       if (straightened.status === 'failed') {
         ui.set((current) => ({ ...current, error: messages().markers.rigFailed(straightened.error.message) }));
-      }
+      } else rememberBound(ctx, character.id);
     }
     return true;
   } finally {

@@ -17,7 +17,7 @@ import {
   withSub,
 } from '../../../src/steps/rig/slice';
 import { watchPaintedSinceBind } from '../../../src/steps/rig/painted';
-import { stageAfter } from '../../../src/steps/rig/run';
+import { rebindUnasked, stageAfter } from '../../../src/steps/rig/run';
 
 describe('the rig slice (§4.3, §5.4)', () => {
   it('starts in review with the Walk motion test on', () => {
@@ -51,6 +51,20 @@ describe('the rig slice (§4.3, §5.4)', () => {
       true,
       false,
     ]);
+  });
+});
+
+describe('the re-rig asks the rebind question only when weights could be lost (AR-D8-8)', () => {
+  it('skips it while the bound meshes are the revisions the wizard bound and nothing was painted', () => {
+    const refit = { bind: false };
+    expect(rebindUnasked(refit, false, 'msh_a:111', 'msh_a:111')).toBe(true);
+    // painted here, a revision written since (painted in Studio, an import), or never bound by the wizard: ask
+    expect(rebindUnasked(refit, true, 'msh_a:111', 'msh_a:111')).toBe(false);
+    expect(rebindUnasked(refit, false, 'msh_a:111', 'msh_a:222')).toBe(false);
+    expect(rebindUnasked(refit, false, null, 'msh_a:111')).toBe(false);
+    expect(rebindUnasked(refit, false, null, null)).toBe(false);
+    // a first run binds (no refit question at all)
+    expect(rebindUnasked({ bind: true }, false, 'msh_a:111', 'msh_a:111')).toBe(false);
   });
 });
 
