@@ -78,6 +78,14 @@ function trackStages(
   };
 }
 
+/** Resolves after the next frame (the sheet paints a stage), or at once without a window. */
+function nextFrame(): Promise<void> {
+  if (typeof requestAnimationFrame !== 'function') return Promise.resolve();
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => resolve());
+  });
+}
+
 /** The live meshes of a character (Bind Skin's targets). */
 export function characterMeshes(app: EditorApp, character: CharacterId): MeshId[] {
   return app.store.query
@@ -118,7 +126,9 @@ export async function runAutoRig(ctx: WizardContext, opts: { readonly confirm?: 
     session.set({ busy: { stage: 'check', fraction: null } });
     const value = result.value as { readonly character: CharacterId };
     adoptSubject(ctx, value.character);
-    // `check`: the C7 rows of the new rig (derived and cached; ③'s summary reads them again)
+    // `check`: the sheet shows the stage for a frame, then the C7 rows of the new rig are derived (and cached: ③'s
+    // summary reads them again)
+    await nextFrame();
     if (app.rig.loaded) app.rig.validation.rows(value.character, AUTORIG_PROFILE);
     session.patch('rig', { sub: 'review', paintedSinceBind: false });
     session.set({ busy: null });
