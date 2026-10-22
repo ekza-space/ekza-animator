@@ -72,6 +72,7 @@ export {
   vrmcMetaOf,
 } from './vrm/meta';
 export { renderCharacterThumbnail, THUMBNAIL_SIZE, type ThumbnailImage } from './vrm/thumbnail';
+export { characterAssetMaterials } from './character/assetMaterials';
 export {
   applyClipParams,
   CLIP_ARM_SPACE_RANGE,

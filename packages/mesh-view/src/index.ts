@@ -5,6 +5,7 @@
 export type * from './types';
 export { ComponentPicker, PICK_RADIUS, type PickOccluder, type PickOptionsInput } from './ComponentPicker';
 export { EditMeshView, emptySelection, NGON_CODES } from './EditMeshView';
+export type { SurfaceMap } from './internal/base';
 export type { PaletteShaders, SwatchShading } from './internal/sets';
 export { MeshSurface } from './MeshSurface';
 // M6b (M6B-SPEC §4.7): the live skinned surface (C1; C0 stub).

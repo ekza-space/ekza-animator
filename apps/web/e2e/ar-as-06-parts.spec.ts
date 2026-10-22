@@ -1,13 +1,14 @@
 // AUTORIG-SPEC §11 AS-AR-6 (D7, in full; D3 and D6 own its parts): "Several meshes and textures". A textured two-mesh
 // scene (Polybot and a box "Sword" on the floor) dropped on ①: the box is unticked by default and left out of the
 // subject; the body is rigged through ② and ③; ⑤ writes a clean VRM of the body alone and the sword stays a scene mesh;
-// the VRM keeps the body's image texture (C10's writer copies the adopted asset material, AR-D7-15).
+// the VRM keeps the body's image texture (C10's writer copies the adopted asset material, AR-D7-15), and ②–⑤ and
+// the thumbnail show it (AR-D8-1).
 import { expect, type Page, test } from '@playwright/test';
 import { dropModel, exportMeta, nextToMarkers, onStep, primary } from './helpers/ar-as';
 import { checkOf, download, keepExport } from './helpers/ar-export';
 import { openAutoRigReady } from './helpers/ar-host';
 import { polybotWithSword } from './helpers/ar-model';
-import { wizard } from './helpers/ar-markers';
+import { FRONT, markerAt, sampleAtMarkers, wizard } from './helpers/ar-markers';
 import { autoRig, subjectCharacter } from './helpers/ar-rig';
 import { glbJson } from './helpers/g1-viewport';
 import { decodePalettePng } from './helpers/m6a-model-content';
@@ -119,4 +120,41 @@ test('AS-AR-6: the VRM keeps the body’s image texture; ④ and the thumbnail s
     }
   }
   expect(green).toBeGreaterThan(200);
+});
+
+/** The share of green-dominant pixels (Polybot's texture) in a square around a page point of a pane. */
+async function greenShare(page: Page, paneId: string, at: { x: number; y: number }, half = 12): Promise<number> {
+  const read = await call(page, 'pixels', paneId, Math.round(at.x - half), Math.round(at.y - half), 2 * half, 2 * half);
+  if (read === null) return 0;
+  let green = 0;
+  for (let i = 0; i < read.data.length; i += 4) {
+    const [r, g, b] = [read.data[i] as number, read.data[i + 1] as number, read.data[i + 2] as number];
+    if (g > r + 30 && g > b + 30) green++;
+  }
+  return green / (read.data.length / 4);
+}
+
+test('AR-D8-1: the textured Polybot shows its texture on ② and in ③ Adjust joints (mesh-view draws the image)', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  await sampleAtMarkers(page, 'polybot-tpose');
+  // the chest: halfway between the chin and the pelvis markers in FRONT
+  const chest = async (): Promise<{ x: number; y: number }> => {
+    const chin = await markerAt(page, 'chin', 'R', FRONT);
+    const pelvis = await markerAt(page, 'pelvis', 'R', FRONT);
+    return { x: (chin.x + pelvis.x) / 2 + 6, y: (chin.y + pelvis.y) / 2 };
+  };
+  await expect.poll(async () => greenShare(page, FRONT, await chest()), { timeout: 15_000 }).toBeGreaterThan(0.3);
+  await autoRig(page);
+  const { character } = await subjectCharacter(page);
+  await page.getByTestId('ar-rig-adjust').click();
+  // the chest again, from the joints: the hips → spine bone, beside the bone line
+  const joints = (await call(page, 'skeleton', character))?.joints ?? [];
+  const bone = (name: string) => joints.find((joint) => joint.humanBone === name)?.id as string;
+  const torso = async (): Promise<{ x: number; y: number }> => {
+    const p = await call(page, 'screenOfBone', bone('spine'), bone('chest'), FRONT, 0.5);
+    return p === null ? { x: -100, y: -100 } : { x: p.x + 10, y: p.y };
+  };
+  await expect.poll(async () => greenShare(page, FRONT, await torso()), { timeout: 15_000 }).toBeGreaterThan(0.3);
 });

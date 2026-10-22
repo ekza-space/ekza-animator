@@ -1,8 +1,8 @@
 // What `EditMeshView` and `MeshSurface` share (M6A-SPEC §4.4): the surface, the wire/hard edges, normals and
 // triangulation lines (skipping hidden and isolated faces, `faceVisibility`), the world matrix and the per-pane display
 // rules.
-import type { Normals, Triangulation } from '@ekza-studio/mesh-core';
-import { Group } from 'three';
+import type { MeshData, Normals, Triangulation } from '@ekza-studio/mesh-core';
+import { Group, type Texture } from 'three';
 import { MESH_VIEW_STYLE, ORDER, STATE } from '../style';
 import type { MeshViewThemeInput } from '../theme';
 import type { MeshPaneDisplay, MeshViewLayers } from '../types';
@@ -10,6 +10,17 @@ import { LineBatch } from './lines';
 import { uploadAll } from './ranges';
 import { type SurfaceDisplay, SurfaceLayer } from './surface';
 import { faceCentroids, meanEdgeLength, type Topo, triangulationDiagonals } from './topo';
+
+/** An imported model's base colour image as a mesh view draws it (AR-D8-1). */
+export interface SurfaceMap {
+  readonly texture: Texture;
+  /** The material slots (`faceMaterial`) that sample it. */
+  readonly slots: ReadonlySet<number>;
+  /** The base colour factor (linear RGB). */
+  readonly factor: readonly [number, number, number];
+  /** The UV layer: 0 = `uv0`, 1 = `uv1`. */
+  readonly texCoord: number;
+}
 
 export class ViewBase {
   readonly root = new Group();
@@ -109,6 +120,46 @@ export class ViewBase {
     this.faceNormals.addTo(this.root);
     this.vertexNormals.addTo(this.root);
     for (const batch of [this.edges, this.faceNormals, this.vertexNormals, this.diagonals]) batch.show(false, false);
+  }
+
+  /** The displayed base colour image (AR-D8-1), or null. */
+  private map: SurfaceMap | null = null;
+
+  /**
+   * An imported model's base colour image (AR-D8-1): drawn on the faces whose material slot is in `slots`, through the
+   * `texCoord` layer's UVs (`uv0` / `uv1`), times `factor`, where the palette colours would be (`colours`, `lit`). A
+   * mesh without that UV layer draws none. null removes it. Kept across `setData` (the same mesh's next revision).
+   */
+  setMap(map: SurfaceMap | null): void {
+    if (map === this.map) return;
+    this.map = map;
+    this.writeMap();
+  }
+
+  /** The stored form the image maps onto (the subclass's displayed data). */
+  protected mapData(): MeshData | null {
+    return null;
+  }
+
+  /** Writes the image's attributes for the current topology (after a rebuild, or a new map). */
+  protected writeMap(): void {
+    const t = this.topo;
+    const data = this.mapData();
+    if (t === null || data === null) return;
+    const map = this.map;
+    const uvs = map === null ? undefined : data.layers.get(map.texCoord === 1 ? 'uv1' : 'uv0')?.data;
+    if (map === null || uvs === undefined) {
+      this.surface.writeMap(t, null);
+      return;
+    }
+    const faceMapped = new Uint8Array(t.faces);
+    for (let f = 0; f < t.faces; f++) faceMapped[f] = map.slots.has(data.faceMaterial[f] as number) ? 1 : 0;
+    this.surface.writeMap(t, { texture: map.texture, factor: map.factor, uvs, faceMapped });
+  }
+
+  /** Whether an image is drawn in the last pane applied (tests). */
+  get mapDrawn(): boolean {
+    return this.surface.mapDrawn;
   }
 
   /** Column-major world-from-local matrix (`ReadonlyXf` composed by the caller). */

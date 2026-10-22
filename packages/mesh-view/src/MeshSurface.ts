@@ -75,6 +75,11 @@ export class MeshSurface extends ViewBase implements PickOccluder {
     this.normalsDirty = true;
     this.diagonalsDirty = true;
     this.dropOccluder();
+    this.writeMap();
+  }
+
+  protected override mapData(): MeshData | null {
+    return this.data;
   }
 
   /**

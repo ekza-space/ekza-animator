@@ -33,6 +33,7 @@ import type {
 import { type Camera, Group, Vector3 } from 'three';
 import type { MeshLayerHost } from '../manager/meshLayers';
 import { MESH_LAYERS } from './layers';
+import { surfaceMaps } from './maps';
 import { inSubtree, meshWorld, worldPlaneInLocal } from './world';
 
 /** What `ViewportManager.addMeshLayer` takes (§4.7): the manager's one declaration (B6 and B9 had one each). */
@@ -363,6 +364,15 @@ export class MeshDisplay {
       // Component hides stay in force outside component mode and on meshes outside the hilite set (M6A-B6-26).
       entry.surface.setHidden(this.hiddenOf(entry.id));
       entry.surface.setWorld(entry.world);
+      // An imported model's base colour image (AR-D8-1): set once it is loaded.
+      entry.surface.setMap(
+        surfaceMaps(this.app).mapOf(record, () => {
+          const now = this.app.store.get('meshes', entry.id);
+          if (now === undefined || this.entries.get(entry.id) !== entry) return;
+          entry.surface?.setMap(surfaceMaps(this.app).mapOf(now, () => {}));
+          this.target.invalidate();
+        }),
+      );
     }
   }
 

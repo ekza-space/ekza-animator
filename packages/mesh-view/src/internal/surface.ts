@@ -16,6 +16,7 @@ import {
   type Object3D,
   ShaderMaterial,
   type Side,
+  type Texture,
 } from 'three';
 import { MESH_VIEW_STYLE, ORDER } from '../style';
 import type { MeshViewThemeInput } from '../theme';
@@ -54,6 +55,10 @@ export class SurfaceLayer {
   private shadeEmpty = true;
   private state = new BufferAttribute(new Uint8Array(0), 1);
   private soft = new BufferAttribute(new Uint8Array(0), 1, true);
+  /** The base colour image's UVs per corner and whether the corner's face samples it (AR-D8-1). */
+  private mapUv = new BufferAttribute(new Float32Array(0), 2);
+  private mapped = new BufferAttribute(new Uint8Array(0), 1, true);
+  private hasMap = false;
   private index = new BufferAttribute(new Uint32Array(0), 1);
   private readonly corners = new Touched(0);
   private readonly clayBytes: readonly [number, number, number];
@@ -65,6 +70,9 @@ export class SurfaceLayer {
     this.uniforms = {
       uPaint: { value: false },
       uClay: { value: new Color(clay) },
+      uMapOn: { value: false },
+      uMap: { value: null },
+      uMapFactor: { value: new Color(1, 1, 1) },
       uFlat: { value: false },
       uFaceOrientation: { value: false },
       uFront: { value: new Color(theme.faceFront) },
@@ -139,6 +147,10 @@ export class SurfaceLayer {
     this.shadeEmpty = true;
     this.state = tracked(new BufferAttribute(new Uint8Array(C), 1));
     this.soft = tracked(new BufferAttribute(new Uint8Array(C), 1, true));
+    this.mapUv = tracked(new BufferAttribute(new Float32Array(2 * C), 2));
+    this.mapped = tracked(new BufferAttribute(new Uint8Array(C), 1, true));
+    this.hasMap = false;
+    (this.uniforms['uMap'] as IUniform<Texture | null>).value = null;
     this.index = tracked(new BufferAttribute(new Uint32Array(tri.tris.length), 1));
     geometry.setAttribute('position', this.position);
     geometry.setAttribute('normal', this.normal);
@@ -146,6 +158,8 @@ export class SurfaceLayer {
     geometry.setAttribute('shade', this.shade);
     geometry.setAttribute('state', this.state);
     geometry.setAttribute('soft', this.soft);
+    geometry.setAttribute('mapUv', this.mapUv);
+    geometry.setAttribute('mapped', this.mapped);
     geometry.setIndex(this.index);
     this.geometry = geometry;
     this.mesh.geometry = geometry;
@@ -337,6 +351,44 @@ export class SurfaceLayer {
     uploadAll(this.shade);
   }
 
+  /**
+   * An imported model's base colour image (AR-D8-1): `uvs` per corner (2 each, the material's texCoord layer) and
+   * `faceMapped` per face (1: the face's material slot samples the image), drawn with `factor` (linear RGB) where the
+   * palette colours would be (`colours` and `lit`); null draws none.
+   */
+  writeMap(
+    t: Topo,
+    map: {
+      readonly texture: Texture;
+      readonly factor: readonly [number, number, number];
+      readonly uvs: ArrayLike<number>;
+      readonly faceMapped: Uint8Array;
+    } | null,
+  ): void {
+    const uv = this.mapUv.array as Float32Array;
+    const mapped = this.mapped.array as Uint8Array;
+    mapped.fill(0);
+    if (map !== null) {
+      const n = Math.min(uv.length, map.uvs.length);
+      for (let i = 0; i < n; i++) uv[i] = map.uvs[i] as number;
+      for (let f = 0; f < t.faces; f++) {
+        if (map.faceMapped[f] !== 1) continue;
+        for (let i = t.fstart[f] as number; i < (t.fstart[f + 1] as number); i++) mapped[t.fcorners[i] as number] = 255;
+      }
+    }
+    this.hasMap = map !== null;
+    (this.uniforms['uMap'] as IUniform<Texture | null>).value = map?.texture ?? null;
+    (this.uniforms['uMapFactor'] as IUniform<Color>).value.setRGB(...(map?.factor ?? [1, 1, 1]));
+    uploadAll(this.mapUv);
+    uploadAll(this.mapped);
+    this.touch();
+  }
+
+  /** Whether an image is drawn (tests). */
+  get mapDrawn(): boolean {
+    return this.hasMap && (this.uniforms['uMapOn'] as IUniform<boolean>).value;
+  }
+
   /** The `shade` bytes (tests: 4 per corner). */
   get shadeBytes(): Uint8Array {
     return this.shade.array as Uint8Array;
@@ -362,6 +414,7 @@ export class SurfaceLayer {
   apply(opts: Readonly<SurfaceDisplay>): void {
     const u = this.uniforms;
     (u['uPaint'] as IUniform<boolean>).value = this.hasPaint && opts.shading !== 'shaded';
+    (u['uMapOn'] as IUniform<boolean>).value = this.hasMap && opts.shading !== 'shaded';
     (u['uFlat'] as IUniform<boolean>).value = opts.flat;
     (u['uFaceOrientation'] as IUniform<boolean>).value = opts.faceOrientation;
     (u['uOpacity'] as IUniform<number>).value = opts.opacity;
