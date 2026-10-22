@@ -1,7 +1,7 @@
 // ②'s keyboard and pointer tracking (AUTORIG-SPEC §8.1, §5.3; D4; lazy with the step view). The frame's listener has
 // already prevented the browser default (and Studio's binding) of the `markers.nudge` rows of `AUTORIG_KEYMAP`; this
 // listener performs them: in the marker list ↑ / ↓ select the previous / next marker (and move the focus with it),
-// elsewhere the arrows nudge the selected marker 1 cm (Shift: 1 mm) in the two axes of the pane under the pointer —
+// elsewhere — and with Shift anywhere — the arrows nudge the selected marker 1 cm (Shift: 1 mm) in the two axes of the pane under the pointer —
 // front: x and y, side: z and y (M6b's axis rule: never the hidden axis) — or of the last ortho pane used, through
 // `skel.quickRig.setMarker` (U state; the preview follows). Screen directions follow the pane's camera, so → moves
 // the marker to the right as seen in that pane. A pointer over a pane records it in the `markers` slice.
@@ -84,7 +84,7 @@ export function installMarkerKeys(ctx: WizardContext): Disposer {
     const nudge = binding.run.args as MarkerNudge;
     const target = e.target as { closest?: (selector: string) => unknown } | null;
     const inList = typeof target?.closest === 'function' && target.closest('[data-testid="quickrig-markers"]') !== null;
-    if (inList && nudge.dx === 0) {
+    if (inList && nudge.dx === 0 && !e.shiftKey) {
       void stepSelection(ctx.app, nudge.dy);
       return;
     }

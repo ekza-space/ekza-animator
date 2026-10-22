@@ -10,8 +10,12 @@ import type { ClipPreviewState, EditorApp } from '@ekza-studio/editor-core';
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { messages } from '../../i18n';
 
-/** The library preview now (null while nothing plays or the library chunk is not loaded). */
-export function usePreview(app: EditorApp): ClipPreviewState | null {
+/**
+ * What the library preview plays now, as `{character, clip}` (null while nothing plays or the library chunk is not
+ * loaded). The service's `preview` is a fresh object with the clock on every read, so only its identity fields are
+ * compared.
+ */
+export function usePreview(app: EditorApp): Pick<ClipPreviewState, 'character' | 'clip'> | null {
   const [loaded, setLoaded] = useState(app.library.loaded);
   useEffect(() => {
     if (app.library.loaded) return;
@@ -29,8 +33,14 @@ export function usePreview(app: EditorApp): ClipPreviewState | null {
     (notify: () => void) => (loaded ? app.library.service.subscribe(notify) : () => {}),
     [app, loaded],
   );
-  const get = useCallback(() => (loaded ? app.library.service.preview : null), [app, loaded]);
-  return useSyncExternalStore(subscribe, get, get);
+  const get = useCallback((): string | null => {
+    const preview = loaded ? app.library.service.preview : null;
+    return preview === null ? null : `${preview.character}\u0000${preview.clip}`;
+  }, [app, loaded]);
+  const key = useSyncExternalStore(subscribe, get, get);
+  if (key === null) return null;
+  const [character, clip] = key.split('\u0000') as [CharacterId, string];
+  return { character, clip };
 }
 
 /**
