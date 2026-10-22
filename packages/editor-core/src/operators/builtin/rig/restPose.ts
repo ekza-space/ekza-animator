@@ -32,7 +32,6 @@ import type { MeshData } from '@ekza-studio/mesh-core';
 import {
   applyOverrides,
   applyPoseAsRest,
-  limbOfControl,
   poseDeltaOf,
   posedWorldOf,
   type RigProgram,
@@ -246,8 +245,9 @@ const tStance = defineOperator<'skel.pose.tStance', Target>({
     const pose = new Map<ControlId, ChannelValues>(solved);
     // §5.17: an IK limb bent by the pose is switched to FK for the test.
     for (const control of solved.keys()) {
-      const limb = limbOfControl(program, control);
-      if (limb === null || !limb.fkControls.includes(control)) continue;
+      // The limb whose FK chain the control is in (inline: rig's `limbOfControl` lives in the eager route).
+      const limb = program.limbs.find((candidate) => candidate.fkControls.includes(control));
+      if (limb === undefined) continue;
       if ((app.evaluation.ikFk(target.character, limb.id) ?? 0) <= 0) continue;
       const ik = limb.params.ikControl;
       pose.set(ik, { ...pose.get(ik), '@ikFk': 0 });
