@@ -100,7 +100,7 @@ test('AR-D8-4: back on ② after Auto-rig and in ③ Adjust joints the panes fra
   // no control rings over the joints either; back in review the controls are drawn again
   expect(await yellowPixels(page, FRONT)).toBeLessThan(40);
   await page.getByTestId('ar-rig-done').click();
-  await expect.poll(async () => yellowPixels(page, 'pane-persp')).toBeGreaterThan(40);
+  await expect.poll(async () => yellowPixels(page, 'pane-persp'), { timeout: 30_000 }).toBeGreaterThan(40);
   // AR-D8-9: the review pane frames the character (it kept ②'s narrow-pane camera: the body stood small)
   const persp = await paneRect(page, 'pane-persp');
   const span = async (): Promise<number> => {

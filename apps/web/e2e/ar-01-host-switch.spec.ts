@@ -80,7 +80,7 @@ test('Studio → Auto-Rig → Studio on one page keeps the document, its undo hi
   expect((await history(page)).undo).toEqual(before.history.undo.slice(0, -1));
 });
 
-test("the first-run dialog is Studio's only; Studio's operators come back with its shell after a round trip", async ({
+test("the first-run dialog never covers a switch; Studio's operators come back with its shell after a round trip", async ({
   page,
 }) => {
   // A fresh profile opening Auto-Rig sees no first-run dialog (its prefs stay untouched) …
@@ -95,17 +95,16 @@ test("the first-run dialog is Studio's only; Studio's operators come back with i
   const made = await documentState(page);
   expect(made.history.undo).toEqual(['Import Static Model']);
   await markPage(page);
-  // … Studio, on the same page, asks once.
+  // … nor does Studio arriving by a switch from Auto-Rig (a hand-over, AR-D8-6; Studio opened directly asks).
   await navigate(page, { to: 'studio', from: 'autorig' });
   await expectStudioShown(page);
   expect(await pageMark(page)).toBe('kept');
   expect(await documentState(page)).toEqual(made);
   // Arriving by a switch without a workspace, Studio keeps the session's (Rig & Skin), not the remembered one.
   expect((await call(page, 'state')).workspace).toBe('rig');
-  const dialog = page.getByTestId('firstrun-dialog');
-  await expect(dialog).toBeVisible();
-  await page.getByTestId('firstrun-done').click();
-  await expect(dialog).toBeHidden();
+  await page.waitForTimeout(300);
+  await expect(page.getByTestId('firstrun-dialog')).toHaveCount(0);
+  expect((await call(page, 'state')).dialog).toBeNull();
 
   await navigate(page, { to: 'autorig', from: 'studio' });
   await expectAutoRigShown(page);
