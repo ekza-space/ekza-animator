@@ -3,9 +3,9 @@
 Ordered queue of what to do next. The plans behind it: [ROADMAP](docs/ROADMAP.md#recommended-order) and
 [MODELING-PLAN](docs/MODELING-PLAN.md) (v0.2, revised after its design review, §12); owner decisions with defaults:
 [DECISIONS-OPEN](docs/DECISIONS-OPEN.md). Sizes are agent-days; "day N" counts working days from the start of B0a.
-Updated 2026-10-22 (M6b MVP in progress on `m6b/mvp`; M6a released as `v0.3.0`, basic shading as `v0.3.1`).
+Updated 2026-10-22 (M6b MVP integrated; M6a released as `v0.3.0`, basic shading as `v0.3.1`).
 
-## Now — M6b MVP: Rig & Skin owner flow (in progress, 2026-10-22)
+## Now — M6b MVP: Rig & Skin owner flow (integrated 2026-10-22; owner run and tag open)
 
 Binding scope: [M6B-SPEC §0](docs/M6B-SPEC.md#0-mvp-cut-owner-flow-2026-10-22) v1.2, [ADR 0020](docs/adr/0020-m6b-mvp-cut.md).
 Model → Quick Rig markers (front/side) → live VRM skeleton → Create Skeleton → fit joints → Bind Skin (one click) →
@@ -13,10 +13,12 @@ paint fixes → test pose → CC0 clip library preview → Use Clip → Graph Ed
 runtime admits. Integration branch `m6b/mvp` (from `dev`); ≈ 48.5 agent-days + a fix round, critical path ≈ 22 days.
 
 - [x] MVP cut written: M6B-SPEC v1.2 §0 and §9.0, ADR 0020 (2026-10-22).
-- [ ] C0 contracts, schema v4 (swatches table stays 2), stubs, lazy chunks incl. `clip-library`, Cube Lad and Polybot fixtures (4.5).
-- [ ] After C0, in parallel: C1 character runtime (5), C2 templates + Quick Rig v2 kernel + joint edits (5), C4 auto-skin (4.5), C7 rig shell (5.5), C12 clip library — CC0 UAL starter pack as VRMA, preview, Use Clip (5).
-- [ ] Then: C10 VRM 1.0 writer with the OMOBA runtime lints (5, after C1); C3 Quick Rig UI + joint UI (5, after C2 + C7); C6 weights kernel + skin UI (6, after C1 + C4 + C7).
-- [ ] INT (3 + fix round ≈ 3): AS-MVP-1 "Cube Lad comes alive" scripted (E2E-MVP-01) and by the owner, OMOBA `validate-runtime-vrm` on the export, budgets, docs; `m6b/mvp` → `dev`.
+- [x] C0 contracts, schema v4 (swatches table stays 2), stubs, lazy chunks incl. `clip-library`, Cube Lad and Polybot fixtures (4.5).
+- [x] After C0, in parallel: C1 character runtime (5), C2 templates + Quick Rig v2 kernel + joint edits (5), C4 auto-skin (4.5), C7 rig shell (5.5), C12 clip library — CC0 UAL starter pack as VRMA, preview, Use Clip (5).
+- [x] Then: C10 VRM 1.0 writer with the OMOBA runtime lints (5, after C1); C3 Quick Rig UI + joint UI (5, after C2 + C7); C6 weights kernel + skin UI (6, after C1 + C4 + C7).
+- [x] INT (3 + fix round): every package merged on `m6b/integration`, every READY/`test.fixme` gate a failure, AS-MVP-1 "Cube Lad comes alive" scripted (E2E-MVP-01) green and OMOBA's `validate-runtime-vrm` admits its export, E2E-RIG-10, budgets ([ROADMAP](docs/ROADMAP.md#m6b-mvp-budgets)), docs, the integration fixes ([wp-notes](docs/wp-notes/m6b-integration.md)).
+- [ ] Owner: AS-MVP-1 by hand in Chrome ([M6B-SPEC §0.7](docs/M6B-SPEC.md#07-acceptance-as-mvp-1-and-the-mvp-e2e-scenarios), times recorded), step 12 with `node tooling/omoba-validate.mjs <file.vrm>`; review [DECISIONS-OPEN §L](docs/DECISIONS-OPEN.md#l-m6b-mvp-deviations-2026-10-22) (AS-MVP-1's elbow drag 0.02 m, `skel.tpose` hinge depth, info rows never gate).
+- [ ] `m6b/mvp` → `dev` with the full gate (INT's last step; see the integration notes for where it stands).
 - [ ] Owner reviews the MVP decisions Q-MVP-1…15 ([M6B-SPEC §0.8](docs/M6B-SPEC.md#08-owner-decisions-taken-for-the-mvp-defaults-the-owner-may-override-any)); release tag is the owner's call (proposed `v0.4.0`).
 
 ## Parked — specs ready, build later (owner decision, 2026-10-20)

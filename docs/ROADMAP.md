@@ -1,6 +1,9 @@
 # Ekza Studio — Roadmap
 
-Status: v1.1 (2026-10-22: **M6b MVP in progress** — the owner flow cut, [M6B-SPEC §0](M6B-SPEC.md#0-mvp-cut-owner-flow-2026-10-22)
+Status: v1.2 (2026-10-22: **M6b MVP integrated** — every §9.0 package merged, every gate a failure, AS-MVP-1 scripted
+(E2E-MVP-01) green and admitted by OMOBA's `validate-runtime-vrm`, [MVP budgets](#m6b-mvp-budgets); the owner run of
+AS-MVP-1 and the release tag are owner items, [DECISIONS-OPEN §L](DECISIONS-OPEN.md#l-m6b-mvp-deviations-2026-10-22));
+v1.1 (2026-10-22: **M6b MVP in progress** — the owner flow cut, [M6B-SPEC §0](M6B-SPEC.md#0-mvp-cut-owner-flow-2026-10-22)
 v1.2 and [ADR 0020](adr/0020-m6b-mvp-cut.md), [MVP packages](#m6b-mvp-work-package-status); M6a released as `v0.3.0`, basic shading
 as `v0.3.1`); v1.0 (2026-10-19: **M6b expanded into the Rig & Skin workspace and its build spec written** —
 [M6B-SPEC](M6B-SPEC.md) v1.1 (revised after its design review), [work-package status](#m6b-work-package-status); constraints and control-shape editing
@@ -30,7 +33,7 @@ design review, MODELING-PLAN v0.2). Keep the [status table](#status) current: ev
 | M4b | Collaboration auth and permissions | Planned | — | — | after M3 |
 | M5 | V2: layers, IK polish, power tools | Planned | — | — | |
 | M6a | Modeling base: Model workspace, low-poly box modeling, palette colour, static GLB export | **Done**, merged into `dev` (2026-10-20); tag `v0.3.0` pending the owner review | 2026-10-19 | 2026-10-20 | [M6A-SPEC](M6A-SPEC.md) v1.1: B0a, B0b, B1…B13 (B12a/B12b) merged in the §11.1 order ([status](#m6a-work-package-status)); every READY/`test.fixme` gate is a failure; E2E-MOD-01…32, AS-LP-S (parts A and B) and the M1/M2a suites green in Chrome, full local gate green on `dev` after the merge; [budgets](#m6a-budgets) re-measured (one report-only miss: the marquee); the eager allowance, the owner feel check and the demo script are owner items in [DECISIONS-OPEN §I](DECISIONS-OPEN.md#i-m6a-build-deviations-2026-10-20); M6b, M6c and M7 stay planned |
-| M6b | Rig & Skin workspace: **MVP** (owner flow: Quick Rig markers → VRM skeleton → Bind Skin → paint → CC0 clip library → VRM 1.0 for Space and OMOBA), then the full workspace (constraints, control shapes, joint tools, imports recovery) | **MVP in progress** (2026-10-22, branch `m6b/mvp`); full M6b after the MVP | 2026-10-22 | — | [M6B-SPEC §0](M6B-SPEC.md#0-mvp-cut-owner-flow-2026-10-22) (binding MVP cut, v1.2) → [§9.0](M6B-SPEC.md#90-mvp-work-packages-binding-for-the-mvp-0): C0, C1, C2, C3, C4, C6 (+ C5 subset), C7, C10, C12 (new: clip library), INT ([status](#m6b-mvp-work-package-status)); ≈ 48.5 agent-days + a fix round, critical path ≈ 22 working days; deferred: C8a, C8b, C9, C11 and parts of C2/C3/C5/C6/C7 (≈ 22 + AS-LP-T) |
+| M6b | Rig & Skin workspace: **MVP** (owner flow: Quick Rig markers → VRM skeleton → Bind Skin → paint → CC0 clip library → VRM 1.0 for Space and OMOBA), then the full workspace (constraints, control shapes, joint tools, imports recovery) | **MVP integrated** (2026-10-22: every package merged through `m6b/integration`, full local gate green; owner run of AS-MVP-1 and the tag (proposed `v0.4.0`) open); full M6b after the MVP | 2026-10-22 | — | [M6B-SPEC §0](M6B-SPEC.md#0-mvp-cut-owner-flow-2026-10-22) (binding MVP cut, v1.2) → [§9.0](M6B-SPEC.md#90-mvp-work-packages-binding-for-the-mvp-0): C0, C1, C2, C3, C4, C6 (+ C5 subset), C7, C10, C12 (new: clip library), INT ([status](#m6b-mvp-work-package-status)); ≈ 48.5 agent-days + a fix round, critical path ≈ 22 working days; deferred: C8a, C8b, C9, C11 and parts of C2/C3/C5/C6/C7 (≈ 22 + AS-LP-T) |
 | M6c | UV editor and texturing basics (optional) | Planned (plan v0.2) | — | — | [MODELING-PLAN §6](MODELING-PLAN.md#6-m6c--uv-editor-and-texturing-basics-optional); ≈ 18; by demand |
 | M7 | AI 3D generation (server gateway, Tripo + Meshy, post chain, provenance) | Planned (plan v0.2) | — | — | [MODELING-PLAN §7](MODELING-PLAN.md#7-m7--ai-3d-generation); G1 ≈ 22, G2 ≈ 14, G3 with M4a/M4b; ADR 0017 proposed |
 | M8 | Splines and generators (the old M6 "splines first") | Planned | — | — | after M7; output type is the M6 mesh kernel |
@@ -107,16 +110,16 @@ Branches `m6b/<slug>` from and back into the integration branch **`m6b/mvp`** (f
 
 | WP | Slug | Scope | Size | Depends on | Status |
 |---|---|---|---|---|---|
-| C0 | `rig-contracts` | schema v4 (swatches stay 2), §4 + §0.5 contracts and stubs, four lazy chunks, Cube Lad and Polybot fixtures, e2e helpers | 4.5 | — | Planned |
-| C1 | `character-runtime` | characters from scene meshes, `skeletonFromDoc`, container in the `character-runtime` chunk, skinned display, `rig.autoRig.update`, CR-7 | 5 | C0 | Planned |
-| C2 | `skeleton-kernel` | templates (Standard 33 default), Quick Rig v2 fit + guess, BVH, MVP joint edits (move, rest rotate, orient, mirror, human bone), `skel.*` lints, CR-2 | 5 | C0 | Planned |
-| C4 | `auto-skin` | Bind Skin (`auto-lowpoly`, heat, rigid islands, closest), worker, Bind/Unbind, sparse kit | 4.5 | C0 | Planned |
-| C7 | `rig-shell` | tab, modes, test pose, channel sources incl. the `preview` hook, menus, Toolkit + MVP checklist, Validation as export gate, CR-4, eager gate | 5.5 | C0 | Planned |
-| C12 | `clip-library` | CC0 UAL starter pack → VRMA (tooling + committed outputs + manifest + licence rows), Clip Library panel, preview, Use Clip | 5 | C0 | Planned |
-| C10 | `character-writer` | VRM 1.0 writer (meta, thumbnail, shaders, clips), `vrm.*` = OMOBA runtime lints, plain GLB local only, export dialog | 5 | C1 | Planned |
-| C3 | `skeleton-ui` | Quick Rig panel and markers (front x/y, side z/y), live preview, joint display and edits, Orient/Mirror boxes | 5 | C2, C7 | Planned |
-| C6 | `skin-ui` | weights kernel (C5 subset) + Paint Skin Weights, display, Paint Weights panel, Toolkit Skin section | 6 | C1, C4, C7 | Planned |
-| INT | `integration` | AS-MVP-1 scripted (E2E-MVP-01) + owner run, OMOBA validator on the export, E2E-RIG-10, budgets, docs; fix round (≈ 3) | 3 | all | Planned |
+| C0 | `rig-contracts` | schema v4 (swatches stay 2), §4 + §0.5 contracts and stubs, four lazy chunks, Cube Lad and Polybot fixtures, e2e helpers | 4.5 | — | **Done** (merged by INT, 2026-10-22) |
+| C1 | `character-runtime` | characters from scene meshes, `skeletonFromDoc`, container in the `character-runtime` chunk, skinned display, `rig.autoRig.update`, CR-7 | 5 | C0 | **Done** (merged by INT, 2026-10-22) |
+| C2 | `skeleton-kernel` | templates (Standard 33 default), Quick Rig v2 fit + guess, BVH, MVP joint edits (move, rest rotate, orient, mirror, human bone), `skel.*` lints, CR-2 | 5 | C0 | **Done** (merged by INT, 2026-10-22) |
+| C4 | `auto-skin` | Bind Skin (`auto-lowpoly`, heat, rigid islands, closest), worker, Bind/Unbind, sparse kit | 4.5 | C0 | **Done** (merged by INT, 2026-10-22) |
+| C7 | `rig-shell` | tab, modes, test pose, channel sources incl. the `preview` hook, menus, Toolkit + MVP checklist, Validation as export gate, CR-4, eager gate | 5.5 | C0 | **Done** (merged by INT, 2026-10-22) |
+| C12 | `clip-library` | CC0 UAL starter pack → VRMA (tooling + committed outputs + manifest + licence rows), Clip Library panel, preview, Use Clip | 5 | C0 | **Done** (merged by INT, 2026-10-22) |
+| C10 | `character-writer` | VRM 1.0 writer (meta, thumbnail, shaders, clips), `vrm.*` = OMOBA runtime lints, plain GLB local only, export dialog | 5 | C1 | **Done** (merged by INT, 2026-10-22) |
+| C3 | `skeleton-ui` | Quick Rig panel and markers (front x/y, side z/y), live preview, joint display and edits, Orient/Mirror boxes | 5 | C2, C7 | **Done** (merged by INT, 2026-10-22) |
+| C6 | `skin-ui` | weights kernel (C5 subset) + Paint Skin Weights, display, Paint Weights panel, Toolkit Skin section | 6 | C1, C4, C7 | **Done** (merged by INT, 2026-10-22) |
+| INT | `integration` | AS-MVP-1 scripted (E2E-MVP-01) + owner run, OMOBA validator on the export, E2E-RIG-10, budgets, docs; fix round (≈ 3) | 3 | all | **Done** ([notes](wp-notes/m6b-integration.md), M6B-INT-1…); the owner run of AS-MVP-1 is open |
 
 ### M6b work-package status
 
@@ -266,6 +269,29 @@ benches are in their wp-notes, and the `m6a/integration` measurements in
 | Make editable / export one edited mesh | ≤ 150 / ≤ 50 ms | 56 / 11 ms ✓ | 64 / 15 ms |
 | Leaving Model with an edited Seed-san | ≤ 300 ms | 175 ms ✓ | 189 ms |
 | Editor route, first visit (`check:size`) | 900,000 B gate | **896,299 B** ✓ (headroom 3,701 B; +51,032 B over the M2a baseline 845,267 B, eager-delta gate not enforced) | 896,274 B |
+
+### M6b MVP budgets
+
+Measured 2026-10-22 on the integrated branch (`m6b/integration`) with `pnpm --filter web exec playwright test -c
+e2e/bench/playwright.config.ts m6b-` (`apps/web/e2e/bench/m6b-{budgets,export,joints,paint}.bench.ts`, real Chrome with
+the GPU, 1440×900 at DPR 2, Apple M4 Pro shared with other agents), `check:size` on a production build and the
+package benches in their wp-notes. Report-only except the gates (M6B-SPEC §0.4.9, §5.25).
+
+| Row | Budget | Measured |
+|---|---|---|
+| Idle in Rig & Skin (bound 3,001-point character, Skin mode; also Skeleton mode and the Test view) | 0 frames / 2 s (gate) | **0** ✓ (E2E-RIG-10, bench) |
+| Switching the active influence | 0 bytes uploaded (gate) | **0** ✓ (E2E-SKIN-02; viewport DOM test of the joint overlay) |
+| `/editor` route, first visit (`check:size`) | 900,000 B gate; MVP eager additions ≤ +6,144 B | **895,514 B** ✓; **+5,945 B** ✓ over the 889,569 B baseline |
+| Lazy chunks `rig-workspace` / skin worker / `character-runtime` / `clip-library` (gzip) | ≤ 250 / 120 / 150 / 60 kB | 82.3 / 12.8 / 14.4 / 4.7 kB ✓ |
+| Bind of a 3k-point low-poly character (33 joints), in the worker | ≤ 200 ms | 39 ms median of 3 (+ the next frame) ✓; the Cube Lad 35 ms |
+| Test-pose edit (the run: test-pose write + evaluate; GPU skinning) | ≤ 4 ms per frame | 1.0 ms median, 1.4 ms p95 at 3k points ✓ |
+| Paint stroke at 10k points | ≤ 4 ms per pointer frame | mean 0.66 ms, p95 1.2 ms ✓ (C6 bench) |
+| Stroke commit / undo at 10k points | ≤ 5 / ≤ 10 ms (report-only until CR-1) | commit dispatch 0.8 ms; undo round trip 20 ms — **report-only miss** (CR-1 weight-only `writeData` deferred, §0.4.1) |
+| Joint overlay rebuild (34 joints) | ≤ 2 ms | 0.4 ms median, 0.5 ms p95 ✓ (C3 bench, through the editor) |
+| `rig.autoRig.update` inside a rest edit | ≤ 5 ms | a whole `skel.joint.move` run 4.1 ms median ✓ |
+| Character export (bound Cube Lad, five clips × 60 frames, validator off) | ≤ 500 ms | 22 ms median ✓ (C10 bench) |
+| Quick Rig live preview (one marker edit: fit of Standard 33 + the next frame) / Create Skeleton | report | 13.9 ms (mostly the frame wait) / 33 ms |
+| Library preview start (fetch, verify, convert) / Use Clip | report | 33 ms / 23 ms (Cube Lad) |
 
 ### M2a budgets (on `dev`)
 
