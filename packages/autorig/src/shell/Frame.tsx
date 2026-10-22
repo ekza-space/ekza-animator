@@ -59,7 +59,13 @@ function SubjectName(props: { readonly ctx: WizardContext }): JSX.Element {
     const mesh = subject.meshes.map((id) => ctx.app.store.get('meshes', id)).find((record) => record !== undefined);
     return mesh?.name ?? intake?.fileName ?? null;
   });
-  const canRename = subject.character !== null || subject.meshes.length > 0;
+  // a model character's VRM name (`char.setVrmMeta`), else the first scene mesh's (`scene.rename`); an imported
+  // avatar's name is its file's
+  const canRename = useDocument(ctx.app, () =>
+    subject.character === null
+      ? subject.meshes.some((id) => ctx.app.store.get('meshes', id) !== undefined)
+      : ctx.app.store.get('characters', subject.character)?.source.kind === 'model',
+  );
   const commit = (value: string): void => {
     setEditing(false);
     const text = value.trim();
