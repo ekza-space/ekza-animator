@@ -4,6 +4,7 @@
 // the pointer (`⌘E Extrude` on macOS, `Ctrl+E Extrude` elsewhere), and the selection counts objects.
 import { type ComponentMode, GLOBAL_SCOPE, PANEL } from '@ekza-studio/editor-core';
 import { cn, LoaderCircle } from '@ekza-studio/ui';
+import { viewportManagerOf } from '@ekza-studio/viewport';
 import type { JSX } from 'react';
 import { useEditorApp, usePrefs, useSession } from '../hooks';
 import { helpHints } from '../input/keyboard';
@@ -31,6 +32,8 @@ const SKELETON_HINT: Readonly<Record<string, string>> = {
   move: 'Drag a joint: moves its children too · hold D to move the joint only',
   rotate: 'Drag a joint: rotates the rest (bound: a test pose) · hold D to re-orient the joint only',
   scale: 'Joints keep scale 1 (VRM/glTF)',
+  // §0.2 step 3: the perspective pane shows the markers but never drags them.
+  quickRigPersp: 'Quick Rig: drag markers in the front or side view · this view only shows them',
 };
 
 const TOOL_HINT: Readonly<Record<string, string>> = {
@@ -61,6 +64,14 @@ export function HelpLine(): JSX.Element {
           ? s.tools.viewport
           : null,
   );
+  // The pane under the pointer during Quick Rig (a perspective pane gets its own hint, §0.2 step 3).
+  const quickRigPane = useSession((s) =>
+    s.workspace === 'rig' && s.rig.quickRig !== null && s.hoveredPanel?.kind === PANEL.viewport
+      ? s.hoveredPanel.paneId
+      : null,
+  );
+  const paneState = quickRigPane === null ? null : (viewportManagerOf(app)?.paneState(quickRigPane) ?? null);
+  const perspective = paneState !== null && (paneState.cameraKind === 'shot' || paneState.preset === 'persp');
   const selected = useSession((s) => s.selection.controls.length);
   // Rig & Skin (acceptance fix): Skeleton mode counts the selected joints; Object mode also counts picked meshes.
   const rigSelection = useSession((s) =>
@@ -74,7 +85,10 @@ export function HelpLine(): JSX.Element {
   const spaceBehaviour = usePrefs((p) => p.spaceBehaviour);
 
   const modelHints = workspace === 'model' ? helpHints(app, hover) : null;
-  const toolHint = rigHint === null ? TOOL_HINT[tool] : SKELETON_HINT[rigHint];
+  const toolHint =
+    rigHint === null
+      ? TOOL_HINT[tool]
+      : SKELETON_HINT[rigHint === 'quickRig' && perspective ? 'quickRigPersp' : rigHint];
   const hint =
     workspace === 'model'
       ? `${MODE_LABEL[mode]}${modelHints === null ? '' : ` · ${modelHints}`}`

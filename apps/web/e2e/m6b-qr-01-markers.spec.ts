@@ -50,6 +50,17 @@ test('E2E-QR-01: guess, the axis rule, the pick rule, ghosts, live preview, Clea
   expect(await call(page, 'screenOfMarker', 'chin', 'L', RIG_FRONT_PANE)).toBeNull();
   expect(guessed.moved).toEqual([]);
   expect(await history(page)).toEqual(undo);
+  // §0.2 step 3: the persp pane shows the markers but does not drag them: its hover hint says where to drag (the help
+  // line, acceptance fix); the front pane keeps the axis hint. The empty-state card is gone while Quick Rig runs.
+  await expect(page.getByTestId('rig-empty')).toBeHidden();
+  const chinPersp = await markerAt(page, 'chin', 'R', RIG_PERSP_PANE);
+  await page.mouse.move(chinPersp.x, chinPersp.y);
+  await expect(page.getByTestId('helpline-text')).toContainText('Drag markers in the front or side view', {
+    ignoreCase: true,
+  });
+  const chinFront = await markerAt(page, 'chin', 'R', RIG_FRONT_PANE);
+  await page.mouse.move(chinFront.x, chinFront.y);
+  await expect(page.getByTestId('helpline-text')).toContainText('front (X/Y) or side (Z/Y)');
   const front = await frontMarkerPoints(page, MARKERS);
 
   // Front drag of the right elbow 12 px down: x/y change, z bit-equal; the preview follows every pointer frame.
