@@ -66,7 +66,7 @@ const MODULES: Readonly<Partial<Record<AutoRigStep, StepModule>>> = {
   markers: markers as StepModule,
   rig: rig as StepModule,
   animations: animations as StepModule,
-  export: exportStep as StepModule,
+  export: exportStep,
 };
 
 /** The module of a step package (② – ⑤), or an empty one (①'s view is the frame's own). */
