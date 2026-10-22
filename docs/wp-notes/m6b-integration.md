@@ -110,7 +110,7 @@ recorded).
 ## Budgets (§0.4.9, §5.25)
 
 Recorded in [ROADMAP "M6b MVP budgets"](../ROADMAP.md#m6b-mvp-budgets). Gates: idle 0 frames ✓, influence switch
-0 bytes ✓, `/editor` 895,514 B ✓ with the MVP eager delta +5,945 B ✓. Per-package eager shares against §0.4.9
+0 bytes ✓, `/editor` 895,509 B ✓ with the MVP eager delta +5,940 B ✓ (final run). Per-package eager shares against §0.4.9
 (measured by the packages, re-split by INT): C0 ≈ 1,535 B (2,048), C1 ≈ 376 B (512), C7 ≈ 1,886–2,481 B with its fix
 rounds (2,560), C12 ≈ 267 B (1,024), C10 ≈ 261 B and C3 ≈ 508 B (0 each: **approved by INT** from the headroom C0, C1
 and C12 left, as their notes asked), C6 0 B after M6B-INT-3, C2/C4 0 B. One report-only miss: stroke undo at 10k
@@ -119,4 +119,15 @@ points 20 ms (≤ 10 ms until CR-1's weight-only `writeData`, deferred by §0.4.
 
 ## Gate results
 
-See the last section of this file (updated with the final run).
+Final run on `m6b/integration` after merging `dev` (the Auto-Rig spec, docs only), local Chrome with the GPU, port
+3169: **`EKZA_E2E_PORT=3169 pnpm run ci` green** — format:check (1,883 files), lint (`oxlint --type-aware`), typecheck,
+check:deps (15 packages), check:fixtures (25), check:licenses (176); `test`: 15/15 turbo tasks (editor-core 1,464,
+mesh-core 976, anim-core 671, editor 552 + 1 skipped, io 340, rig 314, viewport 269 + 1 skipped, doc 263,
+curve-editor 209 + 3 skipped, headless 201, ui 94, doc-yjs 85, mesh-view 81, web 24, tooling 26); build; check:size
+**895,509 B** (gate 900,000 B), MVP eager delta **+5,940 B** (allowance +6,144 B, enforced), lazy `rig-workspace`
+82.4 kB, `character-runtime` 14.4 kB, skin worker 12.8 kB, `clip-library` 4.7 kB; `test:e2e` **254 passed**, 24
+skipped (the M1/M2a/M6a stretch `test.fixme`s and `c6-ce`). Before that, an earlier full run had two kinds of
+failures, both fixed: browser-mode unit tests that failed to import their file under the parallel turbo run (they pass
+alone and in the final run: a load flake of vitest's browser mode, not code), and E2E-SKIN-02's 0-byte window catching
+the seed's deferred display rebuild (scenario fixed, `65725da`). Repeated runs under load: E2E-MVP-01 2/2, E2E-RIG-10
+12/12 (four workers), E2E-SKIN-02 + RIG-10 + MVP-01 12/12 (six workers). Benches as in "Budgets".

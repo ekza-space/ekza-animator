@@ -281,8 +281,8 @@ package benches in their wp-notes. Report-only except the gates (M6B-SPEC §0.4.
 |---|---|---|
 | Idle in Rig & Skin (bound 3,001-point character, Skin mode; also Skeleton mode and the Test view) | 0 frames / 2 s (gate) | **0** ✓ (E2E-RIG-10, bench) |
 | Switching the active influence | 0 bytes uploaded (gate) | **0** ✓ (E2E-SKIN-02; viewport DOM test of the joint overlay) |
-| `/editor` route, first visit (`check:size`) | 900,000 B gate; MVP eager additions ≤ +6,144 B | **895,514 B** ✓; **+5,945 B** ✓ over the 889,569 B baseline |
-| Lazy chunks `rig-workspace` / skin worker / `character-runtime` / `clip-library` (gzip) | ≤ 250 / 120 / 150 / 60 kB | 82.3 / 12.8 / 14.4 / 4.7 kB ✓ |
+| `/editor` route, first visit (`check:size`) | 900,000 B gate; MVP eager additions ≤ +6,144 B | **895,509 B** ✓; **+5,940 B** ✓ over the 889,569 B baseline |
+| Lazy chunks `rig-workspace` / skin worker / `character-runtime` / `clip-library` (gzip) | ≤ 250 / 120 / 150 / 60 kB | 82.4 / 12.8 / 14.4 / 4.7 kB ✓ |
 | Bind of a 3k-point low-poly character (33 joints), in the worker | ≤ 200 ms | 39 ms median of 3 (+ the next frame) ✓; the Cube Lad 35 ms |
 | Test-pose edit (the run: test-pose write + evaluate; GPU skinning) | ≤ 4 ms per frame | 1.0 ms median, 1.4 ms p95 at 3k points ✓ |
 | Paint stroke at 10k points | ≤ 4 ms per pointer frame | mean 0.66 ms, p95 1.2 ms ✓ (C6 bench) |
