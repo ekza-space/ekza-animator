@@ -88,19 +88,13 @@ export function isRestrictedLicense(license: VrmLicenseInfo | null): boolean {
 
 const REDISTRIBUTABLE: ReadonlySet<string> = new Set(['yes', 'no', 'unknown']);
 
-/**
- * The loop flag the editor recorded for glTF animation `index` in a file it wrote (`asset.extras.ekza_animation_v1`,
- * the entry whose `index` field matches), or null when the file carries none: the exported animation is named by its
- * slot ("walk"), so the `/loop/i` name rule alone loses a looping clip's flag on a round trip.
- */
-export function embeddedEkzaLoop(container: GlbContainer, index: number): boolean | null {
+/** The `asset.extras.ekza_animation_v1` entry of glTF animation `index` (its `index` field; the first without one). */
+export function ekzaClipEntry(container: GlbContainer, index?: number): unknown {
   const extras = container.json.asset.extras;
   const meta = isRecord(extras) ? extras['ekza_animation_v1'] : undefined;
   if (!isRecord(meta) || !Array.isArray(meta['clips'])) return null;
-  const clip: unknown = (meta['clips'] as readonly unknown[]).find(
-    (entry) => isRecord(entry) && entry['index'] === index,
-  );
-  return isRecord(clip) && typeof clip['loop'] === 'boolean' ? clip['loop'] : null;
+  const clips = meta['clips'] as readonly unknown[];
+  return index === undefined ? clips[0] : clips.find((entry) => isRecord(entry) && entry['index'] === index);
 }
 
 /**
@@ -109,12 +103,7 @@ export function embeddedEkzaLoop(container: GlbContainer, index: number): boolea
  * when the file carries none for that animation or it is malformed.
  */
 export function embeddedEkzaProvenance(container: GlbContainer, index?: number): ClipProvenance | null {
-  const extras = container.json.asset.extras;
-  const meta = isRecord(extras) ? extras['ekza_animation_v1'] : undefined;
-  if (!isRecord(meta) || !Array.isArray(meta['clips'])) return null;
-  const clips = meta['clips'] as readonly unknown[];
-  const clip: unknown =
-    index === undefined ? clips[0] : clips.find((entry) => isRecord(entry) && entry['index'] === index);
+  const clip = ekzaClipEntry(container, index);
   if (!isRecord(clip) || !Array.isArray(clip['derivedFrom'])) return null;
   const redistributable = clip['redistributable'];
   if (typeof redistributable !== 'string' || !REDISTRIBUTABLE.has(redistributable)) return null;

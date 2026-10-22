@@ -51,7 +51,6 @@ import {
   Raycaster,
   Scene,
   Vector2,
-  Vector3,
   type WebGLRenderer,
 } from 'three';
 import {
@@ -1323,10 +1322,11 @@ export class ViewportManager {
       .filter((root): root is NonNullable<typeof root> => root !== undefined);
     const worlds: Float32Array[] = [];
     // Rig & Skin frames the character (meshes and joints) for joint fitting: IK pole targets sit far in front of the
-    // knees and would shrink the side view to a third (M6b acceptance). Controls count when nothing else is there.
+    // knees and would shrink the side view to a third (M6b acceptance). Controls belong to characters, whose meshes and
+    // joints are framed anyway.
+    if (!this.tightOrthoFrame())
+      for (const entry of this.controls.entries()) if (entry.visible) worlds.push(entry.world);
     for (const set of this.skeleton.jointSets()) worlds.push(set.positions);
-    const characterOnly = this.tightOrthoFrame() && (models.length > 0 || worlds.length > 0);
-    if (!characterOnly) for (const entry of this.controls.entries()) if (entry.visible) worlds.push(entry.world);
     return (
       unionBounds(measureSpatialBounds(models), pointBounds(worlds)) ?? {
         minX: -0.4,
@@ -2161,10 +2161,10 @@ function frameCamera(nav: NavigationController, bounds: SpatialBounds, aspect: n
   if (camera instanceof OrthographicCamera) {
     // Rig & Skin fits the bounds as the view sees them (its right and up axes) for joint fitting; elsewhere the padded
     // bounding sphere keeps the room around the content that Model's reference image planes rely on.
-    const right = new Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
-    const up = new Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+    camera.updateMatrixWorld();
+    const axes = camera.matrixWorld.elements; // columns 0 and 1: the view's right and up
     const height = tight
-      ? fitOrthoViewHeight(bounds, [right.x, right.y, right.z], [up.x, up.y, up.z], aspect)
+      ? fitOrthoViewHeight(bounds, axes.slice(0, 3), axes.slice(4, 7), aspect)
       : fitOrthoHeight(bounds, aspect);
     const c = {
       x: (bounds.minX + bounds.maxX) / 2,

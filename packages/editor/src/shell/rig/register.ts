@@ -13,6 +13,8 @@ import type { RigShellDeps } from './index';
 import { kindOfPanel } from '../layout';
 import { RIG_SLOTS } from './layouts';
 import { registerRigShellOperators } from './operators';
+import { setRigHelp } from '../HelpLine';
+import { rigHelpLine } from './helpLine';
 import { registerRigStatusGroups } from './status';
 import { watchRigViewOnly } from './viewOnly';
 
@@ -71,7 +73,8 @@ export function registerRigShellUi(app: EditorApp, deps: RigShellDeps): Disposer
   }
   disposers.push(registerRigStatusGroups(), registerRigOverlays(app), watchRigViewOnly(app), followModeTabs(app, deps));
   // C3: the skeleton UI's shell parts (the FK FOR TEST badge).
-  disposers.push(registerSkeletonUi(app));
+  setRigHelp(rigHelpLine);
+  disposers.push(registerSkeletonUi(app), () => setRigHelp(null));
   return () => {
     for (const dispose of disposers.splice(0).reverse()) dispose();
   };

@@ -496,7 +496,7 @@ const bind = defineOperator<'skin.bind', BindPrepared>({
     for (const [character, skeleton] of characters) ensureControlRig(tx, character, skeleton);
     // §0.2 step 7: a one-click Bind Skin opens Skin mode (U state, no undo part; Bind Skin belongs to Skin mode, so the
     // Last-op card stays open). A masked run (Bind Unweighted Points) keeps the mode.
-    if (full && prepared.runs.length > 0 && app.session.getState().workspace === 'rig') setRigMode(app, 'skin');
+    if (full && app.session.getState().workspace === 'rig') setRigMode(app, 'skin');
     const value = { meshes: prepared.runs.map((run) => run.inputs.mesh) };
     // Recorded for Adjust Last and replay: the resolved symmetrize and holds (a masked run also its method and options,
     // which may come from the stored record); `confirm` never replays.

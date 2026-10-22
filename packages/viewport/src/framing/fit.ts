@@ -73,31 +73,14 @@ export function fitOrthoHeight(bounds: SpatialBounds, aspect: number, padding = 
  */
 export function fitOrthoViewHeight(
   bounds: SpatialBounds,
-  right: readonly [number, number, number],
-  up: readonly [number, number, number],
+  right: readonly number[],
+  up: readonly number[],
   aspect: number,
   padding = DEFAULT_FRAME_PADDING,
 ): number {
-  const [minX, maxX] = orderedPair(bounds.minX, bounds.maxX);
-  const [minY, maxY] = orderedPair(bounds.minY, bounds.maxY);
-  const [minZ, maxZ] = orderedPair(bounds.minZ, bounds.maxZ);
-  let loR = Number.POSITIVE_INFINITY;
-  let hiR = Number.NEGATIVE_INFINITY;
-  let loU = Number.POSITIVE_INFINITY;
-  let hiU = Number.NEGATIVE_INFINITY;
-  for (const x of [minX, maxX]) {
-    for (const y of [minY, maxY]) {
-      for (const z of [minZ, maxZ]) {
-        const r = x * right[0] + y * right[1] + z * right[2];
-        const u = x * up[0] + y * up[1] + z * up[2];
-        loR = Math.min(loR, r);
-        hiR = Math.max(hiR, r);
-        loU = Math.min(loU, u);
-        hiU = Math.max(hiU, u);
-      }
-    }
-  }
-  const a = Math.max(0.001, finiteOr(aspect, 1));
-  const height = Math.max(finiteOr(hiU - loU, 0), finiteOr(hiR - loR, 0) / a);
-  return Math.max(0.1, height) * Math.max(1, finiteOr(padding, 1));
+  // A box's extent along a unit axis is Σ |axisᵢ| · sizeᵢ (finite bounds, a pane's aspect > 0).
+  const size = [bounds.maxX - bounds.minX, bounds.maxY - bounds.minY, bounds.maxZ - bounds.minZ];
+  const extent = (axis: readonly number[]): number =>
+    size.reduce((sum, d, i) => sum + Math.abs((axis[i] as number) * d), 0);
+  return Math.max(0.1, extent(up), extent(right) / aspect) * padding;
 }

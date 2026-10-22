@@ -23,17 +23,12 @@ import { newRecordId } from '../app/internals';
 import type { ClipsResult, ImportAnimationOptions } from '../operators/args';
 import type { CharacterRuntime, EditorApp } from '../types';
 import { type ClipWritePlan, planImportedClip, resolveClipOptions, writeClipPlan } from './clipWrite';
+import { embeddedEkzaLoop } from './ekzaLoop';
 import { yieldToHost } from './host';
 import { importLimbWarnings } from './ik';
 import { assertWithinBudget } from './importModel';
 import { baseName, sanitizeClipName, uniqueName } from './names';
-import {
-  animationAndNodeNames,
-  clipProvenance,
-  embeddedEkzaLoop,
-  embeddedEkzaProvenance,
-  sourceProvenance,
-} from './provenance';
+import { animationAndNodeNames, clipProvenance, embeddedEkzaProvenance, sourceProvenance } from './provenance';
 import { orderAfter } from './records';
 import { activateClip, sceneFpsIn } from './session';
 import { maxChannelKeys } from './util';

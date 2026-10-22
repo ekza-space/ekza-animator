@@ -6,7 +6,7 @@
 // - After a committed batch the session points only at live records: an active character and an active clip per
 //   character (repaired to the first one when missing), a selection, overrides and feet pins without deleted ids.
 // - `dirty` tracks unsaved document changes: set by committed batches, cleared by a document load.
-import type { ChangeBatch, CharacterId, ChannelValues, ClipId, ControlId, DocumentStore } from '@ekza-studio/doc';
+import type { CharacterId, ChannelValues, ControlId, DocumentStore } from '@ekza-studio/doc';
 import type { KernelDeps } from '../app/deps';
 import type { KernelEvaluation } from '../evaluation/service';
 import { activeClipOf, clipFrameAt, sceneFpsOf } from '../evaluation/time';
@@ -14,28 +14,6 @@ import type { KernelHistory } from '../history/history';
 import type { SessionState, SessionStore } from '../types';
 import { isDocumentLoad } from './loads';
 import { repairSession, templateSymmetry } from './repair';
-
-/**
- * The clips a redo brought back, as the active clip of their character (the first in the character's clip order):
- * the operator that made them active (Use Clip, imports, New Clip) does not run again on redo, and the session
- * repair keeps whatever clip is still valid, so without this redo would leave the earlier clip active (M6b acceptance).
- */
-function revivedClips(store: DocumentStore, batch: ChangeBatch): Record<CharacterId, ClipId> | null {
-  const revived = new Set<string>();
-  for (const change of batch.changes) {
-    if (change.table !== 'clips' || change.after === undefined || change.after.deleted !== null) continue;
-    if (change.before === undefined || change.before.deleted !== null) revived.add(change.id);
-  }
-  if (revived.size === 0) return null;
-  const out: Record<CharacterId, ClipId> = {};
-  for (const id of revived) {
-    const clip = store.get('clips', id as ClipId);
-    if (clip === undefined || out[clip.character] !== undefined) continue;
-    const first = store.query.clipsOfCharacter(clip.character).find((other) => revived.has(other.id));
-    if (first !== undefined) out[clip.character] = first.id;
-  }
-  return Object.keys(out).length === 0 ? null : out;
-}
 
 export interface SessionKeeper {
   dispose(): void;
@@ -96,10 +74,6 @@ export function createSessionKeeper(ctx: {
     const cause = batch.origin !== 'load' ? 'commit' : isDocumentLoad(store, batch) ? 'load' : 'visibility';
     const patch = repairSession(store, session.getState(), cause);
     if (patch !== null) session.setState(patch);
-    if (batch.origin === 'redo') {
-      const revived = revivedClips(store, batch);
-      if (revived !== null) session.setState({ activeClip: { ...session.getState().activeClip, ...revived } });
-    }
     if (cause === 'load' && ctx.symmetryTolerance !== undefined) {
       const model = session.getState().model;
       const next = templateSymmetry(store, model, ctx.symmetryTolerance());

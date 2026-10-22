@@ -24,15 +24,6 @@ export function detectModelFormat(json: GltfJson): ModelFormat {
 /** VRM 1.0 licence document URL prefix (VRM Public License 1.0). */
 const VRM_PL_1 = /^https?:\/\/vrm\.dev\/licenses\/1\.0\/?/i;
 
-/**
- * VRM 1.0 `meta.otherLicenseUrl` deeds → SPDX identifier. Our writer's CC0 and CC BY presets keep `licenseUrl` on the
- * VRM Public License document and state the CC deed in `otherLicenseUrl` (vrm/meta.ts), so the deed is the intent.
- */
-const VRM1_OTHER_LICENSES: readonly (readonly [RegExp, string])[] = [
-  [/^https?:\/\/creativecommons\.org\/publicdomain\/zero\/1\.0(\/|\/legalcode(\.\w+)?)?$/i, 'CC0-1.0'],
-  [/^https?:\/\/creativecommons\.org\/licenses\/by\/4\.0(\/|\/legalcode(\.\w+)?)?$/i, 'CC-BY-4.0'],
-];
-
 /** VRM 0.x `meta.licenseName` → SPDX-like identifier (DerivedFrom.license). */
 const VRM0_LICENSES: Readonly<Record<string, string>> = {
   CC0: 'CC0-1.0',
@@ -62,9 +53,15 @@ export function readVrmLicense(c: GlbContainer): VrmLicenseInfo | null {
 }
 
 function vrm1License(meta: JsonRecord): VrmLicenseInfo {
-  const other = text(meta['otherLicenseUrl'])?.trim() ?? null;
-  const deed = other === null ? undefined : VRM1_OTHER_LICENSES.find(([pattern]) => pattern.test(other));
-  const licenseUrl = deed === undefined ? text(meta['licenseUrl']) : other;
+  // Our writer's CC0 and CC BY presets keep `licenseUrl` on the VRM Public License document and state the CC deed in
+  // `otherLicenseUrl` (vrm/meta.ts): the deed is the intent.
+  const other = text(meta['otherLicenseUrl']) ?? '';
+  const deed = other.includes('publicdomain/zero/1.0')
+    ? 'CC0-1.0'
+    : other.includes('creativecommons.org/licenses/by/4.0')
+      ? 'CC-BY-4.0'
+      : null;
+  const licenseUrl = deed === null ? text(meta['licenseUrl']) : other;
   const modification = meta['modification'];
   const credit = meta['creditNotation'];
   return {
@@ -80,8 +77,7 @@ function vrm1License(meta: JsonRecord): VrmLicenseInfo {
         : null,
     commercialUsage: text(meta['commercialUsage']),
     creditNotation: credit === 'required' || credit === 'unnecessary' ? credit : null,
-    licenseName:
-      deed !== undefined ? deed[1] : licenseUrl !== null && VRM_PL_1.test(licenseUrl) ? 'LicenseRef-VRM-PL-1.0' : null,
+    licenseName: deed ?? (licenseUrl !== null && VRM_PL_1.test(licenseUrl) ? 'LicenseRef-VRM-PL-1.0' : null),
   };
 }
 

@@ -29,16 +29,11 @@ import type { ImportModelOptions, ImportResult } from '../operators/args';
 import type { EditorApp } from '../types';
 import { frameShotCamera, SHOT_FOV_Y } from './camera';
 import { type ClipWritePlan, planEmptyClip, planImportedClip, resolveClipOptions, writeClipPlan } from './clipWrite';
+import { embeddedEkzaLoop } from './ekzaLoop';
 import { type Progress, yieldToHost } from './host';
 import { importLimbWarnings } from './ik';
 import { baseName, extensionOf, numberedName, sanitizeClipName, uniqueName } from './names';
-import {
-  clipProvenance,
-  embeddedEkzaLoop,
-  isRestrictedLicense,
-  type KnownLicense,
-  sourceProvenance,
-} from './provenance';
+import { clipProvenance, isRestrictedLicense, type KnownLicense, sourceProvenance } from './provenance';
 import { cameraRecord, characterRecord, DEFAULT_CLIP_RANGE, orderAfter, projectRecord } from './records';
 import { activateClip, EMPTY_SELECTION, sceneFpsIn } from './session';
 import { maxChannelKeys } from './util';

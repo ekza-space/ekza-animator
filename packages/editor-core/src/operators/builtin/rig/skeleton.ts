@@ -275,9 +275,9 @@ export function rigTarget(
 ): RigTarget | string {
   const meshes = meshesOfObjects(view, objects);
   if (meshes.length === 0) {
-    const character = active === null ? undefined : view.get('characters', active);
-    const asset = character !== undefined && character.deleted === null && character.source.kind !== 'model';
-    return asset ? ASSET_CHARACTER_REFUSAL : 'Select the meshes to rig';
+    return active !== null && view.get('characters', active)?.source.kind === 'asset'
+      ? ASSET_CHARACTER_REFUSAL
+      : 'Select the meshes to rig';
   }
   const records = meshes.map((id) => view.get('meshes', id) as MeshRecord);
   if (records.every((record) => 'scene' in record.owner)) return { kind: 'scene', objects, meshes };

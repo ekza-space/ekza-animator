@@ -2,9 +2,8 @@
 // navigation and tool hints; busy state and the selection on the right. Human-speed state only, never per frame.
 // M6a (M6A-SPEC §5.17, §8.2; B9): in Model the hints are the mode and the resolved meaning of the modeling keys under
 // the pointer (`⌘E Extrude` on macOS, `Ctrl+E Extrude` elsewhere), and the selection counts objects.
-import { type ComponentMode, GLOBAL_SCOPE, PANEL } from '@ekza-studio/editor-core';
+import { type ComponentMode, type EditorApp, GLOBAL_SCOPE, PANEL, type SessionState } from '@ekza-studio/editor-core';
 import { cn, LoaderCircle } from '@ekza-studio/ui';
-import { viewportManagerOf } from '@ekza-studio/viewport';
 import type { JSX } from 'react';
 import { useEditorApp, usePrefs, useSession } from '../hooks';
 import { helpHints } from '../input/keyboard';
@@ -25,16 +24,15 @@ const NAV_HINT = {
 
 export const GL_LOST_TEXT = 'Graphics context lost — restoring the 3D view…';
 
-/** M6b (C3): Rig & Skin's Skeleton mode and Quick Rig hints, by viewport tool. */
-const SKELETON_HINT: Readonly<Record<string, string>> = {
-  quickRig: 'Quick Rig: drag markers in the front (X/Y) or side (Z/Y) view · click again to cycle overlapping markers',
-  select: 'Click or marquee to select joints · W move · E rotate',
-  move: 'Drag a joint: moves its children too · hold D to move the joint only',
-  rotate: 'Drag a joint: rotates the rest (bound: a test pose) · hold D to re-orient the joint only',
-  scale: 'Joints keep scale 1 (VRM/glTF)',
-  // §0.2 step 3: the perspective pane shows the markers but never drags them.
-  quickRigPersp: 'Quick Rig: drag markers in the front or side view · this view only shows them',
-};
+/**
+ * Rig & Skin's tool hint and selection count (`hint\u0001count\u0001noun`), registered by the lazy rig shell
+ * (`rig/helpLine.ts`), so its texts stay out of the eager bundle; null outside Rig & Skin.
+ */
+export type RigHelp = (app: EditorApp, state: SessionState) => string | null;
+let rigHelp: RigHelp | null = null;
+export function setRigHelp(help: RigHelp | null): void {
+  rigHelp = help;
+}
 
 const TOOL_HINT: Readonly<Record<string, string>> = {
   select: 'Click or drag a marquee to select controls · S set key',
@@ -55,50 +53,22 @@ export function HelpLine(): JSX.Element {
   const glStatus = useShellUi((s) => s.gl.status);
   const busy = useSession((s) => s.busy);
   const tool = useSession((s) => s.tools.viewport);
-  const rigHint = useSession((s) =>
-    s.workspace !== 'rig'
-      ? null
-      : s.rig.quickRig !== null
-        ? 'quickRig'
-        : s.rig.mode === 'skeleton' && SKELETON_HINT[s.tools.viewport] !== undefined
-          ? s.tools.viewport
-          : null,
-  );
-  // The pane under the pointer during Quick Rig (a perspective pane gets its own hint, §0.2 step 3).
-  const quickRigPane = useSession((s) =>
-    s.workspace === 'rig' && s.rig.quickRig !== null && s.hoveredPanel?.kind === PANEL.viewport
-      ? s.hoveredPanel.paneId
-      : null,
-  );
-  const paneState = quickRigPane === null ? null : (viewportManagerOf(app)?.paneState(quickRigPane) ?? null);
-  const perspective = paneState !== null && (paneState.cameraKind === 'shot' || paneState.preset === 'persp');
   const selected = useSession((s) => s.selection.controls.length);
-  // Rig & Skin (acceptance fix): Skeleton mode counts the selected joints; Object mode also counts picked meshes.
-  const rigSelection = useSession((s) =>
-    s.workspace !== 'rig'
-      ? null
-      : s.rig.mode === 'skeleton'
-        ? `${s.selection.joints.length}:joint`
-        : `${s.selection.controls.length + s.selection.objects.length}:`,
-  );
+  const rig = useSession((s) => rigHelp?.(app, s))?.split('\u0001') ?? null;
   const navProfile = usePrefs((p) => p.navProfile);
   const spaceBehaviour = usePrefs((p) => p.spaceBehaviour);
 
   const modelHints = workspace === 'model' ? helpHints(app, hover) : null;
-  const toolHint =
-    rigHint === null
-      ? TOOL_HINT[tool]
-      : SKELETON_HINT[rigHint === 'quickRig' && perspective ? 'quickRigPersp' : rigHint];
+  const toolHint = rig === null || rig[0] === '' ? TOOL_HINT[tool] : rig[0];
   const hint =
     workspace === 'model'
       ? `${MODE_LABEL[mode]}${modelHints === null ? '' : ` · ${modelHints}`}`
       : hoverKind === PANEL.viewport || hoverKind === null || hoverKind === GLOBAL_SCOPE
         ? `${NAV_HINT[navProfile]}${toolHint === undefined ? '' : ` · ${toolHint}`}`
         : `Space: ${spaceBehaviour === 'play' ? 'play / stop' : 'maximize panel'} · ? shortcuts`;
-  const [rigCount, rigNoun] = rigSelection === null ? [null, ''] : rigSelection.split(':');
-  const count = workspace === 'model' ? objects : rigCount === null ? selected : Number(rigCount);
-  const noun = workspace === 'model' ? 'object' : rigNoun;
-  const what = noun === '' || noun === undefined ? null : count === 1 ? noun : `${noun}s`;
+  const count = workspace === 'model' ? objects : rig === null ? selected : Number(rig[1]);
+  const noun = workspace === 'model' ? 'object' : rig?.[2];
+  const what = noun ? (count === 1 ? noun : `${noun}s`) : null;
   const busyLabel = busy?.label ?? shellBusy;
   // A lost context is a state, not a hint: it takes the help line's text until the context is back (acceptance
   // round 1: /editor kept showing the hover hints while the 3D view was gone).

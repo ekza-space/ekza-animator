@@ -186,7 +186,7 @@ export function buildModelOutlinerRows(doc: ModelOutlinerDoc, view: ModelOutline
     const chrOpen = open(chrKey);
     // Only an imported (asset) character's glTF meshes are read-only asset rows; a model-sourced character's display
     // container is synthesised from its own mesh records, which are listed as objects below (M6b acceptance fix).
-    if (container !== undefined && record.asset !== null && record.source?.kind !== 'model') {
+    if (container !== undefined && record.source?.kind !== 'model') {
       container.names.forEach((name, meshIndex) => {
         const id = assetMeshId(record.id, meshIndex);
         const made = doc.store.get('meshes', id);
