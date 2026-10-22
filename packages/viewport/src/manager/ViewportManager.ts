@@ -545,12 +545,12 @@ export class ViewportManager {
   setPointerMenus(handler: PanePointerMenus | null): void {
     this.pointerMenus = handler;
   }
-  /** M6b (C3): sets the pointer layer above the tool (null removes it); the disposer removes this layer. */
   /** AUTORIG-SPEC §8.1 (D3): installs (or with null removes) a shell's navigation override. */
   setNavigationOverride(o: NavigationOverride | null): void {
     this.navOverride = o;
   }
 
+  /** M6b (C3): sets the pointer layer above the tool (null removes it); the disposer removes this layer. */
   setPointerLayer(layer: ViewportPointerLayer | null): Disposer {
     if (this.layerPointer !== null) {
       this.layerPointer = null;
