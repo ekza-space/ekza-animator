@@ -204,6 +204,28 @@ describe('autorig.rig (§4.5)', () => {
     expect(service.pending).toBe(0);
   });
 
+  it('autorig.cancel pressed before the bind reached the skin service still stops it', async () => {
+    const { app } = await opened('cube-lad.glb');
+    const port: SkinWorkerPort = { onmessage: null, onerror: null, terminate: () => {}, postMessage: () => {} };
+    (app.rig as unknown as { skinWorker: () => SkinWorkerPort }).skinWorker = () => port;
+    const service = app.rig.skin as unknown as { readonly pending: number };
+    const running = app.runUntyped('autorig.rig');
+    // the composition is busy (Create Skeleton running), no bind job yet
+    for (let i = 0; i < 400 && app.session.getState().busy === null; i++) await new Promise((r) => setTimeout(r, 1));
+    expect(app.session.getState().busy).not.toBeNull();
+    expect(service.pending).toBe(0);
+    await ok(app, 'autorig.cancel');
+    const result = await running;
+    expect(result.status === 'failed' ? result.error.code : result.status).toBe('cancelled');
+    expect(labels(app)).toEqual(['Import Static Model', 'Create Skeleton']);
+    expect(app.session.getState().busy).toBeNull();
+    expect(service.pending).toBe(0);
+    // disarmed: a later bind runs to its end
+    (app.rig as unknown as { skinWorker: null }).skinWorker = null;
+    await ok(app, 'skin.bind', {});
+    expect(labels(app)).toEqual(['Import Static Model', 'Create Skeleton', 'Bind Skin']);
+  });
+
   it('the M6b re-run: a bound skeleton asks first, then refits and rebinds in one step', async () => {
     const { app } = await opened('cube-lad.glb');
     const { character } = await ok<{ character: CharacterId }>(app, 'autorig.rig');

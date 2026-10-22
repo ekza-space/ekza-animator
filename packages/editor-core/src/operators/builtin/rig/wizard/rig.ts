@@ -17,7 +17,8 @@
 //   under it (an undo, a palette or MCP-bridge run) or the subject goes away; the steps already made stay.
 // - `autorig.cancel`: aborts a running bind through the skin service's `cancel()` (M6B-C4-15; not on the contract
 //   type, so the call stays in this chunk): the pending bind rejects with `cancelled`, the skeleton (the first step)
-//   stays. U state, no step.
+//   stays. A bind still preparing its inputs (no job in the service yet) is cancelled when its job arrives, as long as
+//   the app stays busy. U state, no step.
 import { EkzaError } from '@ekza-studio/anim-core';
 import type { CharacterId, MeshId, SkeletonId } from '@ekza-studio/doc';
 import type { AutoRigRigResult, EditorApp, PollResult } from '../../../../types';
@@ -141,14 +142,44 @@ const rig = defineOperator<'autorig.rig', AutoRigRigResult>({
   },
 });
 
-/** The skin service's cancel (implemented in `rig/skinService.ts`; the contract type has none). */
-function skinService(app: EditorApp): { readonly pending: number; cancel(): void } | null {
+/** What `autorig.cancel` needs of the skin service (`rig/skinService.ts`; the contract type has none of it). */
+interface CancellableSkin {
+  readonly pending: number;
+  cancel(): void;
+  subscribe(listener: () => void): () => void;
+}
+
+function skinService(app: EditorApp): CancellableSkin | null {
   if (!app.rig.loaded) return null;
-  const service = app.rig.skin as unknown as Partial<{
-    readonly pending: number;
-    cancel(): void;
-  }>;
-  return typeof service.cancel === 'function' ? (service as { readonly pending: number; cancel(): void }) : null;
+  const service = app.rig.skin as unknown as Partial<CancellableSkin>;
+  return typeof service.cancel === 'function' && typeof service.subscribe === 'function'
+    ? (service as CancellableSkin)
+    : null;
+}
+
+/** The armed cancels (one per app): a bind that had not reached the skin service yet when Cancel was pressed. */
+const armed = new WeakMap<EditorApp, () => void>();
+
+/**
+ * Cancels the pending binds now and, while the app stays busy (the composition, or a Bind Skin still preparing its
+ * inputs), every bind that reaches the skin service — so a Cancel pressed before the bind job started still stops it.
+ * Disarmed when the app is no longer busy.
+ */
+function cancelBinds(app: EditorApp, service: CancellableSkin): void {
+  service.cancel();
+  if (app.session.getState().busy === null || armed.has(app)) return;
+  const offService = service.subscribe(() => {
+    if (service.pending > 0) service.cancel();
+  });
+  const offSession = app.session.subscribe((state) => {
+    if (state.busy === null) disarm();
+  });
+  const disarm = (): void => {
+    offService();
+    offSession();
+    armed.delete(app);
+  };
+  armed.set(app, disarm);
 }
 
 const cancel = defineOperator<'autorig.cancel'>({
@@ -164,7 +195,8 @@ const cancel = defineOperator<'autorig.cancel'>({
       : fail(NOTHING_TO_CANCEL);
   },
   apply({ app }) {
-    skinService(app)?.cancel();
+    const service = skinService(app);
+    if (service !== null) cancelBinds(app, service);
   },
 });
 
