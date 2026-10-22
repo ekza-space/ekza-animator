@@ -126,7 +126,8 @@ test('AS-AR-5: bad placement — three fixes, three undo steps, then the guess i
     meshes,
   );
   const zs = box.flat().map((p) => p[2] ?? 0);
-  const z = (Math.min(...zs) + Math.max(...zs)) / 2; // Center and Ground leaves z (C2)
+  const z = (Math.min(...zs) + Math.max(...zs)) / 2; // Center and Ground centres z too (AR-D7-14)
+  expect(Math.abs(z)).toBeLessThan(1e-6);
   const off = Object.entries(truth.markers).filter(([name, t]) => {
     const g = quick?.markers[name];
     if (g === undefined) return true;

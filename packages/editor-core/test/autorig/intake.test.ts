@@ -227,14 +227,14 @@ describe('autorig.fix and autorig.inspect (§5.2; AS-AR-5)', () => {
     expect(undoLabels(app)).toHaveLength(4); // the import and three fixes, one step each
 
     // ② would guess within 0.05 H of the truth markers scaled to 1.70 m (C2's guess on the fixed meshes). Center and
-    // Ground (C2's) puts the bounds on x = 0 and y = 0 and leaves z, so the truth (centred on z = 0) moves along z.
+    // Ground (C2's) centres the bounds in x and z and grounds them (AR-D7-14): the truth needs no shift.
     const geometry = rigGeometry(app, app.store, meshes);
     const guess = guessMarkers(geometry.bvh, geometry.bounds);
     const truth = cubeLadTruth();
     const k = 1.7 / truth.height;
-    const z = (geometry.bounds[0][2] + geometry.bounds[1][2]) / 2;
+    expect(Math.abs((geometry.bounds[0][2] + geometry.bounds[1][2]) / 2)).toBeLessThan(1e-9);
     const off = QUICK_RIG_MARKERS.filter((name) => {
-      const t = truth.markers[name].map((v, i) => v * k + (i === 2 ? z : 0));
+      const t = truth.markers[name].map((v) => v * k);
       const g = guess?.markers[name];
       return g === undefined || dist(g, t) / 1.7 > 0.05;
     });
