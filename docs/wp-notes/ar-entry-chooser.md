@@ -115,4 +115,17 @@ upload under the parallel load, Rig & Skin paint, untouched by D2). It passed 4/
 second full run `EKZA_E2E_PORT=3163 pnpm run test:e2e` was **green: 276 passed, 24 skipped, 0 failed**. The D2 specs
 (13 tests) passed in both full runs and alone.
 
-**Not met**: D2's own `/editor` allowance (+490 B against 448 B) — for D7's approval, AR-D2-10.
+~~**Not met**: D2's own `/editor` allowance (+490 B against 448 B)~~ — met in fix round 1 (below).
+
+**Fix round 1** (on `bbe1a7cc`): `EKZA_E2E_PORT=3163 pnpm run ci` **green end to end** — format (1,976 files), lint,
+typecheck, check:deps (16 packages), check:fixtures, check:licenses, every package's unit tests (editor **595 passed** / 1
+skipped incl. the 22 D2 cases, editor-core 1,498, web 84, mesh-core 977, viewport 272, headless 201, …), clean build,
+**check:size green**: `/editor` **896,741 B** (D2 delta **+414 B ≤ 448 B**; AR-B1 +1,053 B ≤ 2,048 B), `/autorig`
+655,590 B — and the **full e2e suite on local Chrome: 276 passed, 24 skipped (the stretch `fixme`s), 0 failed**.
+
+The verifier's interrupted run had `E2E-M2A-23` (`m2a-23-24-acceptance.spec.ts:265`, walk cycle with leg IK) failing
+after 3.2 s with no details recorded. Against this branch's e2e build (port 3163) it passed **4/4 alone with
+`--repeat-each=4`** (with E2E-M2A-24, 8/8, under 7 parallel workers) and passed in the full run above; the first
+submission's `m6b-skin-02` failure also did not recur. Neither spec touches the landing, the host or the switch (the
+M2a walk cycle runs in Animate without the first-run dialog or the File/Help items), so both read as load-dependent
+flakes under the full parallel suite, not D2 regressions. The D2 specs (13 tests) passed alone and in the full run.
