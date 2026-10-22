@@ -67,6 +67,9 @@ const MVP: readonly string[] = [
   'skel.joint.flex',
   'skel.symmetry.set',
   'skel.joint.rename',
+  // AUTORIG-SPEC §10 A0: the A-pose path (deferred by the MVP cut, built before the Auto-Rig mode ships).
+  'skel.pose.tStance',
+  'skel.pose.applyAsRest',
   'select.joints',
   'skin.bind',
   'skin.unbind',
@@ -114,8 +117,6 @@ const DEFERRED: readonly string[] = [
   'skel.joint.reparent',
   'skel.joint.unparent',
   'skel.joint.setSide',
-  'skel.pose.tStance',
-  'skel.pose.applyAsRest',
   'skin.weights.autoForJoints',
   'skin.weights.assign',
   'skin.weights.rigidIslands',
@@ -205,6 +206,9 @@ const LANDED: Readonly<Record<string, string>> = {
   'skin.paint.mirrorToggle': 'Skin mode works on a bound character (Skin › Bind Skin first)',
   'skin.paint.sample': 'Skin mode works on a bound character (Skin › Bind Skin first)',
   'skin.testRotate.toggle': 'Test Rotate works in Skin mode',
+  // AUTORIG A0 (the wave fixture's character is an imported avatar; the workspace is Animate)
+  'skel.pose.tStance': 'Rig & Skin modes are in the Rig & Skin workspace',
+  'skel.pose.applyAsRest': 'Rig edits on imported avatars arrive after the MVP',
 };
 
 const disposers: (() => void)[] = [];

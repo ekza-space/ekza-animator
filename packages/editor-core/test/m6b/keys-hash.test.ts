@@ -112,9 +112,10 @@ export const P_C6_ROWS: readonly Row[] = [
     'skel.joint.reparent',
     'skel.joint.unparent',
     'skel.joint.setSide',
-    'skel.pose.tStance',
-    'skel.pose.applyAsRest',
   ),
+  // AUTORIG A0: T-Stance and Straighten to T-Pose need the mesh kernel and a bound mesh (`opsApp` has neither); their
+  // keys hash is asserted in test/autorig-a0/rest-pose.test.ts.
+  ...pending('A0', 'skel.pose.tStance', 'skel.pose.applyAsRest'),
   checked('C2', 'skel.joint.rename', (app) => ({ joint: modelCharacter(app)('leftHand'), name: 'hand_L' })),
   checked('C2', 'skel.joint.setHumanBone', (app) => ({ joint: modelCharacter(app)('leftHand'), bone: null })),
   checked('C2', 'skel.joint.move', (app) => ({
