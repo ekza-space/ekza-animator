@@ -97,7 +97,8 @@ test(`E2E-RIG-01: the MVP checklist on the Cube Lad`, async ({ page }) => {
   const at = await pointOf(page, () => call(page, 'screenOfJoint', knee?.id ?? '', RIG_SIDE_PANE), 'left knee');
   await toolKey(page, 'KeyW', RIG_SIDE_PANE);
   await page.keyboard.down('KeyD');
-  await drag(page, at, { dx: 2, dy: 0 });
+  // 4 px (≈ 1 cm at Rig & Skin's tighter side framing): a 2 px drag sat on the drag threshold under load.
+  await drag(page, at, { dx: 4, dy: 0 });
   await page.keyboard.up('KeyD');
   await expect.poll(async () => (await call(page, 'history')).undo.at(-1)).toBe('Move Joint');
   // ③ Bind Skin, one click.
