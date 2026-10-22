@@ -116,10 +116,38 @@ describe('autorig.intake (§5.2)', () => {
     expect(report.meshes).toHaveLength(1);
     expect(app.store.get('meshes', report.meshes[0] as MeshId)?.owner).toEqual({ scene: true });
     expect(undoLabels(app)).toEqual(['Import Static Model']);
-    // AR-D8-10: the untitled project takes the file's name (autosave and Recovery show it); a second import keeps it
-    expect(app.store.get('project', 'project')?.name).toBe('cube-lad');
-    expect(app.session.getState().projectName).toBe('cube-lad');
+    // AR-D8-10, AR-D9-7: the untitled project takes the model's name — its first mesh's, as the header and the
+    // character show it (autosave and Recovery show it too); a second import keeps it
+    expect(app.store.get('project', 'project')?.name).toBe('Cube Lad');
+    expect(app.session.getState().projectName).toBe('Cube Lad');
     await run<IntakeReport>(app, 'autorig.intake', { bytes, name: 'other.glb' });
+    expect(app.store.get('project', 'project')?.name).toBe('Cube Lad');
+  });
+
+  it('names an untitled project after the file when its meshes have no names (AR-D9-7)', async () => {
+    const { app } = await meshTestApp();
+    const named = fixture('cube-lad.glb');
+    // the same file with its node and mesh names removed: the meshes read "Mesh 0"
+    const length = new DataView(named.buffer, named.byteOffset).getUint32(12, true);
+    const json = JSON.parse(new TextDecoder().decode(named.subarray(20, 20 + length))) as {
+      nodes: { name?: string }[];
+      meshes: { name?: string }[];
+    };
+    for (const node of json.nodes) delete node.name;
+    for (const mesh of json.meshes) delete mesh.name;
+    const text = new TextEncoder().encode(JSON.stringify(json));
+    const padded = (text.length + 3) & ~3;
+    const rest = named.subarray(20 + length);
+    const bytes = new Uint8Array(20 + padded + rest.length);
+    bytes.set(named.subarray(0, 20));
+    bytes.fill(0x20, 20, 20 + padded);
+    bytes.set(text, 20);
+    bytes.set(rest, 20 + padded);
+    const view = new DataView(bytes.buffer);
+    view.setUint32(8, bytes.length, true);
+    view.setUint32(12, padded, true);
+    await run<IntakeReport>(app, 'autorig.intake', { bytes, name: 'cube-lad.glb' });
+    expect(app.store.list('meshes')[0]?.name).toBe('Mesh 0');
     expect(app.store.get('project', 'project')?.name).toBe('cube-lad');
   });
 

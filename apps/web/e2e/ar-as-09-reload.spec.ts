@@ -27,8 +27,8 @@ test('AS-AR-9: a reload after Auto-rig continues on ③ with the same document',
   const card = page.getByTestId('ar-continue');
   await expect(card).toBeVisible({ timeout: 30_000 });
   await expect(card).toContainText('Continue where you left off');
-  // AR-D8-10: the slot is named after the model's file, not "Untitled"
-  await expect(card).toContainText('“cube-lad”');
+  // AR-D8-10, AR-D9-7: the slot is named after the model (the name the header shows), not "Untitled"
+  await expect(card).toContainText('“Cube Lad”');
   expect((await wizard(page)).step).toBe('model');
   await expect(page.getByTestId('recovery-dialog')).toHaveCount(0);
   await card.getByRole('button', { name: 'Continue' }).click();

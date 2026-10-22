@@ -548,17 +548,20 @@ const importStatic = defineOperator<'mesh.importStatic', ImportPlan>({
   apply(ctx, args, plan) {
     const { app, tx } = ctx;
     if (tx === null) throw new EkzaError('unsupported', 'mesh.importStatic needs a transaction');
-    // The first import names an untitled project after its file, as a model import does (autosave and Recovery show
-    // that name; AR-D8-10).
+    // The first import names an untitled project (autosave and Recovery show that name; AR-D8-10) after the model it
+    // brings: its first mesh's name, the name Auto-Rig's header and the character take (AR-D9-7); a file of unnamed
+    // meshes ("Mesh 0") after the file.
     const project = tx.get('project', 'project');
     const fileName = typeof args.name === 'string' ? args.name.trim() : '';
-    if (fileName !== '' && project === undefined) tx.put('project', projectRecord(baseName(fileName)));
+    const first = plan.meshes[0]?.name.trim() ?? '';
+    const projectName = first !== '' && !/^Mesh \d+$/.test(first) ? first.slice(0, 64) : baseName(fileName);
+    if (fileName !== '' && project === undefined) tx.put('project', projectRecord(projectName));
     else if (fileName !== '' && project?.name === 'Untitled') {
-      tx.patch('project', 'project', { name: baseName(fileName) });
+      tx.patch('project', 'project', { name: projectName });
     }
-    const projectName = tx.get('project', 'project')?.name;
-    if (projectName !== undefined && projectName !== app.session.getState().projectName) {
-      app.session.setState({ projectName });
+    const named = tx.get('project', 'project')?.name;
+    if (named !== undefined && named !== app.session.getState().projectName) {
+      app.session.setState({ projectName: named });
     }
     const meshes = attachMeshes(app);
     if (meshes === null) throw new EkzaError('mesh-loading', 'Mesh tools are loading');
