@@ -521,7 +521,7 @@ export default function ModelOutliner({ app, instanceId }: PanelProps): JSX.Elem
         aria-label="Outliner"
         aria-multiselectable="true"
         tabIndex={0}
-        className="group min-h-0 flex-1 overflow-auto outline-none"
+        className="group min-h-0 flex-1 overflow-x-hidden overflow-y-auto outline-none"
         data-testid="outliner-tree"
         onKeyDown={onTreeKeyDown}
         onContextMenu={(event) => openMenu(null, event)}
