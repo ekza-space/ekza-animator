@@ -1,5 +1,6 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 import { createPrimitive, enterModel } from './helpers/m6a-model';
+import { charactersSettled } from './helpers/m6b-mvp-script';
 import { enterRig } from './helpers/m6b-rig';
 import { dismissGettingStarted, enterSkin } from './helpers/m6b-skin-ui';
 import { call, expectKernelStarted, openEditor, renderedFrames, runOk } from './helpers/test-api';
@@ -12,25 +13,27 @@ import { call, expectKernelStarted, openEditor, renderedFrames, runOk } from './
 // the Test view (a test pose held), where the joints are drawn posed. The budget bench (§5.25) is
 // `e2e/bench/m6b-budgets.bench.ts`.
 
-/** Waits until no frame renders for 250 ms, then expects none over the next 2 s. */
-async function expectIdle(page: Parameters<typeof renderedFrames>[0], what: string): Promise<void> {
-  await expect
-    .poll(
-      async () => {
-        const before = await renderedFrames(page);
-        await page.waitForTimeout(250);
-        return (await renderedFrames(page)) - before;
-      },
-      { timeout: 15_000, intervals: [0], message: `${what}: the frames settle` },
-    )
-    .toBe(0);
+/**
+ * Waits until the editor is idle — no frame and no display rebuild over 2.6 s, which outlasts the deferred display
+ * rebuild of a model character (C1: 500 ms debounce, then on idle within 2 s), and nothing in flight in the character
+ * registry — then expects no frame over the next 2 s.
+ */
+async function expectIdle(page: Page, character: string, what: string): Promise<void> {
+  for (let round = 0; ; round++) {
+    expect(round, `${what}: the editor settles`).toBeLessThan(6);
+    const frames = await renderedFrames(page);
+    const version = await call(page, 'containerVersion', character);
+    await page.waitForTimeout(2_600);
+    await charactersSettled(page);
+    if ((await renderedFrames(page)) === frames && (await call(page, 'containerVersion', character)) === version) break;
+  }
   const idle = await renderedFrames(page);
   await page.waitForTimeout(2_000);
   expect(await renderedFrames(page), `${what}: no frame over 2 s`).toBe(idle);
 }
 
 test('E2E-RIG-10 — idle in Rig & Skin (Skin mode, Skeleton mode, the Test view)', async ({ page }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(150_000);
   await openEditor(page);
   await expectKernelStarted(page);
   await enterModel(page);
@@ -45,7 +48,14 @@ test('E2E-RIG-10 — idle in Rig & Skin (Skin mode, Skeleton mode, the Test view
     preset: 'standard33',
     objects: [created.root, chest],
   });
+  const container = await call(page, 'containerVersion', body.character);
   const bound = await runOk<{ meshes: string[] }>(page, 'skin.bind', {});
+  // The bind's synthesized container rebuild and the display model it loads (C1, deferred) are pending work, not
+  // idle: wait for both.
+  await expect
+    .poll(() => call(page, 'containerVersion', body.character), { timeout: 15_000 })
+    .toBeGreaterThan(container);
+  await charactersSettled(page);
   expect(bound.meshes).toHaveLength(2);
   let points = 0;
   for (const mesh of bound.meshes) {
@@ -60,7 +70,7 @@ test('E2E-RIG-10 — idle in Rig & Skin (Skin mode, Skeleton mode, the Test view
   await enterSkin(page);
   // Pointer away from the panes (a hovering brush ring follows the pointer; idle means no input).
   await page.mouse.move(2, 2);
-  await expectIdle(page, 'Skin mode');
+  await expectIdle(page, body.character, 'Skin mode');
 
   // Skeleton mode with a joint selected (axes on the selection).
   await runOk(page, 'rig.mode', { mode: 'skeleton' });
@@ -68,7 +78,7 @@ test('E2E-RIG-10 — idle in Rig & Skin (Skin mode, Skeleton mode, the Test view
   await runOk(page, 'select.joints', { ids: [knee?.id], mode: 'replace' });
   await dismissGettingStarted(page);
   await page.mouse.move(2, 2);
-  await expectIdle(page, 'Skeleton mode');
+  await expectIdle(page, body.character, 'Skeleton mode');
 
   // The Test view: a held test pose on a control (posed joints and skinned mesh), still on demand.
   await runOk(page, 'rig.mode', { mode: 'object' });
@@ -77,5 +87,5 @@ test('E2E-RIG-10 — idle in Rig & Skin (Skin mode, Skeleton mode, the Test view
   await runOk(page, 'channel.setValues', { edits: [{ control: arm?.id, channel: 'rz', value: 0.5 }] });
   await expect.poll(async () => (await call(page, 'rigState')).poseView).toBe('test');
   await page.mouse.move(2, 2);
-  await expectIdle(page, 'Test view');
+  await expectIdle(page, body.character, 'Test view');
 });

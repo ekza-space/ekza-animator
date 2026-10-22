@@ -142,3 +142,16 @@ export function writeArtifact(path: string, bytes: Uint8Array): string {
   writeFileSync(url, bytes);
   return url.pathname;
 }
+
+/** INT's test-API group (`editor/src/test-api/m6b/integration.ts`; outside the closed `EkzaStudioTestApi` type). */
+interface IntegrationTestApi {
+  charactersSettled(): Promise<true>;
+}
+
+/** Waits until the character registry has no pending work (container rebuilds and their display models). */
+export async function charactersSettled(page: Page): Promise<void> {
+  const settled = await page.evaluate(() =>
+    (window.__EKZA_STUDIO_TEST__ as unknown as IntegrationTestApi | undefined)?.charactersSettled(),
+  );
+  expect(settled).toBe(true);
+}
