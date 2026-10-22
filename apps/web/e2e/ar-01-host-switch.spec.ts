@@ -31,9 +31,9 @@ test('the host installs the test API on /autorig: history, records, frames and p
   expect((await call(page, 'counts'))['characters'] ?? 0).toBe(0);
   expect(await renderedFrames(page)).toBeGreaterThanOrEqual(0);
   expect(await page.evaluate(() => window.__EKZA_STUDIO_TEST__?.webgl.ok)).toBe(true);
-  // Auto-Rig never shows Studio's first-run dialog, and the placeholder shell registers no wizard state yet.
+  // Auto-Rig never shows Studio's first-run dialog; the wizard (D3) registers its state: ① with no subject yet.
   expect((await call(page, 'state')).dialog).toBeNull();
-  expect(await autorig(page)).toBeNull();
+  expect(await autorig(page)).toMatchObject({ step: 'model', subject: { character: null, meshes: [] } });
   await expect(page.locator(`[data-shell="${SHELL_MARKERS.autorig}"]`)).toBeVisible();
 });
 

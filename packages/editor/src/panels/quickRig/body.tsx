@@ -50,6 +50,9 @@ export interface QuickRigPanelBodyProps {
   readonly app: EditorApp;
   /** Denser layout (the Rig Toolkit section, other shells). */
   readonly compact?: boolean;
+  /** Hides the body's own commit row — Create Skeleton (with its rebind question) and Cancel — for a host whose own
+   *  primary button commits (Auto-Rig's *Auto-rig ▸*, AUTORIG-SPEC §5.3; additive, D4). */
+  readonly hideCommit?: boolean;
 }
 
 export function QuickRigPanelBody(props: QuickRigPanelBodyProps): JSX.Element {
@@ -212,26 +215,30 @@ export function QuickRigPanelBody(props: QuickRigPanelBodyProps): JSX.Element {
         >
           Clear
         </button>
-        <button
-          type="button"
-          className={QUICK_RIG_BUTTON}
-          data-testid="quickrig-cancel"
-          onClick={() => void run('skel.quickRig.cancel', undefined, CTX)}
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          className={PRIMARY}
-          disabled={block !== null || busy || confirm}
-          title={block ?? undefined}
-          data-testid="quickrig-commit"
-          onClick={() => void commit(false)}
-        >
-          Create Skeleton
-        </button>
+        {props.hideCommit === true ? null : (
+          <>
+            <button
+              type="button"
+              className={QUICK_RIG_BUTTON}
+              data-testid="quickrig-cancel"
+              onClick={() => void run('skel.quickRig.cancel', undefined, CTX)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={PRIMARY}
+              disabled={block !== null || busy || confirm}
+              title={block ?? undefined}
+              data-testid="quickrig-commit"
+              onClick={() => void commit(false)}
+            >
+              Create Skeleton
+            </button>
+          </>
+        )}
       </div>
-      {confirm ? (
+      {confirm && props.hideCommit !== true ? (
         <div
           className="flex flex-col gap-1 rounded-[4px] border border-[var(--warn,#e8b04a)] p-1.5"
           role="alertdialog"

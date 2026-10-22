@@ -18,6 +18,7 @@ import {
   WIZARD_OPERATORS,
 } from '../../src/operators/builtin/rig/wizard';
 import { NO_NAVIGATION } from '../../src/operators/builtin/rig/wizard/navigate';
+import { NO_MARKERS, NOTHING_TO_CANCEL } from '../../src/operators/builtin/rig/wizard/rig';
 import type { EditorApp } from '../../src/types';
 import { opsApp, runOk } from '../builtin/support';
 import { W } from '../kernel/support';
@@ -324,9 +325,10 @@ describe('WIZARD_OPERATORS in the rig-workspace chunk (AUTORIG-SPEC §4.5, §7.0
   it('running an autorig id before the chunk loaded loads it; the stubs poll-fail "Arrives with Auto-Rig"', async () => {
     const app = opsApp();
     expect(app.rig.loaded).toBe(false);
+    // D4 landed `autorig.rig`: the first run loads the chunk and then refuses with its own poll
     expect(await app.runUntyped('autorig.rig', { straighten: true })).toEqual({
       status: 'cancelled',
-      reason: ARRIVES_WITH_AUTORIG,
+      reason: NO_MARKERS,
     });
     expect(app.rig.loaded).toBe(true);
     expect(ARRIVES_WITH_AUTORIG).toBe('Arrives with Auto-Rig');
@@ -334,14 +336,25 @@ describe('WIZARD_OPERATORS in the rig-workspace chunk (AUTORIG-SPEC §4.5, §7.0
       const poll = app.operators.poll(id);
       return poll === true ? 'ok' : poll.reason;
     });
-    // D1 landed `autorig.navigate`: without a host navigation port (Node) it refuses with its own reason.
-    expect(reasons).toEqual(WIZARD_IDS.map((id) => (id === 'autorig.navigate' ? NO_NAVIGATION : ARRIVES_WITH_AUTORIG)));
-    // the moved M6b stubs are unchanged (A0 replaces them)
-    expect(['skel.pose.tStance', 'skel.pose.applyAsRest'].map((id) => app.operators.poll(id))).toEqual([
-      { ok: false, reason: ARRIVES_AFTER_MVP },
-      { ok: false, reason: ARRIVES_AFTER_MVP },
-    ]);
-    expect(app.operators.get('skel.pose.applyAsRest')?.flags).toMatchObject({ undo: true, internal: true });
+    // D1 landed `autorig.navigate`: without a host navigation port (Node) it refuses with its own reason. D3 landed
+    // the ① compositions: without arguments each refuses with its own argument poll. D4 landed the ③ ones: without a
+    // Quick Rig session / a running bind they refuse with their own reasons.
+    const landed: Readonly<Record<string, string>> = {
+      'autorig.rig': NO_MARKERS,
+      'autorig.cancel': NOTHING_TO_CANCEL,
+      'autorig.navigate': NO_NAVIGATION,
+      'autorig.sample': 'expects { sample: cube-lad | polybot-tpose | polybot-apose | polybot | seed-san }',
+      'autorig.intake': 'expects { bytes, name }',
+      'autorig.inspect': 'expects { meshes }',
+      'autorig.fix': 'expects { fix: center | face | standUp | scale | freeze, meshes }',
+    };
+    expect(reasons).toEqual(WIZARD_IDS.map((id) => landed[id] ?? ARRIVES_WITH_AUTORIG));
+    // A0 replaced the moved M6b stubs: they poll for real (test/autorig-a0/ runs them), one undo step, listed.
+    expect(['skel.pose.tStance', 'skel.pose.applyAsRest'].map((id) => app.operators.poll(id))).not.toContainEqual({
+      ok: false,
+      reason: ARRIVES_AFTER_MVP,
+    });
+    expect(app.operators.get('skel.pose.applyAsRest')?.flags).toEqual({ undo: true });
   });
 
   it('stub metadata: category autorig, scope global, every workspace, no undo, listed in the palette', async () => {

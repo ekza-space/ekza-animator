@@ -51,10 +51,9 @@ export const QUICK_RIG_LABELS: Readonly<Record<QuickRigMarker, string>> = {
   toe: 'Toe',
 };
 
-/** §0.4.2 T-pose notice (the guess measured an arm angle above 15°). */
+/** §0.4.2 T-pose notice (the guess measured an arm angle above 15°), rewritten by AUTORIG-SPEC A0 (§5.3). */
 export const A_POSE_NOTICE =
-  'A-posed arms: the skeleton follows them, but VRM export needs a T-pose — straighten the arms in Model (the A-pose ' +
-  'fix arrives after the MVP)';
+  'A-posed arms: the skeleton follows them; after Bind Skin, Straighten to T-Pose makes the rest a VRM T-pose';
 export const QUICK_RIG_CLOSED = 'Quick Rig is not open';
 export const PRESET_LOCKED = 'The template of an existing skeleton is fixed: a new template needs a new skeleton';
 

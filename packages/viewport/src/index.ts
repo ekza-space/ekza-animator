@@ -16,6 +16,8 @@ export { type ImagePlaneCamera, type ImagePlaneSpec } from './manager/imagePlane
 export { defaultCameraOf, defaultDisplayOf, MODEL_DISPLAY } from './manager/workspaceViews';
 export { LAYER } from './layers';
 export { isMmbStandIn } from './navigation/profiles';
+// AUTORIG-SPEC §8.1 (D3): a shell's per-press navigation override (`ViewportManager.setNavigationOverride`).
+export type { NavGesture, NavigationOverride, NavPointerInput } from './navigation/override';
 export { loadScaleKit } from './manipulators/scale/load';
 export { SCALE_LABEL, scaleToolDef } from './tools/scaleTool';
 export {

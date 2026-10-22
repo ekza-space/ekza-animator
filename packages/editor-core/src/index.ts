@@ -489,6 +489,8 @@ export {
   setQuickRigMarker,
 } from './operators/builtin/rig/quickRigSession';
 export { CHECK_REASONS, REBIND_CONFIRM } from './operators/builtin/rig/quickRig';
+// Auto-Rig D4: what `autorig.rig` binds, read by the wizard's lazy runner and ③ view (§4.5, §5.4).
+export { autoRigBindMeshes, autoRigRefitBound } from './operators/builtin/rig/wizard/targets';
 export { ASSET_CHARACTER_REFUSAL, POSED_REFUSAL, rigGeometry } from './operators/builtin/rig/skeleton';
 // C6 (skin UI): the weight helpers the lazy Paint Skin Weights tool, the Paint Weights panel, the Toolkit Skin section
 // and the test API read (rig-workspace code; nothing eager imports them).

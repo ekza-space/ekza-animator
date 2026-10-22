@@ -113,9 +113,10 @@ export const P_C6_ROWS: readonly Row[] = [
     'skel.joint.reparent',
     'skel.joint.unparent',
     'skel.joint.setSide',
-    'skel.pose.tStance',
-    'skel.pose.applyAsRest',
   ),
+  // AUTORIG A0: T-Stance and Straighten to T-Pose need the mesh kernel and a bound mesh (`opsApp` has neither); their
+  // keys hash is asserted in test/autorig-a0/rest-pose.test.ts.
+  ...pending('A0', 'skel.pose.tStance', 'skel.pose.applyAsRest'),
   checked('C2', 'skel.joint.rename', (app) => ({ joint: modelCharacter(app)('leftHand'), name: 'hand_L' })),
   checked('C2', 'skel.joint.setHumanBone', (app) => ({ joint: modelCharacter(app)('leftHand'), bone: null })),
   checked('C2', 'skel.joint.move', (app) => ({
@@ -240,8 +241,28 @@ export const P_C6_ROWS: readonly Row[] = [
   { id: 'library.useClip', status: 'keys', owner: 'C12' },
   // AUTORIG-SPEC §4.5 (D0 lands the rows pending; literal update): the Auto-Rig compositions run Studio operators only,
   // so each row's verdict is the one of what it runs. `autorig.clip.add` = Use Clip, a §3 rule 7 exception.
-  ...pending('D3', 'autorig.sample', 'autorig.intake', 'autorig.inspect', 'autorig.fix'),
-  ...pending('D4', 'autorig.rig', 'autorig.cancel'),
+  // D3: the ① compositions import (one step) or move scene meshes (one step) and inspect them (U); never keys.
+  checked('D3', 'autorig.sample', () => {
+    const original = globalThis.fetch;
+    const sampleFetch = async (url: string | URL | Request, init?: RequestInit): Promise<Response> =>
+      (typeof url === 'string' ? url : url instanceof URL ? url.href : url.url).endsWith('/cube-lad.glb')
+        ? new Response(cubeLadBytes())
+        : original(url, init);
+    globalThis.fetch = sampleFetch;
+    return { sample: 'cube-lad' };
+  }),
+  checked('D3', 'autorig.intake', () => ({ bytes: cubeLadBytes(), name: 'cube-lad.glb' })),
+  checked('D3', 'autorig.inspect', async (app) => ({ meshes: await importedLad(app) })),
+  checked('D3', 'autorig.fix', async (app) => ({ fix: 'scale', meshes: await importedLad(app), height: 1 })),
+  // D4: Create Skeleton + Bind Skin (+ Straighten) on an open Quick Rig session; cancel refuses without a bind.
+  checked('D4', 'autorig.rig', async (app) => {
+    const meshes = await importedLad(app);
+    await app.runUntyped('workspace.set', { workspace: 'rig' });
+    const started = await app.runUntyped('skel.quickRig.start', { meshes });
+    if (started.status !== 'finished') throw new Error(`skel.quickRig.start: ${JSON.stringify(started)}`);
+    return { straighten: false };
+  }),
+  { id: 'autorig.cancel', status: 'checked', owner: 'D4', refuses: 'No skinning is running' },
   { id: 'autorig.clip.add', status: 'keys', owner: 'D5' },
   ...pending('D6', 'autorig.export'),
   // D1: the switch runs through a host navigation port (a recording fake here) and never touches the document.
@@ -259,6 +280,13 @@ export const P_C6_ROWS: readonly Row[] = [
 /** The Cube Lad fixture (an unskinned GLB). */
 function cubeLadBytes(): Uint8Array {
   return new Uint8Array(readFileSync(new URL('../../../../fixtures/models/cube-lad.glb', import.meta.url)));
+}
+
+/** The Cube Lad imported as scene meshes (`mesh.importStatic`), for the Auto-Rig ① rows. */
+async function importedLad(app: EditorApp): Promise<string[]> {
+  const result = await app.runUntyped('mesh.importStatic', { bytes: cubeLadBytes(), name: 'cube-lad.glb' });
+  if (result.status !== 'finished') throw new Error(`mesh.importStatic: ${JSON.stringify(result)}`);
+  return (result.value as { meshes: string[] }).meshes;
 }
 
 /** A cube made in Model (the mesh kernel loaded first), as the scene mesh to adopt. */

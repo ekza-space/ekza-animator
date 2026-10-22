@@ -13,6 +13,8 @@ export { type Islands, skinIslands } from './islands';
 export { cotLaplacian, csrDiagonal, csrFromTriples, csrMultiply, csrSubmatrix, lumpedMass } from './laplacian';
 export { readSkin, readSkinReview, SKIN_REVIEW_LAYER, withSkin } from './layers';
 export { mirrorWeights } from './mirror';
+// AUTORIG-SPEC §10 A0: the Apply Pose as Rest skin bake
+export { bakeSkinnedMesh, bakeSkinnedPoints, type PaletteDeltas } from './pose';
 export { HEAT_PCG, type PcgOptions, solvePcg } from './pcg';
 export { beginStroke } from './stroke';
 // C5 (deferred after the MVP)
