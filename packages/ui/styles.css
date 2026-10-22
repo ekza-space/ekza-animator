@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @source "../editor/src";
+@source "../autorig/src";
 @source "./src";
 
 /* Self-hosted fonts (OFL-1.1, no third-party requests; research 09 §8.4). */

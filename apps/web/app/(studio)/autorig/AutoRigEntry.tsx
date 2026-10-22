@@ -7,9 +7,9 @@ import { type JSX, useMemo } from 'react';
 import { hostProps } from '../hostProps';
 import { useShellEntry } from '../StudioHostIsland';
 
-/** The Auto-Rig shell as the route's shell (D3 owns this file after D1's merge). */
+/** The Auto-Rig wizard as the route's shell (AUTORIG-SPEC §4.1, §5; D3). */
 function Shell(): JSX.Element {
-  return <AutoRigShell studioHref="/editor" />;
+  return <AutoRigShell />;
 }
 
 /** `/autorig`'s entry group (AUTORIG-SPEC §4.4): the page's host and the Auto-Rig shell, registered with the layout. */
