@@ -2,7 +2,8 @@
 // menus and status groups, the `rig-side` layout, the mode key scopes (CR-4) and the tab glyph, and the loaders of the
 // two lazy chunks whose operators the runner resolves on first use (§2.1): `rig-workspace` (every skel.*, skin.*, char.*,
 // rig.shape.*, rig.constraint.* and Rig & Skin rig.* operator, `select.joints`, `mesh.importStatic`,
-// `file.exportCharacter`) and `clip-library` (library.*). Eager and tiny: no rig code is imported here.
+// `file.exportCharacter`, and the Auto-Rig compositions `autorig.*`, AUTORIG-SPEC §4.5) and `clip-library`
+// (library.*). Eager and tiny: no rig code is imported here.
 import type { EditorApp, WorkspaceDef, WorkspaceStatus } from '../types';
 
 /** The MVP menus (§0.4.5; `constrain` and `control` arrive after the MVP, Q-MVP-15). */
@@ -65,10 +66,10 @@ export function rigStatus(app: EditorApp): WorkspaceStatus {
 /**
  * Unregistered operator ids the `rig-workspace` chunk registers (§2.1): every skel.*, skin.*, char.* and Rig & Skin
  * rig.* operator (Animate's rig.* operators are eager, so they are always registered), `select.joints`,
- * `mesh.importStatic` and `file.exportCharacter`.
+ * `mesh.importStatic` and `file.exportCharacter`; AUTORIG-SPEC §4.5 (D0): every `autorig.*` composition.
  */
 export function isRigWorkspaceOperator(id: string): boolean {
-  return /^(?:(?:skel|skin|char|rig)\.|(?:select\.joints|mesh\.importStatic|file\.exportCharacter)$)/.test(id);
+  return /^(?:(?:skel|skin|char|rig|autorig)\.|(?:select\.joints|mesh\.importStatic|file\.exportCharacter)$)/.test(id);
 }
 
 /**
