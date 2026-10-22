@@ -21,7 +21,14 @@ import { rebindUnasked, stageAfter } from '../../../src/steps/rig/run';
 
 describe('the rig slice (§4.3, §5.4)', () => {
   it('starts in review with the Walk motion test on', () => {
-    expect(RIG_SLICE).toEqual({ sub: 'review', motionTest: true, motionClip: 'walk', paintedSinceBind: false });
+    expect(RIG_SLICE).toEqual({
+      sub: 'review',
+      motionTest: true,
+      motionClip: 'walk',
+      paintedSinceBind: false,
+      rigidParts: null,
+      torn: null,
+    });
     expect(MOTION_CLIPS).toEqual(['walk', 'sword-attack', 'dance']);
     expect(SUB_MODE).toEqual({ review: 'object', adjust: 'skeleton', paint: 'skin' });
   });

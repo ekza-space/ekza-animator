@@ -19,6 +19,8 @@ export const RIG_SLICE: AutoRigRigSlice = {
   motionTest: true,
   motionClip: 'walk',
   paintedSinceBind: false,
+  rigidParts: null,
+  torn: null,
 };
 
 /** The ③ pane grid (§4.2): *Adjust joints* in front │ side │ persp (a phone shows the 3D pane), else one persp pane. */

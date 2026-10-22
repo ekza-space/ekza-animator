@@ -43,6 +43,11 @@ export interface AutoRigRigSlice {
    *  registry's `onBeforeDocumentRun` hook confirmed by the history's last step id changing; never derived from
    *  `session.lastRun`. Conservative: an undone stroke still counts. */
   readonly paintedSinceBind: boolean;
+  /** AR-R4-5: *Separate parts move rigidly* — null until chosen: on for a multi-part subject, off for one mesh. */
+  readonly rigidParts: boolean | null;
+  /** AR-R4-3: the last *Straighten to T-Pose* stretched an edge more than `STRETCH_LIMIT` times (the straightened
+   *  points' key and the ratio), null otherwise. ③ warns while the character's points still have that key. */
+  readonly torn: { readonly key: string; readonly ratio: number } | null;
 }
 /** ④ Animations slice (D5). */
 export interface AutoRigAnimationsSlice {

@@ -44,7 +44,8 @@ import { installRigKeys } from './keys';
 import { useMotionTest, usePreview } from './motion';
 import { watchPaintedSinceBind } from './painted';
 import { ProgressSheet } from './ProgressSheet';
-import { rebind, wantsStraighten } from './run';
+import { bindPartsRigidly, rebind, wantsStraighten } from './run';
+import { pointsKey, watchStraighten } from './stretch';
 import { useHiddenControls } from '../markers/controls';
 import { useHiddenParts } from '../model/hiddenParts';
 import { rigUi } from './ui';
@@ -64,6 +65,7 @@ const selectSubject = (s: AutoRigSession): AutoRigSession['subject'] => s.subjec
 const selectBusy = (s: AutoRigSession): boolean => s.busy !== null;
 const selectMarkersSlice = (s: AutoRigSession): AutoRigSession['markers'] => s.markers;
 const selectStartPose = (s: AutoRigSession): AutoRigSession['startPose'] => s.startPose;
+const selectTorn = (s: AutoRigSession): AutoRigSession['rig']['torn'] => s.rig.torn;
 const selectPanes = (s: AutoRigSession): string => `${s.rig.sub}|${s.markers.pane}|${s.markers.lastOrtho}`;
 
 /** The live subject character of the wizard (a model character), and whether every one of its meshes is bound. */
@@ -243,17 +245,69 @@ function Fix(props: { readonly ctx: WizardContext; readonly ready: boolean }): J
         </button>
       </div>
       <ShowWeights ctx={ctx} />
+      <RigidParts ctx={ctx} ready={ready} />
     </section>
   );
 }
 
+/**
+ * *Separate parts move rigidly* (AR-R4-5; a multi-part character only): on, each separate part that reaches two
+ * limbs is bound to its best joint alone; off, every part keeps the automatic weights (a rebind). Default: on for a
+ * multi-part subject.
+ */
+function RigidParts(props: { readonly ctx: WizardContext; readonly ready: boolean }): JSX.Element | null {
+  const { ctx, ready } = props;
+  const r = t();
+  const subject = useSession(ctx.session, selectSubject);
+  const rig = useSession(ctx.session, selectRig);
+  const busy = useSmall(rigUi(ctx), (ui) => ui.rebinding);
+  const parts = useDocument(ctx.app, () => {
+    const character = resolveSubject(ctx.app.store, subject).character;
+    return character === null ? 0 : autoRigBindMeshes(ctx.app, character.id).length;
+  });
+  if (parts < 2) return null;
+  // the default as `rigidPartsOn` reads it: on for a multi-part character
+  const on = rig.rigidParts ?? true;
+  const toggle = async (): Promise<void> => {
+    const next = !on;
+    ctx.session.patch('rig', { rigidParts: next });
+    const character = resolveSubject(ctx.app.store, ctx.session.getState().subject).character;
+    if (character === null) return;
+    if (next) {
+      rigUi(ctx).set((current) => ({ ...current, rebinding: true }));
+      try {
+        await bindPartsRigidly(ctx.app, character.id);
+      } finally {
+        rigUi(ctx).set((current) => ({ ...current, rebinding: false }));
+      }
+    } else await rebind(ctx, { confirm: !ctx.session.getState().rig.paintedSinceBind });
+  };
+  return (
+    <label className="flex items-center gap-2" title={r.rigidPartsHint}>
+      <input
+        type="checkbox"
+        checked={on}
+        disabled={!ready || busy}
+        data-testid="ar-rig-rigid-parts"
+        onChange={() => void toggle()}
+      />
+      {r.rigidParts}
+    </label>
+  );
+}
+
 const FAMILIES = /^(skel|skin|xform)\./;
+/** Warnings about how the model deforms: listed as rows, never folded under *Warnings* (AR-R4-5). */
+const DEFORM: ReadonlySet<string> = new Set(['skin.cross-limb']);
 
 /** The C7 Validation summary of the subject (§5.4's last row): errors block *Animations ▸*, warnings are listed. */
 function Validation(props: { readonly ctx: WizardContext; readonly character: CharacterId | null }): JSX.Element {
   const { ctx, character } = props;
   const startPose = useSession(ctx.session, selectStartPose);
+  const tornAt = useSession(ctx.session, selectTorn);
   const r = t();
+  // AR-R4-3: the straighten stretched the model, and the character still has those points
+  const torn = useDocument(ctx.app, () => tornAt !== null && pointsKey(ctx.app, character) === tornAt.key);
   const rows = useDocument(ctx.app, () => {
     if (character === null || !ctx.app.rig.loaded) return null;
     try {
@@ -271,7 +325,9 @@ function Validation(props: { readonly ctx: WizardContext; readonly character: Ch
   }
   const relevant = rows.filter((row) => FAMILIES.test(row.code));
   const errors = relevant.filter((row) => row.severity === 'error');
-  const warnings = relevant.filter((row) => row.severity === 'warning');
+  // the deformation warnings (AR-R4-3, AR-R4-5) are shown as rows of their own and take *All good*'s place
+  const deform = relevant.filter((row) => DEFORM.has(row.code));
+  const warnings = relevant.filter((row) => row.severity === 'warning' && !DEFORM.has(row.code));
   const runFix = (row: RigValidationRow): void => {
     if (row.fix !== null) void ctx.run(row.fix.op, row.fix.args);
   };
@@ -283,7 +339,19 @@ function Validation(props: { readonly ctx: WizardContext; readonly character: Ch
       data-testid="ar-rig-validation"
       data-state={errors.length === 0 ? 'ok' : 'errors'}
     >
-      {errors.length === 0 ? (
+      {torn ? (
+        <p className="text-warn" role="status" data-testid="ar-rig-torn">
+          <span aria-hidden>! </span>
+          {r.torn}
+        </p>
+      ) : null}
+      {deform.map((row) => (
+        <p key={`${row.code}:${row.ids.join(',')}`} className="text-warn" role="status" data-row={row.code}>
+          <span aria-hidden>! </span>
+          {row.message}
+        </p>
+      ))}
+      {errors.length === 0 && !torn && deform.length === 0 ? (
         <p className="text-fg" data-testid="ar-rig-all-good">
           <span aria-hidden>✓ </span>
           {r.allGood}
@@ -567,6 +635,8 @@ function PanelWithFooter(props: { readonly ctx: WizardContext }): JSX.Element {
   useHiddenControls(ctx, true, `${rig.sub}:${markers.pane}`);
   useHiddenParts(ctx);
   useEffect(() => watchPaintedSinceBind(ctx.app, ctx.session), [ctx]);
+  // AR-R4-3: a straighten run from ③ (the `skel.tpose` row's Fix, *Bind again*) is measured
+  useEffect(() => watchStraighten(ctx).stop, [ctx]);
   return <Panel ctx={ctx} />;
 }
 

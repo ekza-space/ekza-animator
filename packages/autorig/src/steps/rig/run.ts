@@ -14,11 +14,13 @@ import {
   type EditorApp,
   quickRigOf,
   REBIND_CONFIRM,
+  rigidPartBinds,
 } from '@ekza-studio/editor-core';
 import { messages } from '../../i18n';
 import { AUTORIG_PROFILE, resolveSubject } from '../../progress';
 import type { WizardContext } from '../../shell/context';
 import type { AutoRigSession, AutoRigStage } from '../../types';
+import { watchStraighten } from './stretch';
 import { rigUi } from './ui';
 import '../markers/strings';
 import './strings';
@@ -54,6 +56,31 @@ export function wantsStraighten(app: EditorApp, session: AutoRigSession): boolea
   const character = resolveSubject(app.store, session.subject).character;
   if (character === null || !app.rig.loaded) return true;
   return app.rig.validation.rows(character.id, AUTORIG_PROFILE).some((row) => row.code === 'skel.tpose');
+}
+
+/**
+ * *Separate parts move rigidly* (AR-R4-5): the slice's choice, else on for a multi-part subject (①'s ticked parts, or
+ * the character's meshes) and off for one mesh.
+ */
+export function rigidPartsOn(app: EditorApp, session: AutoRigSession): boolean {
+  if (session.rig.rigidParts !== null) return session.rig.rigidParts;
+  const character = resolveSubject(app.store, session.subject).character;
+  const meshes = character === null ? session.subject.meshes.length : autoRigBindMeshes(app, character.id).length;
+  return meshes > 1;
+}
+
+/** Binds the separate parts that reach two limbs rigidly to their best joint (one Bind Skin per joint). */
+export async function bindPartsRigidly(app: EditorApp, character: CharacterId): Promise<boolean> {
+  for (const group of rigidPartBinds(app, character)) {
+    const result = await app.runUntyped('skin.bind', {
+      meshes: group.meshes,
+      method: 'rigid-islands',
+      joints: [group.joint],
+      confirm: true,
+    });
+    if (result.status !== 'finished') return false;
+  }
+  return true;
 }
 
 /** Follows the running composition into `session.busy` (stage and fraction); the disposer stops it. */
@@ -152,16 +179,20 @@ export async function runAutoRig(ctx: WizardContext, opts: { readonly confirm?: 
   );
   ui.set((current) => ({ ...current, plan, notice: null, error: null }));
   const stop = trackStages(ctx, plan);
+  const straightened = watchStraighten(ctx);
   let result: Awaited<ReturnType<EditorApp['runUntyped']>>;
   try {
     result = await app.runUntyped('autorig.rig', {
       straighten,
+      rigidParts: rigidPartsOn(app, session.getState()),
       ...(opts.confirm === true || unpainted ? { confirm: true } : {}),
     });
+    await straightened.done();
   } catch (error) {
     result = { status: 'failed', error: { code: 'internal', message: String(error) } };
   } finally {
     stop();
+    straightened.stop();
   }
   if (result.status === 'finished') {
     session.set({ busy: { stage: 'check', fraction: null } });
@@ -245,6 +276,8 @@ export async function rebind(
       ui.set((current) => ({ ...current, notice: 'cancelled' }));
     }
     if (result.status !== 'finished') return false;
+    // AR-R4-5: a full bind gives every part automatic weights again; the separate parts go rigid once more
+    if (rigidPartsOn(app, session.getState())) await bindPartsRigidly(app, character.id);
     rememberBound(ctx, character.id);
     if (straighten && hasTposeRow(app, character.id)) {
       const straightened = await app.runUntyped('skel.pose.applyAsRest', { character: character.id, pose: 'tStance' });

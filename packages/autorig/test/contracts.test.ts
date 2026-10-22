@@ -37,7 +37,14 @@ describe('Auto-Rig contract (AUTORIG-SPEC §4.3)', () => {
       busy: null,
       model: { parts: null, heavyConfirmed: false },
       markers: { pane: 'front', lastOrtho: 'front' },
-      rig: { sub: 'review', motionTest: true, motionClip: 'walk', paintedSinceBind: false },
+      rig: {
+        sub: 'review',
+        motionTest: true,
+        motionClip: 'walk',
+        paintedSinceBind: false,
+        rigidParts: null,
+        torn: null,
+      },
       animations: { draft: {}, skipped: false, editing: null },
       export: { target: 'ekza-vrm', downloaded: false },
     });
