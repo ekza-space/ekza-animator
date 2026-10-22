@@ -8,7 +8,6 @@
 //
 // Until a package lands its view, the frame shows the step's placeholder (`StepPlaceholder`).
 import type { WorkspaceId } from '@ekza-studio/editor-core';
-import { RIG_MARKER_PANES } from '@ekza-studio/editor/host';
 import type { ComponentType } from 'react';
 import * as animations from '../steps/animations';
 import * as exportStep from '../steps/export';
@@ -58,8 +57,10 @@ export const STEP_MODE: Readonly<Record<AutoRigStep, 'object' | null>> = {
   export: 'object',
 };
 
-/** The single perspective pane of ①, ④, ⑤ and the placeholders (the R-Markers persp pane id, so its camera stays). */
-export const PERSP_PANES: readonly StepPane[] = [{ id: RIG_MARKER_PANES.persp }];
+/** The single perspective pane of ①, ④, ⑤ and the placeholders: the R-Markers persp pane id (`RIG_MARKER_PANES.persp`,
+ *  written out: importing the constant from `/autorig` costs `/editor` bytes, AR-D3-1), so its camera stays. */
+export const PERSP_PANE_ID = 'pane-persp';
+export const PERSP_PANES: readonly StepPane[] = [{ id: PERSP_PANE_ID }];
 
 const MODULES: Readonly<Partial<Record<AutoRigStep, StepModule>>> = {
   markers: markers as StepModule,

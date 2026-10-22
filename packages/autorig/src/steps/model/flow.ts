@@ -4,7 +4,7 @@
 // (`autorig.fix`, one undo step each, then a fresh `autorig.inspect`), use a Studio hand-over, continue or discard an
 // autosave slot. Every document change is an operator run; the session is U state.
 import type { CharacterId, MeshId } from '@ekza-studio/doc';
-import type { AutoRigFix, AutoRigSampleId, AutoRigSubject, IntakeReport } from '@ekza-studio/editor-core';
+import type { AutoRigSampleId, AutoRigSubject, IntakeReport } from '@ekza-studio/editor-core';
 import { messages } from '../../i18n';
 import type { WizardContext } from '../../shell/context';
 import { enterWorkspace } from '../../shell/entry';
@@ -106,7 +106,7 @@ async function afterIntake(ctx: WizardContext, report: IntakeReport, before: Rea
   }
 }
 
-async function intake(
+export async function runIntake(
   ctx: WizardContext,
   label: string,
   op: 'autorig.intake' | 'autorig.sample',
@@ -140,37 +140,14 @@ export async function loadFiles(ctx: WizardContext, files: readonly File[]): Pro
   const file = files[0];
   if (file === undefined) return;
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const report = await intake(ctx, file.name, 'autorig.intake', { bytes, name: file.name });
+  const report = await runIntake(ctx, file.name, 'autorig.intake', { bytes, name: file.name });
   if (report?.kind === 'rigged-other')
     modelUi(ctx).set((current) => ({ ...current, rerig: { name: file.name, bytes } }));
 }
 
 /** §5.2 samples (`autorig.sample`). */
 export async function loadSample(ctx: WizardContext, sample: AutoRigSampleId): Promise<void> {
-  await intake(ctx, sample, 'autorig.sample', { sample });
-}
-
-/** §6.1 Re-rig from scratch: the waiting skinned file again with `dropSkin` (its meshes at the bind pose). */
-export async function reRig(ctx: WizardContext): Promise<void> {
-  const waiting = modelUi(ctx).get().rerig;
-  if (waiting === null) return;
-  await intake(
-    ctx,
-    waiting.name,
-    'autorig.intake',
-    { bytes: waiting.bytes, name: waiting.name, dropSkin: true },
-    false,
-  );
-}
-
-/** §6.1 Open in Studio for a skinned file the wizard does not rig: Studio's own import, then the switch. */
-export async function openRiggedInStudio(ctx: WizardContext): Promise<void> {
-  const waiting = modelUi(ctx).get().rerig;
-  if (waiting === null) return;
-  const result = await ctx.run('file.importModel', { bytes: waiting.bytes, name: waiting.name });
-  if (result.status !== 'finished') return;
-  modelUi(ctx).set((current) => ({ ...current, rerig: null }));
-  await ctx.host.navigation.go({ to: 'studio', workspace: 'animate', from: 'autorig' });
+  await runIntake(ctx, sample, 'autorig.sample', { sample });
 }
 
 /** A fresh report of the subject's scene meshes (after a fix or an edit elsewhere); the file name is kept. */
@@ -196,34 +173,6 @@ export async function reinspect(ctx: WizardContext): Promise<IntakeReport | null
     ...(ctx.session.getState().startPose === null && report.pose !== null ? { startPose: report.pose } : {}),
   });
   return kept;
-}
-
-/** A one-click fix (§5.2): one `autorig.fix` (one undo step), then the report again. */
-export async function applyFix(ctx: WizardContext, fix: AutoRigFix, height?: number): Promise<void> {
-  const meshes = subjectMeshes(ctx);
-  if (meshes.length === 0) return;
-  await enterWorkspace(ctx.app, 'model');
-  const result = await ctx.run('autorig.fix', { fix, meshes, ...(height === undefined ? {} : { height }) });
-  if (result.status === 'finished') await reinspect(ctx);
-}
-
-/** §3.4, §5.2 From Studio: the handed subject becomes the wizard's ("Use these"); never replaces anything. */
-export async function takeFromStudio(ctx: WizardContext, subject: AutoRigSubject): Promise<void> {
-  ctx.session.resetSubject(subject);
-  modelUi(ctx).set({ loading: null, rerig: null, choose: null });
-  await enterWorkspace(ctx.app, 'model');
-  if (subject.character === null && subject.meshes.length > 0) {
-    await ctx.app.rig.load();
-    await reinspect(ctx);
-  }
-}
-
-/** A project with several characters: the chosen one becomes the subject. */
-export function chooseCharacter(ctx: WizardContext, character: CharacterId): void {
-  const intakeReport = ctx.session.getState().intake;
-  ctx.session.resetSubject({ character, meshes: [] });
-  if (intakeReport !== null) ctx.session.set({ intake: intakeReport });
-  modelUi(ctx).set({ loading: null, rerig: null, choose: null });
 }
 
 /** §4.4 Continue where you left off: the slot opens (`file.recover`); the mirror's step follows once reachable. */

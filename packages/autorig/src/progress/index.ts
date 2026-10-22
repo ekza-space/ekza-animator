@@ -3,7 +3,7 @@
 // `ekza/space-avatar-v1` (the rows need the rig-workspace chunk; before it loaded they are unknown and ③ is not done)
 // and the session — never stored, so reloads, undo and Studio edits keep it right.
 import { type CharacterRecord, derivedId, type MeshId, type ReadView } from '@ekza-studio/doc';
-import { type EditorApp, type RigValidationRow, rigChecklist, rigValidation } from '@ekza-studio/editor-core';
+import { type EditorApp, type RigValidationRow, rigChecklist } from '@ekza-studio/editor-core';
 import { messages } from '../i18n';
 import {
   AUTORIG_STEPS,
@@ -145,7 +145,7 @@ export function progressOf(input: ProgressInput): AutoRigProgress {
 export function subjectRows(app: EditorApp, character: CharacterRecord | null): readonly RigValidationRow[] | null {
   if (character === null || character.source.kind !== 'model' || !app.rig.loaded) return null;
   try {
-    return rigValidation(app).rows(character.id, AUTORIG_PROFILE);
+    return app.rig.validation.rows(character.id, AUTORIG_PROFILE);
   } catch {
     return null;
   }

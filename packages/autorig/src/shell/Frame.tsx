@@ -3,8 +3,8 @@
 // `@ekza-studio/editor/host`; the shared canvas draws behind it) and the step panel (≤ 320 px; a bottom sheet below
 // 1024 px), and the footer (*Back*, one status line, one primary button). Landmarks, a polite status line, an
 // assertive error line, focus on the step heading at every step change.
-import { PaneView, routeHref, useHostUi } from '@ekza-studio/editor/host';
-import { buttonClass, Check, cn, Redo2, Undo2 } from '@ekza-studio/ui';
+import { useHostUi } from '@ekza-studio/editor/host';
+import { buttonClass, cn, Redo2, Undo2 } from '@ekza-studio/ui';
 import {
   type ComponentType,
   createElement,
@@ -24,6 +24,7 @@ import { ModelStep } from '../steps/model/ModelStep';
 import { AUTORIG_STEPS, type AutoRigSession, type AutoRigStep } from '../types';
 import { useAppSession, useDocument, useProgress, useSession, type WizardContext } from './context';
 import { MoreMenu } from './Menu';
+import { WizardPane } from './Pane';
 import { type StepViewProps, stepModule, stepPanes, studioWorkspace } from './steps';
 import { useSmall, type SmallStore } from './store';
 import type { FooterState } from './context';
@@ -148,7 +149,7 @@ function OpenInStudio(props: { readonly ctx: WizardContext }): JSX.Element {
   };
   return (
     <a
-      href={routeHref({ to: 'studio', workspace }, typeof window === 'undefined' ? '' : window.location.search)}
+      href={`/editor?ws=${workspace}`}
       className={cn(buttonClass('default', 'sm'), coarse)}
       title={f().openStudioTitle}
       data-testid="ar-open-studio"
@@ -210,7 +211,7 @@ function Stepper(props: { readonly ctx: WizardContext }): JSX.Element {
         {AUTORIG_STEPS.map((id, i) => {
           const label = STEP_LABEL[id]();
           const done = progress.done[id];
-          const glyph = done ? <Check size={14} aria-hidden /> : <span aria-hidden>{GLYPHS[i]}</span>;
+          const glyph = <span aria-hidden>{done ? '✓' : GLYPHS[i]}</span>;
           const separator =
             i === 0 ? null : (
               <span aria-hidden className="text-fg-3">
@@ -276,7 +277,7 @@ function Panes(props: { readonly ctx: WizardContext }): JSX.Element {
     <div className="absolute inset-0 flex" data-testid="ar-panes" data-panes={panes.length}>
       {panes.map((pane) => (
         <div key={pane.id} className="flex min-w-0" style={{ flex: `${pane.size ?? 1} 1 0` }}>
-          <PaneView app={ctx.app} vm={vm} paneId={pane.id} />
+          <WizardPane vm={vm} paneId={pane.id} />
         </div>
       ))}
     </div>
