@@ -86,4 +86,13 @@ identical to D1's final number; `/autorig` 655,590 B).
 
 ## Gates
 
-See the final section below (filled by the last run).
+On `f5fae18` (+ this notes commit): `EKZA_E2E_PORT=3163 pnpm run ci` — format, lint, typecheck, check:deps,
+check:fixtures, check:licenses, every package's unit tests (editor 588 passed / 1 skipped, editor-core 1,498, web 84,
+…), clean build, **check:size green** (`/editor` 896,817 B ≤ 900,000 B, AR-B1 +1,129 B ≤ 2,048 B; `/autorig`
+655,589 B; every boundary holds) — and the full e2e suite on local Chrome: 275 passed, 24 skipped (the stretch
+`fixme`s), **1 failed**: `m6b-skin-02-paint-fix-undo` (`__EKZA_UPLOADS__` 72,576 B instead of 0: a late GPU buffer
+upload under the parallel load, Rig & Skin paint, untouched by D2). It passed 4/4 alone (`--repeat-each=4`), and a
+second full run `EKZA_E2E_PORT=3163 pnpm run test:e2e` was **green: 276 passed, 24 skipped, 0 failed**. The D2 specs
+(13 tests) passed in both full runs and alone.
+
+**Not met**: D2's own `/editor` allowance (+490 B against 448 B) — for D7's approval, AR-D2-10.
