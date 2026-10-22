@@ -76,7 +76,7 @@ const BODY = [0, 0.9, 0];
 const distance = (c: Camera): number => Math.hypot(...c.position.map((v, i) => v - (BODY[i] ?? 0)));
 const sameView = (a: Camera, b: Camera): boolean =>
   a.quaternion.every((v, i) => Math.abs(v - (b.quaternion[i] ?? 0)) < 1e-6);
-const camera = (page: Page): Promise<Camera> => call(page, 'cameraOf', 'pane-persp') as Promise<Camera>;
+const camera = (page: Page): Promise<Camera> => call(page, 'cameraOf', 'pane-persp');
 
 /** The camera's forward direction: (0, 0, −1) rotated by its quaternion. */
 function forward(c: Camera): number[] {
