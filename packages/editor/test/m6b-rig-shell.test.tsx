@@ -20,6 +20,7 @@ import {
   RIG_VIEW_ONLY_REASON,
   registerBuiltins,
   rigViewOnly,
+  type SceneObjectId,
 } from '@ekza-studio/editor-core';
 import {
   DEFAULT_FLEXION,
@@ -349,7 +350,7 @@ describe('the help line selection count in Rig & Skin (acceptance fix)', () => {
     expect(text()).toBe('1 joint selected');
     await set({ joints: ['skl_a:hips', 'skl_a:spine'] as JointId[] }, 'skeleton');
     expect(text()).toBe('2 joints selected');
-    await set({ objects: ['msh_a'] }, 'object');
+    await set({ objects: ['msh_a' as SceneObjectId] }, 'object');
     expect(text()).toBe('1 selected');
   });
 });

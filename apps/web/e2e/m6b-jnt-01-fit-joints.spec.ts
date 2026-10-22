@@ -81,6 +81,9 @@ test(`E2E-JNT-01: fit joints with the §5.7 gestures; bound: Move Skinned Joints
 
   // Bound: W moves the joint, never the mesh (Move Skinned Joints); E is a test pose.
   await runOk(page, 'skin.bind', {});
+  // Bind Skin opens Skin mode (§0.2 step 7); joint fitting continues in Skeleton mode.
+  await expect.poll(async () => (await call(page, 'rigState')).mode).toBe('skin');
+  await runOk(page, 'rig.mode', { mode: 'skeleton' });
   const body = (await call(page, 'meshes')).find((row) => row.owner === `char:${character}`)?.id ?? '';
   const points = await call(page, 'posedPositions', body, [0, 1, 2, 3]);
   expect(points).toHaveLength(4);

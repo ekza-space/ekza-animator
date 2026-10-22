@@ -77,7 +77,8 @@ export async function dismissGettingStarted(page: Page): Promise<void> {
 export async function enterSkin(page: Page): Promise<void> {
   await dismissGettingStarted(page);
   await hoverPersp(page);
-  await page.keyboard.press('Digit2');
+  // Bind Skin already opens Skin mode (§0.2 step 7); the digit again would toggle back to Object.
+  if ((await call(page, 'rigState')).mode !== 'skin') await page.keyboard.press('Digit2');
   await expect.poll(async () => (await call(page, 'rigState')).mode).toBe('skin');
   await expect.poll(async () => (await call(page, 'state')).tool).toBe('paintSkinWeights');
   await expect.poll(async () => (await call(page, 'paint')).display).not.toBe('off');
