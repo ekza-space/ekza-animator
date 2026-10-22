@@ -46,16 +46,12 @@ export function installMarkerHistory(ctx: WizardContext): Disposer {
       for (const name of QUICK_RIG_MARKERS) {
         const point = target.markers[name];
         const now = state.markers[name];
-        if (point === undefined || (now !== undefined && now.every((v, i) => v === point[i]))) continue;
-        await app.runUntyped('skel.quickRig.setMarker', { name, point: [...point] });
+        const moved = target.moved.has(name);
+        const same = now !== undefined && point !== undefined && now.every((v, i) => v === point[i]);
+        if (point === undefined || (same && state.moved.has(name) === moved)) continue;
+        await app.runUntyped('skel.quickRig.setMarker', { name, point: [...point], moved });
       }
-      const after = quickRigOf(app);
-      if (after !== null) {
-        const rig = app.session.getState().rig;
-        app.session.setState({
-          rig: { ...rig, quickRig: { ...after, moved: target.moved, selected: target.selected } },
-        });
-      }
+      await app.runUntyped('skel.quickRig.pick', { marker: target.selected });
     } finally {
       applying = false;
     }

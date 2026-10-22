@@ -11,7 +11,7 @@
 //   Toolkit. While Quick Rig is open a watcher re-runs the checks after document edits (the Center and Ground / Rotate
 //   to Face +Z fixes, their undo) and guesses once they pass; it closes Quick Rig when the workspace changes or the
 //   meshes go away.
-// - `.setMarker {name, point}` (the markers tool calls `setQuickRigMarker` directly on every pointer frame), `.guess`,
+// - `.setMarker {name, point, moved?}` (the markers tool calls `setQuickRigMarker` directly on every pointer frame), `.guess`,
 //   `.clear`, `.setPreset {preset}`, `.cancel`, `.pick {marker}`.
 import { type Disposer, EkzaError } from '@ekza-studio/anim-core';
 import type { MeshId, ReadView } from '@ekza-studio/doc';
@@ -141,12 +141,13 @@ export function setQuickRigMarker(
   app: EditorApp,
   name: QuickRigMarker,
   point: readonly [number, number, number],
-  opts?: { readonly select?: boolean },
+  opts?: { readonly select?: boolean; readonly moved?: boolean },
 ): void {
   const state = quickRigOf(app);
   if (state === null) return;
   const moved = new Set(state.moved);
-  moved.add(name);
+  if (opts?.moved === false) moved.delete(name);
+  else moved.add(name);
   const markers: QuickRigMarkers = { ...state.markers, [name]: markerPoint(name, point) };
   writeQuickRig(
     app,
@@ -376,7 +377,7 @@ const setMarker = defineOperator({
   scope: 'rig',
   workspaces: ['rig'],
   flags: { internal: true },
-  extraArgs: ['name', 'point'],
+  extraArgs: ['name', 'point', 'moved'],
   poll(ctx, args): PollResult {
     const open = pollOpen(ctx.app);
     if (open !== true) return open;
@@ -385,11 +386,17 @@ const setMarker = defineOperator({
     if (!Array.isArray(point) || point.length !== 3 || !point.every((v) => Number.isFinite(v))) {
       return fail('point: [x, y, z]');
     }
+    if (args['moved'] !== undefined && typeof args['moved'] !== 'boolean') return fail('moved: a boolean');
     return OK;
   },
   apply(ctx, args) {
     const point = args.point;
-    setQuickRigMarker(ctx.app, args.name, [point[0], point[1], point[2]]);
+    setQuickRigMarker(
+      ctx.app,
+      args.name,
+      [point[0], point[1], point[2]],
+      args.moved === undefined ? undefined : { moved: args.moved },
+    );
   },
 });
 

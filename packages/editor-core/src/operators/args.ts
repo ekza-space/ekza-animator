@@ -385,7 +385,10 @@ export interface OperatorMap {
     result: { readonly character: CharacterId; readonly skeleton: SkeletonId } };
   'skel.template.addMissing': { args: { readonly skeleton: SkeletonId }; result: { readonly added: readonly JointId[]; readonly mapped: readonly JointId[] } };
   'skel.quickRig.start': { args: { readonly meshes?: readonly MeshId[] } | void; result: void };
-  'skel.quickRig.setMarker': { args: { readonly name: QuickRigMarker; readonly point: readonly [number, number, number] }; result: void };
+  'skel.quickRig.setMarker': { args: { readonly name: QuickRigMarker; readonly point: readonly [number, number, number];
+    /** AR-D8-3 (additive): the marker's moved flag after the move (default true: a user move); Auto-Rig's ② undo
+     *  restores a guessed marker with false. */
+    readonly moved?: boolean }; result: void };
   'skel.quickRig.guess': { args: void; result: void };
   'skel.quickRig.clear': { args: void; result: void };                                            // §0.6 (new)
   'skel.quickRig.setPreset': { args: { readonly preset: SkeletonPreset }; result: void };         // §0.6 (new)
