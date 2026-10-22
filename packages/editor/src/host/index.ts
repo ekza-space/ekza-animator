@@ -7,7 +7,7 @@
 import { type EditorApp, hostNavigation, shellOverlayPort, type UiDialog } from '@ekza-studio/editor-core';
 
 export { HostContext, HostProvider, useHost, useHostUi, useOptionalHost } from './context';
-export { createHostShell, type CreateHostOptions, HOST_OPERATOR_IDS } from './createHost';
+export { createHostShell, type CreateHostOptions } from './createHost';
 export { type NavigationOptions, routeHref } from './navigation';
 export { RIG_LAYOUT, RIG_MARKER_PANES, RIG_MARKER_SIZES, type RigLayoutId } from './panes';
 export { type CreateAppArgs, STUDIO_HOST_MARKER, StudioHost, type StudioHostProps } from './StudioHost';

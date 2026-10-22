@@ -5,7 +5,7 @@
 // disposes only what is created here.
 import type { Disposer } from '@ekza-studio/anim-core';
 import type { PanelKind } from '@ekza-studio/editor-core';
-import { createHostShell, type CreateHostOptions, HOST_OPERATOR_IDS } from '../host/createHost';
+import { createHostShell, type CreateHostOptions } from '../host/createHost';
 import type { HostShell } from '../host/types';
 import { createMarkingMenus, marksMenus, prefetchMarkingMenu } from '../overlays/MarkingMenu';
 import { registerBuiltinPanels } from '../panels';
@@ -61,16 +61,9 @@ export function createShell(opts: CreateShellOptions): Shell {
 
   // Layout presets (docs/LAYOUT-PRESETS.md): the user's presets live beside the layouts, in the same storage.
   const presets = createLayoutPresetStore(host.storage);
-  // Studio's shell operators: every `shellOperatorDefs` row but the host's (the host registers those on every route).
-  for (const contribution of shellOperatorDefs(app, {
-    workspace,
-    ui,
-    presets,
-    onImportClosed: () => host.files.cancelImport(),
-  })) {
-    if (contribution.kind !== 'operator' || !HOST_OPERATOR_IDS.has(contribution.def.id)) {
-      disposers.push(app.contribute(contribution));
-    }
+  // Studio's shell operators (the host registers `ui.open`, `ui.close` and `prefs.set` on every route).
+  for (const contribution of shellOperatorDefs(app, { workspace, ui, presets })) {
+    disposers.push(app.contribute(contribution));
   }
 
   // M6A-SPEC §5.18 (B9): marking menus (the viewport's press hook, `ui.markingMenu` through the host's overlay port).

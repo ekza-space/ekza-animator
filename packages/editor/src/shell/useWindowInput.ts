@@ -104,7 +104,10 @@ export function useWindowInput(shell: HostShell, root: RefObject<HTMLElement | n
     const onDragEnter = (event: DragEvent): void => {
       if (!hasFiles(event)) return;
       event.preventDefault();
-      if (dragDepth === 0) prefetchForFileDrag();
+      if (dragDepth === 0) {
+        prefetchForFileDrag();
+        shell.files.preload?.();
+      }
       dragDepth += 1;
       if (!ui.getState().dragOver) ui.setState({ dragOver: true });
     };

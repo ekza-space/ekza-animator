@@ -1,8 +1,7 @@
 // Creates the HostShell of one page (AUTORIG-SPEC §4.4, D1): the UI store, the frame hooks and the fallback frame
 // scheduler, the help line, the confirm prompt, the operator runner for UI surfaces, the file pipeline, the export
 // recorder, the keyboard adapter, the probes, autosave, the command palette behind the overlay port, the host's
-// operators (`ui.open`, `ui.close`, `prefs.set`, `view.selectionMask`, `view.toggleFullscreen`) and the navigation
-// port. Both shells sit on top of it; it outlives every switch between them.
+// operators (`ui.open`, `ui.close`, `prefs.set`) and the navigation port. Both shells sit on top of it; it outlives every switch between them.
 import type { Disposer } from '@ekza-studio/anim-core';
 import {
   type EditorApp,
@@ -13,7 +12,7 @@ import {
   provideShellOverlays,
   type RunContext,
 } from '@ekza-studio/editor-core';
-import { createStore } from 'zustand/vanilla';
+import { createStore, type StoreApi } from 'zustand/vanilla';
 import { createFallbackScheduler, createFrameHooks } from '../gl/frameLoop';
 import { KeyboardAdapter, scopeChain, viewportToolTarget } from '../input/keyboard';
 import { createCommandPalette } from '../overlays/CommandPalette';
@@ -21,23 +20,13 @@ import { simplifyMessage, toleranceOfArgs } from '../panels/graph/simplify';
 import type { ToastNotifier } from '../services/notify';
 import { startShellAutosave } from '../shell/autosave';
 import { asArtifacts, createExportRecorder } from '../shell/exports';
-import { createFilePipeline } from '../shell/files';
-import { shellOperatorDefs, type ShellOperatorDeps } from '../shell/operators';
 import { createProbeRegistry } from '../shell/probes';
-import { type Summarizer, summarizeModel } from '../shell/summary';
-import type { ConfirmRequest, HelpMessage, ShellUiState } from '../shell/types';
+import type { Summarizer } from '../shell/summary';
+import type { ConfirmRequest, FilePipeline, HelpMessage, ShellUiState } from '../shell/types';
 import type { EditorParams } from '../test-api/params';
 import { createNavigation, type NavigationOptions } from './navigation';
+import { registerHostOperators } from './operators';
 import type { HostShell, MountedShell } from './types';
-
-/** The shell operators the host registers on every route (§4.4); Studio registers the rest of `shellOperatorDefs`. */
-export const HOST_OPERATOR_IDS: ReadonlySet<string> = new Set([
-  'ui.open',
-  'ui.close',
-  'prefs.set',
-  'view.selectionMask',
-  'view.toggleFullscreen',
-]);
 
 export interface CreateHostOptions {
   readonly app: EditorApp;
@@ -69,6 +58,59 @@ export const INITIAL_UI: ShellUiState = {
 };
 
 const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+
+/** The toast when the file pipeline's code cannot arrive (offline after the page loaded, a redeploy). */
+export const FILES_LOAD_FAILED = "Couldn't load the file import. Check the connection and try again.";
+
+/**
+ * The file pipeline (drag-and-drop, the pickers, the test API's `loadFile`) behind a facade that loads its code on
+ * first use or on intent (AUTORIG-SPEC D1, AR-D1-2: it, the importer table and the model summary are not part of the
+ * initial route). A failed load is forgotten, so the next file tries again.
+ */
+function lazyFilePipeline(
+  ui: StoreApi<ShellUiState>,
+  load: () => Promise<FilePipeline>,
+  onLoadError?: (error: unknown) => void,
+): FilePipeline {
+  let pipeline: FilePipeline | null = null;
+  let loading: Promise<FilePipeline> | null = null;
+  let disposed = false;
+  const ready = (): Promise<FilePipeline> => {
+    loading ??= load().then(
+      (loaded) => {
+        pipeline = loaded;
+        if (disposed) loaded.dispose();
+        return loaded;
+      },
+      (error: unknown) => {
+        loading = null;
+        throw error;
+      },
+    );
+    return loading;
+  };
+  return {
+    openFiles: (list) =>
+      ready().then(
+        (loaded) => loaded.openFiles(list),
+        (error: unknown) => onLoadError?.(error),
+      ),
+    openFile: (name, bytes, options) => ready().then((loaded) => loaded.openFile(name, bytes, options)),
+    confirmImport: (options) => ready().then((loaded) => loaded.confirmImport(options)),
+    // Before the pipeline loaded no file waits on the dialog: closing it only drops what it showed.
+    cancelImport: () => {
+      if (pipeline !== null) pipeline.cancelImport();
+      else if (ui.getState().pendingImport !== null) ui.setState({ pendingImport: null });
+    },
+    dispose: () => {
+      disposed = true;
+      pipeline?.dispose();
+    },
+    preload: () => {
+      ready().catch(() => {});
+    },
+  };
+}
 
 export function createHostShell(opts: CreateHostOptions): HostShell {
   const { app, params } = opts;
@@ -162,14 +204,27 @@ export function createHostShell(opts: CreateHostOptions): HostShell {
     return result;
   };
 
-  const files = createFilePipeline({
-    app,
+  const files = lazyFilePipeline(
     ui,
-    summarize: opts.summarize ?? summarizeModel,
-    confirm,
-    runFromUi: (op, args) => runFromUi(op, args),
-    toastError: notifyError,
-  });
+    () =>
+      Promise.all([
+        import('../shell/files'),
+        opts.summarize === undefined ? import('../shell/summary').then((m) => m.summarizeModel) : opts.summarize,
+      ]).then(([{ createFilePipeline }, summarize]) =>
+        createFilePipeline({
+          app,
+          ui,
+          summarize,
+          confirm,
+          runFromUi: (op, args) => runFromUi(op, args),
+          toastError: notifyError,
+        }),
+      ),
+    (error) => {
+      console.warn('Ekza Studio: the file import could not be loaded', error);
+      notifyError(FILES_LOAD_FAILED);
+    },
+  );
   disposers.push(() => files.dispose());
 
   // M6A-SPEC §5.17 (B0b): the hierarchical scope chain, the capture window and the viewport tool-key bridge.
@@ -186,14 +241,8 @@ export function createHostShell(opts: CreateHostOptions): HostShell {
     },
   });
 
-  // The host's shell operators (dialogs and preferences exist on every route); the workspace and preset deps of
-  // `shellOperatorDefs` belong to the Studio shell's operators and are never read by these.
-  const hostDeps = { ui, onImportClosed: () => files.cancelImport() } as Partial<ShellOperatorDeps>;
-  for (const contribution of shellOperatorDefs(app, hostDeps as ShellOperatorDeps)) {
-    if (contribution.kind === 'operator' && HOST_OPERATOR_IDS.has(contribution.def.id)) {
-      disposers.push(app.contribute(contribution));
-    }
-  }
+  // The host's operators (§4.4): dialogs and preferences exist on every route.
+  disposers.push(registerHostOperators(app, { onImportClosed: () => files.cancelImport() }));
 
   // M6A-SPEC §5.18 (B9): the command palette (`Mod+K`); AUTORIG-SPEC §4.4: the overlay port is the host's on every
   // route (its chunk loads on first use); marking menus come from the mounted shell (Studio).

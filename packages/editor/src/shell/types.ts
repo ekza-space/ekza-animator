@@ -211,6 +211,8 @@ export interface FilePipeline {
   cancelImport(): void;
   /** Stops queued files and releases every waiter (shell disposal). */
   dispose(): void;
+  /** Starts loading the pipeline's code on intent (a file dragged over the window); the host's pipeline is lazy. */
+  preload?(): void;
 }
 
 // ---------- the shell ----------

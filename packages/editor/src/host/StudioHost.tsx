@@ -6,17 +6,17 @@
 // history, the selection, the cameras, autosave and the WebGL context — mounted.
 import { seededIdSource, type IdSource } from '@ekza-studio/doc';
 import { createEditorApp, type EditorApp, type EditorServices } from '@ekza-studio/editor-core';
-import { TooltipProvider } from '@ekza-studio/ui';
+import { ToastProvider, TooltipProvider } from '@ekza-studio/ui';
 import { type JSX, lazy, type ReactNode, Suspense, useEffect, useRef, useState } from 'react';
 import { DialogHost } from '../dialogs/DialogHost';
 import { GLHost } from '../gl/GLHost';
 import { EditorAppProvider } from '../hooks';
-import { useStoreSelector } from '../hooks/useStoreSelector';
 import { CommandPaletteHost } from '../overlays/CommandPalette';
 import { createShellServices } from '../services/browser';
 import type { ToastNotifier } from '../services/notify';
 import { installSkinWorker } from '../services/skinWorker';
 import type { Summarizer } from '../shell/summary';
+import { Toaster } from '../shell/Toaster';
 import { useConstant } from '../shell/useConstant';
 import { useWindowInput } from '../shell/useWindowInput';
 import { detectPlatform, type EditorParams, parseEditorParams } from '../test-api/params';
@@ -160,22 +160,6 @@ function DropOverlay(): JSX.Element | null {
   );
 }
 
-/** The toasts (and Radix's toast provider) load with the page's first toast and stay (AR-D1-2). */
-const Toaster = lazy(() => import('../shell/Toaster').then((m) => ({ default: m.Toaster })));
-
-function Toasts(props: { readonly notifier: ToastNotifier }): JSX.Element | null {
-  const any = useStoreSelector(props.notifier.store, (state) => state.toasts.length > 0);
-  // Once shown, the toast layer stays (its viewport, exit animations and focus handling outlive the last toast).
-  const [shown, setShown] = useState(false);
-  if (any && !shown) setShown(true);
-  if (!shown && !any) return null;
-  return (
-    <Suspense fallback={null}>
-      <Toaster notifier={props.notifier} />
-    </Suspense>
-  );
-}
-
 /** Rendered after the route's shell inside its Suspense boundary: mounts once the shell has (its chunk arrived). */
 function ShellReady(props: { readonly onReady: () => void }): null {
   const { onReady } = props;
@@ -255,23 +239,25 @@ function ReadyHost(props: {
     <HostProvider host={host}>
       <EditorAppProvider app={host.app}>
         <TooltipProvider>
-          <div
-            ref={root}
-            className="ekza-editor relative h-dvh w-dvw overflow-hidden text-fg [--ekza-tailwind-smoke:editor]"
-            data-testid="editor-root"
-            data-host={STUDIO_HOST_MARKER}
-            data-ekza-motion={host.params.e2e ? 'off' : undefined}
-          >
-            <GLHost />
-            <Suspense fallback={null}>
-              {props.children}
-              <ShellReady onReady={onReady} />
-            </Suspense>
-            <DialogHost />
-            <CommandPaletteHost palette={host.commandPalette} />
-            <Toasts notifier={props.toasts} />
-            <DropOverlay />
-          </div>
+          <ToastProvider swipeDirection="right" label="Notifications">
+            <div
+              ref={root}
+              className="ekza-editor relative h-dvh w-dvw overflow-hidden text-fg [--ekza-tailwind-smoke:editor]"
+              data-testid="editor-root"
+              data-host={STUDIO_HOST_MARKER}
+              data-ekza-motion={host.params.e2e ? 'off' : undefined}
+            >
+              <GLHost />
+              <Suspense fallback={null}>
+                {props.children}
+                <ShellReady onReady={onReady} />
+              </Suspense>
+              <DialogHost />
+              <CommandPaletteHost palette={host.commandPalette} />
+              <Toaster notifier={props.toasts} />
+              <DropOverlay />
+            </div>
+          </ToastProvider>
         </TooltipProvider>
       </EditorAppProvider>
     </HostProvider>
