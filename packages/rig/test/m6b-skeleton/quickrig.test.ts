@@ -364,6 +364,23 @@ describe('projectedCenter (§5.3)', () => {
     });
     expect(hit?.[2]).toBeCloseTo(-0.1, 12);
   });
+  it("an unclosed overlapping shell (front, front, back) closes at the last exit (INT: Polybot's belt)", () => {
+    // A box with an open front plate in front of it: the plate's front face, the box's front face, the box's back face.
+    const plate: Triangles = {
+      positions: new Float64Array([-0.3, -0.3, 0.3, 0.3, -0.3, 0.3, 0.3, 0.3, 0.3, -0.3, 0.3, 0.3]),
+      tris: new Uint32Array([0, 1, 2, 0, 2, 3]),
+    };
+    const shells = merge(boxTriangles([0, 0, 0], [1, 1, 0.4]), plate);
+    const hit = projectedCenter(new TriangleBvh(shells.positions, shells.tris), [0, 0, 5], [0, 0, -1], {
+      mode: 'new',
+      fallbackRadius: 0,
+    });
+    expect(hit?.[2]).toBeCloseTo((0.3 - 0.2) / 2, 12);
+    // On T-posed Polybot the centre-line ray at the guessed spine height lands inside the torso, not on the belt.
+    const f = polybotTPose();
+    const spine = projectedCenter(f.bvh, [0, 0.477, 5], [0, 0, -1], { mode: 'new', fallbackRadius: 0 });
+    expect(Math.abs((spine?.[2] ?? 1) - (f.joints.spine?.[2] ?? 0))).toBeLessThan(0.03 * f.height);
+  });
 });
 
 // ---------- helpers ----------

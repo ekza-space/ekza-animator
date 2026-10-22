@@ -207,6 +207,7 @@ export function createRigRuntime(app: EditorApp, vm: ViewportManager): ViewportR
   };
   if (skeletonMode()) applySkeletonDisplay(true);
 
+  let posedLast = true;
   const disposers: Disposer[] = [
     vm.addMeshLayer(jointsHost),
     vm.addMeshLayer(markersHost),
@@ -216,20 +217,35 @@ export function createRigRuntime(app: EditorApp, vm: ViewportManager): ViewportR
       if (state.rig.mode !== previous.rig.mode && previous.workspace === 'rig' && state.workspace === 'rig') {
         applySkeletonDisplay(state.rig.mode === 'skeleton');
       }
+      const rig = state.rig;
+      const was = previous.rig;
       if (
         state.workspace !== previous.workspace ||
-        state.rig !== previous.rig ||
+        // Only the fields the joint scene and the markers read (INT: an influence switch or a brush edit in Skin mode
+        // must not rebuild the overlay — §5.25's 0-byte influence switch).
+        rig.mode !== was.mode ||
+        rig.character !== was.character ||
+        rig.poseView !== was.poseView ||
+        rig.quickRig !== was.quickRig ||
+        rig.hiddenJoints !== was.hiddenJoints ||
+        rig.lockedJoints !== was.lockedJoints ||
         state.selection.joints !== previous.selection.joints ||
         state.tools !== previous.tools
       ) {
         invalidate();
       }
     }),
+    // INT (§5.25's 0-byte influence switch): only what the joint scene reads rebuilds it — the joint size, and a new
+    // evaluation while the joints are drawn posed (the Test view or a clip preview) or were at the last one.
     app.prefs.subscribe((state, previous) => {
-      if (state.rigging !== previous.rigging) invalidate();
+      if (state.rigging?.jointSize !== previous.rigging?.jointSize) invalidate();
     }),
     app.evaluation.subscribe(() => {
-      if (app.session.getState().workspace === 'rig') invalidate();
+      const state = app.session.getState();
+      if (state.workspace !== 'rig') return;
+      const posed = state.rig.poseView !== 'bind' || (app.library.loaded && app.library.service.preview !== null);
+      if (posed || posedLast) invalidate();
+      posedLast = posed;
     }),
     () => {
       window.removeEventListener('keydown', onKeyDown, { capture: true });

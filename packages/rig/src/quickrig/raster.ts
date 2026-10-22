@@ -105,21 +105,32 @@ export function rowRuns(raster: Raster, r: number): [number, number][] {
 export const isInside = (raster: Raster, r: number, c: number): boolean =>
   r >= 0 && r < raster.rows && c >= 0 && c < raster.cols && raster.inside[r * raster.cols + c] === 1;
 
-/** Slabs along a ray: [entry t, exit t] pairs of the union of shells (a depth counter over front/back hits). */
+/**
+ * Slabs along a ray: [entry t, exit t] pairs of the union of shells (a depth counter over front/back hits). A slab
+ * left open at the end by an unclosed shell (an overlapping part whose inner faces were removed, e.g. Polybot's belt
+ * over its torso: front, front, back) closes at its last back-facing hit (INT; else the projected centre fell back to
+ * the first hit, on the surface).
+ */
 export function slabs(bvh: TriangleBvh, origin: Vec3, dir: Vec3): { slabs: [number, number][]; first: number | null } {
   const hits = bvh.raycastAll(origin, dir);
   const out: [number, number][] = [];
   let depth = 0;
   let entry = 0;
+  let lastExit: number | null = null;
   for (const hit of hits) {
     if (hit.front) {
-      if (depth === 0) entry = hit.t;
+      if (depth === 0) {
+        entry = hit.t;
+        lastExit = null;
+      }
       depth++;
     } else if (depth > 0) {
       depth--;
+      lastExit = hit.t;
       if (depth === 0) out.push([entry, hit.t]);
     }
   }
+  if (depth > 0 && lastExit !== null) out.push([entry, lastExit]);
   return { slabs: out, first: hits[0]?.t ?? null };
 }
 

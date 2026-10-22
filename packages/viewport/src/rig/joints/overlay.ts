@@ -16,6 +16,7 @@ import {
   DynamicDrawUsage,
   GreaterDepth,
   Group,
+  InstancedBufferAttribute,
   InstancedMesh,
   LineBasicMaterial,
   LineDashedMaterial,
@@ -226,6 +227,40 @@ function instancedPair(geometry: BufferGeometry, capacity: number, wire: boolean
   return { mesh, occluded };
 }
 
+/**
+ * The pane-dependent buffers of one pane (INT, §5.25 "0-byte influence switch"): glyph sizes depend on the pane
+ * (radius ≥ 4 CSS px), so each pane keeps its own instance matrices and line geometries. A pane render swaps them in;
+ * three uploads a buffer only when its values changed, so an idle pane — or an influence switch — uploads nothing.
+ */
+interface PaneBuffers {
+  readonly spheres: InstancedBufferAttribute;
+  readonly hollow: InstancedBufferAttribute;
+  readonly bones: InstancedBufferAttribute;
+  readonly crosses: BufferGeometry;
+  readonly axes: BufferGeometry;
+}
+
+/** Copies `next` into `attribute` (its first `next.length` values) and flags an upload only when a value changed. */
+function writeIfChanged(attribute: InstancedBufferAttribute, next: Float32Array): void {
+  const array = attribute.array as Float32Array;
+  for (let i = 0; i < next.length; i++) {
+    if (array[i] !== next[i]) {
+      array.set(next);
+      attribute.needsUpdate = true;
+      return;
+    }
+  }
+}
+
+/** Sets a line geometry's attribute only when its values changed (a new attribute is a new upload). */
+function setLineAttribute(geometry: BufferGeometry, name: string, next: Float32Array): boolean {
+  const current = geometry.getAttribute(name) as BufferAttribute | undefined;
+  const array = current?.array as Float32Array | undefined;
+  if (array !== undefined && array.length === next.length && array.every((value, i) => value === next[i])) return false;
+  geometry.setAttribute(name, new BufferAttribute(next, 3));
+  return true;
+}
+
 const matrix = new Matrix4();
 const quaternion = new Quaternion();
 const up = new Vector3(0, 1, 0);
@@ -247,6 +282,7 @@ export class JointOverlay implements MeshLayerHost {
   private sphereSlots: DrawnJoint[] = [];
   private hollowSlots: DrawnJoint[] = [];
   private boneSlots: DrawnBone[] = [];
+  private readonly paneBuffers = new Map<string, PaneBuffers>();
   private readonly crosses = onHelpers(
     new LineSegments(new BufferGeometry(), new LineBasicMaterial({ color: VIEWPORT_THEME.rigCenter })),
     12,
@@ -346,16 +382,52 @@ export class JointOverlay implements MeshLayerHost {
     for (const joint of this.data.joints) {
       radii.set(joint.id, Math.max(joint.radius, MIN_JOINT_PX * worldPerPx(view, joint.position)));
     }
-    this.placeSpheres(this.spheres, this.sphereSlots, radii);
-    this.placeSpheres(this.hollow, this.hollowSlots, radii);
-    this.placeBones(radii);
-    this.placeCrosses(radii);
-    this.placeAxes(display.jointAxes, radii);
+    const buffers = this.buffersOf(paneId);
+    this.placeSpheres(this.spheres, this.sphereSlots, radii, buffers.spheres);
+    this.placeSpheres(this.hollow, this.hollowSlots, radii, buffers.hollow);
+    this.placeBones(radii, buffers.bones);
+    this.placeCrosses(radii, buffers.crosses);
+    this.placeAxes(display.jointAxes, radii, buffers.axes);
     this.placeRings(view, state.rig.mode === 'skeleton');
     this.placeLabels(view, display.jointLabels, radii, state.rig.mode === 'skeleton');
   }
 
-  private placeSpheres(target: Instances, slots: readonly DrawnJoint[], radii: ReadonlyMap<JointId, number>): void {
+  /** This pane's buffers (created on its first render; reset when the instance capacity grows). */
+  private buffersOf(paneId: string): PaneBuffers {
+    let buffers = this.paneBuffers.get(paneId);
+    if (buffers === undefined) {
+      const instances = (): InstancedBufferAttribute => {
+        const attribute = new InstancedBufferAttribute(new Float32Array(this.capacity * 16), 16);
+        attribute.setUsage(DynamicDrawUsage);
+        return attribute;
+      };
+      buffers = {
+        spheres: instances(),
+        hollow: instances(),
+        bones: instances(),
+        crosses: new BufferGeometry(),
+        axes: new BufferGeometry(),
+      };
+      this.paneBuffers.set(paneId, buffers);
+    }
+    return buffers;
+  }
+
+  private dropPaneBuffers(): void {
+    for (const buffers of this.paneBuffers.values()) {
+      buffers.crosses.dispose();
+      buffers.axes.dispose();
+    }
+    this.paneBuffers.clear();
+  }
+
+  private placeSpheres(
+    target: Instances,
+    slots: readonly DrawnJoint[],
+    radii: ReadonlyMap<JointId, number>,
+    attribute: InstancedBufferAttribute,
+  ): void {
+    const next = new Float32Array(slots.length * 16);
     slots.forEach((joint, i) => {
       const r = radii.get(joint.id) ?? joint.radius;
       matrix.compose(
@@ -363,12 +435,15 @@ export class JointOverlay implements MeshLayerHost {
         quaternion.identity(),
         scale.set(r, r, r),
       );
-      target.mesh.setMatrixAt(i, matrix);
+      matrix.toArray(next, i * 16);
     });
-    target.mesh.instanceMatrix.needsUpdate = true;
+    writeIfChanged(attribute, next);
+    target.mesh.instanceMatrix = attribute;
+    target.occluded.instanceMatrix = attribute;
   }
 
-  private placeBones(radii: ReadonlyMap<JointId, number>): void {
+  private placeBones(radii: ReadonlyMap<JointId, number>, attribute: InstancedBufferAttribute): void {
+    const next = new Float32Array(this.boneSlots.length * 16);
     this.boneSlots.forEach((bone, i) => {
       direction.set(bone.to[0] - bone.from[0], bone.to[1] - bone.from[1], bone.to[2] - bone.from[2]);
       const length = direction.length();
@@ -383,12 +458,14 @@ export class JointOverlay implements MeshLayerHost {
           scale.set(width, length, width),
         );
       }
-      this.bones.mesh.setMatrixAt(i, matrix);
+      matrix.toArray(next, i * 16);
     });
-    this.bones.mesh.instanceMatrix.needsUpdate = true;
+    writeIfChanged(attribute, next);
+    this.bones.mesh.instanceMatrix = attribute;
+    this.bones.occluded.instanceMatrix = attribute;
   }
 
-  private placeCrosses(radii: ReadonlyMap<JointId, number>): void {
+  private placeCrosses(radii: ReadonlyMap<JointId, number>, geometry: BufferGeometry): void {
     const helpers = this.data.joints.filter((joint) => joint.helper);
     const out = new Float32Array(helpers.length * 18);
     helpers.forEach((joint, i) => {
@@ -396,11 +473,15 @@ export class JointOverlay implements MeshLayerHost {
       const [x, y, z] = joint.position;
       out.set([x - r, y, z, x + r, y, z, x, y - r, z, x, y + r, z, x, y, z - r, x, y, z + r], i * 18);
     });
-    this.crosses.geometry.setAttribute('position', new BufferAttribute(out, 3));
-    this.crosses.geometry.computeBoundingSphere();
+    if (setLineAttribute(geometry, 'position', out)) geometry.computeBoundingSphere();
+    this.crosses.geometry = geometry;
   }
 
-  private placeAxes(mode: 'none' | 'selected' | 'all', radii: ReadonlyMap<JointId, number>): void {
+  private placeAxes(
+    mode: 'none' | 'selected' | 'all',
+    radii: ReadonlyMap<JointId, number>,
+    geometry: BufferGeometry,
+  ): void {
     const shown = mode === 'none' ? [] : this.data.joints.filter((joint) => mode === 'all' || joint.selected);
     const positions = new Float32Array(shown.length * 18);
     const colours = new Float32Array(shown.length * 18);
@@ -426,9 +507,10 @@ export class JointOverlay implements MeshLayerHost {
         colours.set([c.r, c.g, c.b, c.r, c.g, c.b], base);
       }
     });
-    this.axes.geometry.setAttribute('position', new BufferAttribute(positions, 3));
-    this.axes.geometry.setAttribute('color', new BufferAttribute(colours, 3));
-    this.axes.geometry.computeBoundingSphere();
+    const moved = setLineAttribute(geometry, 'position', positions);
+    const recoloured = setLineAttribute(geometry, 'color', colours);
+    if (moved || recoloured) geometry.computeBoundingSphere();
+    this.axes.geometry = geometry;
   }
 
   private placeRings(view: PaneProjection, skeletonMode: boolean): void {
@@ -491,6 +573,7 @@ export class JointOverlay implements MeshLayerHost {
       pair.occluded.dispose();
     }
     this.capacity = capacity;
+    this.dropPaneBuffers();
     this.spheres = instancedPair(this.sphereGeometry, capacity, false, 10);
     this.hollow = instancedPair(this.sphereGeometry, capacity, true, 10);
     this.bones = instancedPair(this.octahedron, capacity, false, 8);
@@ -666,10 +749,11 @@ export class JointOverlay implements MeshLayerHost {
     this.sphereGeometry.dispose();
     this.octahedron.dispose();
     this.ringGeometry.dispose();
-    for (const line of [this.crosses, this.dashed, this.axes]) {
-      line.geometry.dispose();
-      line.material.dispose();
-    }
+    for (const line of [this.crosses, this.dashed, this.axes]) line.material.dispose();
+    this.dashed.geometry.dispose();
+    const perPane = new Set([...this.paneBuffers.values()].flatMap((buffers) => [buffers.crosses, buffers.axes]));
+    for (const line of [this.crosses, this.axes]) if (!perPane.has(line.geometry)) line.geometry.dispose();
+    this.dropPaneBuffers();
     for (const child of [...this.rings.children, ...this.labels.children]) {
       ((child as LineLoop | Sprite).material as LineBasicMaterial).dispose();
     }

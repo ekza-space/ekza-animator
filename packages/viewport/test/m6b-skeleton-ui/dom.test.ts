@@ -145,6 +145,46 @@ describe('joint overlay and picking (§8.3)', () => {
     expect(times[25]).toBeLessThan(2);
   });
 
+  it('an idle pane and an active-influence switch upload no joint buffer (INT, §5.25 0-byte switch)', async () => {
+    const rig = await scene();
+    const runtime = viewportRigOf(rig.app);
+    runtime?.ensure();
+    rig.frame();
+    rig.vm.invalidate();
+    rig.frame();
+    const proto = WebGL2RenderingContext.prototype as unknown as Record<string, (...args: unknown[]) => unknown>;
+    const originals = { bufferData: proto['bufferData'], bufferSubData: proto['bufferSubData'] };
+    let bytes = 0;
+    for (const [name, at] of [
+      ['bufferData', 1],
+      ['bufferSubData', 2],
+    ] as const) {
+      const original = originals[name] as (...args: unknown[]) => unknown;
+      proto[name] = function (this: unknown, ...args: unknown[]) {
+        const value = args[at];
+        bytes += typeof value === 'number' ? value : ((value as ArrayBufferView | null)?.byteLength ?? 0);
+        return original.apply(this, args);
+      };
+    }
+    try {
+      // Every pane renders again (its own instance matrices are already uploaded) …
+      rig.vm.invalidate();
+      rig.frame();
+      expect(bytes).toBe(0);
+      // … and an influence switch (Skin mode's active joint) rebuilds nothing.
+      const state = rig.app.session.getState();
+      rig.app.session.setState({
+        rig: { ...state.rig, activeInfluence: { mesh: 'msh_none' as never, joint: jid('head') } },
+      });
+      runtime?.ensure();
+      rig.vm.invalidate();
+      rig.frame();
+      expect(bytes).toBe(0);
+    } finally {
+      Object.assign(proto, originals);
+    }
+  });
+
   it('labels the hovered joint; hidden joints are neither drawn nor picked', async () => {
     const rig = await scene();
     const runtime = viewportRigOf(rig.app);
