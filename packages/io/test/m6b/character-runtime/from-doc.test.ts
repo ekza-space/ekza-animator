@@ -150,6 +150,47 @@ describe('skeletonFromGltf(writeCharacter(records)) ≡ skeletonFromDoc(records)
     expect(jointsFingerprint(read2.nodes)).toBe(jointsFingerprint(read.nodes));
   });
 
+  it('places a static mesh in character space under a displaced and rotated root (identity world at rest)', async () => {
+    const hat = humanoidBody({ style: 'segmented', height: 0.5 });
+    const { write } = await character([
+      { name: 'Body', data: await cubeLad(), bound: true },
+      { name: 'Hat', data: hat, bound: false },
+    ]);
+    const s = Math.SQRT1_2;
+    const nodes = write.skeleton.nodes.map((node, i) =>
+      i === 0 ? { ...node, restLocal: { ...node.restLocal, t: [0.3, 0.5, -0.2], q: [0, s, 0, s] } } : node,
+    );
+    const moved: CharacterWriteInput = { ...write, skeleton: { ...write.skeleton, nodes } as typeof write.skeleton };
+    const c = await parseGlb(await writeCharacter(moved, { generator: 'test', format: 'glb' }));
+    const json = c.json as {
+      nodes: { name?: string; mesh?: number; children?: number[]; translation?: number[]; rotation?: number[] }[];
+    };
+    const hatIndex = json.nodes.findIndex((node) => node.name === 'Hat');
+    expect(hatIndex).toBeGreaterThan(0);
+    expect(json.nodes[0]?.children).toContain(hatIndex);
+    // root world (t0, q0) × hat local (t1, q1) = (t0 + q0·t1, q0·q1): identity.
+    const [t0, q0] = [json.nodes[0]?.translation ?? [0, 0, 0], json.nodes[0]?.rotation ?? [0, 0, 0, 1]];
+    const [t1, q1] = [json.nodes[hatIndex]?.translation ?? [0, 0, 0], json.nodes[hatIndex]?.rotation ?? [0, 0, 0, 1]];
+    const rotate = (q: number[], v: number[]): number[] => {
+      const [x, y, z, w] = q as [number, number, number, number];
+      const [vx, vy, vz] = v as [number, number, number];
+      const cx = y * vz - z * vy;
+      const cy = z * vx - x * vz;
+      const cz = x * vy - y * vx;
+      return [
+        vx + 2 * (w * cx + (y * cz - z * cy)),
+        vy + 2 * (w * cy + (z * cx - x * cz)),
+        vz + 2 * (w * cz + (x * cy - y * cx)),
+      ];
+    };
+    const world = rotate(q0, t1).map((v, i) => v + (t0[i] as number));
+    for (const v of world) expect(Math.abs(v)).toBeLessThan(1e-6);
+    const [ax, ay, az, aw] = q0 as [number, number, number, number];
+    const [bx, by, bz, bw] = q1 as [number, number, number, number];
+    const qw = aw * bw - ax * bx - ay * by - az * bz;
+    expect(Math.abs(Math.abs(qw) - 1)).toBeLessThan(1e-6);
+  });
+
   it('is deterministic and writes JOINTS_0 in the skin order with WEIGHTS_0 summing to 1', async () => {
     const { write } = await character([{ name: 'Body', data: await cubeLad(), bound: true }]);
     const a = await writeCharacter(write, { generator: 'test', format: 'glb' });

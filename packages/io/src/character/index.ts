@@ -5,7 +5,7 @@
 // - nodes 0…J−1 = the joints in `skeleton` (skeletonFromDoc) order, TRS = the derived rest locals, scale 1; root
 //   joints under scene 0;
 // - then one node per mesh (identity; names unique among siblings): skinned meshes under scene 0 with the skin,
-//   static (unbound) meshes as children of the first root joint;
+//   static (unbound) meshes as children of the first root joint, TRS = the inverse of its rest (character space);
 // - one skin: `joints` = every joint in skeleton order, `skeleton` = node 0, `inverseBindMatrices` = (W⁰_j)⁻¹ float32;
 // - primitives from M6a's `meshToPrimitives`, JOINTS_0 remapped from the mesh's palette to the skin order (u8 up to
 //   256 joints, else u16), WEIGHTS_0 float32 renormalized; no TANGENT;
@@ -135,7 +135,12 @@ export async function writeCharacter(input: CharacterWriteInput, opts: Character
     const parent = bound ? null : (joints[0] ?? null);
     const node = doc.createNode(uniqueName(names, parent, source.name));
     if (parent === null) scene.addChild(node);
-    else parent.addChild(node);
+    else {
+      parent.addChild(node);
+      // Mesh data is in character space: undo the root joint's rest so root world × mesh local = identity at rest.
+      const rootRest = skeletonNodes[0]?.restLocal;
+      if (rootRest !== undefined) setInverseRest(node, rootRest.t, rootRest.q);
+    }
     const gltfMesh = writeMesh(doc, buffer, mesh, materials, source, bound ? nodeOfJoint : null, joints.length, vrm);
     if (gltfMesh === null) continue;
     node.setMesh(gltfMesh);
@@ -209,6 +214,27 @@ function jointNodeIndex(input: CharacterWriteInput): ReadonlyMap<string, number>
     if (index !== undefined) out.set(joint.id, index);
   }
   return out;
+}
+
+/**
+ * Sets `node`'s TRS to the inverse of the rest (t, q, scale 1): rotation q⁻¹, translation −(q⁻¹ · t). An identity rest
+ * leaves the node untouched (identity, so files of characters with the root at the origin keep their bytes).
+ */
+function setInverseRest(node: Node, t: readonly number[], q: readonly number[]): void {
+  const [tx, ty, tz] = [t[0] ?? 0, t[1] ?? 0, t[2] ?? 0];
+  const [qx, qy, qz, qw] = [q[0] ?? 0, q[1] ?? 0, q[2] ?? 0, q[3] ?? 1];
+  if (tx === 0 && ty === 0 && tz === 0 && qx === 0 && qy === 0 && qz === 0) return;
+  // Conjugate (q is unit); rotate t by it: v' = v + 2w(u×v) + 2u×(u×v) with u = (ix, iy, iz), w = qw.
+  const [ix, iy, iz] = [-qx, -qy, -qz];
+  const cx = iy * tz - iz * ty;
+  const cy = iz * tx - ix * tz;
+  const cz = ix * ty - iy * tx;
+  const rx = tx + 2 * (qw * cx + (iy * cz - iz * cy));
+  const ry = ty + 2 * (qw * cy + (iz * cx - ix * cz));
+  const rz = tz + 2 * (qw * cz + (ix * cy - iy * cx));
+  const clean = (v: number): number => (v === 0 ? 0 : v);
+  node.setTranslation([clean(-rx), clean(-ry), clean(-rz)]);
+  node.setRotation([clean(ix), clean(iy), clean(iz), qw]);
 }
 
 function uniqueName(names: Map<Node | null, Set<string>>, parent: Node | null, wanted: string): string {
