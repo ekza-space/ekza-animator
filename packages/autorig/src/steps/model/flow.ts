@@ -103,6 +103,10 @@ export async function runIntake(
   const ui = modelUi(ctx);
   if (ui.get().loading !== null) return null;
   if (fresh && !(await startFresh(ctx))) return null;
+  // A new model starts at ① with fresh checks (AR-R4-1): a step the reload restored for the previous model (the
+  // mirror's ②, waiting for its document) is dropped, so a file chosen instead of *Continue* never skips ①.
+  ctx.ui.set((current) => (current.pendingStep === null ? current : { ...current, pendingStep: null }));
+  if (ctx.session.getState().step !== 'model') ctx.session.set({ step: 'model' });
   ui.set((current) => ({ ...current, loading: label, error: null, rerig: null, choose: null }));
   ctx.setFooter({ status: messages().model.loading(label), tone: 'info' });
   try {
