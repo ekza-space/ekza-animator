@@ -16,11 +16,15 @@ const appDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repoDir = resolve(appDir, '../..');
 const publicDir = join(appDir, 'public');
 
-/** SampleId (editor-core OperatorMap `file.loadSample`) → fixture path. */
+/** SampleId (editor-core OperatorMap `file.loadSample`) and Auto-Rig's static samples (`autorig.sample`, AUTORIG-SPEC
+ *  §4.5, §5.2: the M6b C0 fixtures, fetched from `/samples/`) → fixture path. */
 const SAMPLES = {
   'seed-san.vrm': 'fixtures/models/seed-san.vrm',
   'polybot.vrm': 'fixtures/models/polybot.vrm',
   'quaternius-ual.glb': 'fixtures/animations/quaternius-ual.glb',
+  'cube-lad.glb': 'fixtures/models/cube-lad.glb',
+  'polybot-unskinned-tpose.glb': 'fixtures/models/polybot-unskinned-tpose.glb',
+  'polybot-unskinned.glb': 'fixtures/models/polybot-unskinned.glb',
 };
 
 const DECODERS = ['draco/gltf', 'basis', 'meshopt_decoder.module.js'];

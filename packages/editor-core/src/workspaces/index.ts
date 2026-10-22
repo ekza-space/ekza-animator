@@ -235,6 +235,8 @@ export {
   type PaneDisplayPort,
   paneDisplayPort,
   providePaneDisplay,
+  hostNavigation,
+  provideNavigation,
   provideShellOverlays,
   type ShellOverlayPort,
   shellOverlayPort,

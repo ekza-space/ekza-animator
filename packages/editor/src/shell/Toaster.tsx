@@ -1,9 +1,10 @@
-// Toasts (research 09 §6.5): bottom-right above the timeline, at most three, with an optional action (Undo).
+// Toasts (research 09 §6.5): bottom-right above the timeline, at most three, with an optional action (Undo). Mounted by
+// the page's host on every route (AUTORIG-SPEC §4.4).
 import { Toast, ToastAction, ToastClose, ToastTitle, ToastViewport } from '@ekza-studio/ui';
 import type { JSX } from 'react';
 import { useStoreSelector } from '../hooks/useStoreSelector';
 import type { ToastItem, ToastNotifier } from '../services/notify';
-import { useShell } from './context';
+import { useHost } from '../host/context';
 
 const selectToasts = (state: { readonly toasts: readonly ToastItem[] }): readonly ToastItem[] => state.toasts;
 
@@ -22,7 +23,7 @@ function releaseToastFocus(): void {
 }
 
 export function Toaster(props: { readonly notifier: ToastNotifier }): JSX.Element {
-  const shell = useShell();
+  const shell = useHost();
   const toasts = useStoreSelector(props.notifier.store, selectToasts);
   return (
     <>

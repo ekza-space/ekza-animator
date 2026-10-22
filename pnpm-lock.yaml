@@ -86,6 +86,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@ekza-studio/autorig':
+        specifier: workspace:*
+        version: link:../../packages/autorig
       '@ekza-studio/editor':
         specifier: workspace:*
         version: link:../../packages/editor
@@ -165,6 +168,40 @@ importers:
       three:
         specifier: 'catalog:'
         version: 0.186.1
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@types/node@24.19.1)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@24.19.1)(jiti@2.7.0))
+
+  packages/autorig:
+    dependencies:
+      '@ekza-studio/anim-core':
+        specifier: workspace:*
+        version: link:../anim-core
+      '@ekza-studio/doc':
+        specifier: workspace:*
+        version: link:../doc
+      '@ekza-studio/editor':
+        specifier: workspace:*
+        version: link:../editor
+      '@ekza-studio/editor-core':
+        specifier: workspace:*
+        version: link:../editor-core
+      '@ekza-studio/ui':
+        specifier: workspace:*
+        version: link:../ui
+      '@ekza-studio/viewport':
+        specifier: workspace:*
+        version: link:../viewport
+      react:
+        specifier: 'catalog:'
+        version: 19.3.0
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.1
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.3.0
       vitest:
         specifier: 'catalog:'
         version: 4.1.11(@types/node@24.19.1)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@24.19.1)(jiti@2.7.0))

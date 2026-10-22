@@ -12,8 +12,13 @@
 // closure the controller passes); a write stores only the blobs the database does not have, checks inside its
 // transaction that the ones it relies on are still there, and an idle pass after a write or a removal deletes the
 // blobs no slot lists. `read(slot).blob` reads them back for recovery (lazily, through the BlobStore's sources).
+//
+// AUTORIG-SPEC §4.4 (D1): one-shot **handoff records** (`writeHandoff` / `takeHandoff` / `pruneHandoffs`) are rows of
+// `slots` keyed `handoff:<id>` with no slot info (so they are never orphans and never claims) and their `HandoffInfo`;
+// they hold their assets and blobs like a slot (the collections keep what any row lists), are written whatever the
+// page's own slot does, and are read once: `takeHandoff` deletes the row it returns.
 import type { AssetId, AssetRecord } from '@ekza-studio/doc';
-import type { AutosaveSlotInfo, AutosaveStore, BlobId } from '@ekza-studio/editor-core';
+import type { AutosaveSlotInfo, AutosaveStore, BlobId, HandoffInfo } from '@ekza-studio/editor-core';
 
 /** Kept from the Ekza Animator name (DECISIONS-OPEN NAME-1): a new name would hide existing recovery points. */
 export const AUTOSAVE_DB = 'ekza-animator-autosave-v1';
@@ -32,7 +37,7 @@ const BLOBS = 'blobs';
 const BASE62 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
 /** One row of `slots`. A row without a snapshot is a claimed slot (heartbeat) with nothing to recover yet. */
-interface SlotRow {
+export interface SlotRow {
   readonly id: string;
   readonly info: Omit<AutosaveSlotInfo, 'id'> | null;
   readonly snapshot: string | null;
@@ -40,7 +45,12 @@ interface SlotRow {
   readonly heartbeatAt: number | null;
   /** M6a: the slot's mesh blob set (absent in rows written by M2a). */
   readonly blobs?: readonly BlobId[];
+  /** AUTORIG-SPEC §4.4: a handoff record (`id` = `handoff:<id>`, `info` null). */
+  readonly handoff?: HandoffInfo;
 }
+
+/** The `slots` key of a handoff record. */
+const handoffKey = (id: string): string => `handoff:${id}`;
 
 /** One row of `blobs` (M6a). */
 interface BlobRow {
@@ -262,6 +272,155 @@ export function createIndexedDbAutosaveStore(opts: IndexedDbAutosaveOptions = {}
     await completed(tx);
   };
 
+  /**
+   * Writes one row of `slots` — a slot, or a handoff record — with its assets and blobs: the bytes the database lacks
+   * are read first, then one transaction stores them and the row (`rowOf` gives the row's own fields).
+   */
+  const put = async (
+    slot: string,
+    data: { readonly snapshotJson: string; readonly assets: readonly AssetRecord[]; readonly blobs: readonly BlobId[] },
+    readAsset: (id: AssetId) => Promise<Uint8Array>,
+    readBlob: (id: BlobId) => Promise<Uint8Array>,
+    rowOf: (bytes: number) => Pick<SlotRow, 'info' | 'heartbeatAt' | 'handoff'>,
+  ): Promise<{ readonly bytes: number }> => {
+    const handle = await db();
+    /** Bytes read so far (a write that starts over does not read them again). */
+    const read = new Map<AssetId, Uint8Array>();
+    const readBlobs = new Map<BlobId, Uint8Array>();
+    const slotBlobs = [...new Set(data.blobs)].sort();
+    for (let attempt = 1; ; attempt++) {
+      const known = new Set(
+        (await promised(handle.transaction(ASSETS, 'readonly').objectStore(ASSETS).getAllKeys())).filter(
+          (key): key is string => typeof key === 'string',
+        ),
+      );
+      const knownBlobs = new Set(
+        (await promised(handle.transaction(BLOBS, 'readonly').objectStore(BLOBS).getAllKeys())).filter(
+          (key): key is string => typeof key === 'string',
+        ),
+      );
+      // Mesh blobs the database does not have yet (read outside the transaction, like assets).
+      const freshBlobs = new Map<BlobId, BlobRow>();
+      for (const id of slotBlobs) {
+        if (knownBlobs.has(id)) continue;
+        const bytes = readBlobs.get(id) ?? (await readBlob(id));
+        readBlobs.set(id, bytes);
+        freshBlobs.set(id, { id, bytes: own(bytes) });
+      }
+      // Bytes of assets this database has not seen yet (read outside the transaction: it must not wait on them).
+      const fresh = new Map<AssetId, AssetRow>();
+      for (const record of data.assets) {
+        if (known.has(record.id) || fresh.has(record.id)) continue;
+        const bytes = read.get(record.id) ?? (await readAsset(record.id));
+        read.set(record.id, bytes);
+        // Structured cloning a view stores its whole buffer: keep exactly the asset's bytes.
+        fresh.set(record.id, { id: record.id, record, bytes: own(bytes) });
+      }
+      const bytes =
+        utf8Length(data.snapshotJson) +
+        [...fresh.values()].reduce((sum, row) => sum + row.bytes.byteLength, 0) +
+        [...freshBlobs.values()].reduce((sum, row) => sum + row.bytes.byteLength, 0);
+      const row: SlotRow = {
+        id: slot,
+        snapshot: data.snapshotJson,
+        assets: data.assets.map((record) => record.id),
+        blobs: slotBlobs,
+        ...rowOf(bytes),
+      };
+      const tx = handle.transaction([SLOTS, ASSETS, BLOBS], 'readwrite');
+      const assets = tx.objectStore(ASSETS);
+      const blobStore = tx.objectStore(BLOBS);
+      for (const asset of fresh.values()) assets.put(asset);
+      for (const blob of freshBlobs.values()) blobStore.put(blob);
+      // An asset listed above may have been collected since (another page's removal, a discard, housekeeping):
+      // check each one inside this transaction, and start over when one is gone, so that a slot never points at
+      // bytes the database no longer has.
+      let missing = false;
+      for (const record of data.assets) {
+        if (fresh.has(record.id)) continue;
+        const check = assets.count(record.id);
+        check.onsuccess = () => {
+          if (check.result > 0 || missing) return;
+          missing = true;
+          tx.abort();
+        };
+      }
+      // The same for the blobs this slot shares with others (an idle collection elsewhere may have run).
+      for (const id of slotBlobs) {
+        if (freshBlobs.has(id)) continue;
+        const check = blobStore.count(id);
+        check.onsuccess = () => {
+          if (check.result > 0 || missing) return;
+          missing = true;
+          tx.abort();
+        };
+      }
+      tx.objectStore(SLOTS).put(row);
+      const others = tx.objectStore(SLOTS).getAll();
+      others.onsuccess = () => {
+        const rows = (others.result as SlotRow[]).map((other) => (other.id === slot ? row : other));
+        collectAssets(tx, rows);
+      };
+      try {
+        await completed(tx);
+        // The previous content of this slot may have been the last user of some blobs.
+        scheduleCollection();
+        return { bytes };
+      } catch (error) {
+        if (!missing) throw error;
+        if (attempt >= MAX_WRITE_ATTEMPTS) {
+          throw new DOMException('The autosave assets kept changing during the write', 'AbortError');
+        }
+      }
+    }
+  };
+
+  const readRow = async (slot: string) => {
+    const tx = (await db()).transaction([SLOTS, ASSETS], 'readonly');
+    const row = (await promised(tx.objectStore(SLOTS).get(slot))) as SlotRow | undefined;
+    if (row === undefined || row.snapshot === null) return null;
+    const assets = new Map<AssetId, { readonly record: AssetRecord; readonly bytes: Uint8Array }>();
+    for (const id of row.assets) {
+      const asset = (await promised(tx.objectStore(ASSETS).get(id))) as AssetRow | undefined;
+      if (asset !== undefined) assets.set(id, { record: asset.record, bytes: new Uint8Array(asset.bytes) });
+    }
+    // M6a: the slot's mesh blobs, read on demand (recovery loads them lazily through the BlobStore).
+    const listed = new Set<string>(row.blobs ?? []);
+    const blob = async (id: BlobId): Promise<Uint8Array | undefined> => {
+      if (!listed.has(id)) return undefined;
+      const found = (await promised((await db()).transaction(BLOBS, 'readonly').objectStore(BLOBS).get(id))) as
+        | BlobRow
+        | undefined;
+      return found === undefined ? undefined : new Uint8Array(found.bytes);
+    };
+    return { snapshot: JSON.parse(row.snapshot) as unknown, assets, blob };
+  };
+
+  const removeRow = async (slot: string): Promise<void> => {
+    const tx = (await db()).transaction([SLOTS, ASSETS], 'readwrite');
+    const slots = tx.objectStore(SLOTS);
+    if (slot === ownSlot && locks === null) {
+      // This page's claim stays (its heartbeat); only the recoverable content goes.
+      const request = slots.get(slot);
+      request.onsuccess = () => {
+        if (request.result !== undefined) {
+          slots.put({ id: slot, info: null, snapshot: null, assets: [], heartbeatAt: now() } satisfies SlotRow);
+        }
+      };
+    } else {
+      slots.delete(slot);
+    }
+    const rest = slots.getAll();
+    rest.onsuccess = () => {
+      collectAssets(
+        tx,
+        (rest.result as SlotRow[]).filter((row) => row.id !== slot),
+      );
+    };
+    await completed(tx);
+    scheduleCollection();
+  };
+
   return {
     async open(): Promise<string> {
       if (ownSlot !== null) return ownSlot;
@@ -290,99 +449,11 @@ export function createIndexedDbAutosaveStore(opts: IndexedDbAutosaveOptions = {}
       return slot;
     },
 
-    async write(slot, data, readAsset, readBlob): Promise<{ readonly bytes: number }> {
-      const handle = await db();
-      /** Bytes read so far (a write that starts over does not read them again). */
-      const read = new Map<AssetId, Uint8Array>();
-      const readBlobs = new Map<BlobId, Uint8Array>();
-      const slotBlobs = [...new Set(data.blobs)].sort();
-      for (let attempt = 1; ; attempt++) {
-        const known = new Set(
-          (await promised(handle.transaction(ASSETS, 'readonly').objectStore(ASSETS).getAllKeys())).filter(
-            (key): key is string => typeof key === 'string',
-          ),
-        );
-        const knownBlobs = new Set(
-          (await promised(handle.transaction(BLOBS, 'readonly').objectStore(BLOBS).getAllKeys())).filter(
-            (key): key is string => typeof key === 'string',
-          ),
-        );
-        // Mesh blobs the database does not have yet (read outside the transaction, like assets).
-        const freshBlobs = new Map<BlobId, BlobRow>();
-        for (const id of slotBlobs) {
-          if (knownBlobs.has(id)) continue;
-          const bytes = readBlobs.get(id) ?? (await readBlob(id));
-          readBlobs.set(id, bytes);
-          freshBlobs.set(id, { id, bytes: own(bytes) });
-        }
-        // Bytes of assets this database has not seen yet (read outside the transaction: it must not wait on them).
-        const fresh = new Map<AssetId, AssetRow>();
-        for (const record of data.assets) {
-          if (known.has(record.id) || fresh.has(record.id)) continue;
-          const bytes = read.get(record.id) ?? (await readAsset(record.id));
-          read.set(record.id, bytes);
-          // Structured cloning a view stores its whole buffer: keep exactly the asset's bytes.
-          fresh.set(record.id, { id: record.id, record, bytes: own(bytes) });
-        }
-        const bytes =
-          utf8Length(data.snapshotJson) +
-          [...fresh.values()].reduce((sum, row) => sum + row.bytes.byteLength, 0) +
-          [...freshBlobs.values()].reduce((sum, row) => sum + row.bytes.byteLength, 0);
-        const row: SlotRow = {
-          id: slot,
-          info: { ...data.info, bytes },
-          snapshot: data.snapshotJson,
-          assets: data.assets.map((record) => record.id),
-          heartbeatAt: locks === null ? now() : null,
-          blobs: slotBlobs,
-        };
-        const tx = handle.transaction([SLOTS, ASSETS, BLOBS], 'readwrite');
-        const assets = tx.objectStore(ASSETS);
-        const blobStore = tx.objectStore(BLOBS);
-        for (const asset of fresh.values()) assets.put(asset);
-        for (const blob of freshBlobs.values()) blobStore.put(blob);
-        // An asset listed above may have been collected since (another page's removal, a discard, housekeeping):
-        // check each one inside this transaction, and start over when one is gone, so that a slot never points at
-        // bytes the database no longer has.
-        let missing = false;
-        for (const record of data.assets) {
-          if (fresh.has(record.id)) continue;
-          const check = assets.count(record.id);
-          check.onsuccess = () => {
-            if (check.result > 0 || missing) return;
-            missing = true;
-            tx.abort();
-          };
-        }
-        // The same for the blobs this slot shares with others (an idle collection elsewhere may have run).
-        for (const id of slotBlobs) {
-          if (freshBlobs.has(id)) continue;
-          const check = blobStore.count(id);
-          check.onsuccess = () => {
-            if (check.result > 0 || missing) return;
-            missing = true;
-            tx.abort();
-          };
-        }
-        tx.objectStore(SLOTS).put(row);
-        const others = tx.objectStore(SLOTS).getAll();
-        others.onsuccess = () => {
-          const rows = (others.result as SlotRow[]).map((other) => (other.id === slot ? row : other));
-          collectAssets(tx, rows);
-        };
-        try {
-          await completed(tx);
-          // The previous content of this slot may have been the last user of some blobs.
-          scheduleCollection();
-          return { bytes };
-        } catch (error) {
-          if (!missing) throw error;
-          if (attempt >= MAX_WRITE_ATTEMPTS) {
-            throw new DOMException('The autosave assets kept changing during the write', 'AbortError');
-          }
-        }
-      }
-    },
+    write: (slot, data, readAsset, readBlob) =>
+      put(slot, data, readAsset, readBlob, (bytes) => ({
+        info: { ...data.info, bytes },
+        heartbeatAt: locks === null ? now() : null,
+      })),
 
     async listOrphans(): Promise<readonly AutosaveSlotInfo[]> {
       const [rows, held] = await Promise.all([allSlots(), heldLocks()]);
@@ -393,50 +464,24 @@ export function createIndexedDbAutosaveStore(opts: IndexedDbAutosaveOptions = {}
         .sort((a, b) => b.savedAt - a.savedAt);
     },
 
-    async read(slot) {
-      const tx = (await db()).transaction([SLOTS, ASSETS], 'readonly');
-      const row = (await promised(tx.objectStore(SLOTS).get(slot))) as SlotRow | undefined;
-      if (row === undefined || row.snapshot === null) return null;
-      const assets = new Map<AssetId, { readonly record: AssetRecord; readonly bytes: Uint8Array }>();
-      for (const id of row.assets) {
-        const asset = (await promised(tx.objectStore(ASSETS).get(id))) as AssetRow | undefined;
-        if (asset !== undefined) assets.set(id, { record: asset.record, bytes: new Uint8Array(asset.bytes) });
-      }
-      // M6a: the slot's mesh blobs, read on demand (recovery loads them lazily through the BlobStore).
-      const listed = new Set<string>(row.blobs ?? []);
-      const blob = async (id: BlobId): Promise<Uint8Array | undefined> => {
-        if (!listed.has(id)) return undefined;
-        const found = (await promised((await db()).transaction(BLOBS, 'readonly').objectStore(BLOBS).get(id))) as
-          | BlobRow
-          | undefined;
-        return found === undefined ? undefined : new Uint8Array(found.bytes);
-      };
-      return { snapshot: JSON.parse(row.snapshot) as unknown, assets, blob };
-    },
+    read: readRow,
+    remove: removeRow,
 
-    async remove(slot): Promise<void> {
-      const tx = (await db()).transaction([SLOTS, ASSETS], 'readwrite');
-      const slots = tx.objectStore(SLOTS);
-      if (slot === ownSlot && locks === null) {
-        // This page's claim stays (its heartbeat); only the recoverable content goes.
-        const request = slots.get(slot);
-        request.onsuccess = () => {
-          if (request.result !== undefined) {
-            slots.put({ id: slot, info: null, snapshot: null, assets: [], heartbeatAt: now() } satisfies SlotRow);
-          }
-        };
-      } else {
-        slots.delete(slot);
-      }
-      const rest = slots.getAll();
-      rest.onsuccess = () => {
-        collectAssets(
-          tx,
-          (rest.result as SlotRow[]).filter((row) => row.id !== slot),
-        );
-      };
-      await completed(tx);
-      scheduleCollection();
+    // ---------- AUTORIG-SPEC §4.4: one-shot handoff records ----------
+    writeHandoff: (id, data, readAsset, readBlob) =>
+      put(handoffKey(id), data, readAsset, readBlob, () => ({ info: null, heartbeatAt: null, handoff: data.info })),
+
+    // Read once, on a `?handoff=` page only: a lazy chunk with the store's row helpers.
+    takeHandoff: (id) =>
+      import('../host/handoffStore').then((m) => m.takeHandoff({ allSlots, readRow, removeRow, now }, handoffKey(id))),
+
+    async pruneHandoffs(olderThanMs) {
+      const at = now();
+      const old = (await allSlots()).filter(
+        (row) => row.handoff !== undefined && at - row.handoff.createdAt > olderThanMs,
+      );
+      for (const row of old) await removeRow(row.id);
+      return old.length;
     },
     /** Resolves once the last scheduled idle blob collection has run (tests). */
     blobsCollected: () => collected,

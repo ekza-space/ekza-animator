@@ -5,16 +5,11 @@
 // Rig switches to (`applyRigLayout`, C3). Eager and small: `layout.ts` builds the default dock layout from here.
 import { type EditorApp, PANEL, type PanelKind, type ViewportLayout } from '@ekza-studio/editor-core';
 import type { DockviewApi, IDockviewPanel } from 'dockview-react';
+import { RIG_LAYOUT, type RigLayoutId } from '../../host/panes';
 import type { PanelComponent } from '../layout';
 
-/** Layout preset ids of Rig & Skin (§0.5): R-Side and R-Markers are viewport layouts of the same name. */
-export const RIG_LAYOUT = { side: 'rig-side', markers: 'rig-markers' } as const;
-export type RigLayoutId = (typeof RIG_LAYOUT)[keyof typeof RIG_LAYOUT];
-
-/** Pane ids of R-Markers (CR-AR-5: exported so other shells mount the markers tool in the same panes). */
-export const RIG_MARKER_PANES = { front: 'pane-front', side: 'pane-side', persp: 'pane-persp' } as const;
-/** R-Markers pane widths in percent (`front │ side │ persp`). */
-export const RIG_MARKER_SIZES: readonly [number, number, number] = [40, 30, 30];
+// AUTORIG-SPEC D1: the pane ids, sizes and preset ids live in `host/panes.ts` (no dockview path on `/autorig`).
+export { RIG_LAYOUT, RIG_MARKER_PANES, RIG_MARKER_SIZES, type RigLayoutId } from '../../host/panes';
 
 /** The viewport presets Rig & Skin offers (status line, Windows › Layout). */
 export const RIG_LAYOUTS: readonly { readonly layout: ViewportLayout; readonly label: string }[] = [
