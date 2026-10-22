@@ -198,6 +198,19 @@ specified assertions); D3's `autorig/src/shell/controller.ts` (subject adoption)
   Straighten 20 ms; export 13 ms + 80 ms; idle on ⑤ 0 frames; dockview on `/autorig` **0 files**; first motion-test
   frame 335 ms (report-only, AR-D7-13).
 
+## On `dev` (after the fix-round merge `8fca2da6`)
+
+Every `autorig/*` package branch is an ancestor of `dev` (`git rev-list dev..<branch>` empty for `autorig/mvp`,
+`contracts`, `a-pose`, `studio-host`, `entry-chooser`, `wizard-shell`, `rig-steps`, `animations`, `export`,
+`integration`). The merged worktrees `_workspace/worktrees/animator/ar-*` are removed (clean, no running processes);
+the branches are kept. README's feature table gained the Auto-Rig row (and the A-pose path under Rig & Skin).
+
+Gate in the main checkout on `dev`, local Chrome with the GPU, load average 21–38 from other agents:
+`EKZA_E2E_PORT=3100 pnpm run ci` **exit 0** in one pass — format:check, lint, typecheck, check:deps, check:fixtures,
+check:licenses, `test` 16/16 tasks, `clean:next`, build, **check:size** (`/editor` **896,741 B** ≤ 900,000 B, AR-B1
+eager delta +1,053 B of +2,048 B, limit 897,736 B; `/autorig` **658,181 B** ≤ 660,000 B, enforced), **test:e2e
+343 passed, 24 skipped, 0 failed** (3.5 min; the skips are the suite's existing `fixme`/conditional ones).
+
 ## Open for the owner
 
 - AS-AR-1 and AS-AR-2 by hand in Chrome, timed (§10 D7 DoD); the owner demo below.

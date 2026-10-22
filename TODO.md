@@ -110,7 +110,9 @@ items (eager allowance, marquee budget miss, bevel limits, feel check, demo scri
 A Mixamo-style simple mode next to the full Studio, chosen on opening: upload a model → markers → auto-rig → try
 animations → export an OMOBA/Space VRM, built only from Studio's and M6b's operators (a second shell over the same app
 and document). Spec: [AUTORIG-SPEC](docs/AUTORIG-SPEC.md) v0.3, [ADR 0021](docs/adr/0021-autorig-mode.md) (Proposed
-until the owner accepts the spec). Integration branch `autorig/mvp` (from `dev`).
+until the owner accepts the spec). Integration branch `autorig/mvp` (from `dev`), merged into `dev` (`--no-ff`, with
+fix round 1); the full gate is green on `dev` (`pnpm run ci`: 16/16 unit tasks, `/editor` 896,741 B, `/autorig`
+658,181 B, e2e 343 passed / 24 skipped / 0 failed); the `ar-*` worktrees are removed, the branches kept.
 
 - [x] D0 contracts, route-group-proof size tooling, AR-B1 re-baseline, the layout spike (shared layout kept).
 - [x] A0 the A-pose path in Studio (T-Stance, Apply Pose as Rest, *Straighten to T-Pose*), D1 the studio host and
