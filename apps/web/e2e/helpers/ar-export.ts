@@ -187,7 +187,7 @@ export async function clipIds(page: Page, character: string): Promise<{ id: stri
   return (await call(page, 'clips', character)).map((clip) => ({ id: clip.id, name: clip.name, loop: clip.loop }));
 }
 
-const RESULTS = resolve(dirname(fileURLToPath(import.meta.url)), '../test-results/autorig');
+const RESULTS = resolve(dirname(fileURLToPath(import.meta.url)), '../../test-results/autorig');
 
 /** Writes an export to `test-results/autorig/` for the local OMOBA run (§11); returns the path. */
 export function keepExport(name: string, bytes: Uint8Array): string {
