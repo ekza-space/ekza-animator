@@ -12,6 +12,9 @@
 // - materials per M6a §5.19 with the swatch shaders of SHADING-SPEC §4 on lit meshes (Lambert: metallic 0 /
 //   roughness 1; Blinn: roughness 1 − glossiness and KHR_materials_specular, in extensionsUsed only), unlit meshes
 //   with KHR_materials_unlit; `format: 'vrm'` forces the palette texture (MToon ignores vertex colours, Q-LP-0);
+//   a mesh without a palette whose slots carry adopted asset materials with an image (`CharacterMeshIn.assetMaterials`,
+//   an imported textured model; AR-D7-15) writes those materials: name, base colour factor and image texture (one
+//   image per source image, its sampler and texCoord), alpha mode and cutoff, double-sidedness;
 // - clips: one animation per `input.clips` entry (tracks on joint nodes, shared input accessors), and
 //   `asset.extras.ekza_animation_v1` when the caller passes the clips' metadata;
 // - one embedded buffer, no `uri`, `extensionsRequired` never set; `asset.extras` carries `ekza_model_v1` and
@@ -29,6 +32,7 @@ import {
   type Node,
   type Skin,
   type Texture,
+  type TextureInfo,
   WebIO,
 } from '@gltf-transform/core';
 import { KHRMaterialsSpecular, KHRMaterialsUnlit } from '@gltf-transform/extensions';
@@ -38,6 +42,7 @@ import type { DetailedPrimitive } from '../mesh/toPrimitives';
 import { MODEL_META_KEY, modelBlock } from '../provenance/model';
 import { restWorldsOf } from '../skeleton/rest';
 import type {
+  CharacterAssetMaterial,
   CharacterMeshIn,
   CharacterWriteInput,
   EkzaAnimationV1,
@@ -249,8 +254,20 @@ function uniqueName(names: Map<Node | null, Set<string>>, parent: Node | null, w
   return name;
 }
 
+type WrapMode = ReturnType<TextureInfo['getWrapS']>;
+type MagFilter = ReturnType<TextureInfo['getMagFilter']>;
+type MinFilter = ReturnType<TextureInfo['getMinFilter']>;
+const WRAPS: readonly number[] = [CLAMP_TO_EDGE, 33648, 10497];
+const MAGS: readonly number[] = [NEAREST, LINEAR];
+const MINS: readonly number[] = [NEAREST, LINEAR, 9984, 9985, 9986, 9987];
+/** A sampler value of the source file when glTF knows it (else REPEAT / none). */
+const wrapOf = (value: number): WrapMode => (WRAPS.includes(value) ? value : 10497) as WrapMode;
+const magOf = (value: number | null): MagFilter => (value !== null && MAGS.includes(value) ? value : null) as MagFilter;
+const minOf = (value: number | null): MinFilter => (value !== null && MINS.includes(value) ? value : null) as MinFilter;
+
 class MaterialCache {
   private readonly textures = new Map<string, { readonly texture: Texture; readonly palette: PaletteTexture }>();
+  private readonly images = new Map<string, Texture>();
   private readonly materials = new Map<string, Material>();
   private unlit: KHRMaterialsUnlit | null = null;
   private specular: KHRMaterialsSpecular | null = null;
@@ -282,22 +299,51 @@ class MaterialCache {
     colour: readonly [number, number, number] | null,
     swatch: number | null,
     shading: SwatchShading | undefined,
+    asset: CharacterAssetMaterial | null = null,
   ): Material {
     // Shaders apply to lit materials only (SHADING-SPEC §4); '' keeps the pre-shader key, name and factors.
     const shader = preset.preset === 'lit' ? shading : undefined;
     const group = shaderKey(shader);
-    const key = JSON.stringify([preset.preset, preset.name, output, palette?.id ?? null, swatch, colour]) + group;
+    const adopted =
+      asset === null ? '' : JSON.stringify([asset.name, asset.baseColorFactor, asset.baseColorTexture?.key ?? null]);
+    const key =
+      JSON.stringify([preset.preset, preset.name, output, palette?.id ?? null, swatch, colour]) + group + adopted;
     const known = this.materials.get(key);
     if (known !== undefined) return known;
     const label = shaderLabel(shader);
-    const name =
-      swatch === null ? (label === '' ? preset.name : `${preset.name} ${label}`) : `${preset.name} swatch ${swatch}`;
+    const base = asset === null ? preset.name : asset.name;
+    const name = swatch === null ? (label === '' ? base : `${base} ${label}`) : `${base} swatch ${swatch}`;
     const factors = shaderFactors(shader);
+    const factor = asset?.baseColorFactor ?? [1, 1, 1, 1];
     const material = this.doc
       .createMaterial(name)
-      .setBaseColorFactor(colour === null ? [1, 1, 1, 1] : [colour[0], colour[1], colour[2], 1])
+      .setBaseColorFactor(
+        colour === null
+          ? [factor[0], factor[1], factor[2], factor[3]]
+          : [colour[0] * factor[0], colour[1] * factor[1], colour[2] * factor[2], factor[3]],
+      )
       .setMetallicFactor(factors.metallic)
       .setRoughnessFactor(factors.roughness);
+    if (asset !== null) {
+      if (asset.alphaMode !== 'OPAQUE') material.setAlphaMode(asset.alphaMode);
+      if (asset.alphaCutoff !== null) material.setAlphaCutoff(asset.alphaCutoff);
+      if (asset.doubleSided) material.setDoubleSided(true);
+      const image = asset.baseColorTexture;
+      if (image !== null && palette === null) {
+        let texture = this.images.get(image.key);
+        if (texture === undefined) {
+          texture = this.doc
+            .createTexture(`image ${this.images.size}`)
+            .setImage(image.image.slice())
+            .setMimeType(image.mimeType);
+          this.images.set(image.key, texture);
+        }
+        material.setBaseColorTexture(texture);
+        const info = material.getBaseColorTextureInfo();
+        info?.setTexCoord(image.texCoord).setWrapS(wrapOf(image.sampler.wrapS)).setWrapT(wrapOf(image.sampler.wrapT));
+        info?.setMagFilter(magOf(image.sampler.magFilter)).setMinFilter(minOf(image.sampler.minFilter));
+      }
+    }
     if (factors.specular !== null) {
       this.specular ??= this.doc.createExtension(KHRMaterialsSpecular);
       const c = factors.specular.colour;
@@ -341,6 +387,11 @@ function writeMesh(
   if (primitives.length === 0) return null;
   const found = output === 'palette-texture' ? materials.palette(source.paletteId) : null;
   const palette = found === null ? null : { id: source.paletteId as string, texture: found.texture };
+  // Adopted asset materials (AR-D7-15): on a mesh without a palette texture whose slots carry an image.
+  const adopted = source.assetMaterials ?? [];
+  const useAsset =
+    palette === null &&
+    adopted.some((material) => material !== null && material !== undefined && material.baseColorTexture !== null);
   const remap =
     nodeOfJoint === null || source.skin === null
       ? null
@@ -371,7 +422,15 @@ function writeMesh(
         doc,
         buffer,
         primitive,
-        materials.material(preset, output, palette, colour, primitive.swatch, shader),
+        materials.material(
+          preset,
+          output,
+          palette,
+          colour,
+          primitive.swatch,
+          shader,
+          useAsset ? (adopted[primitive.material] ?? null) : null,
+        ),
         remap,
         jointCount,
       ),
