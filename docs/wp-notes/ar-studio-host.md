@@ -67,10 +67,12 @@ macrotask: the pipeline's code now loads first), new test files
 | + lazy kernel-failure page, slim layout island, lazy `takeHandoff`, boot-time handoff read | 897,984 B | +2,252 B | 661,863 B |
 | + lazy toasts | 892,999 B | −2,733 B | 653,115 B |
 | toasts eager again (E2E-M2A-22), lazy file pipeline | 896,410 B | +678 B | 660,294 B |
-| + host operators of their own (AR-D1-4) — **shipped** | **896,248 B** | **+516 B** | **655,553 B** |
+| + host operators of their own (AR-D1-4) | 896,248 B | +516 B | 655,553 B |
+| + arrival keeps the workspace (AR-D1-12) — **shipped**, the final `pnpm run ci` | **896,278 B** | **+546 B** | **655,591 B** |
 
-`/editor` eager scripts 889,394 B + First-run dialog 6,854 B; the D1 delta +516 B is within its 1,408 B (892 B
-unused). `/autorig` 655,553 B is under the 660,000 B gate (target 620,000 B): the host, the kernel, three.js, R3F and the
+`/editor` eager scripts 889,424 B + First-run dialog 6,854 B; the D1 delta +546 B is within its 1,408 B (862 B
+unused; the AR-B1 total is +590 B over the 895,688 B baseline with D0's +44 B). `/autorig` 655,591 B is under the
+660,000 B gate (target 620,000 B): the host, the kernel, three.js, R3F and the
 viewport, without dockview, the curve editor, the panels or the Studio shell (every boundary of §7.2 holds). The
 integration agent records `routes.autorig` in `size-baseline.json` at the merge (§10 D1).
 
@@ -92,5 +94,9 @@ integration agent records `routes.autorig` in `size-baseline.json` at the merge 
 
 ## Gates
 
-Recorded in the final report of this package (format, lint, typecheck, check:deps, unit tests, build, check:size on
-both routes, E2E-AR-00/01 and the full e2e suite on port 3162, local Chrome).
+`EKZA_E2E_PORT=3162 pnpm run ci` green on `0246590` (format, lint, typecheck, check:deps, fixtures, licences, every
+package's unit tests, clean build, check:size on both routes as above, the full e2e suite on local Chrome: 263 passed,
+24 skipped — the stretch `fixme`s — 0 failed). An earlier run lost one editor unit test to a 30 s timeout under turbo's
+parallel load (`input.test.ts`, untouched by D1; it passes alone and in the next run); an earlier full e2e run under
+seven workers had four load-timing failures (`acceptance-round1` press interval, `m6a-25`, `m6a-26`, `shading-01`)
+that pass alone and in the final run.
