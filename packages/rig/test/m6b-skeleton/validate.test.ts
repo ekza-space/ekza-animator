@@ -124,6 +124,28 @@ describe('checkSkeleton', () => {
     expect(codes(joints, [mesh(grounded, false)])).toEqual([]);
   });
 
+  it('AR-R4-2: skel.height — a humanoid outside 0.3–3 m (a centimetre export rigged at 5.83 m)', () => {
+    const tall = (height: number) =>
+      templateJointRecords(
+        skeletonTemplate('standard33', { height, proportions: 'standard', flexion: DEFAULT_FLEXION }),
+        SKEL,
+      );
+    const giant = checkSkeleton({ skeleton, joints: tall(5.83), meshes: [] });
+    expect(giant.map((p) => p.code)).toContain('skel.height');
+    expect(giant.find((p) => p.code === 'skel.height')?.message).toMatch(/^The character is 5\.\d\d m tall/);
+    expect(codes(tall(0.2))).toContain('skel.height');
+    expect(codes(tall(2.9))).not.toContain('skel.height');
+    expect(codes(tall(0.5))).not.toContain('skel.height');
+    // the meshes' bounds decide when there are meshes: a unit cube is a 1 m model whatever the joints say
+    const cubeMesh = {
+      id: 'msh_a' as MeshId,
+      data: cube,
+      skin: null,
+      placement: mat4Compose({ t: [0, 0.5, 0], q: [0, 0, 0, 1], s: [1, 1, 1] }),
+    };
+    expect(codes(tall(5.83), [cubeMesh])).not.toContain('skel.height');
+  });
+
   it('orientation-mixed: siblings with World and aimed rests', () => {
     expect(codes(patch(human(), 'leftUpperLeg', { restRotation: [0, 0, 0.2, Math.sqrt(0.96)] }))).toContain(
       'skel.orientation-mixed',

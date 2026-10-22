@@ -1408,7 +1408,7 @@ export function chainParent(joints: readonly JointRecord[], point: readonly numb
 export function socketPlacement(joints: readonly JointRecord[], preset: 'back' | 'hipL' | 'hipR' | 'handL' | 'handR',
   bvh: TriangleBvh, height: number): { readonly parent: JointId; readonly position: readonly [number, number, number] } | null;
 export type RigProblemCode = 'skel.required-bones' | 'skel.unique-names' | 'skel.unique-human-bone' | 'skel.parent-map'
-  | 'skel.multiple-roots' | 'skel.tpose' | 'skel.hinge-bend' | 'skel.symmetry' | 'skel.grounded' | 'skel.facing'
+  | 'skel.multiple-roots' | 'skel.tpose' | 'skel.hinge-bend' | 'skel.symmetry' | 'skel.grounded' | 'skel.facing' | 'skel.height'
   | 'skel.orientation-mixed' | 'xform.scale' | 'xform.not-frozen' | 'pose.bind-mismatch' | 'rig.constraint-cycle'
   | 'rig.constraint-dangling' | 'rig.constraint-conflict' | 'rig.constraint-invalid' | 'rig.out-of-sync';
 export interface RigProblem { readonly code: RigProblemCode; readonly ids: readonly string[]; readonly message: string }

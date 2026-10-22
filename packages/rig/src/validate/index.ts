@@ -26,6 +26,9 @@ export const SKELETON_CHECKS = Object.freeze({
   /** Pairs mirror within 0.01 H; meshes grounded within 0.01 H. */
   symmetry: 0.01,
   grounded: 0.01,
+  /** A humanoid's height in metres (AUTORIG-SPEC §5.2's *Size* limits; AR-R4-2): Ekza Space places avatars in metres. */
+  heightMin: 0.3,
+  heightMax: 3,
 });
 
 const sub = (a: readonly number[], b: readonly number[]): V3 => [
@@ -59,6 +62,14 @@ export function checkSkeleton(input: DocSkeletonInput): readonly RigProblem[] {
   if (humanoid) {
     const missing = VRM_REQUIRED_BONES.filter((name) => bone(name) === undefined);
     if (missing.length > 0) push('skel.required-bones', missing, `Missing VRM bones: ${missing.join(', ')}`);
+    // AR-R4-2: a person is 0.3–3 m tall; a centimetre export (5.83 m) stands as a giant in Ekza Space
+    if (H > 0 && (H < SKELETON_CHECKS.heightMin || H > SKELETON_CHECKS.heightMax)) {
+      push(
+        'skel.height',
+        input.meshes.map((mesh) => mesh.id),
+        `The character is ${H.toFixed(2)} m tall: a person is ${SKELETON_CHECKS.heightMin}–${SKELETON_CHECKS.heightMax} m (Ekza Space uses metres)`,
+      );
+    }
   }
   // ---------- uniqueness ----------
   const byName = new Map<string, string[]>();
