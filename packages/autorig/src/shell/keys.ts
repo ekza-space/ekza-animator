@@ -22,11 +22,12 @@ export function matchesChord(chord: Chord, e: KeyboardEvent, mac: boolean): bool
 
 const TEXT_TYPES = new Set(['text', 'search', 'email', 'url', 'tel', 'password', 'number']);
 
-/** A text field has the focus (its keys stay its own). */
+/** A text field has the focus (its keys stay its own). Duck-typed: an element with a tag name. */
 export function inText(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  if (target instanceof HTMLTextAreaElement || target.isContentEditable) return true;
-  return target instanceof HTMLInputElement && TEXT_TYPES.has(target.type);
+  const el = target as { tagName?: unknown; type?: unknown; isContentEditable?: unknown } | null;
+  if (el === null || typeof el.tagName !== 'string') return false;
+  if (el.isContentEditable === true || el.tagName === 'TEXTAREA') return true;
+  return el.tagName === 'INPUT' && TEXT_TYPES.has(String(el.type));
 }
 
 /** The binding of a key press in a step, or null. */
