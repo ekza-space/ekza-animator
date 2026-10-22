@@ -36,7 +36,7 @@ import ValidationView from '../src/panels/validation';
 import { gettingStartedSteps, poseBadge } from '../src/panels/viewport/rig/overlays';
 import { ALL_SLOTS, slotsOf } from '../src/shell/layout';
 import { RIG_MENU_ITEMS } from '../src/shell/menus/rig';
-import { topMenus } from '../src/shell/menus';
+import { menuContents, topMenus } from '../src/shell/menus';
 import { applyRigLayout, RIG_LAYOUT, RIG_LAYOUTS, RIG_SLOTS } from '../src/shell/rig/layouts';
 import { followModeTabs, rememberTabs } from '../src/shell/rig/register';
 import { RIG_VIEW_ONLY_QUERY, rigNarrow, watchRigViewOnly } from '../src/shell/rig/viewOnly';
@@ -225,6 +225,17 @@ describe('the Rig menus (§0.4.5)', () => {
     await mountPlain(<Probe />);
     const bodies = (by('probe').textContent ?? '').split(',');
     expect(bodies).toEqual(['rigMode', 'poseView', 'rigSymmetry', 'rigSnap', 'jointDisplay']);
+    // The Component Editor is not built in the MVP (M6B-INT-2): Windows never lists it (Q-MVP-15, acceptance fix).
+    expect(test.app.menus.get('shell.windows.panel.componentEditor')).toBeUndefined();
+    expect(test.app.menus.get('shell.windows.panel.clipLibrary')).toBeDefined();
+    // File › Export Character… replaces the shared Export… in Rig & Skin (same dialog, §0.4.5); Animate keeps Export….
+    const fileLabels = () =>
+      menuContents(test.app, 'file', {}).sections.flatMap((section) => section.items.map((item) => item.label));
+    expect(fileLabels()).toContain('Export Character…');
+    expect(fileLabels()).not.toContain('Export…');
+    await run(test.app, 'workspace.set', { workspace: 'animate' });
+    expect(fileLabels()).toContain('Export…');
+    expect(fileLabels()).not.toContain('Export Character…');
     // The shipped Windows layouts are Animate's; Rig & Skin lists its own presets.
     expect(RIG_LAYOUTS.map((entry) => entry.layout)).toEqual(['single', RIG_LAYOUT.side, RIG_LAYOUT.markers]);
   });
@@ -304,8 +315,12 @@ describe('the pose badge and the Getting started card (§5.17, §8.12)', () => {
     const test = await rigShell();
     const steps = gettingStartedSteps(test.app, 'pane-persp');
     expect(steps).toHaveLength(7);
-    expect(steps[2]).toMatch(/^1, hold D/);
-    expect(steps[4]).toMatch(/^2 and paint/);
+    // §0.2 step 5: Create Skeleton already opens Skeleton mode, so step ③ names no mode key (1 would leave it).
+    expect(steps[1]).toMatch(/Skeleton mode opens/);
+    expect(steps[2]).toMatch(/^Hold D and drag a knee/);
+    expect(steps[2]).not.toMatch(/\b1\b/);
+    expect(steps[3]).toMatch(/Skin mode opens/);
+    expect(steps[4]).toMatch(/^Paint fixes \(Skin mode: 2\)/);
   });
 });
 

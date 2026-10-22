@@ -167,6 +167,7 @@ export default function RigToolkitView(props: PanelProps): JSX.Element {
   const { app } = props;
   const validation = useRig(app);
   const character = useSession((s) => s.rig.character);
+  const quickRig = useSession((s) => s.rig.quickRig !== null);
   const title = useDocQuery((store) => header(store, character), ['characters', 'skeletons', 'joints']);
   if (validation === null) {
     return (
@@ -184,12 +185,18 @@ export default function RigToolkitView(props: PanelProps): JSX.Element {
   return (
     <div className="flex h-full flex-col gap-3 overflow-auto p-2 text-ui text-fg-2" data-testid="rtk-panel">
       <header className="flex items-center justify-between gap-2" data-testid="rtk-header">
-        <span className="truncate font-semibold text-fg">{title ?? 'No character'}</span>
+        <span className="truncate font-semibold text-fg">
+          {title ?? (quickRig ? 'Quick Rig: new character' : 'No character')}
+        </span>
         <span title={status?.reasons.join('\n') ?? 'No skeleton yet'} data-testid="rtk-glyph">
           {glyph}
         </span>
       </header>
-      {character === null ? (
+      {character === null && quickRig ? (
+        <p className="text-fg-3" data-testid="rtk-quickrig">
+          Drag the markers in the front and side views, then Create Skeleton in the Quick Rig panel.
+        </p>
+      ) : character === null ? (
         <p className="text-fg-3" data-testid="rtk-empty">
           Select a mesh to turn into a character, or a character. Quick Rig places the joint markers for you.
         </p>

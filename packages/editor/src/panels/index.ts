@@ -41,13 +41,14 @@ export function registerBuiltinPanels(registry: PanelRegistry): Disposer {
     registerPalettePanel(registry),
     // M6a (B13): the Model start card and the Getting started card (pane overlay slots).
     registerModelStartOverlays(),
-    // M6b (C0 registration lines; bodies: C12, C3, C7, C7, C6, C6)
+    // M6b (C0 registration lines; bodies: C12, C3, C7, C7, C6)
     registry.register(lazyPanelDef(PANEL.clipLibrary, 'Clip Library', () => import('./clipLibrary'))),
     registry.register(lazyPanelDef(PANEL.quickRig, 'Quick Rig', loadRigPanels)),
     registry.register(lazyPanelDef(PANEL.rigToolkit, 'Rig Toolkit', loadRigPanels)),
     registry.register(lazyPanelDef(PANEL.validation, 'Validation', loadRigPanels)),
     registry.register(lazyPanelDef(PANEL.paintWeights, 'Paint Weights', loadRigPanels)),
-    registry.register(lazyPanelDef(PANEL.componentEditor, 'Component Editor', loadRigPanels)),
+    // The Component Editor is not built in the MVP (M6B-INT-2; §0.3 C6 row, §0.4.5 "if built"): it is not registered,
+    // so Windows never lists a panel that can show nothing (Q-MVP-15). Its stub body stays in ./componentEditor.
   ];
   return () => {
     for (const dispose of [...disposers].reverse()) dispose();

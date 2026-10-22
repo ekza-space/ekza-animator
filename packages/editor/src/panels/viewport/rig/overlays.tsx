@@ -112,10 +112,12 @@ export function RigEmptyState(props: PaneOverlayProps): JSX.Element | null {
   const empty = useDocQuery(noCharacter, ['characters']);
   const meshes = useDocQuery((store) => store.list('meshes').length > 0, ['meshes']);
   const selected = useSession((s) => s.selection.objects.length > 0);
+  // A running Quick Rig is the next step already: the card would cover its markers and preview (acceptance fix).
+  const quickRig = useSession((s) => s.rig.quickRig !== null);
   const run = useRunOperator();
   const card = useRef<HTMLDivElement>(null);
   useOwnPointer(card);
-  if (host !== props.paneId || !empty) return null;
+  if (host !== props.paneId || !empty || quickRig) return null;
   const ctx = { panel: PANEL.viewport, paneId: props.paneId, source: 'menu' as const };
   return (
     <div
@@ -187,10 +189,11 @@ export function gettingStartedSteps(app: EditorApp, paneId: string): readonly st
     shortcutFor(app.keymap, op, args, scopes) ?? fallback;
   return [
     'Select your model, then Quick Rig: drag the markers in the front and side views',
-    'Create Skeleton',
-    `${key('rig.mode', { mode: 'skeleton' }, '1')}, hold D and drag a knee (symmetry moves both)`,
-    'Bind Skin: one click',
-    `${key('rig.mode', { mode: 'skin' }, '2')} and paint fixes; E on an elbow tries a pose`,
+    'Create Skeleton: Skeleton mode opens',
+    // §0.2 step 5: no key press here (the Skeleton-mode key would toggle back to Object, §5.24).
+    'Hold D and drag a knee (symmetry moves both)',
+    'Bind Skin: one click, Skin mode opens',
+    `Paint fixes (Skin mode: ${key('rig.mode', { mode: 'skin' }, '2')}); E on an elbow tries a pose`,
     'Clip Library: play a clip, Use Clip to edit it',
     'Export Character: VRM 1.0 for Space and OMOBA',
   ];
@@ -198,6 +201,8 @@ export function gettingStartedSteps(app: EditorApp, paneId: string): readonly st
 
 function RigGettingStarted(props: PaneOverlayProps): JSX.Element | null {
   const host = useSession(hostOf);
+  // Quick Rig's panel guides its own step; the card would cover the markers in the host pane (acceptance fix).
+  const quickRig = useSession((s) => s.rig.quickRig !== null);
   const dismissed = useSyncExternalStore(
     (listener) => {
       dismissListeners.add(listener);
@@ -208,7 +213,7 @@ function RigGettingStarted(props: PaneOverlayProps): JSX.Element | null {
   );
   const card = useRef<HTMLDivElement>(null);
   useOwnPointer(card);
-  if (host !== props.paneId || dismissed) return null;
+  if (host !== props.paneId || dismissed || quickRig) return null;
   return (
     <div
       ref={card}
@@ -255,7 +260,7 @@ export function RigViewOnlyBanner(props: PaneOverlayProps): JSX.Element | null {
 }
 
 /** The banner above the Getting started card (one slot: both sit top right of the host pane). */
-function RigCards(props: PaneOverlayProps): JSX.Element {
+export function RigCards(props: PaneOverlayProps): JSX.Element {
   return (
     <div className="flex flex-col items-end">
       <RigViewOnlyBanner {...props} />

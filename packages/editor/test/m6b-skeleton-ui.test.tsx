@@ -19,6 +19,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { optionBoxStore } from '../src/overlays/menus/optionBox';
 import { QuickRigPanelBody } from '../src/panels/quickRig/body';
+import RigToolkitView from '../src/panels/rigToolkit';
+import { RigCards, RigEmptyState, setRigGettingStartedDismissed } from '../src/panels/viewport/rig/overlays';
 import { SkeletonSection } from '../src/panels/rigToolkit/sections/skeleton';
 import { fkForTest, fkTestBadge } from '../src/panels/rigToolkit/sections/skeleton/register';
 import { skeletonUiTestApi } from '../src/test-api/m6b/skeleton-ui';
@@ -242,6 +244,36 @@ describe('the Rig Toolkit Skeleton section (§8.6)', () => {
       </ShellFrame>,
     );
     expect(by('quickrig-panel').getAttribute('data-open')).toBe('true');
+  });
+});
+
+describe('the empty state and Getting started give way to a running Quick Rig (acceptance fix)', () => {
+  it('no empty-state card or Getting started card over the host pane; the Toolkit header names the Quick Rig session', async () => {
+    setRigGettingStartedDismissed(false);
+    const test = await shell(null);
+    const host = 'pane-persp';
+    await mountPlain(
+      <ShellFrame shell={test.shell}>
+        <RigEmptyState app={test.app} paneId={host} state={null} />
+        <RigCards app={test.app} paneId={host} state={null} />
+        <RigToolkitView app={test.app} instanceId="rtk" />
+      </ShellFrame>,
+    );
+    const present = (id: string): boolean => document.querySelector(`[data-testid="${id}"]`) !== null;
+    test.app.session.setState({ viewportLayout: 'rig-markers' });
+    await act(async () => {});
+    expect(present('rig-empty')).toBe(true);
+    expect(present('rig-getting-started')).toBe(true);
+    expect(by('rtk-header').textContent).toMatch(/No character/);
+    const s = test.app.session.getState();
+    await act(async () => {
+      test.app.session.setState({ rig: { ...s.rig, quickRig: state() } });
+    });
+    expect(present('rig-empty')).toBe(false);
+    expect(present('rig-getting-started')).toBe(false);
+    expect(by('rtk-header').textContent).toMatch(/Quick Rig/);
+    expect(by('rtk-quickrig').textContent).toMatch(/front and side views/);
+    expect(present('rtk-empty')).toBe(false);
   });
 });
 

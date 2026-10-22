@@ -213,12 +213,20 @@ function sectionsOf(
   scopes: readonly KeyScope[],
 ): MenuSection[] {
   const groups = new Map<string, MenuItemDef[]>();
-  const seen = new Set<string>();
   const sorted = [...items].sort((a, b) => a.order - b.order);
+  // One item per operator and arguments: the first by order, except that a workspace's own item (`workspaces` set)
+  // wins over a shared one, so Rig & Skin's File › Export Character… replaces the shared Export… (§0.4.5).
+  const chosen = new Map<string, MenuItemDef>();
   for (const item of sorted) {
     const dedupe = `${item.op}|${stableKey(item.args)}`;
-    if (seen.has(dedupe)) continue;
-    seen.add(dedupe);
+    const first = chosen.get(dedupe);
+    if (first === undefined || (first.workspaces === undefined && item.workspaces !== undefined)) {
+      chosen.set(dedupe, item);
+    }
+  }
+  const kept = new Set(chosen.values());
+  for (const item of sorted) {
+    if (!kept.has(item)) continue;
     const list = groups.get(item.group);
     if (list === undefined) groups.set(item.group, [item]);
     else list.push(item);
