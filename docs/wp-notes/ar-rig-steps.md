@@ -60,6 +60,8 @@ D1 and D3 did).
 | base (D3 + A0 merged, `2cca3c9`) | 896,383 B | 669,084 B |
 | D4 (this branch) | 896,386 B | 671,402 B |
 | delta | **+3 B gzip, 0 B code** | +2,318 B |
+| D4 fix round 1 (`543adff`) | 896,384 B | 671,858 B |
+| delta vs base | **+1 B gzip, 0 B code** (AR-D4-S) | +2,774 B (the key guard, AR-D4-16: +456 B) |
 
 `/editor`: the eager scripts have the **same raw bytes** (2,672,792 B and 4,744 B); the main chunk differs only in three
 lazy chunk filenames (`Promise.all(["static/chunks/<hash>.js"])` of the rig-workspace chunk, the Export dialog and one
@@ -131,3 +133,18 @@ the run):
   (`ar-00`, `ar-01-*`, `ar-03-*`, `ar-04-*`, `ar-05-*`, `ar-12`, `ar-a0`) and E2E-07: **42 passed, 0 failed**.
 - D4's own specs while iterating: `ar-05-rig-cancel` `--repeat-each=3` 3/3; C6's and C3's panel specs (`m6b-skin-02`,
   `m6b-rig-04`, `m6b-rig-01`, `m6b-skin-10`, `m6b-mvp-01`, `m6b-qr-01`, `m6b-qr-02`) green.
+
+### Fix round 1 (review of `5ffea0f`)
+
+Fixed: the §4.5 keyboard exclusivity (AR-D4-16, blocker), *Bind again* on an A-posed input (AR-D4-18), one bind-target
+rule (AR-D4-19), AS-AR-2 step 4's joint check (`ar-05-rig-apose`: the undone rest equals the last Quick Rig preview
+bit for bit, the whole skeleton equal across another undo), the AR-D4-9 assertions marked as the known gap AR-D4-T1
+and recorded with AR-D4-S in DECISIONS-OPEN §M. Gate on `543adff` (`EKZA_E2E_PORT=3165 pnpm run ci`, local Chrome):
+format:check, lint, typecheck, check:deps, check:fixtures, check:licenses, `pnpm run test` 16 of 16 (autorig 65,
+editor 573 + 1 skipped, viewport 274), `clean:next`, build, `check:size` (`/editor` 896,384 B ≤ 900,000 B; AR-B1 eager
+delta +696 B ≤ 2,048 B, enforced, pass; `/autorig` 671,858 B, reported), full e2e **295 passed, 24 skipped, 1 failed**:
+`m2a-demo-walkthrough` ("Character 'Polybot' has no runtime yet", an `/editor` M2a spec D4 does not touch), green
+alone 3 of 3 (once and `--repeat-each=2`) — a flake under load. D4's specs (`ar-04-*`, `ar-05-*`) 12 of 12; a
+throwaway probe (deleted) with real Playwright key presses on the 80k variant: `Alt+1`, `Alt+3`, `Esc` during the bind
+keep ② and the sheet, `Enter` on *Cancel* cancels.
+
