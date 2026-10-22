@@ -17,6 +17,7 @@ import {
   runComposition,
   WIZARD_OPERATORS,
 } from '../../src/operators/builtin/rig/wizard';
+import { NO_NAVIGATION } from '../../src/operators/builtin/rig/wizard/navigate';
 import type { EditorApp } from '../../src/types';
 import { opsApp, runOk } from '../builtin/support';
 import { W } from '../kernel/support';
@@ -333,7 +334,8 @@ describe('WIZARD_OPERATORS in the rig-workspace chunk (AUTORIG-SPEC §4.5, §7.0
       const poll = app.operators.poll(id);
       return poll === true ? 'ok' : poll.reason;
     });
-    expect(reasons).toEqual(WIZARD_IDS.map(() => ARRIVES_WITH_AUTORIG));
+    // D1 landed `autorig.navigate`: without a host navigation port (Node) it refuses with its own reason.
+    expect(reasons).toEqual(WIZARD_IDS.map((id) => (id === 'autorig.navigate' ? NO_NAVIGATION : ARRIVES_WITH_AUTORIG)));
     // the moved M6b stubs are unchanged (A0 replaces them)
     expect(['skel.pose.tStance', 'skel.pose.applyAsRest'].map((id) => app.operators.poll(id))).toEqual([
       { ok: false, reason: ARRIVES_AFTER_MVP },

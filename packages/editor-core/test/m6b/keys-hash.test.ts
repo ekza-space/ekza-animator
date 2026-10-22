@@ -11,6 +11,7 @@ import {
   beginChannelEditGesture,
   type EditorApp,
   loadMeshKernel,
+  provideNavigation,
   registerBuiltinWorkspaces,
 } from '../../src';
 import { opsApp } from '../builtin/support';
@@ -243,7 +244,16 @@ export const P_C6_ROWS: readonly Row[] = [
   ...pending('D4', 'autorig.rig', 'autorig.cancel'),
   { id: 'autorig.clip.add', status: 'keys', owner: 'D5' },
   ...pending('D6', 'autorig.export'),
-  ...pending('D1', 'autorig.navigate'),
+  // D1: the switch runs through a host navigation port (a recording fake here) and never touches the document.
+  {
+    id: 'autorig.navigate',
+    status: 'checked',
+    owner: 'D1',
+    setup: (app) => {
+      provideNavigation(app, { go: async () => {}, takeSubject: () => null });
+      return { to: 'autorig', from: 'studio' };
+    },
+  },
 ];
 
 /** The Cube Lad fixture (an unskinned GLB). */
