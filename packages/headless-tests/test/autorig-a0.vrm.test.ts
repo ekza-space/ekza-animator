@@ -7,13 +7,7 @@
 // - the 35° Cube Lad (E2E-QR-02's synthetic A-pose, the One-Click guess): `skel.tpose` before, gone after, exports clean.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import type { CharacterId, MeshId, SkeletonId } from '@ekza-studio/doc';
-import {
-  attachMeshes,
-  type EditorApp,
-  loadMeshKernel,
-  type QuickRigState,
-  quickRigCommitArgs,
-} from '@ekza-studio/editor-core';
+import { attachMeshes, type EditorApp, loadMeshKernel, quickRigCommitArgs } from '@ekza-studio/editor-core';
 import { type ExportArtifact, parseGlb } from '@ekza-studio/io';
 import { DEFAULT_FLEXION, markersFromJoints, type QuickRigMarkers } from '@ekza-studio/rig';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -214,9 +208,10 @@ describe('A0: A-posed models straighten into OMOBA T-pose VRMs', { timeout: 300_
     await runOk(app, 'mesh.combine', { pivot: 'origin' });
     await runOk(app, 'workspace.set', { workspace: 'rig' });
     await runOk(app, 'skel.quickRig.start', {});
-    const state = app.session.getState().rig.quickRig as QuickRigState | null;
-    expect(state?.guess?.aPose).toBe(true);
-    const { artifact, before } = await straightenAndExport(app, quickRigCommitArgs(state as QuickRigState));
+    const state = app.session.getState().rig.quickRig;
+    if (state === null) throw new Error('Quick Rig did not open');
+    expect(state.guess?.aPose).toBe(true);
+    const { artifact, before } = await straightenAndExport(app, quickRigCommitArgs(state));
     expect(before).toContain('skel.tpose');
     expect(artifact.lints.filter((lint) => lint.code.startsWith('vrm.'))).toEqual([]);
     expect(artifact.lints.filter((lint) => lint.severity === 'error')).toEqual([]);
