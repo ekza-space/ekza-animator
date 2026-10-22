@@ -367,7 +367,6 @@ function CharacterClips(props: { readonly ctx: WizardContext }): JSX.Element {
     () => (character === null ? null : (ctx.app.session.getState().activeClip[character.id] ?? null)),
     () => null,
   );
-  const picker = useRef<HTMLInputElement>(null);
   return (
     <section className="flex flex-col gap-2" aria-labelledby="ar-anim-character" data-testid="ar-anim-character">
       <h2 id="ar-anim-character" className="font-semibold">
@@ -382,6 +381,17 @@ function CharacterClips(props: { readonly ctx: WizardContext }): JSX.Element {
           ))}
         </ul>
       )}
+    </section>
+  );
+}
+
+/** The `.vrma` drop zone (also a file picker) and OMOBA's note (§5.5.4). */
+function DropZone(props: { readonly ctx: WizardContext }): JSX.Element {
+  const { ctx } = props;
+  const a = t();
+  const picker = useRef<HTMLInputElement>(null);
+  return (
+    <div className="flex flex-col gap-2">
       <button
         type="button"
         className="rounded-field border-2 border-dashed border-line-strong px-2 py-3 text-fg-2 hover:bg-hover pointer-coarse:min-h-11"
@@ -404,7 +414,7 @@ function CharacterClips(props: { readonly ctx: WizardContext }): JSX.Element {
         }}
       />
       <p className="text-fg-3">{a.omobaNote}</p>
-    </section>
+    </div>
   );
 }
 
@@ -423,6 +433,16 @@ function Panel(props: { readonly ctx: WizardContext }): JSX.Element {
   useEffect(() => {
     if (animationsUi(ctx).get().manifest === null) void loadManifest(ctx);
   }, [ctx]);
+
+  // an info notice ("Added Walk") gives way to the count after a few seconds; an error stays until the next action
+  useEffect(() => {
+    const notice = ui.notice;
+    if (notice === null || notice.tone !== 'info' || ui.busy !== null) return undefined;
+    const timer = setTimeout(() => {
+      animationsUi(ctx).set((current) => (current.notice === notice ? { ...current, notice: null } : current));
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [ctx, ui.notice, ui.busy]);
 
   // the footer (§5.5.4): the count, or the note that OMOBA needs none; Export ▸ with zero clips too
   useEffect(() => {
@@ -446,8 +466,8 @@ function Panel(props: { readonly ctx: WizardContext }): JSX.Element {
 
   // keys (§8.1): the frame prevents `/` and `A` (its keymap rows); Space is handled here so form controls keep theirs
   useEffect(() => {
-    const mac = ctx.app.keymap.platform === 'mac';
     const onKeyDown = (e: KeyboardEvent): void => {
+      const mac = ctx.app.keymap.platform === 'mac';
       if (ctx.session.getState().step !== 'animations') return;
       if (ctx.app.session.getState().dialog !== null || ctx.host.ui.getState().confirm !== null) return;
       if (e.code === 'Space' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.repeat) {
@@ -481,8 +501,9 @@ function Panel(props: { readonly ctx: WizardContext }): JSX.Element {
 
   return (
     <div className="flex flex-col gap-4" data-testid="ar-anim-panel">
-      <Library ctx={ctx} />
       <CharacterClips ctx={ctx} />
+      <Library ctx={ctx} />
+      <DropZone ctx={ctx} />
       {count === 0 && !slice.skipped ? (
         <button
           type="button"
@@ -506,13 +527,15 @@ function Panel(props: { readonly ctx: WizardContext }): JSX.Element {
 
 const round = (value: number, step: number): number => Math.round(value / step) * step;
 
-function Params(props: { readonly ctx: WizardContext; readonly entry: StarterPackClip }): JSX.Element {
+function Params(props: {
+  readonly ctx: WizardContext;
+  readonly entry: StarterPackClip;
+  readonly open: boolean;
+}): JSX.Element {
   const { ctx, entry } = props;
   const a = t();
   const slice = useSession(ctx.session, selectAnimations);
   const params = slice.draft[entry.id] ?? IDENTITY;
-  const ui = useSmall(animationsUi(ctx));
-  const editing = slice.editing !== null && ctx.app.store.get('clips', slice.editing) !== undefined;
   const duration = entry.duration;
   const trim = params.trim ?? { start: 0, end: duration };
   const set = (patch: Partial<ClipParams>): void =>
@@ -527,7 +550,14 @@ function Params(props: { readonly ctx: WizardContext; readonly entry: StarterPac
   const label = 'w-20 shrink-0 text-fg-2';
   const range = 'min-w-0 flex-1 accent-[var(--accent,#4f8cff)] pointer-coarse:h-11';
   return (
-    <div className="grid grid-cols-1 gap-x-4 gap-y-1 min-[700px]:grid-cols-2" data-testid="ar-anim-params">
+    <div
+      id="ar-anim-params"
+      className={cn(
+        'grid-cols-1 gap-x-4 gap-y-1 min-[700px]:grid min-[700px]:grid-cols-2',
+        props.open ? 'grid' : 'hidden',
+      )}
+      data-testid="ar-anim-params"
+    >
       <label className={field}>
         <span className={label}>{a.speed}</span>
         <input
@@ -620,22 +650,33 @@ function Params(props: { readonly ctx: WizardContext; readonly entry: StarterPac
           {a.reset}
         </button>
       </div>
-      <div className="flex items-center justify-end gap-2 min-[700px]:col-span-2">
-        {editing ? (
-          <button type="button" className={button('ghost')} onClick={() => cancelEdit(ctx)}>
-            {a.cancelEdit}
-          </button>
-        ) : null}
-        <button
-          type="button"
-          className={button('primary')}
-          disabled={ui.busy !== null || ui.failed.has(entry.id)}
-          data-testid="ar-clip-add"
-          onClick={() => void addClip(ctx, entry.id)}
-        >
-          {editing ? a.update : a.add}
+    </div>
+  );
+}
+
+/** *+ Add to character* / *Update* (and *Cancel* while a ✎ edit is open). */
+function AddButtons(props: { readonly ctx: WizardContext; readonly entry: StarterPackClip }): JSX.Element {
+  const { ctx, entry } = props;
+  const a = t();
+  const slice = useSession(ctx.session, selectAnimations);
+  const ui = useSmall(animationsUi(ctx));
+  const editing = slice.editing !== null && ctx.app.store.get('clips', slice.editing) !== undefined;
+  return (
+    <div className="flex items-center justify-end gap-2">
+      {editing ? (
+        <button type="button" className={button('ghost')} onClick={() => cancelEdit(ctx)}>
+          {a.cancelEdit}
         </button>
-      </div>
+      ) : null}
+      <button
+        type="button"
+        className={button('primary')}
+        disabled={ui.busy !== null || ui.failed.has(entry.id)}
+        data-testid="ar-clip-add"
+        onClick={() => void addClip(ctx, entry.id)}
+      >
+        {editing ? a.update : a.add}
+      </button>
     </div>
   );
 }
@@ -645,11 +686,12 @@ function PreviewBar(props: { readonly ctx: WizardContext }): JSX.Element | null 
   const a = t();
   const ui = useSmall(animationsUi(ctx));
   const preview = usePreview(ctx);
+  const [adjust, setAdjust] = useState(false);
   const entry = entryOf(ui, ui.selected);
   if (entry === null) {
     if (ui.status !== 'ready') return null;
     return (
-      <div className="pointer-events-none absolute inset-x-2 bottom-2 flex justify-center">
+      <div className="pointer-events-none absolute inset-x-2 bottom-7 flex justify-center">
         <p className="rounded-field bg-panel/90 px-3 py-1 text-fg-2">{a.previewNone}</p>
       </div>
     );
@@ -659,7 +701,7 @@ function PreviewBar(props: { readonly ctx: WizardContext }): JSX.Element | null 
   const speed = speedText((ctx.session.getState().animations.draft[entry.id] ?? IDENTITY).speed);
   return (
     <div
-      className="pointer-events-auto absolute inset-x-2 bottom-2 flex max-h-[70%] flex-col gap-2 overflow-y-auto rounded-dialog border border-line bg-panel/95 p-2 text-fg shadow-popover"
+      className="pointer-events-auto absolute inset-x-2 bottom-7 flex max-h-[70%] flex-col gap-2 overflow-y-auto rounded-dialog border border-line bg-panel/95 p-2 text-fg shadow-popover"
       data-testid="ar-anim-preview"
       data-clip={entry.id}
       data-playing={playing}
@@ -692,7 +734,22 @@ function PreviewBar(props: { readonly ctx: WizardContext }): JSX.Element | null 
           )}
         </span>
       </div>
-      <Params ctx={ctx} entry={entry} />
+      <Params ctx={ctx} entry={entry} open={adjust} />
+      <div className="flex items-center gap-2">
+        {/* phones and narrow panes: the parameters fold away so the character stays visible (§8.3) */}
+        <button
+          type="button"
+          className={cn(button('ghost', 'sm'), 'min-[700px]:hidden')}
+          aria-expanded={adjust}
+          aria-controls="ar-anim-params"
+          data-testid="ar-anim-adjust"
+          onClick={() => setAdjust((open) => !open)}
+        >
+          {a.adjust} {adjust ? '▴' : '▾'}
+        </button>
+        <span className="flex-1" />
+        <AddButtons ctx={ctx} entry={entry} />
+      </div>
     </div>
   );
 }

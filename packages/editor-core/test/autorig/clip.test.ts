@@ -17,6 +17,7 @@ import { type ClipParams, createEditorApp, type EditorApp, type ImportResult } f
 import { attachClipLibrary, type ClipLibrary } from '../../src/library';
 import { clipParamsFromTags, clipParamTags, IDENTITY_CLIP_PARAMS } from '../../src/library/params';
 import { createFakeServices, type FakeServices } from '../../src/testing';
+import { meshTestApp } from '../mesh/support';
 
 const LIBRARY = new URL('../../../../apps/web/public/library/', import.meta.url);
 const libraryFile = (file: string): Uint8Array => new Uint8Array(readFileSync(new URL(file, LIBRARY)));
@@ -399,6 +400,79 @@ describe('ar-* tags (§5.5.4)', () => {
     });
     for (const [clip, p] of EXAMPLES) {
       for (const tag of clipParamTags(clip, p)) expect(tag).toMatch(/^[a-z0-9_-]{1,32}$/);
+    }
+  });
+});
+
+describe('the range-of-motion clip on the Cube Lad (§5.4.1)', () => {
+  it('previews by the byte route and turns the joints as the pose table says at three sample frames', async () => {
+    const { app: lad } = await meshTestApp();
+    try {
+      const truth = JSON.parse(
+        readFileSync(new URL('../../../../fixtures/models/cube-lad-truth.json', import.meta.url), 'utf8'),
+      ) as { markers: Record<string, number[]> };
+      await runOk(lad, 'workspace.set', { workspace: 'rig' });
+      const { meshes } = (await runOk(lad, 'mesh.importStatic', {
+        bytes: new Uint8Array(readFileSync(new URL('../../../../fixtures/models/cube-lad.glb', import.meta.url))),
+        name: 'cube-lad.glb',
+      })) as { meshes: string[] };
+      const { character: ladCharacter } = (await runOk(lad, 'skel.quickRig.commit', {
+        preset: 'standard33',
+        markers: truth.markers,
+        meshes,
+        flexion: (2 * Math.PI) / 180,
+      })) as { character: CharacterId };
+      for (let i = 0; i < 600 && lad.characters.get(ladCharacter) === undefined; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      let ladClock = 0;
+      const ladLibrary = attachClipLibrary(lad, { fetch: servedFetch([]), now: () => ladClock, frames: null })
+        .service as ClipLibrary;
+      const hash = keysHash(lad);
+      await runOk(lad, 'workspace.set', { workspace: 'animate' });
+      await runOk(lad, 'library.preview', {
+        character: ladCharacter,
+        clip: 'rom',
+        bytes: await romVrma({ fingers: false }),
+        label: 'Range test',
+      });
+      /** Direction (unit) from a bone to its child bone in the evaluated pose. */
+      const direction = (frame: number, from: string, to: string): number[] => {
+        ladClock = (frame / 30) * 1000 + 1e-6;
+        ladLibrary.stepPreview();
+        lad.evaluation.tick();
+        const runtime = lad.characters.get(ladCharacter);
+        const humanoid = runtime?.skeleton.humanoid as Record<string, number>;
+        const at = (bone: string): number[] =>
+          Array.from(
+            runtime?.pose.boneWorld.subarray(
+              (humanoid[bone] as number) * 16 + 12,
+              (humanoid[bone] as number) * 16 + 15,
+            ) ?? [],
+          );
+        const a = at(from);
+        const b = at(to);
+        const d = b.map((v, i) => v - (a[i] as number));
+        const len = Math.hypot(...d);
+        return d.map((v) => v / len);
+      };
+      // the rest (frame 0): the T-pose arm along +X, the thigh straight down
+      expect(direction(0, 'leftUpperArm', 'leftLowerArm')[0] as number).toBeGreaterThan(0.95);
+      expect(direction(0, 'leftUpperLeg', 'leftLowerLeg')[1] as number).toBeLessThan(-0.95);
+      // arms down: the left upper arm points down (the table: 80° below the T-pose line)
+      const arm = direction(romFrameOf('arms down'), 'leftUpperArm', 'leftLowerArm');
+      expect(arm[1] as number).toBeLessThan(-0.9);
+      // legs side: the left thigh swings out to +X by 45°
+      const thigh = direction(romFrameOf('legs side'), 'leftUpperLeg', 'leftLowerLeg');
+      expect(Math.abs((thigh[0] as number) - Math.sin(Math.PI / 4))).toBeLessThan(0.1);
+      // knees 130: the shin points backwards (−Z) and up
+      const shin = direction(romFrameOf('knees 130'), 'leftLowerLeg', 'leftFoot');
+      expect(shin[2] as number).toBeLessThan(-0.6);
+      expect(shin[1] as number).toBeGreaterThan(0.3);
+      expect(ladLibrary.preview?.clip).toBe('Range test');
+      expect(keysHash(lad)).toBe(hash);
+    } finally {
+      lad.dispose();
     }
   });
 });

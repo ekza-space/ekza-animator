@@ -41,6 +41,7 @@ export const animations = {
   mirror: 'Mirror',
   inPlace: 'In place',
   reset: 'Reset',
+  adjust: 'Adjust',
   add: '+ Add to character',
   update: 'Update',
   cancelEdit: 'Cancel',
