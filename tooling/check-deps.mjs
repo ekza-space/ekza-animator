@@ -23,6 +23,7 @@ const UI = scope('ui');
 const EDITOR = scope('editor');
 const MESH_CORE = scope('mesh-core');
 const MESH_VIEW = scope('mesh-view');
+const AUTORIG = scope('autorig');
 
 const VITEST = ['@types/node', 'vitest'];
 const BROWSER_TESTS = [...VITEST, '@vitest/browser-playwright', 'playwright'];
@@ -167,8 +168,16 @@ export const ALLOWED = {
     ],
     devDependencies: [...BROWSER_TESTS, ...REACT_TYPES, '@types/three'],
   },
+  // AUTORIG-SPEC §4.1, §10.0 (D0): the Auto-Rig shell — editor-core, doc, ui, viewport (types only), anim-core, React and
+  // the editor through its `./host` and `./bodies` subpaths only (oxlint enforces the subpaths); no third-party
+  // dependency (the OMOBA kit zip is io's fflate, §5.6.4). Node unit tests; its browser tests are the app's e2e.
+  [AUTORIG]: {
+    dependencies: [ANIM_CORE, DOC, EDITOR_CORE, VIEWPORT, UI, EDITOR, 'react'],
+    devDependencies: [...VITEST, '@types/react'],
+  },
   web: {
-    dependencies: [EDITOR, UI, ...REACT, ...VRM, 'next', 'three'],
+    // AUTORIG-SPEC §3.1 (D0): `/autorig` mounts the Auto-Rig shell (the only importer of @ekza-studio/autorig).
+    dependencies: [EDITOR, UI, AUTORIG, ...REACT, ...VRM, 'next', 'three'],
     // e2e specs may import io and doc (ARCHITECTURE §3).
     devDependencies: [
       ...VITEST,

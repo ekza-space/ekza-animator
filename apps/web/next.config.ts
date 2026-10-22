@@ -53,6 +53,7 @@ export default function nextConfig(phase: string): NextConfig {
       '@ekza-studio/curve-editor',
       '@ekza-studio/ui',
       '@ekza-studio/editor',
+      '@ekza-studio/autorig',
     ],
     // `sharp` is never installed (ADR 0009); images are served as is.
     images: { unoptimized: true },

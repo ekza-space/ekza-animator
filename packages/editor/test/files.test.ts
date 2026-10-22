@@ -172,8 +172,8 @@ describe('file pipeline', () => {
     const { shell, app, runs } = withImporters(PROJECT);
     app.session.setState({ dirty: true });
     const opening = shell.files.openFile('old.ekzanim', new Uint8Array([5]));
-    await Promise.resolve();
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    // The host loads the pipeline's code on first use (AUTORIG-SPEC D1): the prompt follows that load.
+    await waitFor(() => shell.ui.getState().confirm !== null);
     const request = shell.ui.getState().confirm;
     expect(request?.confirmLabel).toBe('Discard and open');
     request?.resolve(false);
@@ -181,7 +181,7 @@ describe('file pipeline', () => {
     expect(runs).toEqual([]);
 
     const again = shell.files.openFile('old.ekzanim', new Uint8Array([5]));
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await waitFor(() => shell.ui.getState().confirm !== null);
     shell.ui.getState().confirm?.resolve(true);
     await again;
     expect(runs.map((r) => r.id)).toEqual(['file.openProject']);

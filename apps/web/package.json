@@ -10,6 +10,7 @@
     "dev": "node scripts/copy-assets.mjs && next dev",
     "build": "node scripts/copy-assets.mjs && node scripts/third-party-notices.mjs && next build",
     "check:size": "node scripts/check-size.mjs",
+    "clean:next": "node scripts/clean-next.mjs",
     "size:attribute": "node scripts/attribute-chunks.mjs",
     "start": "next start",
     "test": "vitest run",
@@ -18,6 +19,7 @@
     "bench:budgets": "playwright test -c e2e/bench/playwright.config.ts"
   },
   "dependencies": {
+    "@ekza-studio/autorig": "workspace:*",
     "@ekza-studio/editor": "workspace:*",
     "@ekza-studio/ui": "workspace:*",
     "@pixiv/three-vrm": "catalog:",
