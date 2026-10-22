@@ -23,6 +23,7 @@ import { AUTORIG_STEPS, type AutoRigProgress, type AutoRigSession, type AutoRigS
 import type { FooterState, ShellUi, WizardContext } from './context';
 import { endSessions, enterStep, entryQueue, quiet } from './entry';
 import { bindingFor } from './keys';
+import { stepModule } from './steps';
 import { type SmallStore, smallStore } from './store';
 
 export interface Wizard extends WizardContext {
@@ -155,6 +156,8 @@ export function createWizard(host: HostShell): Wizard {
       handle(files) {
         const list = [...files];
         if (list.length === 0) return;
+        // the open step may take them (④: `.vrma` files onto the character, D5); everything else is ①'s
+        if (stepModule(session.getState().step).stepFiles?.(wizard, list) === true) return;
         if (session.getState().step !== 'model') session.set({ step: 'model' });
         void withFlow(wizard, messages().model.loadFailed, (flow) => flow.loadFiles(wizard, list));
       },

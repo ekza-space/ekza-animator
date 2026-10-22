@@ -5,6 +5,7 @@
 //   export const stepView: () => Promise<{ default: ComponentType<StepViewProps> }>;   // lazy: its own chunk
 //   export const stepPanes: (session: AutoRigSession) => readonly StepPane[];            // the pane grid
 //   export const stepEnter: (ctx: WizardContext) => Promise<void> | void;              // the step's own start (§4.2)
+//   export const stepFiles: (ctx: WizardContext, files: readonly File[]) => boolean;   // dropped files it takes (D5)
 //
 // Until a package lands its view, the frame shows the step's placeholder (`StepPlaceholder`).
 import type { WorkspaceId } from '@ekza-studio/editor-core';
@@ -34,6 +35,8 @@ export interface StepModule {
   readonly stepView?: () => Promise<{ readonly default: ComponentType<StepViewProps> }>;
   readonly stepPanes?: (session: AutoRigSession) => readonly StepPane[];
   readonly stepEnter?: (ctx: WizardContext) => Promise<void> | void;
+  /** Files dropped or chosen while the step is open: true when the step took them (else they go to ①). */
+  readonly stepFiles?: (ctx: WizardContext, files: readonly File[]) => boolean;
 }
 
 /** §4.2: the workspace of each step (Animations runs in Animate; every other step in Rig & Skin). */
@@ -65,7 +68,7 @@ export const PERSP_PANES: readonly StepPane[] = [{ id: PERSP_PANE_ID }];
 const MODULES: Readonly<Partial<Record<AutoRigStep, StepModule>>> = {
   markers: markers as StepModule,
   rig: rig as StepModule,
-  animations: animations as StepModule,
+  animations,
   export: exportStep as StepModule,
 };
 

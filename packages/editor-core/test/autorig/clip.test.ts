@@ -210,7 +210,7 @@ describe('autorig.clip.add (§4.5, §5.5.4)', () => {
       license: 'CC0-1.0',
       sourceSha256: entry?.sha256,
     });
-    expect(entry?.sha256).toBe(await sha256Hex(walk));
+    expect(entry?.sha256).toBe(sha256Hex(walk));
     expect(record.provenance.derivedFrom[1]).toMatchObject({ title: 'Walk_Loop', author: 'Quaternius' });
     expect(record.provenance.redistributable).toBe('yes');
     // the stored asset is the derived bytes (content-addressed; not the library file)

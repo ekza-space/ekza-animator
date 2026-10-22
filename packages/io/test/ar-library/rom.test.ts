@@ -53,7 +53,9 @@ describe('romClip (§5.4.1)', () => {
     expect(Buffer.from(a).equals(Buffer.from(b))).toBe(true);
     const rom = await romVrma();
     expect(Buffer.from(rom).equals(Buffer.from(await romVrma()))).toBe(true);
-    expect(readVrma(await parseGlb(rom)).rotations.leftUpperArm?.values).toEqual(romClip().rotations.leftUpperArm?.values);
+    expect(readVrma(await parseGlb(rom)).rotations.leftUpperArm?.values).toEqual(
+      romClip().rotations.leftUpperArm?.values,
+    );
     const read = readVrma(await parseGlb(a));
     const knees = keyOf('knees 130');
     expect(

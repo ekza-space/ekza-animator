@@ -5,7 +5,7 @@
 // identity parameters it is C12's Use Clip exactly. `replace` (✎ *Update*) deletes that clip in the same step and
 // gives the new one its name and slot.
 import { EkzaError } from '@ekza-studio/anim-core';
-import type { CharacterId, ClipId } from '@ekza-studio/doc';
+import type { ClipId } from '@ekza-studio/doc';
 import { clipParamsProblem } from '../../../../library/params';
 import type { ClipParams } from '../../../../types';
 import { type AnyOperator, defineOperator, fail, forward, isRecord, OK } from '../../define';
@@ -23,7 +23,7 @@ const clipAdd = defineOperator<'autorig.clip.add', { readonly clip: ClipId }>({
     }
     const problem = clipParamsProblem(args['params']);
     if (problem !== null) return fail(problem);
-    if (app.store.get('characters', args['character'] as CharacterId) === undefined) {
+    if (app.store.get('characters', args['character']) === undefined) {
       return fail('The character does not exist');
     }
     // Only the shape here: the runner polls again after `prepare`, when Use Clip has already replaced the clip

@@ -66,7 +66,6 @@ interface Track {
   readonly times: Float32Array;
   readonly values: Float32Array;
 }
-type Interpolations = HumanoidClipData['interpolation'];
 
 /** True when the trim covers the whole clip (or is null): the clip is not trimmed. */
 export function isFullTrim(trim: HumanoidClipParams['trim'], duration: number): boolean {
@@ -121,8 +120,6 @@ export function applyClipParams(data: HumanoidClipData, params: HumanoidClipPara
 
 // ---------------------------------------------------------------------------------------------------------------------
 // tracks
-
-const componentsOf = (path: 'rotation' | 'position'): number => (path === 'rotation' ? 4 : 3);
 
 /** Every track of the clip with its key ('hipsPosition' for the hips translation), components and interpolation. */
 function eachTrack(
@@ -181,7 +178,7 @@ function sampleTrack(
 ): { readonly value: number[]; readonly slope: number[] | null } {
   const { times } = track;
   const last = times.length - 1;
-  const flat = (): number[] => new Array<number>(components).fill(0);
+  const flat = (): number[] => Array.from({ length: components }, () => 0);
   if (t <= (times[0] as number)) {
     return { value: keyValue(track, components, mode, 0), slope: mode === 'CUBICSPLINE' ? flat() : null };
   }

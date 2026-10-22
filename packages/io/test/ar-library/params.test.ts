@@ -199,16 +199,14 @@ describe('applyClipParams (§5.5.3)', () => {
     expect(mirrorBone('leftHand')).toBe('rightHand');
     expect(mirrorBone('rightThumbDistal')).toBe('leftThumbDistal');
     expect(mirrorBone('spine')).toBe('spine');
-    for (const bone of HUMAN_BONE_NAMES) {
-      const source = data.rotations[mirrorBone(bone)];
+    const present = HUMAN_BONE_NAMES.filter((bone) => data.rotations[mirrorBone(bone)] !== undefined);
+    expect(HUMAN_BONE_NAMES.filter((bone) => mirrored.rotations[bone] !== undefined)).toEqual(present);
+    for (const bone of present) {
+      const source = data.rotations[mirrorBone(bone)] as Track;
       const got = mirrored.rotations[bone];
-      if (source === undefined) {
-        expect(got).toBeUndefined();
-        continue;
-      }
       for (let k = 0; k < source.times.length; k += 7) {
         const [x, y, z, w] = quatAt(source, k);
-        expect(quatAt(got, k)).toEqual([x, -(y as number), -(z as number), w]);
+        expect(quatAt(got, k)).toEqual([x, -y, -z, w]);
       }
     }
     const hips = data.hips as Track;
@@ -324,12 +322,10 @@ describe('deriveHumanoidVrma (§5.5.3 step 1)', () => {
         for (const child of node.children ?? []) parent.set(child, i);
       });
       let i: number | undefined = doc.nodes.findIndex((node) => node.name === name);
-      const p = [0, 0, 0];
+      let p: [number, number, number] = [0, 0, 0];
       while (i !== undefined) {
         const t = doc.nodes[i]?.translation ?? [0, 0, 0];
-        p[0] += t[0] as number;
-        p[1] += t[1] as number;
-        p[2] += t[2] as number;
+        p = [p[0] + (t[0] as number), p[1] + (t[1] as number), p[2] + (t[2] as number)];
         i = parent.get(i);
       }
       return p;
