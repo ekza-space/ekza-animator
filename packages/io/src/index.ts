@@ -104,3 +104,5 @@ export {
   type SkeletonFromDocOptions,
   skeletonFromDoc,
 } from './skeleton/fromDoc';
+// Auto-Rig D6 (AUTORIG-SPEC §5.6.4): the OMOBA local test kit packer and the deterministic zip of the VRMA bundle.
+export * from './omoba';
