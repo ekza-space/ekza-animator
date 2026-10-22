@@ -75,7 +75,7 @@ The model and the frame strings live in `i18n/en/{frame,model}.ts`; a step's own
 | + the ① compositions (`e6aedea`; rig chunk) | 896,375 B | +48 B | — |
 | frame with `PaneView`, `rigValidation`, `routeHref`, `Check` (first cut) | 898,136 B | +1,809 B (FAIL, AR-B1) | 694,779 B |
 | `WizardPane`, no `rigValidation`, lazy report (AR-D3-1/2/4) | 896,390 B | +63 B | 672,426 B |
-| **final** (the CI run below) | see Gates | | |
+| **final** (the CI run below) | **896,390 B** | **+63 B** | **672,585 B** |
 
 `/editor`: D3's eager change is the press hook in the ViewportManager (+33 B) and +30 B of chunk drift; within D3's
 128 B. `/autorig`: **672.4 kB, 12.4 kB over the 660,000 B gate** (reported, not enforced until D7 records the route,
@@ -116,4 +116,12 @@ wizard's state instead of null), `packages/editor-core/test/m6b/keys-hash.test.t
 
 ## Gates
 
-Recorded below from the final run.
+Final run on `autorig/wizard-shell` (after `fix(ui)`): `EKZA_E2E_PORT=3164 pnpm run ci` — format, lint, typecheck,
+check:deps, fixtures, licences, every package's unit tests (autorig 37, editor-core 1,512, viewport 274, editor 573,
+headless 201, …), clean build, check:size (`/editor` 896,390 B, AR-B1 eager delta +702 B ≤ 2,048 B, enforced, pass;
+`/autorig` 672,585 B, reported over the 660,000 B gate, see Sizes) — and the full e2e suite on local Chrome:
+**277 passed, 24 skipped (the stretch `fixme`s), 1 failed**: `shading-01-blinn` (a Model-workspace pixel poll, untouched
+by D3; D1's notes list it among the load-timing flakes of a full run), which passes alone 3/3 (`--repeat-each=3`).
+Every Auto-Rig spec (`ar-00`, `ar-01-*`, `ar-03-*`, `ar-12`) with `--repeat-each=3`: 72/72. An earlier run of the gate
+failed `ui`'s `tokens.test.ts` (it pins the first three lines of `styles.css`): the `@source "../autorig/src"` line now
+follows them.
