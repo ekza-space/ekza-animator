@@ -60,6 +60,7 @@ describe('Auto-Rig contract (AUTORIG-SPEC §4.3)', () => {
         installed = o;
       },
       paneState: () => null,
+      paneAt: () => null,
       pickCandidates: () => [],
       isOverMesh: () => false,
     });

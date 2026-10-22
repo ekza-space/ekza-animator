@@ -7,6 +7,7 @@ import { createFakeEditorApp } from '@ekza-studio/editor-core/testing';
 import type { NavigationOverride, NavPointerInput } from '@ekza-studio/viewport';
 import { describe, expect, it } from 'vitest';
 import { addNavigationClaim, installSimpleNavigation, simpleGesture, toolClaims } from '../src/nav';
+import { type Finger, twoFingerStep } from '../src/nav/touch';
 
 const press = (button: number, mods: Partial<NavPointerInput> = {}): NavPointerInput => ({
   button,
@@ -63,6 +64,7 @@ function fakeViewport(opts: { hits?: Hit[]; overMesh?: boolean; preset?: string 
     paneState: () => ({ preset: opts.preset === undefined ? 'persp' : opts.preset }) as never,
     pickCandidates: () => (opts.hits ?? []) as never,
     isOverMesh: () => opts.overMesh === true,
+    paneAt: () => null,
   };
 }
 
@@ -115,5 +117,32 @@ describe('installSimpleNavigation (§8.1)', () => {
     expect(vm.installed?.gesture(press(0), 'pane-persp', { x: 90, y: 0 })).toBe('tumble');
     off();
     expect(vm.installed?.gesture(press(0), 'pane-persp', { x: 10, y: 0 })).toBe('tumble');
+  });
+});
+
+describe('two-finger touch navigation (§8.1, §8.3)', () => {
+  const f = (id: number, x: number, y: number): Finger => ({ id, x, y });
+
+  it('both fingers moving together pan by the midpoint and do not zoom', () => {
+    const step = twoFingerStep([f(1, 100, 100), f(2, 200, 100)], [f(1, 110, 120), f(2, 210, 120)]);
+    expect(step.mid).toEqual({ x: 160, y: 120 });
+    expect(step.pan).toBe(true);
+    expect(step.dolly).toBe(0);
+  });
+
+  it('spreading zooms in by the ln of the spread ratio (the camera distance scales by its inverse)', () => {
+    const step = twoFingerStep([f(1, 100, 100), f(2, 200, 100)], [f(1, 50, 100), f(2, 250, 100)]);
+    expect(step.pan).toBe(false);
+    expect(step.dolly).toBeCloseTo(Math.log(2), 12);
+    // dolly multiplies the distance by exp(-amount): half the distance for twice the spread
+    expect(Math.exp(-step.dolly)).toBeCloseTo(0.5, 12);
+    const pinch = twoFingerStep([f(1, 50, 100), f(2, 250, 100)], [f(1, 100, 100), f(2, 200, 100)]);
+    expect(pinch.dolly).toBeCloseTo(-Math.log(2), 12);
+  });
+
+  it('a sub-pixel spread change is a pan only (no jitter zoom)', () => {
+    const step = twoFingerStep([f(1, 0, 0), f(2, 100, 0)], [f(1, 0.2, 0), f(2, 100.4, 0)]);
+    expect(step.dolly).toBe(0);
+    expect(step.pan).toBe(true);
   });
 });
