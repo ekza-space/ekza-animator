@@ -130,7 +130,20 @@ KiB JS + 67.6 KiB other; ① on the first file 662.2 KiB JS (`rig-workspace`, th
 
 ## Gates
 
-Recorded at the end of this file (the final run).
+Final run at `a4e0d437` (the docs commit; code unchanged since), worktree `ar-integration`, local Chrome with the GPU,
+`EKZA_E2E_PORT=3168`:
+
+- `EKZA_E2E_PORT=3168 pnpm run ci`: format:check, lint, typecheck, check:deps green; `test` (turbo, parallel) failed
+  on four load-sensitive browser tests (viewport `m6a-transform/runtime` Esc during a drag, editor `dialogs.test.tsx`
+  ×2 at 5–7 s, editor `input.test.ts` dropdown type-ahead at 35 s) under a load average of 60 from other agents; the
+  sibling suites were killed with the run. None touches Auto-Rig code.
+- Re-run: `turbo run test --filter=editor --filter=viewport --concurrency=1` green (59 + 27 files); `turbo run test
+  test:tooling --concurrency=2` **16/16 green** (autorig 13 files, 100 tests).
+- Then the rest of `ci` in order: check:fixtures, check:licenses, `clean:next`, build, **check:size** (`/editor`
+  896,743 B ✓, `/autorig` 658,122 B ✓ enforced), **test:e2e: 342 passed, 25 skipped, 0 failed** (4.1 min; the skips
+  are the suite's existing `fixme`/conditional ones and D6's AS-AR-6 texture `fixme`; the two `test.fail` known gaps
+  count as passed while they fail as expected).
+- Targeted earlier: every `ar-*` spec (88 passed, 1 skipped), `ar-as-*` repeatedly, the bench (2 passed).
 
 ## Open for the owner
 
