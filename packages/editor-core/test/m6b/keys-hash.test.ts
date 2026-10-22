@@ -277,6 +277,8 @@ export const P_C6_ROWS: readonly Row[] = [
   },
   // D9 (AR-D9-8): the controls hidden for this user while the wizard shows the character (U state, no document write)
   { id: 'autorig.controls', status: 'checked', owner: 'D9', setup: () => ({ hidden: true }) },
+  // D10 (AR-D10-1): the left-out parts hidden for this user while the wizard shows the model (U state)
+  { id: 'autorig.parts', status: 'checked', owner: 'D10', setup: async (app) => ({ hidden: await importedLad(app) }) },
 ];
 
 /** The Cube Lad fixture (an unskinned GLB). */

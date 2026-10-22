@@ -90,6 +90,28 @@ export function quickRigCommitBlock(state: QuickRigState): string | null {
   return null;
 }
 
+/** AR-D10-3: why Auto-rig waits when the guess found no arms (an arms-down model), or null. */
+export const ARMS_NOT_FOUND =
+  'Auto-Rig could not find the arms: drag the Shoulder, Elbow and Wrist markers onto the arm, or load the model ' +
+  'in a T-pose or A-pose';
+const ARM_MARKERS = ['shoulder', 'elbow', 'wrist'] as const;
+
+/**
+ * Why `autorig.rig` refuses the open Quick Rig session, or null: Quick Rig's own block (start checks, preview), then
+ * AR-D10-3 — a new character whose One-Click guess failed (no arm run: arms hanging down, or not a person) rigs only
+ * once the arm markers were placed by hand; the template's guess put them on a line through the head, and the rig
+ * bound the body to arm bones in the air.
+ */
+export function autoRigBlock(state: QuickRigState): string | null {
+  const block = quickRigCommitBlock(state);
+  if (block !== null) return block;
+  const guessFailed = state.guess !== null && state.guess.failed !== null;
+  if (state.refit === null && guessFailed && !ARM_MARKERS.every((name) => state.moved.has(name))) {
+    return ARMS_NOT_FOUND;
+  }
+  return null;
+}
+
 /** The next marker a click in the front pane places after Clear: the first missing one in list order. */
 export function nextMissingMarker(markers: QuickRigMarkers): QuickRigMarker | null {
   return QUICK_RIG_MARKERS.find((name) => markers[name] === undefined) ?? null;

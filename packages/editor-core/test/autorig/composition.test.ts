@@ -17,13 +17,16 @@ import {
   runComposition,
   WIZARD_OPERATORS,
 } from '../../src/operators/builtin/rig/wizard';
+import { loadMeshKernel } from '../../src/mesh';
 import { NO_NAVIGATION } from '../../src/operators/builtin/rig/wizard/navigate';
+import { partsHidden } from '../../src/operators/builtin/rig/wizard/parts';
 import { NO_MARKERS, NOTHING_TO_CANCEL } from '../../src/operators/builtin/rig/wizard/rig';
 import type { EditorApp } from '../../src/types';
 import { opsApp, runOk } from '../builtin/support';
 import { W } from '../kernel/support';
 
-/** The §4.5 table, in owner order (D3 intake, D4 rig, D5 clip, D6 export, D1 navigate, D9 controls: AR-D9-8). */
+/** The §4.5 table, in owner order (D3 intake, D4 rig, D5 clip, D6 export, D1 navigate, D9 controls: AR-D9-8, D10 parts:
+ * AR-D10-1). */
 const WIZARD_IDS = [
   'autorig.sample',
   'autorig.intake',
@@ -35,6 +38,7 @@ const WIZARD_IDS = [
   'autorig.export',
   'autorig.navigate',
   'autorig.controls',
+  'autorig.parts',
 ] as const;
 
 const disposers: (() => void)[] = [];
@@ -345,6 +349,7 @@ describe('WIZARD_OPERATORS in the rig-workspace chunk (AUTORIG-SPEC §4.5, §7.0
       'autorig.cancel': NOTHING_TO_CANCEL,
       'autorig.navigate': NO_NAVIGATION,
       'autorig.controls': 'expects { hidden: boolean }',
+      'autorig.parts': 'expects { hidden: mesh ids }',
       'autorig.sample': 'expects { sample: cube-lad | polybot-tpose | polybot-apose | polybot | seed-san }',
       'autorig.intake': 'expects { bytes, name }',
       'autorig.inspect': 'expects { meshes }',
@@ -400,5 +405,37 @@ describe('autorig.controls (AR-D9-8)', () => {
     await runOk(app, 'autorig.controls', { hidden: false });
     expect([...app.session.getState().hiddenControls]).toEqual([mine]);
     expect(app.history.peekUndo()).toBe(undo);
+  });
+});
+
+describe('autorig.parts (AR-D10-1)', () => {
+  it('hides the left-out parts for this user; gives back only the ones it hid; no undo step', async () => {
+    const app = opsApp();
+    await app.rig.load();
+    await loadMeshKernel();
+    const cubes: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const made = await app.runUntyped('mesh.create.cube', {});
+      if (made.status !== 'finished') throw new Error(JSON.stringify(made));
+      cubes.push((made.value as { mesh: string }).mesh);
+    }
+    const [a, b, mine] = cubes as [string, string, string];
+    // the user hid one mesh themselves
+    app.session.setState({ model: { ...app.session.getState().model, hiddenObjects: new Set([mine as never]) } });
+    const undo = app.history.peekUndo();
+    const hidden = (): string[] => [...app.session.getState().model.hiddenObjects].sort();
+    await runOk(app, 'autorig.parts', { hidden: [a, mine] });
+    expect(hidden()).toEqual([a, mine].sort());
+    expect(partsHidden(app)).toEqual([a]);
+    await runOk(app, 'autorig.parts', { hidden: [b] });
+    expect(hidden()).toEqual([b, mine].sort());
+    await runOk(app, 'autorig.parts', { hidden: [] });
+    expect(hidden()).toEqual([mine]);
+    expect(partsHidden(app)).toEqual([]);
+    expect(app.history.peekUndo()).toBe(undo);
+    expect(app.operators.poll('autorig.parts', undefined, { hidden: 'x' })).toEqual({
+      ok: false,
+      reason: 'expects { hidden: mesh ids }',
+    });
   });
 });

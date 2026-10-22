@@ -460,7 +460,25 @@ const commit = defineOperator<'skel.quickRig.commit', CommitPrepared>({
 
 interface FixPrepared {
   readonly meshes: readonly MeshId[];
+  /** Scene meshes that move with the fix without being measured (Auto-Rig's unticked parts, AR-D10-2). */
+  readonly with: readonly MeshId[];
   readonly geometry: RigGeometry;
+}
+
+/** The optional `with` meshes of a fix: scene meshes that follow the delta (not measured); a string on bad input. */
+function fixFollowers(view: ReadView, raw: unknown, measured: readonly MeshId[]): MeshId[] | string {
+  const given = isRecord(raw) ? raw['with'] : undefined;
+  if (given === undefined) return [];
+  if (!Array.isArray(given)) return 'with: a list of scene mesh ids';
+  const out: MeshId[] = [];
+  for (const id of given) {
+    if (typeof id !== 'string') return 'with: a list of scene mesh ids';
+    const record = view.get('meshes', id as MeshId);
+    if (record === undefined) return `Unknown mesh ${id}`;
+    if (!('scene' in record.owner)) return 'Works on scene meshes, before Create Skeleton';
+    if (!measured.includes(record.id) && !out.includes(record.id)) out.push(record.id);
+  }
+  return out;
 }
 
 /** The scene meshes of a fix: `args.meshes`, else Quick Rig's, else the selected objects'. */
@@ -492,22 +510,27 @@ function fixOperator(
     scope: 'rig',
     workspaces: ['rig'],
     flags: { undo: true },
-    extraArgs: ['meshes'],
+    extraArgs: ['meshes', 'with'],
     poll(ctx, args): PollResult {
       const meshes = fixMeshes(ctx.app, ctx.app.store, args);
-      return typeof meshes === 'string' ? fail(meshes) : OK;
+      if (typeof meshes === 'string') return fail(meshes);
+      const followers = fixFollowers(ctx.app.store, args, meshes);
+      return typeof followers === 'string' ? fail(followers) : OK;
     },
     async prepare(ctx, args): Promise<FixPrepared> {
       await loadMeshKernel();
       const meshes = fixMeshes(ctx.app, ctx.app.store, args);
       if (typeof meshes === 'string') throw new EkzaError('op-refused', meshes);
-      return { meshes, geometry: rigGeometry(ctx.app, ctx.app.store, meshes) };
+      const followers = fixFollowers(ctx.app.store, args, meshes);
+      if (typeof followers === 'string') throw new EkzaError('op-refused', followers);
+      return { meshes, with: followers, geometry: rigGeometry(ctx.app, ctx.app.store, meshes) };
     },
     apply(ctx, _args, prepared) {
       const tx = ctx.tx as Tx;
       const delta = transform(prepared.geometry);
-      const targets = new Set<string>(prepared.meshes);
-      for (const meshId of prepared.meshes) {
+      const moved = [...prepared.meshes, ...prepared.with];
+      const targets = new Set<string>(moved);
+      for (const meshId of moved) {
         const record = tx.get('meshes', meshId);
         if (record === undefined) continue;
         // A mesh under another target moves with it.

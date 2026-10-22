@@ -9,7 +9,14 @@
 import { readFileSync } from 'node:fs';
 import type { CharacterId, HumanBoneName, MeshId, SkeletonId } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
-import { autoRigBindMeshes, autoRigRefitBound, type EditorApp, type SkinWorkerPort, quickRigOf } from '../../src';
+import {
+  ARMS_NOT_FOUND,
+  autoRigBindMeshes,
+  autoRigRefitBound,
+  type EditorApp,
+  type SkinWorkerPort,
+  quickRigOf,
+} from '../../src';
 import { COMPOSITION_INTERRUPTED } from '../../src/operators/builtin/rig/wizard';
 import { NO_MARKERS, NOTHING_TO_CANCEL } from '../../src/operators/builtin/rig/wizard/rig';
 import { REBIND_CONFIRM } from '../../src/operators/builtin/rig/quickRig';
@@ -166,6 +173,51 @@ describe('autorig.rig (§4.5)', () => {
     });
     expect((await refusal(other, 'autorig.rig')).code).toBe('poll');
     expect(labels(other)).toEqual(['Import Static Model']);
+  });
+
+  it('AR-D10-3: a failed guess (arms down) waits for the arm markers placed by hand', async () => {
+    const { app } = await opened('cube-lad.glb');
+    const state = quickRigOf(app);
+    if (state === null) throw new Error('no Quick Rig');
+    const failed = {
+      armAngle: 0,
+      aPose: false,
+      failed: 'No leg split or arm run found: the markers follow the template',
+    };
+    app.session.setState({ rig: { ...app.session.getState().rig, quickRig: { ...state, guess: failed } } });
+    expect(await refusal(app, 'autorig.rig')).toEqual({ code: 'poll', message: ARMS_NOT_FOUND });
+    // two of the three arm markers moved: still waiting
+    for (const name of ['shoulder', 'elbow'] as const) {
+      await ok(app, 'skel.quickRig.setMarker', { name, point: [...(state.markers[name] ?? [0, 0, 0])] });
+    }
+    expect(app.operators.poll('autorig.rig')).toEqual({ ok: false, reason: ARMS_NOT_FOUND });
+    await ok(app, 'skel.quickRig.setMarker', { name: 'wrist', point: [...(state.markers.wrist ?? [0, 0, 0])] });
+    expect(app.operators.poll('autorig.rig')).toBe(true);
+  });
+
+  it('AR-D10-3: arm bones beside the body move nothing — the error row skin.limb-unweighted', async () => {
+    const { app } = await opened('cube-lad.glb');
+    // the arm markers on a line above the head (the template's guess on an arms-down model put them through it)
+    const markers: Record<'shoulder' | 'elbow' | 'wrist', [number, number, number]> = {
+      shoulder: [-0.2, 2.3, 0],
+      elbow: [-0.5, 2.3, 0],
+      wrist: [-0.8, 2.3, 0],
+    };
+    for (const [name, point] of Object.entries(markers)) await ok(app, 'skel.quickRig.setMarker', { name, point });
+    const result = await ok<{ character: CharacterId }>(app, 'autorig.rig', { straighten: false });
+    const row = app.rig.validation
+      .rows(result.character, 'ekza/space-avatar-v1')
+      .find((candidate) => candidate.code === 'skin.limb-unweighted');
+    expect(row?.severity).toBe('error');
+    const bones = (row?.ids ?? []).map((id) => app.store.get('joints', id as never)?.humanBone);
+    expect(bones).toEqual(expect.arrayContaining(['leftLowerArm', 'rightLowerArm']));
+    expect(bones.some((bone) => (bone ?? '').endsWith('Leg'))).toBe(false);
+    expect(row?.message).toMatch(/move no part of the model/);
+    // a plain export only warns
+    expect(
+      app.rig.validation.rows(result.character, 'local/generic').find((r) => r.code === 'skin.limb-unweighted')
+        ?.severity,
+    ).toBe('warning');
   });
 
   it('stops when an undo runs between the inner runs; the steps already made stay undoable', async () => {

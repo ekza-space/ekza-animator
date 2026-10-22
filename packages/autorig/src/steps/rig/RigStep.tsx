@@ -46,6 +46,7 @@ import { watchPaintedSinceBind } from './painted';
 import { ProgressSheet } from './ProgressSheet';
 import { rebind, wantsStraighten } from './run';
 import { useHiddenControls } from '../markers/controls';
+import { useHiddenParts } from '../model/hiddenParts';
 import { rigUi } from './ui';
 import './strings';
 
@@ -302,6 +303,16 @@ function Validation(props: { readonly ctx: WizardContext; readonly character: Ch
                 {r.adjust}
               </button>
             ) : null}
+            {row.code === 'skin.limb-unweighted' ? (
+              <button
+                type="button"
+                className={button('primary')}
+                data-testid="ar-rig-row-markers"
+                onClick={() => ctx.go('markers')}
+              >
+                {r.markersAgain}
+              </button>
+            ) : null}
             {row.fix === null ? null : (
               <button
                 type="button"
@@ -554,6 +565,7 @@ function PanelWithFooter(props: { readonly ctx: WizardContext }): JSX.Element {
   // A clean character while the deformation is judged (AR-D9-8): no IK rings, root arrows or pole targets on any of
   // ③'s sub-steps (AR-D8-4 hid them in *Adjust joints* only); Studio keeps its own pane flags.
   useHiddenControls(ctx, true, `${rig.sub}:${markers.pane}`);
+  useHiddenParts(ctx);
   useEffect(() => watchPaintedSinceBind(ctx.app, ctx.session), [ctx]);
   return <Panel ctx={ctx} />;
 }

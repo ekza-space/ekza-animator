@@ -7,6 +7,7 @@ import type { AutoRigFix, AutoRigSubject } from '@ekza-studio/editor-core';
 import type { WizardContext } from '../../shell/context';
 import { enterWorkspace } from '../../shell/entry';
 import { modelUi, reinspect, runIntake, subjectMeshes } from './flow';
+import { leftOutParts } from './parts';
 
 /** §6.1 Re-rig from scratch: the waiting skinned file again with `dropSkin` (its meshes at the bind pose). */
 export async function reRig(ctx: WizardContext): Promise<void> {
@@ -37,7 +38,14 @@ export async function applyFix(ctx: WizardContext, fix: AutoRigFix, height?: num
   if (meshes.length === 0) return;
   await enterWorkspace(ctx.app, 'model');
   modelUi(ctx).set((current) => ({ ...current, error: null }));
-  const result = await ctx.run('autorig.fix', { fix, meshes, ...(height === undefined ? {} : { height }) });
+  // measured on the ticked parts, applied to the whole model: an unticked part follows (AR-D10-2)
+  const others = leftOutParts(ctx);
+  const result = await ctx.run('autorig.fix', {
+    fix,
+    meshes,
+    ...(height === undefined ? {} : { height }),
+    ...(others.length === 0 ? {} : { with: others }),
+  });
   if (result.status === 'finished') await reinspect(ctx);
   else {
     const error = result.status === 'failed' ? result.error.message : result.reason;

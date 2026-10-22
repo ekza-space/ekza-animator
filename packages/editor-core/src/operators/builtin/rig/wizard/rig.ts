@@ -2,7 +2,7 @@
 // chunk: no undo flag of their own, the inner operators record the steps.
 //
 // - `autorig.rig {straighten?}`: Create Skeleton (`skel.quickRig.commit` with `quickRigCommitArgs` of the open Quick
-//   Rig session; refused with `quickRigCommitBlock`'s reason), then Bind Skin (`skin.bind` with the M6b defaults over
+//   Rig session; refused with `autoRigBlock`'s reason: Quick Rig's own, or AR-D10-3's arms not found), then Bind Skin (`skin.bind` with the M6b defaults over
 //   the new character's meshes; Skin mode opens, M6B-AF-1), then — **only** when the caller says the input was A-posed
 //   (`straighten: true`; the Auto-Rig shell passes `session.startPose.kind === 'a'`, headless callers decide, default
 //   false) — Straighten to T-Pose (`skel.pose.applyAsRest {character, pose: 'tStance'}`, A0). Two or three undo steps.
@@ -23,7 +23,7 @@ import { EkzaError } from '@ekza-studio/anim-core';
 import type { CharacterId, SkeletonId } from '@ekza-studio/doc';
 import type { AutoRigRigResult, EditorApp, PollResult } from '../../../../types';
 import { type AnyOperator, defineOperator, fail, isRecord, OK } from '../../define';
-import { quickRigCommitArgs, quickRigCommitBlock, quickRigOf } from '../quickRigSession';
+import { autoRigBlock, quickRigCommitArgs, quickRigOf } from '../quickRigSession';
 import { type CompositionStep, runComposition } from './compose';
 import { autoRigBindMeshes, autoRigRefitBound } from './targets';
 
@@ -64,13 +64,13 @@ const rig = defineOperator<'autorig.rig', AutoRigRigResult>({
     if (prepared.has(app)) return OK;
     const state = quickRigOf(app);
     if (state === null) return fail(NO_MARKERS);
-    const block = quickRigCommitBlock(state);
+    const block = autoRigBlock(state);
     return block === null ? OK : fail(block);
   },
   async prepare({ app }, args): Promise<AutoRigRigResult> {
     const state = quickRigOf(app);
     if (state === null) throw new EkzaError('op-refused', NO_MARKERS);
-    const block = quickRigCommitBlock(state);
+    const block = autoRigBlock(state);
     if (block !== null) throw new EkzaError('op-refused', block);
     const straighten = flag(args, 'straighten');
     const commitArgs = { ...quickRigCommitArgs(state), ...(flag(args, 'confirm') ? { confirm: true } : {}) };

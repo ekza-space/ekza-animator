@@ -12,7 +12,8 @@ import type { AutoRigSession } from '../../types';
 import { FIX_LABEL, transformsUniform } from './checks';
 import { acceptFromStudio, applyFix } from './fixes';
 import { reinspect, subjectMeshes } from './flow';
-import { separateMeshes, setPart } from './parts';
+import { useHiddenParts } from './hiddenParts';
+import { separateMeshes, setPart, tickAll } from './parts';
 
 const t = (): ReturnType<typeof messages>['model'] => messages().model;
 const DEG = 180 / Math.PI;
@@ -92,6 +93,7 @@ export function Report(props: { readonly ctx: WizardContext; readonly report: In
   const meshes = useDocument(ctx.app, () => subjectMeshes(ctx));
   const uniform = useDocument(ctx.app, () => transformsUniform(ctx, meshes));
   const separate = useDocument(ctx.app, () => new Set(separateMeshes(ctx.app, report.meshes)));
+  useHiddenParts(ctx);
   const staticKind = report.kind === 'static' || (report.kind === 'project' && subject.meshes.length > 0);
   const c = report.checks;
   const tris = formatNumber(report.triangles, { maximumFractionDigits: 0 });
@@ -146,14 +148,20 @@ export function Report(props: { readonly ctx: WizardContext; readonly report: In
               fix={<FixButton ctx={ctx} fix="freeze" />}
             />
           )}
-          <li className="flex items-start gap-2 py-0.5" data-check="pose" data-pose={report.pose?.kind ?? 'unknown'}>
-            <span aria-hidden className="text-info">
-              ·
+          <li
+            className="flex items-start gap-2 py-0.5"
+            data-check="pose"
+            data-pose={report.pose?.kind ?? (c.upright ? 'no-arms' : 'unknown')}
+          >
+            <span aria-hidden className={report.pose === null && c.upright ? 'text-warn' : 'text-info'}>
+              {report.pose === null && c.upright ? '!' : '·'}
             </span>
-            <span>
+            <span className={report.pose === null && c.upright ? 'text-warn' : undefined}>
               {m.pose}:{' '}
               {report.pose === null
-                ? m.poseUnknown
+                ? c.upright
+                  ? m.poseNoArms
+                  : m.poseUnknown
                 : report.pose.kind === 't'
                   ? m.poseT
                   : m.poseA(Math.round(report.pose.armAngle * DEG))}
@@ -170,10 +178,30 @@ export function Report(props: { readonly ctx: WizardContext; readonly report: In
       {staticKind && report.meshes.length > 1 ? (
         <fieldset className="flex flex-col gap-1" data-testid="ar-parts">
           <legend className="text-fg-2">{m.parts}</legend>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="flex-1 text-fg-3">{m.partsHint}</span>
+            <button
+              type="button"
+              className={cn(buttonClass('default', 'sm'), 'pointer-coarse:min-h-11')}
+              data-testid="ar-parts-all"
+              disabled={(model.parts ?? report.meshes).length === report.meshes.length}
+              onClick={() => {
+                tickAll(ctx);
+                void reinspect(ctx);
+              }}
+            >
+              {m.tickAll}
+            </button>
+          </div>
           {report.meshes.map((id) => {
             const ticked = (model.parts ?? report.meshes).includes(id);
             return (
-              <label key={id} className="flex items-center gap-2 pointer-coarse:min-h-11" data-part={id}>
+              <label
+                key={id}
+                className={cn('flex items-center gap-2 pointer-coarse:min-h-11', ticked ? null : 'text-fg-3')}
+                data-part={id}
+                data-ticked={ticked}
+              >
                 <input
                   type="checkbox"
                   checked={ticked}
@@ -182,8 +210,11 @@ export function Report(props: { readonly ctx: WizardContext; readonly report: In
                     void reinspect(ctx);
                   }}
                 />
-                <span className="flex-1 truncate">{ctx.app.store.get('meshes', id)?.name ?? id}</span>
+                <span className={cn('flex-1 truncate', ticked ? null : 'line-through')}>
+                  {ctx.app.store.get('meshes', id)?.name ?? id}
+                </span>
                 {separate.has(id) ? <span className="text-fg-3">{m.looksSeparate}</span> : null}
+                {ticked ? null : <span className="text-fg-3">{m.leftOut}</span>}
               </label>
             );
           })}

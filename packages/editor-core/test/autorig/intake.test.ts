@@ -307,6 +307,49 @@ describe('autorig.fix and autorig.inspect (§5.2; AS-AR-5)', () => {
     });
   });
 
+  it('`with`: the unticked parts follow every fix measured on the ticked ones (AR-D10-2)', async () => {
+    const { app } = await meshTestApp();
+    const big = { scale: [3, 3, 3], translation: [2, 1, 0] };
+    const body = (
+      await run<IntakeReport>(app, 'autorig.intake', {
+        bytes: rootTransformed(fixture('cube-lad.glb'), big),
+        name: 'a.glb',
+      })
+    ).meshes;
+    // a second copy standing 0.9 m (×3) to the right of the first: the "part" left out of the character
+    const part = (
+      await run<IntakeReport>(app, 'autorig.intake', {
+        bytes: rootTransformed(fixture('cube-lad.glb'), { ...big, translation: [2.9, 1, 0] }),
+        name: 'b.glb',
+      })
+    ).meshes;
+    const bounds = (ids: readonly MeshId[]) => rigGeometry(app, app.store, ids).bounds;
+    const offset = (): number => bounds(part)[0][0] - bounds(body)[0][0];
+    expect(offset()).toBeCloseTo(0.9, 5);
+    const steps = undoLabels(app).length;
+    await run(app, 'autorig.fix', { fix: 'scale', meshes: body, with: part });
+    // measured on the body (5.1 m → 1.7 m), applied to both: the part keeps its place beside the body
+    expect(bounds(body)[1][1] - bounds(body)[0][1]).toBeCloseTo(1.7, 6);
+    expect(bounds(part)[1][1] - bounds(part)[0][1]).toBeCloseTo(1.7, 6);
+    expect(offset()).toBeCloseTo(0.3, 5);
+    await run(app, 'autorig.fix', { fix: 'center', meshes: body, with: part });
+    expect(bounds(body)[0][1]).toBeCloseTo(0, 6);
+    expect(bounds(part)[0][1]).toBeCloseTo(0, 6);
+    expect(offset()).toBeCloseTo(0.3, 5);
+    expect(undoLabels(app)).toHaveLength(steps + 2);
+    // the inspection is the body's alone
+    expect((await run<IntakeReport>(app, 'autorig.inspect', { meshes: body })).checks.centred).toBe(true);
+    const poll = (args: unknown) => app.operators.poll('autorig.fix', undefined, args);
+    expect(poll({ fix: 'center', meshes: body, with: 'x' })).toEqual({
+      ok: false,
+      reason: 'with: a list of scene mesh ids',
+    });
+    expect(poll({ fix: 'center', meshes: body, with: ['msh_nothing'] })).toEqual({
+      ok: false,
+      reason: 'Unknown mesh msh_nothing',
+    });
+  });
+
   it('freeze bakes a non-uniform scale in one step', async () => {
     const { app } = await meshTestApp();
     const bytes = rootTransformed(fixture('cube-lad.glb'), { scale: [1, 1.2, 1] });

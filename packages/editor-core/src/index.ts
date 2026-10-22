@@ -478,6 +478,8 @@ export {
   markerPoint,
   nextMissingMarker,
   PRESET_LOCKED,
+  ARMS_NOT_FOUND,
+  autoRigBlock,
   pickQuickRigMarker,
   QUICK_RIG_CLOSED,
   QUICK_RIG_LABELS,

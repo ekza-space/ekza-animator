@@ -14,10 +14,12 @@
 // - `autorig.inspect {meshes}` (U): the report of scene meshes as they are now — world bounds and a BVH (C2's
 //   `rigGeometry`), C2's start checks (`quickRigStartChecks`: centred, grounded, facing — so ① and ② agree), the
 //   upright and size rows, the triangle tier and the pose class from C2's `guessMarkers` arm angle.
-// - `autorig.fix {fix, meshes, height?}`: one inner operator, one undo step — `center` → `skel.quickRig.center`,
+// - `autorig.fix {fix, meshes, height?, with?}`: one inner operator, one undo step — `center` → `skel.quickRig.center`,
 //   `face` → `skel.quickRig.faceForward`, `standUp` → `scene.object.transform` −90° about X around the bounds centre,
 //   `scale` → `scene.object.transform` uniform scale to `height` (default 1.70 m) about the ground point, `freeze` →
-//   `mesh.freezeTransforms {translate: false, rotate: true, scale: true}`.
+//   `mesh.freezeTransforms {translate: false, rotate: true, scale: true}`. The fix is measured on `meshes` (the ticked
+//   parts) and applied to `meshes` and `with` (the unticked parts of the same model, AR-D10-2), so a part ticked after
+//   the fixes is where it belongs.
 import { EkzaError, quatFromAxisAngle, type ReadonlyXf, xfMultiply } from '@ekza-studio/anim-core';
 import type { AssetId, CharacterId, MeshId, ReadView } from '@ekza-studio/doc';
 import { guessMarkers, quickRigStartChecks, VRM_REQUIRED_BONES } from '@ekza-studio/rig';
@@ -191,6 +193,15 @@ function sceneMeshes(view: ReadView, ids: readonly unknown[]): MeshId[] | string
     if (!out.includes(record.id)) out.push(record.id);
   }
   return out;
+}
+
+/** `autorig.fix`'s optional `with`: live scene meshes besides `measured` that follow the fix (AR-D10-2). */
+function followersOf(view: ReadView, raw: unknown, measured: readonly MeshId[]): MeshId[] | string {
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw)) return 'with: a list of scene mesh ids';
+  if (raw.length === 0) return [];
+  const found = sceneMeshes(view, raw);
+  return typeof found === 'string' ? found : found.filter((id) => !measured.includes(id));
 }
 
 /** The one model asset every mesh comes from, or null. */
@@ -506,21 +517,31 @@ const fix = defineOperator<'autorig.fix'>({
       return fail('height must be a positive number of metres');
     }
     const meshes = sceneMeshes(app.store, args['meshes']);
-    return typeof meshes === 'string' ? fail(meshes) : OK;
+    if (typeof meshes === 'string') return fail(meshes);
+    const followers = followersOf(app.store, args['with'], meshes);
+    return typeof followers === 'string' ? fail(followers) : OK;
   },
   async prepare(ctx, args) {
     const { app } = ctx;
     const meshes = sceneMeshes(app.store, args.meshes);
     if (typeof meshes === 'string') throw new EkzaError('op-refused', meshes);
+    const followers = followersOf(app.store, args.with, meshes);
+    if (typeof followers === 'string') throw new EkzaError('op-refused', followers);
+    const withArg = followers.length === 0 ? {} : { with: followers };
     switch (args.fix) {
       case 'center':
-        await forward(ctx, 'skel.quickRig.center', { meshes });
+        await forward(ctx, 'skel.quickRig.center', { meshes, ...withArg });
         return;
       case 'face':
-        await forward(ctx, 'skel.quickRig.faceForward', { meshes });
+        await forward(ctx, 'skel.quickRig.faceForward', { meshes, ...withArg });
         return;
       case 'freeze':
-        await forward(ctx, 'mesh.freezeTransforms', { ids: meshes, translate: false, rotate: true, scale: true });
+        await forward(ctx, 'mesh.freezeTransforms', {
+          ids: [...meshes, ...followers],
+          translate: false,
+          rotate: true,
+          scale: true,
+        });
         return;
       case 'standUp':
       case 'scale': {
@@ -531,7 +552,7 @@ const fix = defineOperator<'autorig.fix'>({
         }
         const delta =
           args.fix === 'standUp' ? standUpDelta(bounds) : scaleDelta(bounds, args.height ?? SIZE_LIMITS.target);
-        await forward(ctx, 'scene.object.transform', placementsAfter(app.store, meshes, delta));
+        await forward(ctx, 'scene.object.transform', placementsAfter(app.store, [...meshes, ...followers], delta));
         return;
       }
     }

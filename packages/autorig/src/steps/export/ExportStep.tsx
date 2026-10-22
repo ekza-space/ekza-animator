@@ -21,6 +21,8 @@ import { useDocument, useSession, type WizardContext } from '../../shell/context
 import type { StepViewProps } from '../../shell/steps';
 import { type SmallStore, smallStore, useSmall } from '../../shell/store';
 import type { AutoRigSession } from '../../types';
+import { useHiddenControls } from '../markers/controls';
+import { useHiddenParts } from '../model/hiddenParts';
 import { rememberAuthor } from './author';
 import { exportCharacter } from './enter';
 import { expectedFileName } from './files';
@@ -537,6 +539,9 @@ function Panel(props: { readonly ctx: WizardContext }): JSX.Element {
   const { ctx } = props;
   const { app } = ctx;
   const m = t();
+  // a clean character on "Get your character" too (AR-D10-4; ②–④ since AR-D9-8), without the left-out parts
+  useHiddenControls(ctx, true, 'export');
+  useHiddenParts(ctx);
   const view = useExportView(ctx);
   const ui = useSmall(exportUi(ctx));
   const { record, target } = view;

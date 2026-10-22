@@ -28,6 +28,7 @@ export const rig = {
   motionUnavailable: 'Animations could not be loaded — check the connection',
   fix: 'Fix',
   adjust: 'Adjust joints',
+  markersAgain: 'Place the markers again',
   paint: 'Paint weights',
   showWeights: 'Show weights',
   allGood: 'All good',

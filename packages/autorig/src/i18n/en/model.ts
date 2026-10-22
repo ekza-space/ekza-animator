@@ -48,8 +48,12 @@ export const model = {
   poseT: 'T-pose',
   poseA: (degrees: number) => `A-pose (arms ${degrees}° down) — Auto-Rig straightens it to a T-pose after skinning`,
   poseUnknown: 'Unknown until the model stands upright',
+  poseNoArms: 'Arms not found — Auto-Rig needs them held out to the sides (T-pose or A-pose)',
   parts: 'Part of the character',
+  partsHint: 'Unticked parts are hidden and left out of the character.',
+  tickAll: 'Tick all',
   looksSeparate: 'Looks separate',
+  leftOut: 'Left out',
   medium: 'Detailed model: rigging takes a few seconds.',
   heavy: (n: string) =>
     `Very detailed model (${n} triangles). Rigging may take a minute and painting may lag; phones may run out of memory. OMOBA files must stay under 50 MiB.`,

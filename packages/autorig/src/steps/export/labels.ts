@@ -87,6 +87,7 @@ const SKINNED: CheckDef = {
     'skin.unweighted-vertex',
     'skin.weight-sum',
     'skin.influences',
+    'skin.limb-unweighted',
     'vrm.bones-skinned',
   ],
 };
@@ -218,6 +219,7 @@ export function ruleLabel(code: string): string | null {
     'skin.unreachable-island': m.ruleIsland,
     'skin.unweighted-vertex': m.checkSkinned,
     'skin.weight-sum': m.checkSkinned,
+    'skin.limb-unweighted': m.checkSkinned,
     'skin.review': m.ruleReview,
     'xform.scale': m.checkTransforms,
     'xform.not-frozen': m.checkTransforms,

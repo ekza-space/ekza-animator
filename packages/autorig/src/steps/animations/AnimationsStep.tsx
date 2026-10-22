@@ -61,6 +61,7 @@ import {
   trimFromSliders,
 } from './data';
 import { useHiddenControls } from '../markers/controls';
+import { useHiddenParts } from '../model/hiddenParts';
 import { clearDraft, markSkipped } from './slice';
 import './strings';
 
@@ -477,6 +478,7 @@ function Panel(props: { readonly ctx: WizardContext }): JSX.Element {
   }, [ctx]);
   // the character plays its clips without the rig's controls over it (AR-D9-8)
   useHiddenControls(ctx, true, 'animations');
+  useHiddenParts(ctx);
 
   // an info notice ("Added Walk") gives way to the count after a few seconds; an error stays until the next action
   useEffect(() => {

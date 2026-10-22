@@ -394,8 +394,8 @@ export interface OperatorMap {
   'skel.quickRig.setPreset': { args: { readonly preset: SkeletonPreset }; result: void };         // §0.6 (new)
   'skel.quickRig.cancel': { args: void; result: void };                                           // §0.6 (new)
   'skel.quickRig.pick': { args: { readonly marker: QuickRigMarker | null }; result: void };       // §0.6 (new)
-  'skel.quickRig.center': { args: { readonly meshes?: readonly MeshId[] } | void; result: void }; // §0.6 (new): Center and ground
-  'skel.quickRig.faceForward': { args: { readonly meshes?: readonly MeshId[] } | void; result: void };   // §0.6 (new): Rotate to face +Z
+  'skel.quickRig.center': { args: { readonly meshes?: readonly MeshId[]; readonly with?: readonly MeshId[] } | void; result: void }; // §0.6 (new): Center and ground; `with` AR-D10-2
+  'skel.quickRig.faceForward': { args: { readonly meshes?: readonly MeshId[]; readonly with?: readonly MeshId[] } | void; result: void };   // §0.6 (new): Rotate to face +Z; `with` AR-D10-2
   'skel.quickRig.commit': { args: { readonly preset: SkeletonPreset; readonly markers: QuickRigMarkers;
     readonly meshes: readonly MeshId[]; readonly flexion: number };                               // §0.4.2 args
     result: { readonly character: CharacterId; readonly skeleton: SkeletonId } };
@@ -534,8 +534,8 @@ export interface OperatorMap {
   'autorig.intake': { args: { readonly bytes: Uint8Array; readonly name: string; readonly dropSkin?: boolean };
     result: IntakeReport };                                                                                        // D3
   'autorig.inspect': { args: { readonly meshes: readonly MeshId[] }; result: IntakeReport };                       // D3 (U)
-  'autorig.fix': { args: { readonly fix: AutoRigFix; readonly meshes: readonly MeshId[]; readonly height?: number };
-    result: void };                                                                                                // D3
+  'autorig.fix': { args: { readonly fix: AutoRigFix; readonly meshes: readonly MeshId[]; readonly height?: number;
+    readonly with?: readonly MeshId[] }; result: void };                                                           // D3; `with` AR-D10-2
   'autorig.rig': { args: { readonly straighten?: boolean } | void; result: AutoRigRigResult };                     // D4
   'autorig.cancel': { args: void; result: void };                                                                  // D4 (U)
   'autorig.clip.add': { args: { readonly character: CharacterId; readonly clip: string; readonly params: ClipParams;
@@ -545,4 +545,5 @@ export interface OperatorMap {
   'autorig.navigate': { args: { readonly to: ShellRoute; readonly workspace?: WorkspaceId; readonly from?: 'studio' | 'autorig';
     readonly newTab?: boolean }; result: void };                                                                   // D1 (U)
   'autorig.controls': { args: { readonly hidden: boolean }; result: void };                                        // D9 (U, AR-D9-8)
+  'autorig.parts': { args: { readonly hidden: readonly MeshId[] }; result: void };                                 // D10 (U, AR-D10-1)
 }

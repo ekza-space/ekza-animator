@@ -29,8 +29,8 @@ export const markers = {
   // notices added to M6b's (§5.3, §6.1)
   aPoseAuto: 'Auto-rig straightens it for you.',
   notHumanoid:
-    'This does not look like a person standing. Auto-Rig makes humanoid (VRM) skeletons. You can still place the ' +
-    'markers by hand.',
+    'Auto-Rig could not find the arms: it needs a person standing with the arms out (T-pose or A-pose). Drag the ' +
+    'Shoulder, Elbow and Wrist markers onto the arm to rig it anyway.',
   closed: 'The markers are closed.',
   reopen: 'Place markers again',
   starting: 'Placing the markers…',

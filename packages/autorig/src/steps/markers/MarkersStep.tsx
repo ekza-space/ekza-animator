@@ -4,9 +4,9 @@
 // panel M6b's compact marker list (`QuickRigPanelBody`, its own Create Skeleton row hidden: *Auto-rig ▸* replaces it)
 // beside a body pictogram, the selected marker's coordinates, the fingers choice (Mixamo's skeleton detail:
 // `skel.quickRig.setPreset`), the symmetry line and Auto-Rig's notices (the A-pose one, the non-humanoid one). The
-// footer's primary *Auto-rig ▸* is enabled when `quickRigCommitBlock` is null and runs `autorig.rig` (`../rig/run`).
+// footer's primary *Auto-rig ▸* is enabled when `autoRigBlock` is null (Quick Rig's block, or AR-D10-3's arms gate) and runs `autorig.rig` (`../rig/run`).
 // While it runs the progress sheet covers the wizard.
-import { type EditorApp, QUICK_RIG_LABELS, quickRigCommitBlock, type QuickRigState } from '@ekza-studio/editor-core';
+import { autoRigBlock, type EditorApp, QUICK_RIG_LABELS, type QuickRigState } from '@ekza-studio/editor-core';
 import { buttonClass, cn } from '@ekza-studio/ui';
 import { type JSX, lazy, Suspense, useCallback, useEffect } from 'react';
 import { formatNumber, messages } from '../../i18n';
@@ -21,6 +21,7 @@ import { rigUi } from '../rig/ui';
 import { enterMarkers } from './enter';
 import { type MarkerPane, markerPanes, type ScreenClass } from './index';
 import { withPane } from './slice';
+import { useHiddenParts } from '../model/hiddenParts';
 import { useHiddenControls } from './controls';
 import { installMarkerHistory } from './history';
 import { installMarkerKeys } from './keys';
@@ -260,7 +261,7 @@ function useMarkersFooter(ctx: WizardContext): void {
   const rig = useSmall(rigUi(ctx));
   useEffect(() => {
     const m = t();
-    const block = state === null ? (ui.error ?? m.closed) : quickRigCommitBlock(state);
+    const block = state === null ? (ui.error ?? m.closed) : autoRigBlock(state);
     const selectedLabel =
       state?.selected === null || state?.selected === undefined ? null : QUICK_RIG_LABELS[state.selected];
     const footer: FooterState = {
@@ -281,6 +282,7 @@ function PanelWithFooter(props: { readonly ctx: WizardContext }): JSX.Element {
   useMarkersFooter(ctx);
   const slice = useSession(ctx.session, selectMarkers);
   useHiddenControls(ctx, true, slice.pane);
+  useHiddenParts(ctx);
   useEffect(() => installMarkerKeys(ctx), [ctx]);
   useEffect(() => installMarkerHistory(ctx), [ctx]);
   useEffect(() => watchPaintedSinceBind(ctx.app, ctx.session), [ctx]);
