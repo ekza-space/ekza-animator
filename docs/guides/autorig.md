@@ -20,8 +20,9 @@ FBX and OBJ are not read yet: in Blender use *File › Export › glTF 2.0 (.glb
 ## ① Model
 
 Drop the file on the page (or *Choose file…*, or try a sample). The report checks the model: **centred, on the
-ground, facing +Z, upright, a human size**, and its pose (T or A). Each failed check has a one-click fix (*Center
-and ground*, *Face forward*, *Stand up*, *Set height*), each one undo step. If the file has several meshes, things
+ground, facing +Z, upright, a human size**, and its pose (T or A). Each failed check has a one-click fix, each one
+undo step: *Center and ground* (it also brings a model that sits far away back to the middle), *Face forward*,
+*Stand up*, *Set height*. If the file has several meshes, things
 that look separate (a sword on the floor) are left out of the character; tick them to include them.
 
 ## ② Markers
@@ -41,7 +42,8 @@ own undo step, so `Ctrl/⌘+Z` shows exactly what each did.
 If something looks wrong:
 
 - **Adjust joints**: front, side and 3D views with the joints; drag a joint (`W`; `D`+`W` moves it alone). *Done*
-  rebinds the skin.
+  turns each hand with its forearm when you moved an elbow or a wrist (so an elbow moved back onto the arm line
+  clears the T-pose check) and rebinds the skin.
 - **Paint weights**: the brush from Studio (Replace, Add, Smooth; mirror on). Painting needs a larger screen than a
   phone.
 - The checks list names any problem with its fix — e.g. an arm that is off its T-pose line.
@@ -87,5 +89,6 @@ off*.
 
 ## Limits, said plainly
 
-Humanoids only (no quadrupeds or tails), symmetric bodies, no facial expressions or spring bones; textures of a
-textured model are not written into the VRM yet (the colours of palette materials are); FBX and OBJ arrive later.
+Humanoids only (no quadrupeds or tails), symmetric bodies, no facial expressions or spring bones; a textured model
+keeps its base colour image in the VRM, but other maps (normal, emission) are not written, and a model you painted
+with a palette exports the palette colours instead; FBX and OBJ arrive later.
