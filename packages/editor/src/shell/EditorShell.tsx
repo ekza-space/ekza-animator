@@ -88,7 +88,10 @@ export interface StudioShellProps {
 
 export function StudioShell(props: StudioShellProps): JSX.Element {
   const host = useHost();
-  const shell = useConstant(() => startStudio(host, props.panels));
+  // Arriving from Auto-Rig (a switch on this page, or `from=autorig`): no first-run dialog over the hand-over (AR-D8-6).
+  const [shell, arrived] = useConstant(
+    () => [startStudio(host, props.panels), shellShown.has(host) || host.params.from === 'autorig'] as const,
+  );
   const { onShell } = props;
 
   // Dispose on a real unmount only: StrictMode's effect replay re-runs the setup immediately and cancels it.
@@ -113,12 +116,12 @@ export function StudioShell(props: StudioShellProps): JSX.Element {
 
   useEffect(() => onShell?.(shell), [shell, onShell]);
 
-  // The first-run dialog is Studio's (AUTORIG-SPEC §4.4): Auto-Rig never shows it.
+  // The first-run dialog is Studio's (AUTORIG-SPEC §4.4): Auto-Rig never shows it, nor a hand-over from it.
   useEffect(() => {
-    if (!shell.app.prefs.getState().firstRunDone && shell.app.session.getState().dialog === null) {
+    if (!arrived && !shell.app.prefs.getState().firstRunDone && shell.app.session.getState().dialog === null) {
       void shell.runFromUi('ui.open', { dialog: 'firstRun' });
     }
-  }, [shell]);
+  }, [shell, arrived]);
 
   return (
     // The tooltip provider is Studio's (AR-D3-G): Auto-Rig's chrome uses `title`, so `/autorig` never loads Radix's
