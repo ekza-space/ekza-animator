@@ -54,7 +54,7 @@ import { adoptedMaterials } from '../characters/assetMaterials';
 import { loadCharacterRuntime } from '../characters/runtimeChunk';
 import { loadMeshKernel } from '../mesh';
 import type { EditorApp } from '../types';
-import { clipMeta, influenceKeepFrames, inPlaceNode, loadWritePath, type WritePath } from './export';
+import { clipMeta, influenceKeepFrames, inPlaceNode, loadWritePath } from './export';
 import { threeReadBack } from './exportModel';
 import { yieldToHost } from './host';
 import { EDITOR_VERSION } from './samples';
