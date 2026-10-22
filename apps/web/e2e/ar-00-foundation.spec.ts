@@ -30,11 +30,15 @@ test('autorig.* ids load the rig-workspace chunk on first run and refuse as stub
   expect(loaded(scripts, 'ekza-rig-workspace')).toBe(false);
   const before = await call(page, 'counts');
 
-  await expectRefused(page, 'autorig.rig', 'Arrives with Auto-Rig', { straighten: true });
+  // D4 landed `autorig.rig`: without an open Quick Rig session it refuses with its own poll
+  await expectRefused(page, 'autorig.rig', 'Place the markers first (Quick Rig is not open)', { straighten: true });
   await expect.poll(() => loaded(scripts, 'ekza-rig-workspace')).toBe(true);
-  // D1 landed `autorig.navigate` (the host's navigation port), D3 the ① compositions: without arguments each refuses
-  // with its own argument poll; the others are stubs until their owners land them.
+  // D1 landed `autorig.navigate` (the host's navigation port), D3 the ① compositions, D4 the ③ ones: without arguments
+  // (or without a Quick Rig session, a running bind) each refuses with its own poll; the others are stubs until their
+  // owners land them.
   const landed: Readonly<Record<string, string>> = {
+    'autorig.rig': 'Place the markers first (Quick Rig is not open)',
+    'autorig.cancel': 'No skinning is running',
     'autorig.navigate': "expects { to: 'autorig' | 'studio' | 'chooser' }",
     'autorig.sample': 'expects { sample: cube-lad | polybot-tpose | polybot-apose | polybot | seed-san }',
     'autorig.intake': 'expects { bytes, name }',

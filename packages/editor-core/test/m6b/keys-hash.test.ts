@@ -254,7 +254,15 @@ export const P_C6_ROWS: readonly Row[] = [
   checked('D3', 'autorig.intake', () => ({ bytes: cubeLadBytes(), name: 'cube-lad.glb' })),
   checked('D3', 'autorig.inspect', async (app) => ({ meshes: await importedLad(app) })),
   checked('D3', 'autorig.fix', async (app) => ({ fix: 'scale', meshes: await importedLad(app), height: 1 })),
-  ...pending('D4', 'autorig.rig', 'autorig.cancel'),
+  // D4: Create Skeleton + Bind Skin (+ Straighten) on an open Quick Rig session; cancel refuses without a bind.
+  checked('D4', 'autorig.rig', async (app) => {
+    const meshes = await importedLad(app);
+    await app.runUntyped('workspace.set', { workspace: 'rig' });
+    const started = await app.runUntyped('skel.quickRig.start', { meshes });
+    if (started.status !== 'finished') throw new Error(`skel.quickRig.start: ${JSON.stringify(started)}`);
+    return { straighten: false };
+  }),
+  { id: 'autorig.cancel', status: 'checked', owner: 'D4', refuses: 'No skinning is running' },
   { id: 'autorig.clip.add', status: 'keys', owner: 'D5' },
   ...pending('D6', 'autorig.export'),
   // D1: the switch runs through a host navigation port (a recording fake here) and never touches the document.

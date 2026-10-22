@@ -18,6 +18,7 @@ import {
   WIZARD_OPERATORS,
 } from '../../src/operators/builtin/rig/wizard';
 import { NO_NAVIGATION } from '../../src/operators/builtin/rig/wizard/navigate';
+import { NO_MARKERS, NOTHING_TO_CANCEL } from '../../src/operators/builtin/rig/wizard/rig';
 import type { EditorApp } from '../../src/types';
 import { opsApp, runOk } from '../builtin/support';
 import { W } from '../kernel/support';
@@ -324,9 +325,10 @@ describe('WIZARD_OPERATORS in the rig-workspace chunk (AUTORIG-SPEC §4.5, §7.0
   it('running an autorig id before the chunk loaded loads it; the stubs poll-fail "Arrives with Auto-Rig"', async () => {
     const app = opsApp();
     expect(app.rig.loaded).toBe(false);
+    // D4 landed `autorig.rig`: the first run loads the chunk and then refuses with its own poll
     expect(await app.runUntyped('autorig.rig', { straighten: true })).toEqual({
       status: 'cancelled',
-      reason: ARRIVES_WITH_AUTORIG,
+      reason: NO_MARKERS,
     });
     expect(app.rig.loaded).toBe(true);
     expect(ARRIVES_WITH_AUTORIG).toBe('Arrives with Auto-Rig');
@@ -335,8 +337,11 @@ describe('WIZARD_OPERATORS in the rig-workspace chunk (AUTORIG-SPEC §4.5, §7.0
       return poll === true ? 'ok' : poll.reason;
     });
     // D1 landed `autorig.navigate`: without a host navigation port (Node) it refuses with its own reason. D3 landed
-    // the ① compositions: without arguments each refuses with its own argument poll.
+    // the ① compositions: without arguments each refuses with its own argument poll. D4 landed the ③ ones: without a
+    // Quick Rig session / a running bind they refuse with their own reasons.
     const landed: Readonly<Record<string, string>> = {
+      'autorig.rig': NO_MARKERS,
+      'autorig.cancel': NOTHING_TO_CANCEL,
       'autorig.navigate': NO_NAVIGATION,
       'autorig.sample': 'expects { sample: cube-lad | polybot-tpose | polybot-apose | polybot | seed-san }',
       'autorig.intake': 'expects { bytes, name }',
