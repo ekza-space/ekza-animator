@@ -4,7 +4,6 @@
 import type { ConstraintRecord, ControlId } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import {
-  applyPoseAsRest,
   autoRig,
   bakeConstraints,
   CONSTRAINT_OPS,
@@ -140,7 +139,8 @@ describe('Quick Rig v2 marker lists (§0.5)', () => {
 });
 
 // C2 landed skeletonTemplate, fitTemplate, guessMarkers, projectedCenter, orientJoints, mirrorJoints, moveJoints and
-// checkSkeleton (tested in test/m6b-skeleton/); the deferred symbols keep their stubs.
+// checkSkeleton (tested in test/m6b-skeleton/), AUTORIG A0 applyPoseAsRest (test/autorig-a0/); the deferred symbols
+// keep their stubs.
 describe('stubs fail not-implemented with their symbol (§3 rule 1)', () => {
   const any = null as never;
   it.each([
@@ -149,7 +149,6 @@ describe('stubs fail not-implemented with their symbol (§3 rule 1)', () => {
     ['removeJoints', () => removeJoints([], [])],
     ['deleteJoints', () => deleteJoints([], [])],
     ['reparentJoints', () => reparentJoints([], [], null)],
-    ['applyPoseAsRest', () => applyPoseAsRest([], any)],
     ['duplicateJoints', () => duplicateJoints([], [], { mirror: false }, any)],
     ['chainParent', () => chainParent([], [0, 0, 0], { selected: null, preset: null, newRoot: false })],
     ['socketPlacement', () => socketPlacement([], 'back', any, 1.7)],

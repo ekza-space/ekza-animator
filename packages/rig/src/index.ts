@@ -44,6 +44,16 @@ export {
   socketPlacement,
   splitBone,
 } from './joints';
+// AUTORIG-SPEC §10 A0: the A-pose path (T-Stance, Apply Pose as Rest maths).
+export {
+  isIdentityMat4,
+  poseDeltaOf,
+  posedWorldOf,
+  restWorldOf,
+  T_STANCE,
+  type TStancePose,
+  tStancePose,
+} from './joints/rest';
 export { isRigOpSkipped } from './kernel/internals';
 export { type RigOpImpl, registerBuiltinRigOps, registerRigOp } from './kernel/ops';
 export { controlWorld } from './kernel/pose';

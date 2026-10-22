@@ -36,6 +36,12 @@ export const GUESS = Object.freeze({
   /** Hand length estimate 0.08 H; the wrist is pulled back from the arm's extreme point by 1.0 × it (spike). */
   handLength: 0.08,
   wristPullBack: 1,
+  /** A-posed arms (armAngle > aPoseAngle; AUTORIG-SPEC A0 calibration on A-posed Polybot, a contract PR to M6B-SPEC
+   *  §0.4.2's thresholds recorded in docs/wp-notes/ar-a-pose.md; T-posed arms keep the rules above): the outer ends of
+   *  a hanging arm reach past the hand along the arm line, so the wrist is pulled back by 1.5 hand lengths; and the
+   *  shoulder slides along the shoulder → elbow line to the middle of the armpit gap (the torso's edge and the arm's
+   *  inner edge in the band's topmost row where the arm is separated from the torso) instead of the torso-edge clamp. */
+  aPoseWristPullBack: 1.5,
   /** shoulder = elbow − 0.95·(wrist − elbow), clamped between the arm root and 0.02 H. */
   shoulderK: 0.95,
   shoulderMin: 0.02,
@@ -231,12 +237,16 @@ export function guessMarkers(
   // Each sample: the outer end (most negative x) of the row's outermost run when it is separated from the torso, or of
   // the torso run when it reaches past the torso edge by 0.05 H.
   const ends: { s: number; y: number }[] = [];
+  // The armpit of a hanging arm: the topmost row of the band whose arm run is separated from the torso; the shoulder
+  // of an A-posed arm sits above the middle of the gap between the torso's edge and the arm's inner edge there.
+  let armpitS: number | null = null;
   for (let k = shoulderRow; k >= bandBottom; k--) {
     const runs = rowRuns(raster, k).filter((run) => run[0] < c0);
     if (runs.length === 0) continue;
     const torso = runAt(f, k, c0);
     const outer = runs[0] as [number, number];
     const separated = torso === null || outer[1] < torso[0];
+    if (separated && torso !== null && armpitS === null) armpitS = (-xOf(f, torso[0]) - xOf(f, outer[1])) / 2;
     const s = -xOf(f, outer[0]);
     if (!separated && s < torsoEdge + GUESS.armBeyondTorso * H) continue;
     ends.push({ s, y: f.ground + (k + 0.5) * step });
@@ -268,7 +278,9 @@ export function guessMarkers(
   let extreme = -Infinity;
   for (const e of ends) extreme = Math.max(extreme, (e.s - meanS) * us + (e.y - meanY) * uy);
   const along = (t: number): [number, number] => [meanS + t * us, meanY + t * uy];
-  const pull = GUESS.wristPullBack * GUESS.handLength * H;
+  const hanging = armAngle > GUESS.aPoseAngle;
+  const pullBack = hanging ? GUESS.aPoseWristPullBack : GUESS.wristPullBack;
+  const pull = pullBack * GUESS.handLength * H;
   const [wristS, wristLineY] = along(extreme - pull);
   const rootS = armRoot;
   const rootY = yOnLine(rootS);
@@ -280,7 +292,10 @@ export function guessMarkers(
   // Shoulder = elbow − 0.95·(wrist − elbow), clamped along the line into [0.02 H, torso edge].
   let shoulderS = elbowS - GUESS.shoulderK * (wristS - elbowS);
   let shoulderY = elbowY - GUESS.shoulderK * (wristY - elbowY);
-  const clampS = Math.min(armRoot, Math.max(GUESS.shoulderMin * H, shoulderS));
+  const clampS =
+    hanging && armpitS !== null && armpitS > GUESS.shoulderMin * H
+      ? armpitS
+      : Math.min(armRoot, Math.max(GUESS.shoulderMin * H, shoulderS));
   if (clampS !== shoulderS) {
     // Slide along the shoulder → elbow direction to the clamped s.
     const ds = elbowS - shoulderS;

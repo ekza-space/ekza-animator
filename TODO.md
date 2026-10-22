@@ -3,7 +3,7 @@
 Ordered queue of what to do next. The plans behind it: [ROADMAP](docs/ROADMAP.md#recommended-order) and
 [MODELING-PLAN](docs/MODELING-PLAN.md) (v0.2, revised after its design review, §12); owner decisions with defaults:
 [DECISIONS-OPEN](docs/DECISIONS-OPEN.md). Sizes are agent-days; "day N" counts working days from the start of B0a.
-Updated 2026-10-22 (M6b MVP integrated; M6a released as `v0.3.0`, basic shading as `v0.3.1`).
+Updated 2026-10-22 (Auto-Rig integrated; M6b MVP released as `v0.4.0`; M6a released as `v0.3.0`, basic shading as `v0.3.1`).
 
 ## Now — M6b MVP: Rig & Skin owner flow (integrated 2026-10-22; owner run and tag open)
 
@@ -29,8 +29,8 @@ Focus is the modeling base (M6a) first. These tracks are fully specified and par
 - [ ] **M6b after the MVP** (deferred by the MVP cut, [M6B-SPEC §0.3](docs/M6B-SPEC.md#03-scope-in-and-deferred); spec
       text kept): C8a/C8b constraints (parent/point/orient/aim, Attach Prop, sockets, bake), C9 control-shape editing,
       C11 imports recovery (Make Character Editable, skin surgeon edits on imported avatars, fill missing weights by
-      inpainting), the Joint tool / Insert / Split / Remove / Delete / Duplicate / Add Chain, the A-pose path (T-Stance,
-      Apply Pose as Rest), Auto Weights for Selected Joints, the Component Editor (if not built in C6), numbers overlay,
+      inpainting), the Joint tool / Insert / Split / Remove / Delete / Duplicate / Add Chain (the A-pose path — T-Stance,
+      Apply Pose as Rest — was built by AUTORIG A0), Auto Weights for Selected Joints, the Component Editor (if not built in C6), numbers overlay,
       Lock-Relative, Copy/Move/Hammer weights, the ROM clip, Rig Outliner variant and marking menus (CR-3, CR-5),
       CR-1/CR-6/CR-8/CR-9/CR-10, §1.2 stretch items, AS-LP-T "Lowpoly Lad and his sword"; from the MVP integration:
       joint/constraint selection undo (`SelectionSnapshot` contract change, M6B-INT-22), auto-skin occluders from the
@@ -105,18 +105,28 @@ items (eager allowance, marquee budget miss, bevel limits, feel check, demo scri
 11. [ ] Owner reviews the remaining M6b owner questions ([M6B-SPEC §12.4](docs/M6B-SPEC.md#124-owner-questions-defaults-chosen-the-build-starts-on-them); Q-M6B-1 is superseded by Q-MVP-1) and calibrates the rig marking menus together with Q-MOD-UI-1 before they are built.
 12. [ ] After the MVP: the deferred packages C8a, C8b, C9, C11 and the deferred parts of C2/C3/C5/C6/C7 (Parked list above), then AS-LP-T and the turnkey feel check.
 
-## Next — Auto-Rig mode (after the M6b MVP; owner request 2026-10-22)
+## Now — Auto-Rig mode (integrated 2026-10-22; owner run and tag open)
 
 A Mixamo-style simple mode next to the full Studio, chosen on opening: upload a model → markers → auto-rig → try
 animations → export an OMOBA/Space VRM, built only from Studio's and M6b's operators (a second shell over the same app
-and document). Spec: [AUTORIG-SPEC](docs/AUTORIG-SPEC.md) v0.1 (draft), [ADR 0021](docs/adr/0021-autorig-mode.md)
-(Proposed). Starts when the M6b MVP has merged into `dev`. ≈ 30.5 agent-days, critical path ≈ 20.5.
+and document). Spec: [AUTORIG-SPEC](docs/AUTORIG-SPEC.md) v0.3, [ADR 0021](docs/adr/0021-autorig-mode.md) (Proposed
+until the owner accepts the spec). Integration branch `autorig/mvp` (from `dev`).
 
-- [ ] Owner reviews AUTORIG-SPEC §13 (Q-AR-1…16; defaults stand until overridden), in particular Q-AR-4 (A-pose path
-      first) and Q-AR-16 (send the contract requests CR-AR-1…6 to the running M6b build now).
-- [ ] D0 contracts + `/autorig` size gate → D1 studio host (route group, same-page handoff) → D2 chooser, D3 wizard
-      shell + Model step → D4 Markers + Rig, D5 Animations, D6 Export (parallel) → D7 integration, AS-AR-1…12.
-- [ ] Owner runs AS-AR-1 by hand (static humanoid GLB → OMOBA VRM passing `validate-runtime-vrm`); release tag: owner's call.
+- [x] D0 contracts, route-group-proof size tooling, AR-B1 re-baseline, the layout spike (shared layout kept).
+- [x] A0 the A-pose path in Studio (T-Stance, Apply Pose as Rest, *Straighten to T-Pose*), D1 the studio host and
+      route group (same-page handoff with undo, new-tab handoff records), D2 the chooser and the switches, D3 the wizard
+      frame + ① Model, D4 ② Markers + ③ Rig, D5 ④ Animations, D6 ⑤ Export (each with its fix round).
+- [x] D7 integration: every package merged on `autorig/integration`; AS-AR-1…12 scripted in full through the UI
+      (`apps/web/e2e/ar-as-*.spec.ts`, E2E-AR-08…11, E2E-AR-13); OMOBA's validator admits the AS-AR-1 and AS-AR-2
+      exports; `/autorig` 658,122 B under its enforced 660,000 B gate, `/editor` +1,055 B of AR-B1's +2,048 B; the
+      bench ([ROADMAP](docs/ROADMAP.md#auto-rig-budgets)); docs; fix round (AR-D7-1…14,
+      [wp-notes](docs/wp-notes/ar-integration.md)).
+- [ ] Owner: AS-AR-1 and AS-AR-2 by hand in Chrome (timed), the demo in the [D7 notes](docs/wp-notes/ar-integration.md#owner-demo--10-minutes);
+      review [DECISIONS-OPEN §M](docs/DECISIONS-OPEN.md#m-auto-rig-2026-10-22) and §13 (Q-AR-1…20; defaults stand).
+- [ ] Known gaps for their owners: AR-D4-T1 (C3: Move Joint leaves the hand's tail, AS-AR-1 step 12's last check),
+      C10 image textures in the VRM (AS-AR-6), C2 *Center and Ground* leaving z (AR-D3-15), the shared placement
+      helper (AR-D3-23).
+- [ ] Release tag: the owner's call (after `v0.4.0`).
 
 ## After the turnkey release
 

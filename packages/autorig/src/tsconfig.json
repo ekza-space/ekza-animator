@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../../tooling/tsconfig/browser.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "../.tsbuild/src"
+  },
+  "include": ["./**/*"],
+  "references": [
+    {
+      "path": "../../anim-core/src"
+    },
+    {
+      "path": "../../doc/src"
+    },
+    {
+      "path": "../../editor-core/src"
+    },
+    {
+      "path": "../../viewport/src"
+    },
+    {
+      "path": "../../ui/src"
+    },
+    {
+      "path": "../../editor/src"
+    }
+  ]
+}

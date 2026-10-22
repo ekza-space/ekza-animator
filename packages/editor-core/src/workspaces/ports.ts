@@ -1,9 +1,10 @@
 // Ports from headless operators to the editor's UI (M6A-SPEC §6.2, B9): `view.shading` and `view.display.set` change
 // a viewport pane's display flags, which live in the ViewportManager; `ui.commandPalette` and `ui.markingMenu` open
-// shell overlays. The operators stay registered with the built-ins (scripts, menus and the palette see them in every
+// shell overlays; `autorig.navigate` and the shells' mode switches go through the host's navigation port (AUTORIG-SPEC
+// §3.4, §4.4; D1). The operators stay registered with the built-ins (scripts, menus and the palette see them in every
 // app) and poll-fail politely until the viewport or the shell provides its port. One port of each kind per app.
 import type { Disposer } from '@ekza-studio/anim-core';
-import type { DisplayFlags, EditorApp, MarkingMenuDef, RunContext } from '../types';
+import type { DisplayFlags, EditorApp, MarkingMenuDef, NavigationPort, RunContext } from '../types';
 
 /** What the viewport offers the pane display operators (B9's ViewportManager). */
 export interface PaneDisplayPort {
@@ -24,6 +25,7 @@ export interface ShellOverlayPort {
 
 const paneDisplays = new WeakMap<object, PaneDisplayPort>();
 const overlays = new WeakMap<object, ShellOverlayPort>();
+const navigations = new WeakMap<object, NavigationPort>();
 
 function provide<T>(map: WeakMap<object, T>, app: EditorApp, port: T): Disposer {
   map.set(app, port);
@@ -46,4 +48,14 @@ export function provideShellOverlays(app: EditorApp, port: ShellOverlayPort): Di
 
 export function shellOverlayPort(app: EditorApp): ShellOverlayPort | null {
   return overlays.get(app) ?? null;
+}
+
+/** The host's navigation port (D1, `StudioHost`): switching between Studio and Auto-Rig keeping the document. */
+export function provideNavigation(app: EditorApp, port: NavigationPort): Disposer {
+  return provide(navigations, app, port);
+}
+
+/** The navigation port of `app`'s host, or null (headless, Node, a harness without one). */
+export function hostNavigation(app: EditorApp): NavigationPort | null {
+  return navigations.get(app) ?? null;
 }

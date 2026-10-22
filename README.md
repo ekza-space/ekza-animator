@@ -109,10 +109,28 @@ front and side views, get the VRM skeleton, adjust it, press a button to skin, l
    gate; the file passes glTF-Validator, vrm-validator and OMOBA's own runtime rules. OMOBA plays its own motion
    library on your VRM; your clips play in Space. How to take it there: [docs/guides/characters-to-ekza.md](docs/guides/characters-to-ekza.md).
 
-Known gaps, said plainly: the model must be **T-posed** for export (an A-posed model is fitted and flagged; the A-pose
-fix arrives later), Rig and skin edits on imported avatars arrive after the MVP (clips play on them), and
+Known gaps, said plainly: an **A-posed** model is fitted and bound in its own pose, then *Skeleton › Straighten to
+T-Pose* (or the Validation row's Fix) makes its rest the VRM T-pose; Rig and skin edits on imported avatars arrive after the MVP (clips play on them), and
 constraints, control-shape editing, the Joint tool, the Component Editor weight table and weight transfer/inpainting
 follow after the MVP ([docs/M6B-SPEC.md](docs/M6B-SPEC.md) §0.3).
+
+## Auto-Rig: from a GLB to an OMOBA-ready VRM in minutes
+
+On opening, Ekza Studio asks what you want to do: the full **Studio**, or **Auto-Rig** — a Mixamo-style five-step
+wizard built from the same tools (a second shell over the same document and undo history, [ADR 0021](docs/adr/0021-autorig-mode.md)):
+
+1. **Model**: drop a static humanoid GLB (T- or A-posed) or a VRM; the checks (centred, grounded, facing, upright,
+   size, pose) each have a one-click fix.
+2. **Markers**: nine markers guessed from the silhouette, dragged in the front and side views; finger detail.
+3. **Rig**: **Auto-rig** creates the VRM skeleton, binds the skin and, for an A-posed model, straightens it to the VRM
+   T-pose — then the character moves at once. Adjust joints and paint weights without leaving the wizard.
+4. **Animations**: the CC0 clip library with search, preview on your character, speed / trim / mirror / in place /
+   arm space, several clips per character.
+5. **Export**: an OMOBA- and Space-ready VRM 1.0 behind a checklist that includes OMOBA's runtime rules (its own
+   validator admits the files), a GLB with the clips, the clips as VRMA, or an OMOBA local test kit.
+
+*Open in Studio ▸* continues with the same document and its undo history; nothing leaves your browser. Guide:
+[docs/guides/autorig.md](docs/guides/autorig.md); spec: [docs/AUTORIG-SPEC.md](docs/AUTORIG-SPEC.md).
 
 ## Focused layouts
 
@@ -191,6 +209,8 @@ docs/                    research, ADRs, requirements, roadmap, MVP spec, glossa
   that was built, with its acceptance scenario AS-MVP-1 ("Cube Lad comes alive").
 - [docs/guides/characters-to-ekza.md](docs/guides/characters-to-ekza.md) — export a VRM, upload it to Ekza Hub as an
   avatar, and what Ekza Space and OMOBA do with it.
+- [docs/AUTORIG-SPEC.md](docs/AUTORIG-SPEC.md) — the Auto-Rig mode (chooser, wizard, A-pose path, budgets, acceptance
+  AS-AR-1…12); user guide [docs/guides/autorig.md](docs/guides/autorig.md).
 - [docs/M2A-SPEC.md](docs/M2A-SPEC.md) — build spec of milestone M2a (integrated): limb IK, Dope Sheet, tween and
   breakdowns, Graph Editor tools, autosave, and the fixes for the M1 budget misses, as contract deltas and work
   packages; with the owner demo script (§10.3).

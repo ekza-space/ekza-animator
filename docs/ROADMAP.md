@@ -34,6 +34,7 @@ design review, MODELING-PLAN v0.2). Keep the [status table](#status) current: ev
 | M5 | V2: layers, IK polish, power tools | Planned | — | — | |
 | M6a | Modeling base: Model workspace, low-poly box modeling, palette colour, static GLB export | **Done**, merged into `dev` (2026-10-20); tag `v0.3.0` pending the owner review | 2026-10-19 | 2026-10-20 | [M6A-SPEC](M6A-SPEC.md) v1.1: B0a, B0b, B1…B13 (B12a/B12b) merged in the §11.1 order ([status](#m6a-work-package-status)); every READY/`test.fixme` gate is a failure; E2E-MOD-01…32, AS-LP-S (parts A and B) and the M1/M2a suites green in Chrome, full local gate green on `dev` after the merge; [budgets](#m6a-budgets) re-measured (one report-only miss: the marquee); the eager allowance, the owner feel check and the demo script are owner items in [DECISIONS-OPEN §I](DECISIONS-OPEN.md#i-m6a-build-deviations-2026-10-20); M6b, M6c and M7 stay planned |
 | M6b | Rig & Skin workspace: **MVP** (owner flow: Quick Rig markers → VRM skeleton → Bind Skin → paint → CC0 clip library → VRM 1.0 for Space and OMOBA), then the full workspace (constraints, control shapes, joint tools, imports recovery) | **MVP integrated and merged into `dev`** (2026-10-22: every package merged through `m6b/integration`, full local gate green; owner run of AS-MVP-1 and the tag (proposed `v0.4.0`) open); full M6b after the MVP | 2026-10-22 | — | [M6B-SPEC §0](M6B-SPEC.md#0-mvp-cut-owner-flow-2026-10-22) (binding MVP cut, v1.2) → [§9.0](M6B-SPEC.md#90-mvp-work-packages-binding-for-the-mvp-0): C0, C1, C2, C3, C4, C6 (+ C5 subset), C7, C10, C12 (new: clip library), INT ([status](#m6b-mvp-work-package-status)); ≈ 48.5 agent-days + a fix round, critical path ≈ 22 working days; deferred: C8a, C8b, C9, C11 and parts of C2/C3/C5/C6/C7 (≈ 22 + AS-LP-T) |
+| AR | **Auto-Rig mode**: a Mixamo-style five-step wizard (model → markers → auto-rig → animations → OMOBA/Space VRM) as a second shell over the same app, document and undo history, chosen on the landing page; the A-pose path (A0) in Studio | **Integrated** on `autorig/mvp` (2026-10-22: A0, D0…D7 merged, AS-AR-1…12 scripted green, OMOBA's validator admits the exports, full local gate green); owner run of AS-AR-1/2 and the tag open | 2026-10-22 | — | [AUTORIG-SPEC](AUTORIG-SPEC.md) v0.3, [ADR 0021](adr/0021-autorig-mode.md) (Proposed); [status](#auto-rig-work-package-status), [budgets](#auto-rig-budgets); decisions [DECISIONS-OPEN §M](DECISIONS-OPEN.md#m-auto-rig-2026-10-22) |
 | M6c | UV editor and texturing basics (optional) | Planned (plan v0.2) | — | — | [MODELING-PLAN §6](MODELING-PLAN.md#6-m6c--uv-editor-and-texturing-basics-optional); ≈ 18; by demand |
 | M7 | AI 3D generation (server gateway, Tripo + Meshy, post chain, provenance) | Planned (plan v0.2) | — | — | [MODELING-PLAN §7](MODELING-PLAN.md#7-m7--ai-3d-generation); G1 ≈ 22, G2 ≈ 14, G3 with M4a/M4b; ADR 0017 proposed |
 | M8 | Splines and generators (the old M6 "splines first") | Planned | — | — | after M7; output type is the M6 mesh kernel |
@@ -120,6 +121,23 @@ Branches `m6b/<slug>` from and back into the integration branch **`m6b/mvp`** (f
 | C3 | `skeleton-ui` | Quick Rig panel and markers (front x/y, side z/y), live preview, joint display and edits, Orient/Mirror boxes | 5 | C2, C7 | **Done** (merged by INT, 2026-10-22) |
 | C6 | `skin-ui` | weights kernel (C5 subset) + Paint Skin Weights, display, Paint Weights panel, Toolkit Skin section | 6 | C1, C4, C7 | **Done** (merged by INT, 2026-10-22) |
 | INT | `integration` | AS-MVP-1 scripted (E2E-MVP-01) + owner run, OMOBA validator on the export, E2E-RIG-10, budgets, docs; fix round (≈ 3) | 3 | all | **Done** ([notes](wp-notes/m6b-integration.md), M6B-INT-1…25; package review findings closed on `dev`); the owner run of AS-MVP-1 is open |
+
+### Auto-Rig work-package status
+
+Binding: [AUTORIG-SPEC §10](AUTORIG-SPEC.md#10-work-packages). Branches `autorig/<slug>` from and back into
+**`autorig/mvp`** (from `dev`); D7 merged them on `autorig/integration` and merges `autorig/mvp` into `dev`.
+
+| WP | Slug | Scope | Size | Depends on | Status |
+|---|---|---|---|---|---|
+| D0 | `contracts` | contracts, route-group-proof size tooling, AR-B1, gates, layout spike | 3 | — | **Done** |
+| A0 | `a-pose` | the A-pose path in Studio: T-Stance, Apply Pose as Rest, *Straighten to T-Pose* | 5 | D0 | **Done** |
+| D1 | `studio-host` | HostShell / StudioShell split, `(studio)` route group, navigation port, handoff records | 5 | D0 | **Done** |
+| D2 | `entry-chooser` | landing chooser, remembered choice, Studio's switches | 1.5 | D1 | **Done** |
+| D3 | `wizard-shell` | the frame, session, progress, Simple navigation, ① Model | 5 | D1 | **Done** |
+| D4 | `rig-steps` | ② Markers, ③ Rig (`autorig.rig`, adjust, paint, motion test) | 5 | D3, A0 | **Done** |
+| D5 | `animations` | ④ Animations (grid, preview, clip parameters, `autorig.clip.add`) | 4.5 | D3 | **Done** |
+| D6 | `export` | ⑤ Export (targets, checklist, meta, OMOBA kit, `autorig.export`) | 4 | D3 | **Done** |
+| D7 | `integration` | merges, AS-AR-1…12 in full, OMOBA runs, budgets, docs, fix round | 3 + ≈ 2 | all | **Done** ([notes](wp-notes/ar-integration.md), AR-D7-1…14); the owner run is open |
 
 ### M6b work-package status
 
@@ -292,6 +310,25 @@ package benches in their wp-notes. Report-only except the gates (M6B-SPEC §0.4.
 | Character export (bound Cube Lad, five clips × 60 frames, validator off) | ≤ 500 ms | 22 ms median ✓ (C10 bench) |
 | Quick Rig live preview (one marker edit: fit of Standard 33 + the next frame) / Create Skeleton | report | 13.9 ms (mostly the frame wait) / 33 ms |
 | Library preview start (fetch, verify, convert) / Use Clip | report | 33 ms / 23 ms (Cube Lad) |
+
+### Auto-Rig budgets
+
+Measured 2026-10-22 on `autorig/integration`: `check:size` on a production build; `apps/web/e2e/bench/autorig.bench.ts`
+on the e2e build (real Chrome with the GPU, 1440×900 at DPR 2, Apple M4 Pro shared with other agents). Report-only
+except the gates ([AUTORIG-SPEC §7](AUTORIG-SPEC.md#7-bundle-routes-and-budgets)).
+
+| Row | Budget | Measured |
+|---|---|---|
+| `/editor` first visit | 900,000 B gate; Auto-Rig ≤ +2,048 B over AR-B1's 895,688 B | **896,743 B** ✓; **+1,055 B** ✓ |
+| `/autorig` first visit | **660,000 B gate (enforced)**, target 620,000 B | **658,122 B** ✓ (target missed by 38 kB) |
+| dockview on `/autorig` before *Open in Studio* | never (gate) | **0 files** ✓ |
+| Idle in every step with no preview | 0 frames / 2 s (gate) | **0** ✓ (E2E-AR-10, six states) |
+| `/autorig` first visit to an interactive ① | ≤ 1.5 s | 0.46–0.56 s ✓ |
+| ② first entry (chunks + guess), Cube Lad | ≤ 1.0 s | 0.14–0.16 s ✓ |
+| *Auto-rig* (commit + bind): Cube Lad / 9,408 triangles | ≤ 1.0 / ≤ 2.5 s | 0.11–0.46 / 0.22–0.58 s ✓ |
+| First motion-test frame after rigging | ≤ 300 ms | sheet end → `PREVIEW` ≤ 300 ms ✓ (asserted in E2E-AR-05, AS-AR-1); the bench's "③ done" → preview 340 ms — report-only miss (AR-D7-13) |
+| Export of the Cube Lad VRM | ≤ 500 ms | 14–18 ms (`autorig.export`) ✓ |
+| *Straighten to T-Pose*, A-posed Polybot (1,184 points) | ≤ 200 ms | 20 ms ✓ |
 
 ### M2a budgets (on `dev`)
 

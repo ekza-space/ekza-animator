@@ -80,6 +80,9 @@ function fixOf(row: RawRow, owner: { readonly character: CharacterId; readonly s
       return owner.skeleton === null
         ? null
         : fix('Add from template', 'skel.template.addMissing', { skeleton: owner.skeleton });
+    case 'skel.tpose':
+      // AUTORIG-SPEC A0: Straighten to T-Pose = T-Stance applied as the rest (the bound meshes baked, one step).
+      return fix('Straighten to T-Pose', 'skel.pose.applyAsRest', { character: owner.character, pose: 'tStance' });
     case 'skel.hinge-bend':
       return fix('Restore template flexion', 'skel.joint.flex');
     case 'skel.symmetry':

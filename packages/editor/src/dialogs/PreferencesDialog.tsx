@@ -1,10 +1,14 @@
 // Minimal preferences (MVP-SPEC §7 WP-8; research 09 §9.2): navigation profile, Space behaviour, auto-key mode,
 // import reduction, Graph Editor handles; Reset Workspace. Preferences are P state, never written to the document.
+// Auto-Rig (AUTORIG-SPEC §3.3, D2): *Start in: Ask / Auto-Rig / Studio* — what the landing page `/` opens on this
+// device. It is the landing's remembered choice in `localStorage` (`./entryChoice`), not a `Prefs` field: `/` reads it
+// before any app code loads. Blocked storage = Ask.
 import type { Prefs } from '@ekza-studio/editor-core';
 import { Button, Dialog, DialogContent, DialogFooter, NativeSelect } from '@ekza-studio/ui';
-import type { JSX, ReactNode } from 'react';
+import { type JSX, type ReactNode, useState } from 'react';
 import { usePrefs } from '../hooks';
 import { useShell } from '../shell/context';
+import { type EntryChoice, readEntryChoice, writeEntryChoice } from './entryChoice';
 
 function Row(props: { readonly label: string; readonly hint?: string; readonly children: ReactNode }): JSX.Element {
   return (
@@ -25,6 +29,7 @@ export function PreferencesDialog(): JSX.Element {
   const autoKeyMode = usePrefs((p) => p.autoKeyMode);
   const reduceOnImport = usePrefs((p) => p.reduceOnImport);
   const graphHandles = usePrefs((p) => p.graphHandles);
+  const [startIn, setStartIn] = useState<EntryChoice | 'ask'>(() => readEntryChoice() ?? 'ask');
   const set = (patch: Partial<Omit<Prefs, 'version'>>): void => {
     void shell.runFromUi('prefs.set', { patch });
   };
@@ -38,6 +43,24 @@ export function PreferencesDialog(): JSX.Element {
     >
       <DialogContent title="Preferences" width="md" data-testid="preferences-dialog">
         <div className="flex flex-col gap-3">
+          <Row label="Start in" hint="What the start page opens on this device">
+            <NativeSelect
+              value={startIn}
+              data-testid="prefs-start-in"
+              onChange={(event) => {
+                const value = event.currentTarget.value;
+                const choice = value === 'autorig' || value === 'studio' ? value : null;
+                writeEntryChoice(choice);
+                // what is stored now: a blocked write leaves Ask (or the old choice) showing, not the new value
+                setStartIn(readEntryChoice() ?? 'ask');
+              }}
+              options={[
+                { value: 'ask', label: 'Ask (show the chooser)' },
+                { value: 'autorig', label: 'Auto-Rig' },
+                { value: 'studio', label: 'Studio' },
+              ]}
+            />
+          </Row>
           <Row label="Navigation" hint="Viewport and Graph Editor gestures">
             <NativeSelect
               value={navProfile}

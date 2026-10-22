@@ -1312,7 +1312,5 @@ export const SKELETON_OPERATORS: readonly AnyOperator[] = [
   jointMirror,
   jointFlex,
   symmetrySet,
-  rigStub('skel.pose.tStance', 'T-Stance', { deferred: true }),
-  rigStub('skel.pose.applyAsRest', 'Apply Pose as Rest', { undo: true, deferred: true }),
   selectJoints,
 ];
