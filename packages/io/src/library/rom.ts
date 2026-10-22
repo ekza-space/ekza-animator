@@ -119,6 +119,17 @@ export function romClip(opts: { readonly fingers?: boolean } = {}): HumanoidClip
   };
 }
 
+/** VRMA bytes of `romClip(opts)` (MIT, Ekza Studio); the writer loads on the first call. Deterministic. */
+export async function romVrma(opts: { readonly fingers?: boolean } = {}): Promise<Uint8Array> {
+  const { writeHumanoidVrma } = await import('./vrma');
+  return writeHumanoidVrma(romClip(opts), {
+    generator: 'ekza-studio range test v1',
+    license: 'MIT',
+    credit: 'Ekza Studio',
+    source: 'Range test',
+  });
+}
+
 /** The clip frame (at 30 fps) of the pose named `name` (the first one). */
 export function romFrameOf(name: string): number {
   const index = ROM_POSES.findIndex((pose) => pose.name === name);

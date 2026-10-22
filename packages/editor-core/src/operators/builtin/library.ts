@@ -6,10 +6,18 @@
 // `applyClipImport` + `{name: label, loop: manifest.loop, slot: manifest.slot when no clip of the character holds it}`
 // in one transaction; the provenance comes from the VRMA's `ekza_animation_v1` (CC0-1.0, Quaternius, the UAL clip),
 // with any field it lacks set here. The VRMA bytes are one content-addressed `animation-source` asset.
+//
+// AUTORIG-SPEC §5.5.3–§5.5.4 (D5, CR-AR-2 a/c): `params` (preview and Use Clip) derive the VRMA bytes first
+// (`deriveLibraryBytes`), so both read the same derived bytes; a parametrized Use Clip stores the derived bytes as its
+// asset, puts the library clip first in `derivedFrom`, records the parameters as `ar-*` tags, keeps `loop` only for an
+// untrimmed clip and sets `rootMotion: 'in-place'` for *In place*. `replace` deletes that clip in the same step and
+// gives the new one its name, slot and place. `bytes` previews a VRMA that is no manifest entry (the range test).
+// Identity parameters change nothing: C12's operators exactly.
 import { EkzaError } from '@ekza-studio/anim-core';
-import type { CharacterId, ClipProvenance, DerivedFrom } from '@ekza-studio/doc';
+import type { CharacterId, ClipId, ClipProvenance, DerivedFrom } from '@ekza-studio/doc';
 import type { StarterPackClip } from '@ekza-studio/io';
-import { prepareLibraryImport, previewClipOf } from '../../library/convert';
+import { type ConvertedClip, deriveLibraryBytes, prepareLibraryImport, previewClipOf } from '../../library/convert';
+import { clipParamsProblem, clipParamTags, isClipParamTag } from '../../library/params';
 import {
   CHECKSUM_FAILED,
   type ClipLibrary,
@@ -35,6 +43,11 @@ const WORKSPACES = ['animate', 'rig'] as const;
 function pollTarget(app: EditorApp, args: unknown): PollResult {
   if (!isRecord(args) || typeof args['character'] !== 'string' || typeof args['clip'] !== 'string') {
     return fail('expects { character, clip }');
+  }
+  // AUTORIG D5: the optional parameters (§5.5.3)
+  if (args['params'] !== undefined) {
+    const problem = clipParamsProblem(args['params']);
+    if (problem !== null) return fail(problem);
   }
   const problem = animationTargetProblem(app, args['character'] as CharacterId, true);
   if (problem === null) return OK;
@@ -90,13 +103,28 @@ const preview = defineOperator<'library.preview', PreviewPlan>({
   scope: GLOBAL_SCOPE,
   flags: { internal: true },
   workspaces: WORKSPACES,
-  poll: ({ app }, args) => pollTarget(app, args),
+  poll: ({ app }, args) => {
+    const target = pollTarget(app, args);
+    if (target !== true) return target;
+    const raw = args as unknown as Readonly<Record<string, unknown>>;
+    if (raw['bytes'] !== undefined && !(raw['bytes'] instanceof Uint8Array)) return fail('bytes must be a Uint8Array');
+    if (raw['label'] !== undefined && typeof raw['label'] !== 'string') return fail('label must be a string');
+    return OK;
+  },
   async prepare({ app }, args) {
     const library = requireClipLibrary(app);
     const runs = library.documentRuns;
+    if (args.bytes !== undefined) {
+      // CR-AR-2(c): a VRMA that is no manifest entry (the range test); the badge shows its label (default: `clip`).
+      const id = args.label ?? args.clip;
+      const own: ConvertedClip = { id, file: `${args.clip}.vrma`, loop: true };
+      const bytes = await deriveLibraryBytes(args.bytes, args.params);
+      return { clip: await previewClipOf(app, args.character, own, bytes), runs };
+    }
     const clip = await library.clip(args.clip);
     if (library.failed(clip.id)) throw new EkzaError('checksum', CHECKSUM_FAILED, { clip: clip.id });
-    return { clip: await previewClipOf(app, args.character, clip, await verifiedBytes(app, library, clip.id)), runs };
+    const bytes = await deriveLibraryBytes(await verifiedBytes(app, library, clip.id), args.params);
+    return { clip: await previewClipOf(app, args.character, clip, bytes), runs };
   },
   apply({ app }, _args, prepared) {
     const library = requireClipLibrary(app);
@@ -122,6 +150,17 @@ const stop = defineOperator<'library.stop'>({
 interface UseClipPlan {
   readonly entry: StarterPackClip;
   readonly plan: ClipImportPlan;
+  /** The library bytes' SHA-256 when the parameters derived other bytes (§5.5.3 step 4), else null. */
+  readonly derivedFrom: string | null;
+}
+
+/** §5.5.3: a clip trimmed to less than its whole length no longer loops (the manifest's loop flag is the full clip's). */
+function trimmedShort(
+  args: { readonly params?: { readonly trim: { readonly start: number; readonly end: number } | null } },
+  entry: StarterPackClip,
+): boolean {
+  const trim = args.params?.trim ?? null;
+  return trim !== null && (trim.start > 1e-6 || trim.end < entry.duration - 1e-3);
 }
 
 /** The provenance Use Clip writes: the VRMA's own (CC0, Quaternius, the UAL clip), any missing field filled in. */
@@ -147,31 +186,71 @@ const useClip = defineOperator<'library.useClip', UseClipPlan>({
   undoLabel(args) {
     return `Use Clip ${clipLibraryLabel(args.clip)}`;
   },
-  poll: ({ app }, args) => all(pollEditable(app), pollTarget(app, args)),
+  poll: ({ app }, args) => {
+    const base = all(pollEditable(app), pollTarget(app, args));
+    if (base !== true) return base;
+    const replace = (args as unknown as Readonly<Record<string, unknown>>)['replace'];
+    if (replace === undefined) return OK;
+    const old = typeof replace === 'string' ? app.store.get('clips', replace as ClipId) : undefined;
+    return old !== undefined && old.character === args.character ? OK : fail('replace must be a clip of the character');
+  },
   async prepare({ app }, args) {
     const library = requireClipLibrary(app);
     const entry = await library.clip(args.clip);
     if (library.failed(entry.id)) throw new EkzaError('checksum', CHECKSUM_FAILED, { clip: entry.id });
     labels.set(entry.id, entry.label);
-    const plan = await prepareLibraryImport(app, args.character, entry, await verifiedBytes(app, library, entry.id));
-    return { entry, plan };
+    const source = await verifiedBytes(app, library, entry.id);
+    const bytes = await deriveLibraryBytes(source, args.params);
+    const plan = await prepareLibraryImport(app, args.character, entry, bytes);
+    return { entry, plan, derivedFrom: bytes === source ? null : entry.sha256 };
   },
-  apply({ app, tx }, args, { entry, plan }) {
+  apply({ app, tx }, args, { entry, plan, derivedFrom }) {
     if (tx === null) throw new EkzaError('internal', 'library.useClip runs in a transaction');
+    const replaced = args.replace === undefined ? undefined : tx.get('clips', args.replace);
+    if (replaced !== undefined) tx.softDelete('clips', replaced.id);
     const result = importPathLoaded().applyClipImport(app, tx, plan);
     const id = result.clips[0];
     const clip = id === undefined ? undefined : tx.get('clips', id);
     if (id === undefined || clip === undefined) throw new EkzaError('internal', 'Use Clip wrote no clip');
     const others = tx.query.clipsOfCharacter(args.character).filter((other) => other.id !== id);
-    const slot = entry.slot !== null && !others.some((other) => other.slot === entry.slot) ? entry.slot : null;
+    const slot =
+      replaced !== undefined
+        ? replaced.slot
+        : entry.slot !== null && !others.some((other) => other.slot === entry.slot)
+          ? entry.slot
+          : null;
+    const provenance = libraryProvenance(clip.provenance, entry, plan.asset.id);
     tx.patch('clips', id, {
-      name: uniqueName(
-        entry.label,
-        others.map((other) => other.name),
-      ),
-      loop: entry.loop,
+      name:
+        replaced !== undefined
+          ? replaced.name
+          : uniqueName(
+              entry.label,
+              others.map((other) => other.name),
+            ),
+      loop: entry.loop && !trimmedShort(args, entry),
       slot,
-      provenance: libraryProvenance(clip.provenance, entry, plan.asset.id),
+      provenance:
+        derivedFrom === null
+          ? provenance
+          : {
+              // §5.5.3 step 4: the library clip first, then the shipped provenance of the derived bytes
+              derivedFrom: [
+                { title: entry.source, author: entry.credit, license: entry.license, sourceSha256: derivedFrom },
+                ...provenance.derivedFrom,
+              ],
+              redistributable: provenance.redistributable,
+            },
+      ...(replaced !== undefined ? { order: replaced.order } : {}),
+      ...(args.params?.inPlace === true ? { rootMotion: 'in-place' as const } : {}),
+      ...(derivedFrom === null || args.params === undefined
+        ? {}
+        : {
+            tags: [...clip.tags.filter((tag) => !isClipParamTag(tag)), ...clipParamTags(entry.id, args.params)].slice(
+              0,
+              8,
+            ),
+          }),
     });
     return { clip: id };
   },

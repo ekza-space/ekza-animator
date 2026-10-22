@@ -30,7 +30,7 @@ import { parseGlb } from '../glb/parse';
 import { isIndex, isRecord, type JsonRecord, listField, nodesOf, numberTuple, rootExtensions } from '../gltf/schema';
 import type { GlbContainer } from '../types';
 import { readVrma, VRMA_EXTENSION } from '../vrma/read';
-import { type HumanoidVrmaMeta, writeHumanoidVrma } from './vrma';
+import type { HumanoidVrmaMeta } from './vrma';
 
 /**
  * Clip parameters (AUTORIG-SPEC §5.5.3; structurally `ClipParams` of editor-core, which io cannot import).
@@ -430,6 +430,8 @@ export async function deriveHumanoidVrma(bytes: Uint8Array, params: HumanoidClip
   if (isIdentityClipParams(params)) return bytes;
   const container = await parseGlb(bytes);
   const data = readVrma(container);
+  const late = clipParamsProblem(params, data.duration);
+  if (late !== null) throw new EkzaError('invalid-input', `Clip parameters: ${late}`);
   if (isIdentityClipParams(params, data.duration)) return bytes;
   const derived = applyClipParams(data, params);
   let rest = restWorldsOf(container);
@@ -441,6 +443,8 @@ export async function deriveHumanoidVrma(bytes: Uint8Array, params: HumanoidClip
     }
     rest = mirrored;
   }
+  // The writer (glTF Transform) loads with the first parametrized clip, never with the import path itself.
+  const { writeHumanoidVrma } = await import('./vrma');
   return writeHumanoidVrma(derived, metaOf(container, data.name), rest);
 }
 

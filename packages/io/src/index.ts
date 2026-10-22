@@ -92,6 +92,7 @@ export {
   romClip,
   romFrameOf,
   romRotation,
+  romVrma,
   UAL_BONE_MAP,
   writeHumanoidVrma,
 } from './library';

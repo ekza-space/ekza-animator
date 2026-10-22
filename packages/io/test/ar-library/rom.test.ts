@@ -4,7 +4,7 @@
 import { quatAngle, quatFromAxisAngle, quatRotateVec3, type Quat } from '@ekza-studio/anim-core';
 import { describe, expect, it } from 'vitest';
 import { parseGlb } from '../../src/glb/parse';
-import { ROM_POSES, romClip, romFrameOf, romRotation } from '../../src/library/rom';
+import { ROM_POSES, romClip, romFrameOf, romRotation, romVrma } from '../../src/library/rom';
 import { writeHumanoidVrma } from '../../src/library/vrma';
 import { readVrma } from '../../src/vrma/read';
 
@@ -51,6 +51,9 @@ describe('romClip (§5.4.1)', () => {
     const a = await writeHumanoidVrma(romClip(), META);
     const b = await writeHumanoidVrma(romClip(), META);
     expect(Buffer.from(a).equals(Buffer.from(b))).toBe(true);
+    const rom = await romVrma();
+    expect(Buffer.from(rom).equals(Buffer.from(await romVrma()))).toBe(true);
+    expect(readVrma(await parseGlb(rom)).rotations.leftUpperArm?.values).toEqual(romClip().rotations.leftUpperArm?.values);
     const read = readVrma(await parseGlb(a));
     const knees = keyOf('knees 130');
     expect(

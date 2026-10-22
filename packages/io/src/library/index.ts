@@ -18,4 +18,13 @@ export {
   isIdentityClipParams,
   mirrorBone,
 } from './params';
-export { ROM_FPS, ROM_FRAMES_PER_POSE, ROM_POSES, type RomPose, romClip, romFrameOf, romRotation } from './rom';
+export {
+  ROM_FPS,
+  ROM_FRAMES_PER_POSE,
+  ROM_POSES,
+  type RomPose,
+  romClip,
+  romFrameOf,
+  romRotation,
+  romVrma,
+} from './rom';

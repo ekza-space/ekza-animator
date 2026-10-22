@@ -335,13 +335,15 @@ describe('WIZARD_OPERATORS in the rig-workspace chunk (AUTORIG-SPEC §4.5, §7.0
       return poll === true ? 'ok' : poll.reason;
     });
     // D1 landed `autorig.navigate`: without a host navigation port (Node) it refuses with its own reason. D3 landed
-    // the ① compositions: without arguments each refuses with its own argument poll.
+    // the ① compositions and D5 the ④ one: without arguments each refuses with its own argument poll.
     const landed: Readonly<Record<string, string>> = {
       'autorig.navigate': NO_NAVIGATION,
       'autorig.sample': 'expects { sample: cube-lad | polybot-tpose | polybot-apose | polybot | seed-san }',
       'autorig.intake': 'expects { bytes, name }',
       'autorig.inspect': 'expects { meshes }',
       'autorig.fix': 'expects { fix: center | face | standUp | scale | freeze, meshes }',
+      // D5 landed `autorig.clip.add`: without arguments it refuses with its own argument poll.
+      'autorig.clip.add': 'expects { character, clip, params, replace? }',
     };
     expect(reasons).toEqual(WIZARD_IDS.map((id) => landed[id] ?? ARRIVES_WITH_AUTORIG));
     // the moved M6b stubs are unchanged (A0 replaces them)
