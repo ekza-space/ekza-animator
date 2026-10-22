@@ -14,7 +14,7 @@ import {
   type MeshId,
   type SkeletonId,
 } from '@ekza-studio/doc';
-import { type ExportArtifact, OMOBA_MANIFEST_FIELDS, parseGlb, unzipFiles } from '@ekza-studio/io';
+import { type ExportArtifact, OMOBA_MANIFEST_FIELDS, parseGlb, unzipFiles, vrmThumbnail } from '@ekza-studio/io';
 import { type SkinWeights, withSkin } from '@ekza-studio/mesh-core';
 import { describe, expect, it } from 'vitest';
 import type { AutoRigExportResult, EditorApp } from '../../src';
@@ -25,6 +25,8 @@ import {
   exportBase,
   exportTargetProblem,
   fileExportRequest,
+  omobaKitOf,
+  RESTRICTED,
 } from '../../src/operators/builtin/rig/wizard/export';
 import type { FakeServices } from '../../src/testing/services';
 import { type MeshTestApp, meshTestApp } from '../mesh/support';
@@ -268,6 +270,42 @@ describe('autorig.export: the OMOBA local test kit (§5.6.4)', () => {
   });
 });
 
+describe('autorig.export: OMOBA slugs (§5.6.4)', () => {
+  it('an "Ekza …" avatar never gets OMOBA’s protected ekza- slug (its roster would skip the entry)', async () => {
+    const { t, character } = await readyLad();
+    await ok(t.app, 'char.setVrmMeta', { character, patch: { name: 'Ekza Bot' } });
+    const kit = await ok<AutoRigExportResult>(t.app, 'autorig.export', {
+      character,
+      target: 'omoba-kit',
+      fileName: '',
+    });
+    expect(kit.fileName).toBe('studio-ekza-bot-omoba-kit.zip');
+    const files = unzipFiles(downloadsOf(t)[0]?.bytes as Uint8Array);
+    expect(Object.keys(files)).toEqual([
+      'studio-ekza-bot.glb',
+      'studio-ekza-bot.png',
+      'manifest-entry.json',
+      'README.txt',
+    ]);
+    const entry = JSON.parse(new TextDecoder().decode(files['manifest-entry.json'])) as Record<string, unknown>;
+    expect(entry).toMatchObject({
+      display_name: 'Ekza Bot',
+      slug: 'studio-ekza-bot',
+      thumbnail: 'studio-ekza-bot.png',
+    });
+    // a given ekza- file name is rewritten for the kit as well
+    const named = await ok<AutoRigExportResult>(t.app, 'autorig.export', {
+      character,
+      target: 'omoba-kit',
+      fileName: 'ekza-hero.zip',
+    });
+    expect(named.fileName).toBe('studio-ekza-hero-omoba-kit.zip');
+    // the VRM is named by the same slug
+    const vrm = await ok<AutoRigExportResult>(t.app, 'autorig.export', { character, target: 'ekza-vrm', fileName: '' });
+    expect(vrm.fileName).toBe('studio-ekza-bot.vrm');
+  });
+});
+
 describe('autorig.export: gates (§5.6.2)', () => {
   it('an error lint saves nothing, toasts its message and returns the lints (VRM and kit alike)', async () => {
     const { t, character } = await riggedLad();
@@ -288,6 +326,33 @@ describe('autorig.export: gates (§5.6.2)', () => {
     // local/generic has no meta rows: the GLB saves
     await ok(t.app, 'autorig.export', { character, target: 'glb', fileName: '' });
     expect(downloadsOf(t).map((d) => d.fileName)).toEqual(['cube-lad.glb']);
+  });
+
+  it('a blocking byte lint of the written file (vrm.translation-range) saves nothing and toasts it (kit alike)', async () => {
+    const { t, character, skeleton } = await readyLad();
+    // a hand 2,000 km out: no document row covers it; the written file's node translation breaks OMOBA's ±1e6 rule
+    const hand = t.app.store.query.jointsOfSkeleton(skeleton).find((joint) => joint.key === 'leftHand') as JointRecord;
+    t.app.store.transact({ label: 'far hand (test)' }, (tx) =>
+      tx.patch('joints', hand.id, { restPosition: [2e6, 0, 0] }),
+    );
+    await (t.app.characters as KernelCharacters).settled();
+    const before = docHash(t.app);
+    for (const target of ['ekza-vrm', 'omoba-kit'] as const) {
+      const result = await ok<AutoRigExportResult>(t.app, 'autorig.export', { character, target, fileName: '' });
+      const errors = result.lints.filter((lint) => lint.severity === 'error');
+      expect(errors.map((lint) => lint.code)).toContain('vrm.translation-range');
+      expect(result.lints[0]?.severity).toBe('error');
+      // the bytes were written and measured: the artifact is there, only the download is refused
+      expect(result.artifacts[0]?.bytes.byteLength).toBeGreaterThan(0);
+    }
+    expect(downloadsOf(t)).toEqual([]);
+    const toasts = t.services.toasts.filter((toast) => toast.kind === 'error').map((toast) => toast.text);
+    expect(toasts).toEqual([
+      expect.stringMatching(/^cube-lad\.vrm was not saved: /),
+      expect.stringMatching(/^cube-lad-omoba-kit\.zip was not saved: /),
+    ]);
+    expect(toasts.join('\n')).toMatch(/translation/);
+    expect(docHash(t.app)).toBe(before);
   });
 
   it('polls: shape, targets, missing characters, characters without a skeleton', async () => {
@@ -349,5 +414,55 @@ describe('autorig.export: imported avatars (§5.6.1, AS-AR-4)', () => {
       fileName: '',
     });
     expect(kit.artifacts[0]?.sha256).toBe(result.artifacts[0]?.sha256);
+    // Seed-san's own nodes have non-uniform scales: OMOBA's vrm.uniform-scale byte rule blocks the download
+    expect(kit.lints.filter((lint) => lint.severity === 'error').map((lint) => lint.code)).toContain(
+      'vrm.uniform-scale',
+    );
+    // the kit of those bytes carries the VRM's own thumbnail (the image inside its .glb) and its licence text
+    const baked = kit.artifacts[0]?.bytes as Uint8Array;
+    const packed = await omobaKitOf(t.app, record, exportBase(record, ''), baked);
+    expect(packed.name).toBe(kit.fileName);
+    const files = unzipFiles(packed.bytes);
+    const slug = kit.fileName.replace(/-omoba-kit\.zip$/, '');
+    expect(Object.keys(files)).toEqual([`${slug}.glb`, `${slug}.png`, 'manifest-entry.json', 'README.txt']);
+    expect(sha(files[`${slug}.glb`] as Uint8Array)).toBe(sha(baked));
+    expect(sha(files[`${slug}.png`] as Uint8Array)).toBe(sha(vrmThumbnail(baked)?.bytes as Uint8Array));
+    expect(Array.from((files[`${slug}.png`] as Uint8Array).subarray(0, 4))).toEqual([0x89, 0x50, 0x4e, 0x47]);
+    const entry = JSON.parse(new TextDecoder().decode(files['manifest-entry.json'])) as Record<string, unknown>;
+    expect(entry).toMatchObject({ display_name: 'Seed-san', author: 'VirtualCast, Inc.', thumbnail: `${slug}.png` });
+    expect(entry['license']).not.toBe('');
+  });
+
+  it('a restricted licence: no VRM or kit target, with the reason; VRMA stays (AR-D6-19)', async () => {
+    const t = await meshTestApp();
+    const { character } = await ok<{ character: CharacterId }>(t.app, 'file.importModel', {
+      name: 'locked-san.vrm',
+      bytes: withJson(fixture('seed-san.vrm'), (json) =>
+        json.replace(
+          '"modification":"allowModificationRedistribution"',
+          `"modification":"prohibited"${' '.repeat(21)}`,
+        ),
+      ),
+    });
+    await (t.app.characters as KernelCharacters).settled();
+    const { clip } = await ok<{ clip: string }>(t.app, 'clip.new', { character, name: 'Idle' });
+    await ok(t.app, 'clip.setSettings', { clip, slot: 'idle', loop: true, range: { start: 0, end: 30 } });
+    await ok(t.app, 'key.set', { target: 'character' });
+    expect(availableTargets(t.app, character)).toEqual(['vrma']);
+    expect(exportTargetProblem(t.app, character, 'ekza-vrm')).toBe(RESTRICTED);
+    expect(exportTargetProblem(t.app, character, 'omoba-kit')).toBe(RESTRICTED);
+    expect(await refused(t.app, 'autorig.export', { character, target: 'omoba-kit', fileName: '' })).toBe(RESTRICTED);
   });
 });
+
+/** GLB bytes with their JSON chunk edited in place (the edit must keep the chunk's length). */
+function withJson(bytes: Uint8Array, edit: (json: string) => string): Uint8Array {
+  const out = bytes.slice();
+  const view = new DataView(out.buffer);
+  const length = view.getUint32(12, true);
+  const before = new TextDecoder().decode(out.subarray(20, 20 + length));
+  const after = new TextEncoder().encode(edit(before));
+  if (after.byteLength !== length || before === edit(before)) throw new Error('the JSON edit must keep its length');
+  out.set(after, 20);
+  return out;
+}

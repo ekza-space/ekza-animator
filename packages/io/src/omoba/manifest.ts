@@ -10,23 +10,54 @@ export const OMOBA_KIT_COLLECTION = 'Ekza Studio';
 /** The longest slug the kit writes (file names stay short on every platform). */
 export const OMOBA_SLUG_MAX = 64;
 
-/** The slug of a name without letters or digits. */
+/** The slug of an empty name; a name without Latin letters or digits gets `avatar-<8 hex>` (FNV-1a of the name). */
 export const OMOBA_SLUG_FALLBACK = 'avatar';
 
 /**
- * The OMOBA slug of a display name: lower case `[a-z0-9-]`, accents folded, every other run of characters one hyphen,
- * no leading, trailing or doubled hyphen, at most 64 characters; `avatar` when nothing is left.
+ * OMOBA's protected slug prefix: its roster loader skips an `ekza-…` entry without a passport boundary (omoba-bevy
+ * `passport/src/avatars.rs` `roster_entry_problem`, "protected-looking slug without a passport boundary"). A kit never
+ * writes one; such a slug gets {@link OMOBA_KIT_PREFIX} in front (`Ekza Bot` → `studio-ekza-bot`).
  */
-export function omobaSlug(name: string): string {
-  const slug = name
+export const OMOBA_PROTECTED_PREFIX = 'ekza-';
+
+/** What a would-be protected slug is prefixed with. */
+export const OMOBA_KIT_PREFIX = 'studio-';
+
+/** FNV-1a (32 bit) of the UTF-8 bytes of a text, as 8 lower-case hex digits. */
+function fnv1a(text: string): string {
+  let hash = 0x811c9dc5;
+  for (const byte of new TextEncoder().encode(text)) {
+    hash ^= byte;
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0');
+}
+
+/** `[a-z0-9-]` runs of a text: no leading, trailing or doubled hyphen, at most 64 characters. */
+function slugText(text: string): string {
+  return text
     .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, OMOBA_SLUG_MAX)
     .replace(/-+$/g, '');
-  return slug === '' ? OMOBA_SLUG_FALLBACK : slug;
+}
+
+/**
+ * The OMOBA slug of a display name: lower case `[a-z0-9-]`, accents folded, every other run of characters one hyphen,
+ * no leading, trailing or doubled hyphen, at most 64 characters. Never OMOBA's protected `ekza-` prefix (it becomes
+ * `studio-ekza-…`, which OMOBA's local roster accepts). A name with nothing left is `avatar-<8 hex>` (a stable hash of
+ * the trimmed NFC name, so two non-Latin names do not share a file), an empty name `avatar`. Idempotent.
+ */
+export function omobaSlug(name: string): string {
+  const slug = slugText(name);
+  if (slug === '') {
+    const trimmed = name.trim().normalize('NFC');
+    return trimmed === '' ? OMOBA_SLUG_FALLBACK : `${OMOBA_SLUG_FALLBACK}-${fnv1a(trimmed)}`;
+  }
+  return slug.startsWith(OMOBA_PROTECTED_PREFIX) ? slugText(`${OMOBA_KIT_PREFIX}${slug}`) : slug;
 }
 
 /** OMOBA's licence text for a VRM licence preset (the roster writes `CC0`). */
@@ -57,6 +88,8 @@ export interface OmobaKitMeta {
   readonly slug?: string;
   /** Where the avatar comes from; default '' (a local file has no URL; OMOBA's `source_url` is a required string). */
   readonly sourceUrl?: string;
+  /** The thumbnail's file type when the kit carries one; default `png` (an imported VRM's own may be a JPEG). */
+  readonly thumbnailExtension?: 'png' | 'jpg';
 }
 
 /**
@@ -89,7 +122,7 @@ export function omobaKitSlug(meta: OmobaKitMeta): string {
   return omobaSlug(meta.slug ?? meta.displayName);
 }
 
-/** The manifest entry of a kit; `thumbnail` names `<slug>.png` when the kit carries one. */
+/** The manifest entry of a kit; `thumbnail` names `<slug>.png` (or `.jpg`) when the kit carries one. */
 export function omobaManifestEntry(meta: OmobaKitMeta, hasThumbnail: boolean): OmobaManifestEntry {
   const slug = omobaKitSlug(meta);
   const authors = meta.authors.map((author) => author.trim()).filter((author) => author !== '');
@@ -101,7 +134,7 @@ export function omobaManifestEntry(meta: OmobaKitMeta, hasThumbnail: boolean): O
     license: meta.license,
     slug,
     source_url: meta.sourceUrl ?? '',
-    thumbnail: hasThumbnail ? `${slug}.png` : null,
+    thumbnail: hasThumbnail ? `${slug}.${meta.thumbnailExtension ?? 'png'}` : null,
   };
 }
 

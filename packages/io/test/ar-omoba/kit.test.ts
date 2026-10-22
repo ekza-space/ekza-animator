@@ -3,18 +3,24 @@
 // slug, source_url, thumbnail; `source_url` a string, `author`/`thumbnail` nullable), the README (validator command,
 // local flow, "not approval"), the zip (the VRM bytes unchanged as `<slug>.glb`, the PNG stored, deterministic bytes)
 // and `zipFiles` for the VRMA bundle.
+import { readFileSync } from 'node:fs';
 import { unzipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import {
   OMOBA_MANIFEST_FIELDS,
+  OMOBA_PROTECTED_PREFIX,
+  OMOBA_SLUG_MAX,
   omobaKitFileName,
   omobaKitFiles,
+  omobaKitSlug,
   omobaKitReadme,
   omobaLicense,
   omobaManifestEntry,
   omobaManifestJson,
   omobaSlug,
   packOmobaKit,
+  unzipFiles,
+  vrmThumbnail,
   zipFiles,
 } from '../../src';
 
@@ -30,13 +36,59 @@ describe('omobaSlug (§5.6.4)', () => {
     expect(omobaSlug('MeganTheFox')).toBe('meganthefox');
     expect(omobaSlug('Zoë — the Ränger!!')).toBe('zoe-the-ranger');
     expect(omobaSlug('a__b..c')).toBe('a-b-c');
-    expect(omobaSlug('---')).toBe('avatar');
-    expect(omobaSlug('Аватар')).toBe('avatar');
+    expect(omobaSlug('')).toBe('avatar');
+    expect(omobaSlug('   ')).toBe('avatar');
     const long = omobaSlug(`${'x'.repeat(63)} yz`);
     expect(long).toBe('x'.repeat(63));
     expect(long).toMatch(/^[a-z0-9-]+$/);
     for (const name of ['Cube Lad', 'Zoë', 'A-B', '9 lives'])
       expect(omobaSlug(name)).toMatch(/^[a-z0-9](-?[a-z0-9])*$/);
+  });
+
+  it('never OMOBA’s protected ekza- prefix (its roster skips such an entry without a passport boundary)', () => {
+    expect(omobaSlug('Ekza Bot')).toBe('studio-ekza-bot');
+    expect(omobaSlug('ekza-bot')).toBe('studio-ekza-bot');
+    expect(omobaSlug('  EKZA — Ranger')).toBe('studio-ekza-ranger');
+    expect(omobaSlug('Ekzä_Bot')).toBe('studio-ekza-bot');
+    // `ekza` alone and other ekza… words are not protected (OMOBA checks the `ekza-` prefix)
+    expect(omobaSlug('ekza')).toBe('ekza');
+    expect(omobaSlug('Ekza')).toBe('ekza');
+    expect(omobaSlug('Ekzabot')).toBe('ekzabot');
+    expect(omobaSlug('my ekza bot')).toBe('my-ekza-bot');
+    // still capped at 64 with no trailing hyphen
+    const long = omobaSlug(`ekza ${'y'.repeat(70)}`);
+    expect(long).toBe(`studio-ekza-${'y'.repeat(52)}`);
+    expect(long).toHaveLength(OMOBA_SLUG_MAX);
+    for (const name of ['Ekza Bot', 'ekza', `ekza ${'y'.repeat(70)}`, 'EKZA-'])
+      expect(omobaSlug(name).startsWith(OMOBA_PROTECTED_PREFIX)).toBe(false);
+    // the kit's own names follow it
+    const meta = { displayName: 'Ekza Bot', authors: ['Tester'], license: 'CC0' };
+    expect(omobaManifestEntry(meta, true)).toMatchObject({
+      display_name: 'Ekza Bot',
+      slug: 'studio-ekza-bot',
+      thumbnail: 'studio-ekza-bot.png',
+    });
+    expect(omobaKitFileName(meta)).toBe('studio-ekza-bot-omoba-kit.zip');
+    expect(omobaKitFiles(meta, false)).toEqual(['studio-ekza-bot.glb', 'manifest-entry.json', 'README.txt']);
+    expect(omobaKitSlug({ ...meta, slug: 'ekza-bot' })).toBe('studio-ekza-bot');
+    const files = unzipFiles(packOmobaKit({ vrm: VRM, thumbnail: null, meta }));
+    expect(Object.keys(files)).toEqual(['studio-ekza-bot.glb', 'manifest-entry.json', 'README.txt']);
+    expect(text(files['README.txt'])).toContain('Copy studio-ekza-bot.glb into');
+  });
+
+  it('a name without Latin letters or digits gets a stable hash, so two such avatars do not collide', () => {
+    expect(omobaSlug('Аватар')).toBe('avatar-9f935759');
+    expect(omobaSlug('Кубик')).toBe('avatar-08ea8a06');
+    expect(omobaSlug('  Кубик ')).toBe('avatar-08ea8a06');
+    expect(omobaSlug('---')).toBe('avatar-c4e4dc86');
+    expect(omobaSlug('Кубик')).not.toBe(omobaSlug('Робот'));
+    // composed and decomposed spellings of one name are one slug
+    expect(omobaSlug('\u0419')).toBe(omobaSlug('\u0418\u0306'));
+  });
+
+  it('is idempotent (the kit slugs a slug again)', () => {
+    for (const name of ['Cube Lad', 'Ekza Bot', 'Кубик', '', `ekza ${'y'.repeat(70)}`, 'x'.repeat(80)])
+      expect(omobaSlug(omobaSlug(name))).toBe(omobaSlug(name));
   });
 });
 
@@ -144,5 +196,33 @@ describe('zipFiles (the VRMA bundle)', () => {
     expect(files['cube-lad-idle.vrma']).toEqual(PNG);
     expect(zipFiles(entries)).toEqual(zip);
     expect(() => zipFiles([...entries, { path: 'cube-lad-walk.vrma', bytes: VRM }])).toThrow(/Duplicate/);
+  });
+});
+
+describe('vrmThumbnail (§5.6.4, AR-D6-18)', () => {
+  const fixture = (name: string): Uint8Array =>
+    new Uint8Array(readFileSync(new URL(`../../../../fixtures/models/${name}`, import.meta.url)));
+
+  it('reads the image a VRM 1.0 meta names (Seed-san: image 14, a PNG)', () => {
+    const thumb = vrmThumbnail(fixture('seed-san.vrm'));
+    expect(thumb?.extension).toBe('png');
+    expect(Array.from(thumb?.bytes.subarray(0, 4) ?? [])).toEqual([0x89, 0x50, 0x4e, 0x47]);
+    expect(thumb?.bytes.byteLength).toBeGreaterThan(1000);
+  });
+
+  it('null when the VRM names none, or the bytes are not a GLB', () => {
+    expect(vrmThumbnail(fixture('polybot.vrm'))).toBeNull(); // VRM 0.x without meta.texture
+    expect(vrmThumbnail(fixture('cube-lad.glb'))).toBeNull(); // not a VRM
+    expect(vrmThumbnail(VRM)).toBeNull();
+    expect(vrmThumbnail(new Uint8Array([1, 2, 3]))).toBeNull();
+  });
+
+  it('a JPEG thumbnail is written as <slug>.jpg', () => {
+    const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
+    const meta = { ...META, thumbnailExtension: 'jpg' as const };
+    expect(omobaManifestEntry(meta, true).thumbnail).toBe('cube-lad.jpg');
+    const files = unzipFiles(packOmobaKit({ vrm: VRM, thumbnail: jpeg, meta }));
+    expect(Object.keys(files)).toEqual(['cube-lad.glb', 'cube-lad.jpg', 'manifest-entry.json', 'README.txt']);
+    expect(text(files['README.txt'])).toContain('cube-lad.jpg');
   });
 });

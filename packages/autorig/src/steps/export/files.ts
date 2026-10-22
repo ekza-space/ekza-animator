@@ -4,17 +4,37 @@
 // hint, and E2E-AR-07 checks the hint against the saved file's name.
 import type { AutoRigExportTarget } from '@ekza-studio/editor-core';
 
-/** io's `omobaSlug`: lower-case `[a-z0-9-]`, accents folded, at most 64 characters, `avatar` when empty. */
-export function slugOf(name: string): string {
-  const slug = name
+/** FNV-1a (32 bit) of the UTF-8 bytes of a text, 8 hex digits (io's `omobaSlug` fallback hash). */
+function fnv1a(text: string): string {
+  let hash = 0x811c9dc5;
+  for (const byte of new TextEncoder().encode(text)) {
+    hash ^= byte;
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0');
+}
+
+const slugText = (text: string): string =>
+  text
     .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 64)
     .replace(/-+$/g, '');
-  return slug === '' ? 'avatar' : slug;
+
+/**
+ * io's `omobaSlug`: lower-case `[a-z0-9-]`, accents folded, at most 64 characters; OMOBA's protected `ekza-` prefix
+ * becomes `studio-ekza-`; nothing left → `avatar-<8 hex>` (empty name: `avatar`).
+ */
+export function slugOf(name: string): string {
+  const slug = slugText(name);
+  if (slug === '') {
+    const trimmed = name.trim().normalize('NFC');
+    return trimmed === '' ? 'avatar' : `avatar-${fnv1a(trimmed)}`;
+  }
+  return slug.startsWith('ekza-') ? slugText(`studio-${slug}`) : slug;
 }
 
 /** io's `exportFileName` sanitizing of a base name. */

@@ -10,13 +10,16 @@
 // - `vrma`: the shipped exporter of kind `vrma` (what `file.export`'s `prepare` runs, with its read-back lint), one
 //   artifact per clip over every non-test clip of the character; one file is saved as it is, several as
 //   `<name>-animations.zip` (io's `zipFiles`). Available only where the exporter's poll accepts the character.
-// - `omoba-kit`: the `ekza-vrm` bytes packed by io's `packOmobaKit` (`<slug>.glb`, `<slug>.png`, `manifest-entry.json`,
-//   `README.txt`) as `<slug>-omoba-kit.zip`; blocked whenever the VRM is.
+// - `omoba-kit`: the `ekza-vrm` bytes packed by io's `packOmobaKit` (`<slug>.glb`, `<slug>.png` — the stored thumbnail,
+//   or an imported VRM's own image, `.jpg` when it is a JPEG —, `manifest-entry.json`, `README.txt`) as
+//   `<slug>-omoba-kit.zip`; blocked whenever the VRM is. The slug never starts with OMOBA's protected `ekza-`.
 //
 // Asset-sourced characters (an uploaded VRM or rigged GLB) cannot run `file.exportCharacter` (model characters only);
 // their targets are the bake Studio's Export dialog offers (§5.6.1): `ekza-vrm` = `file.export` kind `bake-into-model`
 // through `ekza/space-avatar-v1` (VRM sources), `glb` = the same through `local/generic` (glTF sources), `vrma` as
-// above, `omoba-kit` from the baked VRM. A target a character cannot use fails its poll (the step hides it).
+// above, `omoba-kit` from the baked VRM. A target a character cannot use fails its poll (the step hides it and names
+// the recommended target's reason). An imported VRM whose licence is restricted gets no bake: Auto-Rig never
+// acknowledges a licence for the user (AR-D6-19; Studio's Export dialog does, on the user's click).
 //
 // `fileName` is the base name of the saved file (`''` = the slug of the avatar's name, `omobaSlug`); the extension is
 // the target's. Returns every artifact and their lints (errors first), whether saved or not.
@@ -36,6 +39,7 @@ import {
   packOmobaKit,
   readVrmLicense,
   SPACE_PROFILE_ID,
+  vrmThumbnail,
   zipFiles,
 } from '@ekza-studio/io';
 import {
@@ -46,6 +50,7 @@ import {
   type PollResult,
 } from '../../../../types';
 import { blockingLints, pollExport, withReadBackLint } from '../../../../workflows/export';
+import { isRestrictedLicense } from '../../../../workflows/provenance';
 import { characterRequestProblem, isModelCharacter, runExportCharacter } from '../../../../workflows/exportCharacter';
 import { isRecord } from '../../../../workflows/util';
 import { type AnyOperator, defineOperator, fail, OK } from '../../define';
@@ -184,6 +189,11 @@ function assetBakeProfile(record: CharacterRecord, target: 'ekza-vrm' | 'glb' | 
 
 const NO_CLIPS = 'Add an animation first: this target exports the character’s clips';
 
+/** Why an imported avatar with a restricted licence has no VRM or kit target (AR-D6-19). */
+export const RESTRICTED =
+  'This avatar’s licence forbids modifying or redistributing it, so Auto-Rig does not bake animations into it. ' +
+  'Export the animations as VRMA, or acknowledge the licence in Studio’s Export dialog';
+
 /** Why a target cannot export a character (synchronous: the step's availability and the poll), or null. */
 export function exportTargetProblem(
   app: EditorApp,
@@ -208,6 +218,9 @@ export function exportTargetProblem(
   if (characterClips(app.store, record.id).length === 0) {
     return 'An imported avatar exports with its clips baked in: add an animation first';
   }
+  // Auto-Rig never acknowledges a restricted licence for the user (AR-D6-19): the bake is Studio's Export dialog's
+  const runtime = app.characters.get(record.id);
+  if (runtime !== undefined && isRestrictedLicense(readVrmLicense(runtime.container))) return RESTRICTED;
   const poll = pollExport(app, fileExportRequest(app, record, 'bake-into-model', profile, fileName), 'bake-into-model');
   return poll === true ? null : poll.reason;
 }
@@ -228,6 +241,9 @@ async function runFileExport(
   return (await exporter.run(app, req)).map(withReadBackLint);
 }
 
+/** The licence text of an imported VRM that states none (OMOBA's `license` is a required, non-empty text). */
+export const KIT_LICENSE_UNSTATED = 'Not stated in the VRM meta';
+
 /** The kit's meta: the VRM meta of a model character, the licence of an imported VRM. */
 function kitMeta(app: EditorApp, record: CharacterRecord, slug: string): OmobaKitMeta {
   if (isModelCharacter(record)) {
@@ -236,23 +252,50 @@ function kitMeta(app: EditorApp, record: CharacterRecord, slug: string): OmobaKi
   }
   const runtime = app.characters.get(record.id);
   const license = runtime === undefined ? null : readVrmLicense(runtime.container);
+  const text = (value: string | null | undefined): string => value?.trim() ?? '';
   return {
-    displayName: license?.title?.trim() || record.name,
+    displayName: text(license?.title) || record.name,
     authors: license?.authors ?? [],
-    license: license?.licenseName ?? (license?.licenseUrl === null ? 'See the VRM meta' : (license?.licenseUrl ?? '')),
+    license: text(license?.licenseName) || text(license?.licenseUrl) || KIT_LICENSE_UNSTATED,
     slug,
   };
 }
 
-/** The stored thumbnail of a model character (the VRM's own), or null. */
-async function thumbnailOf(app: EditorApp, record: CharacterRecord): Promise<Uint8Array | null> {
-  const id = isModelCharacter(record) ? (record.vrm?.thumbnail ?? null) : null;
+/**
+ * The kit's thumbnail: a model character's stored one (the image its VRM carries), an imported VRM's own (read from
+ * the exported VRM, so the kit's picture is the one inside its `.glb`), else null.
+ */
+async function kitThumbnail(
+  app: EditorApp,
+  record: CharacterRecord,
+  vrm: Uint8Array,
+): Promise<{ readonly bytes: Uint8Array; readonly extension: 'png' | 'jpg' } | null> {
+  if (!isModelCharacter(record)) return vrmThumbnail(vrm);
+  const id = record.vrm?.thumbnail ?? null;
   if (id === null) return null;
   try {
-    return await app.services.assets.get(id);
+    return { bytes: await app.services.assets.get(id), extension: 'png' };
   } catch {
     return null;
   }
+}
+
+/** The OMOBA kit of a character's exported VRM bytes: its file name and zip (io's `packOmobaKit`). */
+export async function omobaKitOf(
+  app: EditorApp,
+  record: CharacterRecord,
+  base: string,
+  vrm: Uint8Array,
+): Promise<{ readonly name: string; readonly bytes: Uint8Array }> {
+  const thumbnail = await kitThumbnail(app, record, vrm);
+  const meta: OmobaKitMeta = {
+    ...kitMeta(app, record, omobaSlug(base)),
+    ...(thumbnail === null ? {} : { thumbnailExtension: thumbnail.extension }),
+  };
+  return {
+    name: omobaKitFileName(meta),
+    bytes: packOmobaKit({ vrm, thumbnail: thumbnail?.bytes ?? null, meta }),
+  };
 }
 
 /** Every artifact's lints, errors first (stable within a severity). */
@@ -311,12 +354,8 @@ export async function planExport(
     vrm = artifacts[0] as ExportArtifact;
   }
   if (target !== 'omoba-kit') return done([vrm], vrm.fileName, () => ({ bytes: vrm.bytes, mime: vrm.mime }));
-  const meta = kitMeta(app, record, omobaSlug(base));
-  const thumbnail = await thumbnailOf(app, record);
-  return done([vrm], omobaKitFileName(meta), () => ({
-    bytes: packOmobaKit({ vrm: vrm.bytes, thumbnail, meta }),
-    mime: ZIP_MIME,
-  }));
+  const kit = await omobaKitOf(app, record, base, vrm.bytes);
+  return done([vrm], kit.name, () => ({ bytes: kit.bytes, mime: ZIP_MIME }));
 }
 
 /** The poll of `autorig.export` (synchronous). */

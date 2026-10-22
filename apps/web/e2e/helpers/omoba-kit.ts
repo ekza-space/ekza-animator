@@ -39,6 +39,9 @@ export function expectOmobaEntry(kit: KitContents, slug: string): void {
   }
   expect(entry['slug']).toBe(slug);
   expect(entry['slug']).toMatch(/^[a-z0-9-]+$/);
+  // OMOBA's roster skips an `ekza-` slug without a passport boundary (`roster_entry_problem`)
+  expect(entry['slug']).not.toMatch(/^ekza-/);
+  expect(entry['license']).not.toBe('');
   expect(entry['collection']).toBe('Ekza Studio');
   expect(kit.files).toContain(`${slug}.glb`);
   if (entry['thumbnail'] !== null) expect(kit.files).toContain(entry['thumbnail']);

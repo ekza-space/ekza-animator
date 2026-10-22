@@ -126,6 +126,16 @@ test('the OMOBA local test kit: the VRM bytes unchanged, the thumbnail, OMOBA’
     characterRequest(character, 'ekza-vrm', 'cube-lad'),
   );
   expect(studio?.sha256).toBe(vrm.sha);
+
+  // an "Ekza …" avatar: never OMOBA's protected ekza- slug (its roster skips such an entry without a passport)
+  await runOk(page, 'char.setVrmMeta', { character, patch: { name: 'Ekza Bot' } });
+  await expect(page.getByTestId('ar-status')).toHaveText('studio-ekza-bot-omoba-kit.zip · ready');
+  const ekzaFile = await download(page);
+  expect(ekzaFile.name).toBe('studio-ekza-bot-omoba-kit.zip');
+  const ekzaKit = readKit(ekzaFile.bytes);
+  expect(ekzaKit.files).toEqual(['studio-ekza-bot.glb', 'studio-ekza-bot.png', 'manifest-entry.json', 'README.txt']);
+  expectOmobaEntry(ekzaKit, 'studio-ekza-bot');
+  expect(ekzaKit.entry['display_name']).toBe('Ekza Bot');
 });
 
 test('AS-AR-4 (⑤ part): an imported VRM offers the Space bake, VRMA and the kit once it has a clip', async ({

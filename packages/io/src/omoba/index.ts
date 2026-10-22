@@ -11,7 +11,9 @@ export {
 } from './kit';
 export {
   OMOBA_KIT_COLLECTION,
+  OMOBA_KIT_PREFIX,
   OMOBA_MANIFEST_FIELDS,
+  OMOBA_PROTECTED_PREFIX,
   OMOBA_SLUG_FALLBACK,
   OMOBA_SLUG_MAX,
   type OmobaKitMeta,
@@ -23,3 +25,4 @@ export {
   omobaSlug,
 } from './manifest';
 export { omobaKitReadme, omobaValidateCommand } from './readme';
+export { type VrmThumbnail, vrmThumbnail } from './thumbnail';
