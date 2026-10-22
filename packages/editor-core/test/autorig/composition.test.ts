@@ -342,6 +342,8 @@ describe('WIZARD_OPERATORS in the rig-workspace chunk (AUTORIG-SPEC §4.5, §7.0
       'autorig.intake': 'expects { bytes, name }',
       'autorig.inspect': 'expects { meshes }',
       'autorig.fix': 'expects { fix: center | face | standUp | scale | freeze, meshes }',
+      // D6 landed `autorig.export`: without arguments it refuses with its argument poll
+      'autorig.export': "expects { character, target: 'ekza-vrm' | 'glb' | 'vrma' | 'omoba-kit', fileName }",
     };
     expect(reasons).toEqual(WIZARD_IDS.map((id) => landed[id] ?? ARRIVES_WITH_AUTORIG));
     // the moved M6b stubs are unchanged (A0 replaces them)

@@ -40,6 +40,8 @@ test('autorig.* ids load the rig-workspace chunk on first run and refuse as stub
     'autorig.intake': 'expects { bytes, name }',
     'autorig.inspect': 'expects { meshes }',
     'autorig.fix': 'expects { fix: center | face | standUp | scale | freeze, meshes }',
+    // D6 landed `autorig.export` (its argument poll)
+    'autorig.export': "expects { character, target: 'ekza-vrm' | 'glb' | 'vrma' | 'omoba-kit', fileName }",
   };
   for (const op of WIZARD_IDS) await expectRefused(page, op, landed[op] ?? 'Arrives with Auto-Rig');
   // the moved M6b stubs are unchanged until A0 lands them
