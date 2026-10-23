@@ -3,6 +3,7 @@
 // `lazyOperatorChunk`), or up front when an agent runtime or a headless app attaches (`loadAgentOperators`). Until
 // then `operators.get(id)` is undefined and `operators.poll(id)` answers "unknown operator".
 import type { EditorApp } from '../../types';
+import { loadActorKit } from '../scope';
 
 /** The ids `agentOperators.ts` registers. */
 export const AGENT_OPERATOR_IDS: ReadonlySet<string> = new Set([
@@ -20,11 +21,14 @@ export const AGENT_OPERATOR_IDS: ReadonlySet<string> = new Set([
 
 const loads = new WeakMap<object, Promise<void>>();
 
-/** Registers the explicit-target operators on this app once (ids already registered are left as they are). */
+/** Registers the explicit-target operators on this app once (ids already registered are left as they are) and loads
+ *  the actor run helpers. */
 export function loadAgentOperators(app: EditorApp): Promise<void> {
   const known = loads.get(app.operators);
   if (known !== undefined) return known;
-  const load = import('./agentOperators').then(({ AGENT_OPERATORS }) => {
+  // M-AI B5: with the actor run helpers (`scope.ts`), so an agent's polls outside a run (the tool layer's scope probe)
+  // find them loaded.
+  const load = Promise.all([import('./agentOperators'), loadActorKit()]).then(([{ AGENT_OPERATORS }]) => {
     for (const def of AGENT_OPERATORS) {
       if (app.operators.get(def.id) === undefined) app.contribute({ kind: 'operator', def });
     }

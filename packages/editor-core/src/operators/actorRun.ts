@@ -5,6 +5,9 @@ import type { Tx } from '@ekza-studio/doc';
 import type { EditorApp } from '../types';
 import { AI_LABEL_MAX, AI_LABEL_PREFIX } from './runner';
 
+/** The actor side of the run-scope helpers (`scope.ts` installs it when this chunk loads, M-AI B5). */
+export * as ACTOR_SCOPE from './actorScope';
+
 /** Runner rule 2: `AI: <label>`, at most 80 characters (a label that already carries the prefix keeps it once). */
 export function actorLabel(label: string): string {
   const full = label.startsWith(AI_LABEL_PREFIX) ? label : `${AI_LABEL_PREFIX}${label}`;

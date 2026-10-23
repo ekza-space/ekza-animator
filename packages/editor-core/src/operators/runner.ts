@@ -52,7 +52,7 @@ import { adjustingOperator, attachLastRunTracker, recordLastRun as recordLastRun
 import { pendingModelOperator } from './builtin/modelOps';
 import { type AnyOperatorDef, beforeDocumentRun, operatorContext, unknownOperator } from './registry';
 import { lazyOperatorChunk } from '../workspaces/rig';
-import type * as ActorRunModule from './actorRun';
+import { loadActorKit } from './scope';
 
 /** Runner rule 1: the reason of a run its `signal` stopped. */
 export const CANCELLED_BY_AGENT = 'cancelled by the agent';
@@ -61,20 +61,6 @@ export const GESTURE_IN_PROGRESS = 'gesture in progress';
 /** Runner rule 2: the prefix of every actor step label, and the label's maximum length. */
 export const AI_LABEL_PREFIX = 'AI: ';
 export const AI_LABEL_MAX = 80;
-
-type ActorKit = typeof ActorRunModule;
-let actorKit: Promise<ActorKit> | null = null;
-/** The actor-only helpers (labels, the session check, the annotate proxy): loaded once, retried after a failure. */
-function loadActorKit(): Promise<ActorKit> {
-  if (actorKit === null) {
-    const attempt = import('./actorRun');
-    actorKit = attempt;
-    attempt.catch(() => {
-      if (actorKit === attempt) actorKit = null;
-    });
-  }
-  return actorKit;
-}
 
 function aborted(signal: AbortSignal | undefined): boolean {
   return signal?.aborted === true;

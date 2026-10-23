@@ -11,6 +11,7 @@ import { blockingLints, requestProblem, withReadBackLint } from '../../workflows
 import type { Progress } from '../../workflows/host';
 import { animationTargetProblem, importTarget } from '../../workflows/importChecks';
 import { importPathLoaded, loadImportPath } from '../../workflows/importLoader';
+import { preloadOperatorBodies } from './lazyBodies';
 import type { ClipImportPlan, ModelImportPlan } from '../../workflows/importPath';
 import { extensionOf } from '../../workflows/names';
 import {
@@ -38,6 +39,15 @@ function fileArgsProblem(args: unknown): string | null {
 function pollFile(args: unknown) {
   const problem = fileArgsProblem(args);
   return problem === null ? OK : fail(problem);
+}
+
+/**
+ * The import pipelines, and (intent prefetch, M-AI B5) the operators' apply bodies (`lazyBodies.ts`): a character or
+ * a clip is about to arrive, so its first edit does not wait for those chunks.
+ */
+function loadImport(): ReturnType<typeof loadImportPath> {
+  preloadOperatorBodies();
+  return loadImportPath();
 }
 
 /**
@@ -109,7 +119,11 @@ const fileOpenProject = defineOperator<'file.openProject', OpenedProject>({
   category: 'file',
   scope: GLOBAL_SCOPE,
   poll: (_ctx, args) => pollFile(args),
-  prepare: (ctx, args) => busy(ctx, `Opening ${args.name}…`, () => prepareProjectOpen(ctx.app, args.bytes)),
+  prepare: (ctx, args) =>
+    busy(ctx, `Opening ${args.name}…`, () => {
+      preloadOperatorBodies();
+      return prepareProjectOpen(ctx.app, args.bytes);
+    }),
   apply({ app }, _args, opened) {
     loadProject(app, opened);
     toastWarnings(app, 'Project opened', opened.warnings);
@@ -128,7 +142,7 @@ const fileImportModel = defineOperator<'file.importModel', ModelImportPlan>({
   poll: ({ app }, args) => all(pollFile(args), pollEditable(app)),
   prepare: (ctx, args) =>
     busy(ctx, `Importing ${args.name}…`, async (progress) =>
-      (await loadImportPath()).prepareModelImport(ctx.app, {
+      (await loadImport()).prepareModelImport(ctx.app, {
         fileName: args.name,
         bytes: args.bytes,
         options: args.options,
@@ -172,7 +186,7 @@ const fileImportAnimation = defineOperator<'file.importAnimation', ClipImportPla
     if (target === null) throw new EkzaError('unsupported', 'Load a character first');
     const input = { fileName: args.name, bytes: args.bytes, character: target, options: args.options };
     return busy(ctx, `Importing ${args.name}…`, async () => {
-      const pipelines = await loadImportPath();
+      const pipelines = await loadImport();
       return animationKind(args.name) === 'vrma'
         ? pipelines.prepareVrmaImport(app, input)
         : pipelines.prepareGlbAnimationImport(app, input);
@@ -226,7 +240,7 @@ const fileLoadSample = defineOperator<'file.loadSample', ModelImportPlan>({
     const app = ctx.app;
     const sample = SAMPLES[args.sample];
     return busy(ctx, `Loading ${sample.file}…`, async (progress) =>
-      (await loadImportPath()).prepareModelImport(app, {
+      (await loadImport()).prepareModelImport(app, {
         fileName: sample.file,
         bytes: await sampleBytes(app, sample),
         options: args.options,

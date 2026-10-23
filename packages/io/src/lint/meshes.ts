@@ -14,7 +14,7 @@ import type { MeshData, MeshProblem } from '@ekza-studio/mesh-core';
 import { checkMesh, EDGE_HARD } from '../mesh/kernel';
 import type { BudgetPreset } from '../profiles/budgets';
 import type { ExportProfileDef, LintIssue } from '../types';
-import { ruleSeverity } from './rules';
+import { ruleSeverity } from './severities';
 
 export interface MeshLintInput {
   readonly id: string;

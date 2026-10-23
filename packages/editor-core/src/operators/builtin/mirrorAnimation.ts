@@ -6,13 +6,13 @@
 import { EkzaError } from '@ekza-studio/anim-core';
 import type { ControlId } from '@ekza-studio/doc';
 import { isHumanoidProgram, type MirrorMode } from '@ekza-studio/rig';
-import { scopedCharacterOf } from '../scope';
+import { actorScope } from '../scope';
 import { type CharacterRuntime, GLOBAL_SCOPE, type OperatorContext } from '../../types';
 import type * as MirrorWorkflow from '../../workflows/mirrorAnimation';
 import type { CountResult } from '../args';
 import { type AnyOperator, all, defineOperator, fail, isActorRun, isRecord, OK } from './define';
-import { pollRuntime } from './polls';
-import { NO_TARGETS, pollScopedClipEdit, scopedClipRecord, scopedTargetControls } from './scoped';
+import { activeRuntimeOf, pollRuntime } from './polls';
+import { pollScopedClipEdit, scopedClipRecord, scopedTargetControls } from './scoped';
 
 type MirrorWorkflowModule = typeof MirrorWorkflow;
 
@@ -50,13 +50,11 @@ function argsProblem(raw: unknown): string | null {
 
 /** The runtime of the run's character (the active one for user runs, the scope's for agents). */
 function runtimeOfRun(ctx: OperatorContext): CharacterRuntime | undefined {
-  const character = scopedCharacterOf(ctx);
-  return character === null ? undefined : ctx.app.characters.get(character);
+  return isActorRun(ctx) ? actorScope().runtimeOf(ctx) : activeRuntimeOf(ctx.app);
 }
 
 function pollRunRuntime(ctx: OperatorContext) {
-  if (!isActorRun(ctx)) return pollRuntime(ctx.app);
-  return runtimeOfRun(ctx) === undefined ? fail('The character is still loading') : OK;
+  return isActorRun(ctx) ? actorScope().pollRuntime(ctx) : pollRuntime(ctx.app);
 }
 
 const mirrorAnimationOperator = defineOperator({
@@ -84,8 +82,7 @@ const mirrorAnimationOperator = defineOperator({
       return fail('Unknown control');
     }
     // Agent runs never fall back to "the whole character": they name controls (argument or scope).
-    if (isActorRun(ctx) && (args.controls ?? scopedTargetControls(ctx)).length === 0) return fail(NO_TARGETS);
-    return OK;
+    return isActorRun(ctx) ? actorScope().pollMirrorTargets(ctx, args.controls) : OK;
   },
   prepare: loadMirrorWorkflow,
   apply(ctx, args, workflow) {
