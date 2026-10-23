@@ -41,7 +41,27 @@ Shared test files touched (one filter each): `agent-tools/test/tools-envelope.te
 
 ## Gate
 
-See the final section (filled after the run).
+`EKZA_E2E_PORT=3153 pnpm run ci` (local Chrome): format, lint, typecheck, deps, fixtures, licenses, unit tests (22/22
+turbo tasks) and the build green; `check:size` red as on `mai/port` (B5 fixes it); `pnpm run test:e2e` then ran on its
+own: 363 passed, 24 skipped (stretch/fixme), 0 failed.
+
+| Route | `mai/port` | `mai/b3-ui` | Delta |
+|---|---|---|---|
+| `/editor` | 902,762 B | 903,159 B | +397 B (the pill slot and its `useSyncExternalStore` wrapper in the status line, `?agentPort=` handling) |
+| `/autorig` | 664,644 B | 664,809 B | +165 B |
+
+`editor/test/shell.test.tsx` failed once under the full turbo run ("no app" in 5 tests) and passed in isolation and in
+two later full runs: load-dependent, not caused by B3.
+
+## Merging with B2
+
+B2's `editor/src/agent/bridge/slot.ts` and `editor/src/test-api/agentParams.ts` are copied byte-identical from
+`mai/b2-bridge` (1d0b18f7) so the runtime can follow the page's session (`agentSessionOf`, `onAgentSession`,
+`loadAgentSession`); the files stay B2's and merge cleanly. On this branch the D0 `createAgentSession` throws, so the
+panel shows "The agent bridge is not available in this build" until B2 merges. The panel calls B2's actions
+(`select`, `cancel`, `accept`, `deny`, `setGrants`, `setPaused`, `answerConfirm`) and reads `extra.claim` (client,
+folder) in the grants dialog; Allow/Deny carry `agent-allow`/`agent-deny`. B2's `agent()` test-API slice reads the
+slot, so the e2e hook's fake session (installed by hand) is not visible there.
 
 ## Open issues
 
