@@ -17,6 +17,7 @@ import {
   finishedValue,
   type Grants,
   isClean,
+  notAvailableYet,
   PROGRESS_MAX_CHARS,
   schemas,
   scrubPaths,
@@ -106,11 +107,16 @@ const throwing = (name: string, error: () => Error): AgentToolDef =>
     run: () => Promise.reject(error()),
   });
 
-/** A catalogue definition made ready: validation and gating are final in D0, its run is still the stub. */
+/**
+ * A catalogue definition made ready with a stub run: validation and gating are the catalogue's, the run answers
+ * "not available yet" (the D0 stub), so these tests check the gate alone whatever the tool's owner built.
+ */
 function readyCatalogueTool(name: string): AgentToolDef {
   const tool = allTools().find((candidate) => candidate.name === name);
   if (tool === undefined) throw new Error(`no catalogue tool ${name}`);
-  return { ...tool, ready: true };
+  const stub: AgentToolDef = { ...tool, ready: true, run: notAvailableYet(name) };
+  delete (stub as { confirm?: unknown }).confirm;
+  return stub;
 }
 
 /** A failure whose detail refers to itself: the sanitiser cannot walk it. */
@@ -201,15 +207,20 @@ describe('minimal tool runtime (MCP-SPEC §8 D0)', () => {
     registerSetLoop(fx.app);
   });
 
-  it('serves the ready tools only; the catalogue has none ready in D0', async () => {
+  it('serves the ready tools only (the catalogue: the ready ones, in catalogue order)', async () => {
     const runtime = createAgentToolRuntime({ app: fx.app, host: testHost(), actor: AGENT, tools: TOOLS });
     expect(runtime.tools.map((tool) => tool.name)).not.toContain('keys_later');
     const later = await runtime.call('keys_later', { loop: true }, { signal: signal() });
     expect(later.ok ? null : later.error.code).toBe('unsupported');
     const catalogue = createAgentToolRuntime({ app: fx.app, host: testHost(), actor: AGENT });
-    expect(catalogue.tools).toEqual([]);
-    const summary = await catalogue.call('scene_summary', {}, { signal: signal() });
-    expect(summary).toMatchObject({ ok: false, error: { code: 'unsupported', retryable: false } });
+    // D0 had none ready; P2 lists its tools (the manifest is the contract, test/manifest.test.ts)
+    expect(catalogue.tools.map((tool) => tool.name)).toEqual(
+      allTools()
+        .filter((tool) => tool.ready)
+        .map((tool) => tool.name),
+    );
+    const stretch = await catalogue.call('recipe_apply', { recipe: 'wave' }, { signal: signal() });
+    expect(stretch).toMatchObject({ ok: false, error: { code: 'unsupported', retryable: false } });
   });
 
   it('rejects unknown keys and out-of-bounds numbers with invalid_args and the failing path', async () => {

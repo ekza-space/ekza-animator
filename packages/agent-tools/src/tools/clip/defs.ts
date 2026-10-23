@@ -1,4 +1,4 @@
-// Clip tools (MCP-SPEC §6.6, tools 22–25; P2). D0 lands the final schemas with `ready: false`.
+// Clip tools (MCP-SPEC §6.6, tools 22–25; P2).
 import { z } from 'zod';
 import {
   characterRef,
@@ -14,6 +14,14 @@ import {
 } from '../../schemas/common';
 import type { AgentHostMode, ExtraGrant } from '../../types';
 import { BUDGETS, defineTool } from '../define';
+import {
+  clipCreate as clipCreateRun,
+  clipDelete as clipDeleteRun,
+  clipDeleteConfirm,
+  clipMakeLoop as clipMakeLoopRun,
+  clipUpdate as clipUpdateRun,
+  clipUpdateConfirm,
+} from './run';
 
 /** Clip names: ≤ 64 characters of [A-Za-z0-9 _.-] (doc ClipRecord). */
 const clipName = z
@@ -49,7 +57,13 @@ function creationExtraGrants(
 export const clipCreate = defineTool({
   name: 'clip_create',
   title: 'Create a clip',
-  description: 'Create a new clip (or duplicate one) with a name, fps and duration.',
+  description:
+    'Create a new clip (or duplicate one) with a name, fps and duration. name is 1…64 characters of ' +
+    "letters, digits, space, _ . -; fps defaults to the project's; durationFrames or durationSeconds " +
+    '(default 2 s); loop makes it a looping clip; duplicateOf copies a clip of the same character. In ' +
+    "the user's editor the new clip stays out of the user's view (they can click Show) unless activate: " +
+    'true, which also needs the View grant; later edits name it with clip. Headless it becomes the ' +
+    'active clip.',
   group: 'clip',
   input: z
     .strictObject({
@@ -80,6 +94,9 @@ export const clipCreate = defineTool({
   stretch: false,
   kind: 'edit',
   budget: BUDGETS.write,
+  example: { name: 'wave', fps: 30, durationSeconds: 2 },
+  ready: true,
+  run: (ctx, args) => clipCreateRun(ctx, args) as never,
 });
 
 const SETTINGS = ['fps', 'fpsMode', 'rangeFrames', 'loop', 'rootMotion', 'slot', 'tags', 'contactFrame'] as const;
@@ -95,7 +112,12 @@ function updateKinds(value: Readonly<Record<string, unknown>>): string[] {
 export const clipUpdate = defineTool({
   name: 'clip_update',
   title: 'Update a clip',
-  description: 'Rename a clip or change its fps, range, loop flag, root motion, slot, tags or contact frame.',
+  description:
+    'Rename a clip or change its fps, range, loop flag, root motion, slot, tags or contact frame. One ' +
+    'change kind per call: a rename (name), an activation (activate: true shows the clip to the user; ' +
+    'needs the View grant), or settings. fps with fpsMode keep_seconds retimes the keys, keep_frames ' +
+    'keeps their frames; rangeFrames is [start, end] in clip frames (≤ 100,000 frames). Changing fps, or ' +
+    'the range or loop while the user has unkeyed edits, asks the user (headless: confirm: true for fps).',
   group: 'clip',
   input: z
     .strictObject({
@@ -138,6 +160,10 @@ export const clipUpdate = defineTool({
   stretch: false,
   kind: 'edit',
   budget: BUDGETS.write,
+  example: { clip: 'walk', loop: true },
+  ready: true,
+  confirm: (ctx, args) => clipUpdateConfirm(ctx, args),
+  run: (ctx, args) => clipUpdateRun(ctx, args) as never,
 });
 
 const seamSummaryOut = z.object({
@@ -151,7 +177,12 @@ export const clipMakeLoop = defineTool({
   name: 'clip_make_loop',
   title: 'Make a clip loop',
   description:
-    'Make a clip loop seamlessly (match the ends, blend or only cycle), reporting the seam before and after.',
+    'Make a clip loop seamlessly (match the ends, blend or only cycle), reporting the seam before and ' +
+    'after. method match_ends (default) sets the end keys of every animated curve to the start values ' +
+    'and slopes; blend cross-fades the last blendFrames toward the start pose; cycle_only only sets the ' +
+    'loop flag and cycling. rootTravel keeps root travel with a cycle offset (default), removes it ' +
+    '(in_place) or leaves the root alone. The verdict is seamless, hitches (slopes differ) or pops ' +
+    '(values differ). dryRun changes nothing.',
   group: 'clip',
   input: z.strictObject({
     ...scoped,
@@ -177,12 +208,18 @@ export const clipMakeLoop = defineTool({
   stretch: false,
   kind: 'edit',
   budget: BUDGETS.write,
+  example: { clip: 'walk', method: 'match_ends' },
+  ready: true,
+  run: (ctx, args) => clipMakeLoopRun(ctx, args) as never,
 });
 
 export const clipDelete = defineTool({
   name: 'clip_delete',
   title: 'Delete a clip',
-  description: 'Delete a clip (undoable).',
+  description:
+    'Delete a clip (undoable). The editor always asks the user (and says when it is the clip the user is ' +
+    'looking at); headless pass confirm: true. When the user was looking at it, the editor switches to ' +
+    'another clip (userNowSees).',
   group: 'clip',
   input: z.strictObject({
     project: projectRef.optional(),
@@ -199,4 +236,8 @@ export const clipDelete = defineTool({
   stretch: false,
   kind: 'edit',
   budget: BUDGETS.write,
+  example: { clip: 'tmp', confirm: true },
+  ready: true,
+  confirm: (ctx, args) => clipDeleteConfirm(ctx, args),
+  run: (ctx, args) => clipDeleteRun(ctx, args) as never,
 });

@@ -101,6 +101,7 @@ export const analyzeContacts = defineTool({
   stretch: false,
   kind: 'read',
   budget: BUDGETS.summary,
+  example: { clip: 'walk' },
 });
 
 export const analyzeLoop = defineTool({
@@ -120,6 +121,7 @@ export const analyzeLoop = defineTool({
   stretch: false,
   kind: 'read',
   budget: BUDGETS.summary,
+  example: { clip: 'walk' },
 });
 
 export const analyzeMotion = defineTool({
@@ -167,6 +169,7 @@ export const analyzeMotion = defineTool({
   stretch: false,
   kind: 'read',
   budget: BUDGETS.read,
+  example: { clip: 'wave', targets: { bones: ['leftHand'] }, metrics: ['oscillation'] },
 });
 
 export const analyzeDiff = defineTool({
@@ -198,4 +201,5 @@ export const analyzeDiff = defineTool({
   stretch: true,
   kind: 'read',
   budget: BUDGETS.read,
+  example: { clip: 'walk', against: { checkpoint: 'cp_0123456789ab' } },
 });

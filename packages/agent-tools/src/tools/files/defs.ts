@@ -43,6 +43,7 @@ export const projectOpen = defineTool({
   stretch: false,
   kind: 'files',
   budget: BUDGETS.summary,
+  example: { sample: 'polybot' },
 });
 
 export const projectImport = defineTool({
@@ -67,6 +68,7 @@ export const projectImport = defineTool({
   stretch: false,
   kind: 'files',
   budget: BUDGETS.write,
+  example: { sample: 'polybot' },
 });
 
 export const projectSave = defineTool({
@@ -94,6 +96,7 @@ export const projectSave = defineTool({
   stretch: false,
   kind: 'files',
   budget: BUDGETS.write,
+  example: { path: 'walk.ekzanim' },
 });
 
 export const projectExport = defineTool({
@@ -142,4 +145,5 @@ export const projectExport = defineTool({
   stretch: false,
   kind: 'files',
   budget: BUDGETS.summary,
+  example: { clips: ['walk'], kind: 'vrma' },
 });

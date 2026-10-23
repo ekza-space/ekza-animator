@@ -1,7 +1,8 @@
 // MCP-SPEC §4.6, §5.20 (D0): the in-process server answers an SDK client over InMemoryTransport with the same hub —
-// identity, instructions, an empty tool list in D0, unknown tools as protocol errors, empty resources and prompts.
+// identity, instructions, the manifest's ready tools (none in D0; P2's from MAI-P2-1 on), unknown tools as protocol
+// errors, empty resources and the prompts whose plans are written.
 import { Client } from '@modelcontextprotocol/client';
-import { SERVER_INSTRUCTIONS, SERVER_INSTRUCTIONS_MAX_CHARS } from '@ekza-studio/agent-tools';
+import { buildManifest, PROMPTS, SERVER_INSTRUCTIONS, SERVER_INSTRUCTIONS_MAX_CHARS } from '@ekza-studio/agent-tools';
 import { describe, expect, it } from 'vitest';
 import { createInProcessServer, originWarnings, parseArgs, parseOrigin, SERVER_VERSION } from '../src';
 
@@ -12,10 +13,14 @@ describe('in-process server (MCP-SPEC §4.6)', () => {
     await client.connect(server.clientTransport);
     expect(client.getServerVersion()).toMatchObject({ name: 'ekza-animator', version: SERVER_VERSION });
     expect(client.getInstructions()).toBe(SERVER_INSTRUCTIONS);
-    expect((await client.listTools()).tools).toEqual([]);
-    await expect(client.callTool({ name: 'scene_summary', arguments: {} })).rejects.toThrow(/not found/);
+    expect((await client.listTools()).tools.map((tool) => tool.name)).toEqual(
+      buildManifest().tools.map((tool) => tool.name),
+    );
+    await expect(client.callTool({ name: 'no_such_tool', arguments: {} })).rejects.toThrow(/not found/);
     expect((await client.listResources()).resources).toEqual([]);
-    expect((await client.listPrompts()).prompts).toEqual([]);
+    expect((await client.listPrompts()).prompts.map((prompt) => prompt.name)).toEqual(
+      PROMPTS.filter((prompt) => prompt.plan !== null).map((prompt) => prompt.name),
+    );
     await client.close();
     await server.close();
   });

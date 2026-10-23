@@ -1,6 +1,6 @@
-// MCP-SPEC §8 D0 DoD and §5.22.2: the built bin starts over stdio, answers tools/list with the ready tools (none in
-// D0: an empty list), writes nothing but MCP to stdout, and exits when stdin closes. Needs `pnpm mcp:build` first
-// (turbo runs the build before this package's tests).
+// MCP-SPEC §8 D0 DoD and §5.22.2: the built bin starts over stdio, answers tools/list with the ready tools (the
+// committed manifest's; none in D0), writes nothing but MCP to stdout, and exits when stdin closes. Needs
+// `pnpm mcp:build` first (turbo runs the build before this package's tests).
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -10,6 +10,13 @@ import { Client } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import { describe, expect, it } from 'vitest';
 import { SERVER_VERSION } from '../src';
+
+/** The ready tools of the committed manifest, in order (what tools/list must answer). */
+const MANIFEST_TOOLS = (
+  JSON.parse(
+    readFileSync(fileURLToPath(new URL('../../agent-tools/tools.manifest.json', import.meta.url)), 'utf8'),
+  ) as { readonly tools: readonly { readonly name: string }[] }
+).tools.map((tool) => tool.name);
 
 const BIN = fileURLToPath(new URL('../dist/cli.mjs', import.meta.url));
 const built = existsSync(BIN);
@@ -65,7 +72,7 @@ describe.skipIf(!built)('the built bin (run pnpm mcp:build first)', () => {
     expect(bad.stderr).toContain('unknown option --frobnicate');
   });
 
-  it('lists no tools yet, then exits when stdin closes', async () => {
+  it('lists the manifest’s tools, then exits when stdin closes', async () => {
     const workspace = mkdtempSync(join(tmpdir(), 'ekza-mcp-'));
     const transport = new StdioClientTransport({
       command: process.execPath,
@@ -81,7 +88,7 @@ describe.skipIf(!built)('the built bin (run pnpm mcp:build first)', () => {
     });
     expect(client.getInstructions()?.length ?? 0).toBeGreaterThan(100);
     const { tools } = await client.listTools();
-    expect(tools).toEqual([]);
+    expect(tools.map((tool) => tool.name)).toEqual(MANIFEST_TOOLS);
     const pid = transport.pid;
     await client.close();
     expect(pid).not.toBeNull();
@@ -113,6 +120,7 @@ describe.skipIf(!built)('the built bin (run pnpm mcp:build first)', () => {
     expect(code).toBe(0);
     const lines = stdout.trim().split('\n');
     expect(lines.map((line) => (JSON.parse(line) as { jsonrpc: string }).jsonrpc)).toEqual(['2.0', '2.0']);
-    expect((JSON.parse(lines[1] as string) as { result: { tools: unknown[] } }).result.tools).toEqual([]);
+    const listed = (JSON.parse(lines[1] as string) as { result: { tools: { name: string }[] } }).result.tools;
+    expect(listed.map((tool) => tool.name)).toEqual(MANIFEST_TOOLS);
   });
 });

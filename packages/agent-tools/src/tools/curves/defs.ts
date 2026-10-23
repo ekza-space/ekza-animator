@@ -1,5 +1,4 @@
-// Curve tools (MCP-SPEC §6.2 curves_summary and §6.5, tools 7 and 19–21; P2). D0 lands the final schemas with
-// `ready: false`.
+// Curve tools (MCP-SPEC §6.2 curves_summary and §6.5, tools 7 and 19–21; P2).
 import { z } from 'zod';
 import {
   dryRun,
@@ -12,12 +11,22 @@ import {
   writes,
 } from '../../schemas/common';
 import { BUDGETS, defineTool } from '../define';
+import { curvesSummary as curvesSummaryRun } from './summary';
+import {
+  curvesEulerFilter as curvesEulerFilterRun,
+  curvesSetInterpolation as curvesSetInterpolationRun,
+  curvesSimplify as curvesSimplifyRun,
+} from './write';
 
 export const curvesSummary = defineTool({
   name: 'curves_summary',
   title: 'Summarise curves',
   description:
-    'Summarise animation curves before reading keys: key counts, extremes, overshoot, Euler flips, tangent types, subframe keys.',
+    'Summarise animation curves before reading keys: key counts, extremes, overshoot, Euler flips, tangent types, subframe keys. ' +
+    'Default: every curve of the clip (≤ 120 rows); targets narrows it. min and max are [frame, value] in the ' +
+    'curve’s unit (degrees, metres, factor) over rangeFrames (default: the clip range); overshootFrames are frames ' +
+    'where the curve leaves the span of its two neighbouring keys (spline overshoot); flipFrames are rotation jumps ' +
+    'above 90° per frame (fix them with curves_euler_filter); subframeKeys counts keys off whole frames.',
   group: 'curves',
   input: z.strictObject({
     ...scoped,
@@ -52,6 +61,9 @@ export const curvesSummary = defineTool({
   stretch: false,
   kind: 'read',
   budget: BUDGETS.read,
+  example: { clip: 'walk' },
+  ready: true,
+  run: (ctx, args) => curvesSummaryRun(ctx, args) as never,
 });
 
 const CHANGE_KINDS = ['tangent', 'handles', 'broken', 'weighted', 'infinity'] as const;
@@ -70,7 +82,12 @@ export const curvesSetInterpolation = defineTool({
   name: 'curves_set_interpolation',
   title: 'Set tangents and infinity',
   description:
-    'Set tangent types, tangent handle angles and weights, broken or weighted tangents, or pre/post infinity on curves.',
+    'Set tangent types, tangent handle angles and weights, broken or weighted tangents, or pre/post ' +
+    'infinity on curves. One change kind per call: tangent (auto, spline, clamped, linear, flat, step, ' +
+    'plateau; side in/out/both), handles {inAngleDeg, outAngleDeg, inWeight, outWeight} (angles in ' +
+    'degrees as the Graph Editor shows them; setting an angle makes the tangent fixed), broken, ' +
+    'weighted, or preInfinity/postInfinity. Acts on the keys of the targets at frames or inside ' +
+    'rangeFrames (default: every key). Use it for easing (flat or clamped tangents) and overshoot polish.',
   group: 'curves',
   input: z
     .strictObject({
@@ -121,12 +138,18 @@ export const curvesSetInterpolation = defineTool({
   stretch: false,
   kind: 'edit',
   budget: BUDGETS.write,
+  example: { clip: 'wave', targets: { controls: ['fk.upperArm.L'] }, frames: [10], tangent: 'flat' },
+  ready: true,
+  run: (ctx, args) => curvesSetInterpolationRun(ctx, args) as never,
 });
 
 export const curvesEulerFilter = defineTool({
   name: 'curves_euler_filter',
   title: 'Euler filter',
-  description: 'Remove rotation flips (360° jumps and alternate Euler solutions) from rotation curves.',
+  description:
+    'Remove rotation flips (360° jumps and alternate Euler solutions) from rotation curves. Default: ' +
+    'every rotation curve of the clip; targets narrows it. The orientation at every key stays the same; ' +
+    'reports how many keys changed per curve.',
   group: 'curves',
   input: z.strictObject({
     ...scoped,
@@ -144,12 +167,19 @@ export const curvesEulerFilter = defineTool({
   stretch: false,
   kind: 'edit',
   budget: BUDGETS.write,
+  example: { clip: 'walk' },
+  ready: true,
+  run: (ctx, args) => curvesEulerFilterRun(ctx, args) as never,
 });
 
 export const curvesSimplify = defineTool({
   name: 'curves_simplify',
   title: 'Simplify curves',
-  description: 'Reduce keys within a tolerance (degrees, metres) without visibly changing the motion.',
+  description:
+    'Reduce keys within a tolerance (degrees, metres) without visibly changing the motion. Default: ' +
+    'every curve of the clip. Keeps the first and last keys and removes keys while the curve stays ' +
+    'within toleranceDeg (rotations, default 0.1°) and toleranceM (translations, default 0.5 mm) of its ' +
+    'shape. dryRun reports the key counts and the error without changing anything.',
   group: 'curves',
   input: z.strictObject({
     ...scoped,
@@ -178,4 +208,7 @@ export const curvesSimplify = defineTool({
   stretch: false,
   kind: 'edit',
   budget: BUDGETS.write,
+  example: { clip: 'mocap', toleranceDeg: 0.2, dryRun: true },
+  ready: true,
+  run: (ctx, args) => curvesSimplifyRun(ctx, args) as never,
 });

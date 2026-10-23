@@ -67,6 +67,7 @@ export const operatorsList = defineTool({
   stretch: false,
   kind: 'read',
   budget: BUDGETS.rawKeys,
+  example: { query: 'tangent' },
 });
 
 export const operatorDescribe = defineTool({
@@ -168,4 +169,5 @@ export const operatorRun = defineTool({
   stretch: false,
   kind: 'edit',
   budget: { tokens: 600, maxTokens: 2_000 },
+  example: { id: 'clip.rename', args: { clip: 'walk', name: 'walk_slow' } },
 });

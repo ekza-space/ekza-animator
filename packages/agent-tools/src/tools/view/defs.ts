@@ -103,6 +103,7 @@ export const viewCapture = defineTool({
   stretch: false,
   kind: 'read',
   budget: BUDGETS.image,
+  example: { clip: 'walk', frames: [0, 10, 20], views: ['front'] },
 });
 
 export const viewPlotCurves = defineTool({
@@ -147,6 +148,7 @@ export const viewPlotCurves = defineTool({
   stretch: false,
   kind: 'read',
   budget: BUDGETS.image,
+  example: { clip: 'walk', targets: { controls: ['fk.lowerArm.L'], channels: ['rz'] } },
 });
 
 export const viewSetTime = defineTool({
@@ -177,4 +179,5 @@ export const viewSetTime = defineTool({
   stretch: true,
   kind: 'edit',
   budget: BUDGETS.write,
+  example: { frame: 12 },
 });
