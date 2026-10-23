@@ -104,7 +104,7 @@ function open(
     });
     ws.on('message', (data, binary) => {
       if (binary) return;
-      const message = JSON.parse(String(data)) as BridgeMessage;
+      const message = JSON.parse((data as Buffer).toString('utf8')) as BridgeMessage;
       const waiter = waiters.shift();
       if (waiter === undefined) queue.push(message);
       else waiter(message);
@@ -239,8 +239,9 @@ describe('hello and pairing (§5.10)', () => {
     const { connect, tab } = await paired(server);
     expect(connect).toMatchObject({
       ok: true,
-      data: { project: expect.stringMatching(/^tab_[0-9A-Za-z]{12}$/), origin: ORIGIN, actor: { name: 'Claude Code' } },
+      data: { origin: ORIGIN, actor: { name: 'Claude Code' } },
     });
+    expect((connect as { data?: { project?: string } }).data?.project).toMatch(/^tab_[0-9A-Za-z]{12}$/);
     expect(server.status()).toBe('paired');
     expect(server.tab()).toMatchObject({ origin: ORIGIN, title: 'Ekza Studio', project: 'walk' });
     // a second tab is told the server is busy and cannot offer

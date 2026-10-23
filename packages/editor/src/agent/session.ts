@@ -170,7 +170,7 @@ export function createAgentSession(app: EditorApp, deps: AgentSessionDeps): Agen
   let answerCard: ((id: string, answer: 'allow' | 'deny') => void) | null = null;
   const historyListeners = new Set<() => void>();
   const unsubscribeHistory = app.history.subscribe(() => {
-    for (const listener of [...historyListeners]) listener();
+    for (const listener of Array.from(historyListeners)) listener();
     refreshReachability();
   });
 
@@ -494,7 +494,20 @@ export function createAgentSession(app: EditorApp, deps: AgentSessionDeps): Agen
           teardown('error', { kind: 'closed', message: message.message });
         }
         return;
-      default:
+      case 'hello':
+      case 'hello.ok':
+      case 'hello.refused':
+      case 'pair.offer':
+      case 'pair.accept':
+      case 'pair.deny':
+      case 'tab':
+      case 'resume':
+      case 'resume.ok':
+      case 'progress':
+      case 'result':
+      case 'grants':
+      case 'paused':
+      case 'blob':
         return;
     }
   };

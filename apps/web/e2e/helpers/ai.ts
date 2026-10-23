@@ -131,3 +131,29 @@ export async function pair(
   await page.getByTestId('agent-allow').click();
   return claimed;
 }
+
+/** The agent session as the test API reports it (null while none exists). */
+export async function agentState(
+  page: Page,
+): Promise<ReturnType<NonNullable<Window['__EKZA_STUDIO_TEST__']>['agent']>> {
+  return page.evaluate(() => window.__EKZA_STUDIO_TEST__?.agent() ?? null);
+}
+
+/**
+ * Pairs through the session itself (B2, M-AI-B2-3): waits for the code the server sent the page (`?agentPort=`
+ * connects at start), claims it with `editor_connect`, and answers the grants dialog with `agentAct('accept')` — the
+ * same session calls the Agent panel's dialog makes. `pair()` above does it through the panel's UI once P8/B3 merged.
+ */
+export async function pairViaTestApi(
+  page: Page,
+  server: AgentServer,
+  grants: Partial<Readonly<Record<Exclude<GrantName, 'read'>, boolean>>> = {},
+): Promise<unknown> {
+  await expect.poll(async () => (await agentState(page))?.status, { timeout: 15_000 }).toBe('offering');
+  const code = (await agentState(page))?.code ?? '';
+  expect(code).toMatch(/^[A-HJKMNP-Z2-9]{3}-[A-HJKMNP-Z2-9]{3}$/);
+  const claimed = callTool(server, 'editor_connect', { code });
+  await expect.poll(async () => (await agentState(page))?.status).toBe('claimed');
+  await page.evaluate(async (g) => window.__EKZA_STUDIO_TEST__?.agentAct('accept', g), grants);
+  return claimed;
+}

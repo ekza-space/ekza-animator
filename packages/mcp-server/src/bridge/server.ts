@@ -234,7 +234,7 @@ export async function startBridgeServer(opts: BridgeServerOptions): Promise<Brid
     if (entry === undefined) return;
     pending.delete(entry.code);
     clearTimeout(entry.timer);
-    if (answer !== 'accept') entry.claim?.resolve({ kind: answer } as ClaimAnswer);
+    if (answer !== 'accept') entry.claim?.resolve({ kind: answer });
   };
 
   const endPairing = (reason: string): void => {
@@ -468,7 +468,7 @@ export async function startBridgeServer(opts: BridgeServerOptions): Promise<Brid
       case 'pair.accept':
       case 'pair.deny': {
         const entry = sock.code === null ? undefined : pending.get(sock.code);
-        if (entry?.claim == null) {
+        if (entry?.claim === null || entry?.claim === undefined) {
           sendError(sock, 'not_claimed', 'No agent has claimed this code yet.');
           return;
         }
@@ -510,7 +510,21 @@ export async function startBridgeServer(opts: BridgeServerOptions): Promise<Brid
       case 'resume':
         sendError(sock, 'unsupported', 'Resume is not available in this build: pair again.');
         return;
-      default:
+      case 'hello':
+      case 'hello.ok':
+      case 'hello.refused':
+      case 'pair.code':
+      case 'pair.claimed':
+      case 'pair.ok':
+      case 'tab':
+      case 'resume.ok':
+      case 'call':
+      case 'progress':
+      case 'result':
+      case 'cancel':
+      case 'grants':
+      case 'paused':
+      case 'blob':
         sendError(sock, 'not_paired', 'Pair first.');
     }
   };
@@ -560,7 +574,19 @@ export async function startBridgeServer(opts: BridgeServerOptions): Promise<Brid
       case 'error':
         log.debug(`bridge: tab error ${message.code}`);
         return;
-      default:
+      case 'hello':
+      case 'hello.ok':
+      case 'hello.refused':
+      case 'pair.offer':
+      case 'pair.code':
+      case 'pair.claimed':
+      case 'pair.accept':
+      case 'pair.deny':
+      case 'pair.ok':
+      case 'resume':
+      case 'resume.ok':
+      case 'call':
+      case 'cancel':
         sendError(sock, 'unexpected', `Unexpected ${message.t} while paired.`);
     }
   };
@@ -859,11 +885,11 @@ export async function startBridgeServer(opts: BridgeServerOptions): Promise<Brid
       clearInterval(ping);
       if (pairing !== null) send(pairing.sock, { t: 'bye', reason: 'server' });
       endPairing('server stopping');
-      for (const sock of [...sockets]) {
+      for (const sock of Array.from(sockets)) {
         dropCode(sock);
         closeSock(sock, 1001, 'server stopping');
       }
-      for (const sock of [...sockets]) sock.ws.terminate();
+      for (const sock of Array.from(sockets)) sock.ws.terminate();
       await new Promise<void>((resolve) => wss.close(() => resolve()));
       await new Promise<void>((resolve) => http.close(() => resolve()));
     },
