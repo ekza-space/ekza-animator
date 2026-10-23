@@ -78,11 +78,15 @@ test('MVP-AC-2: pair in the panel, wave, Show, undo/redo, capture, VRMA export, 
   const camerasNow = () => Promise.all(panes.map((pane) => call(page, 'cameraOf', pane.id)));
   let cameras = await camerasNow();
   await expect
-    .poll(async () => {
-      const previous = JSON.stringify(cameras);
-      cameras = await camerasNow();
-      return JSON.stringify(cameras) === previous;
-    })
+    .poll(
+      async () => {
+        const previous = JSON.stringify(cameras);
+        await page.waitForTimeout(400);
+        cameras = await camerasNow();
+        return JSON.stringify(cameras) === previous;
+      },
+      { timeout: 15_000 },
+    )
     .toBe(true);
 
   // (5) the wave script (agent-evals/src/scripts/wave.ts): a checkpoint, a new clip and seven pose_aim calls
