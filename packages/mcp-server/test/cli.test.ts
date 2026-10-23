@@ -2,7 +2,7 @@
 // committed manifest's; none in D0), writes nothing but MCP to stdout, and exits when stdin closes. Needs
 // `pnpm mcp:build` first (turbo runs the build before this package's tests).
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -122,5 +122,28 @@ describe.skipIf(!built)('the built bin (run pnpm mcp:build first)', () => {
     expect(lines.map((line) => (JSON.parse(line) as { jsonrpc: string }).jsonrpc)).toEqual(['2.0', '2.0']);
     const listed = (JSON.parse(lines[1] as string) as { result: { tools: { name: string }[] } }).result.tools;
     expect(listed.map((tool) => tool.name)).toEqual(MANIFEST_TOOLS);
+  });
+
+  it('ships only the bin and its map, and works headless from its bundled samples (the CLI smoke)', async () => {
+    expect(readdirSync(join(BIN, '..')).sort()).toEqual(['cli.mjs', 'cli.mjs.map']);
+    const workspace = mkdtempSync(join(tmpdir(), 'ekza-mcp-'));
+    const transport = new StdioClientTransport({
+      command: process.execPath,
+      args: [BIN, '--no-bridge', '--workspace', workspace, '--log-level', 'info'],
+      stderr: 'pipe',
+    });
+    let stderr = '';
+    transport.stderr?.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString('utf8');
+    });
+    const client = new Client({ name: 'cli-smoke', version: '1.0.0' });
+    await client.connect(transport);
+    const opened = await client.callTool({ name: 'project_open', arguments: { sample: 'polybot' } });
+    expect(opened.isError).not.toBe(true);
+    const saved = await client.callTool({ name: 'project_save', arguments: { path: 'smoke.ekzanim' } });
+    expect(saved.isError).not.toBe(true);
+    expect(existsSync(join(workspace, 'smoke.ekzanim'))).toBe(true);
+    await client.close();
+    expect(stderr).toContain('workspace');
   });
 });

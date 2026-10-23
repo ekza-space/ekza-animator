@@ -81,7 +81,13 @@ describe('success envelopes against the manifest (§5.3, §5.21)', () => {
     }
     const p2 = allTools()
       .filter(
-        (tool) => tool.ready && !['keys_tween', 'curves_set_interpolation', 'curves_euler_filter'].includes(tool.name),
+        (tool) =>
+          tool.ready &&
+          !['keys_tween', 'curves_set_interpolation', 'curves_euler_filter'].includes(tool.name) &&
+          // B1: the server's hub answers these, and the file tools need a workspace; ekza-studio-mcp's
+          // test/tools-files.test.ts checks their envelopes through the MCP client
+          tool.group !== 'files' &&
+          !['projects_list', 'project_close'].includes(tool.name),
       )
       .map((tool) => tool.name)
       .filter((name) => manifest.tools.some((tool) => tool.name === name));

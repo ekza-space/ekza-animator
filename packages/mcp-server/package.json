@@ -18,6 +18,10 @@
     "dist/http.mjs.map",
     "samples/polybot.vrm",
     "samples/LICENSES.md",
+    "samples/polybot-unskinned.glb",
+    "samples/polybot-unskinned-tpose.glb",
+    "samples/cube-lad.glb",
+    "library/animations/",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",
     "README.md"

@@ -1,7 +1,16 @@
 // The MCP adapter (MCP-SPEC §4.6, §5.20): a low-level SDK `Server` per request/connection, bound to the process-wide
-// hub, with our own handlers. D0: tools/list (the ready tools — none yet) and tools/call (unknown → InvalidParams),
-// empty resources and prompts lists; P6 completes resources, prompts, progress and cancellation.
-import { PROMPTS, SERVER_INSTRUCTIONS } from '@ekza-studio/agent-tools';
+// hub, with our own handlers: tools/list (the ready tools in catalogue order), tools/call (unknown → InvalidParams;
+// validate → route → `toCallToolResult`, progress notifications when the client sent a token, cancellation through
+// the request's signal), resources (three static guides, four project templates), prompts (the written plans).
+import {
+  AgentToolFailure,
+  GUIDE_TEXT,
+  PROMPTS,
+  RESOURCE_TEMPLATES,
+  SERVER_INSTRUCTIONS,
+  STATIC_RESOURCES,
+  sanitizeDeep,
+} from '@ekza-studio/agent-tools';
 import { type McpServerFactory, ProtocolError, ProtocolErrorCode, Server } from '@modelcontextprotocol/server';
 import type { AgentHub } from '../hub/hub';
 import { SERVER_NAME, SERVER_TITLE, SERVER_VERSION } from '../version';
@@ -27,29 +36,129 @@ export function listedTools(hub: AgentHub) {
   }));
 }
 
+/** The prompts whose plans are written (a prompt without a plan is not listed). */
+export function listedPrompts() {
+  return PROMPTS.filter((prompt) => prompt.plan !== null);
+}
+
+const PROJECT_URI = /^ekza:\/\/projects\/((?:tab|prj)_[A-Za-z0-9]{12})\/(summary|selection|time|rig\/([^/]{1,128}))$/;
+
+/** Reads a resource URI (§5.20.3); a template of an unknown project answers a JSON-RPC error (no `isError`). */
+export async function readResource(
+  hub: AgentHub,
+  uri: string,
+): Promise<{ readonly mimeType: string; readonly text: string }> {
+  const guide = GUIDE_TEXT[uri];
+  if (guide !== undefined) return { mimeType: 'text/markdown', text: guide };
+  const match = PROJECT_URI.exec(uri);
+  if (match === null) throw new ProtocolError(ProtocolErrorCode.InvalidParams, 'Unknown resource');
+  const [, project, kind, rigCharacter] = match as unknown as [string, string, string, string | undefined];
+  const resource = kind.startsWith('rig/') ? 'rig' : (kind as 'summary' | 'selection' | 'time');
+  let character: string | undefined;
+  if (rigCharacter !== undefined) {
+    try {
+      character = decodeURIComponent(rigCharacter);
+    } catch {
+      throw new ProtocolError(ProtocolErrorCode.InvalidParams, 'The character name in the URI is not valid');
+    }
+  }
+  try {
+    const data = await hub.readProjectResource(project, resource, character);
+    return {
+      mimeType: 'application/json',
+      text: JSON.stringify(sanitizeDeep(data, { maxChars: 2_000, kind: 'prose' })),
+    };
+  } catch (error) {
+    const message =
+      error instanceof AgentToolFailure ? `${error.message} ${error.hint}`.trim() : 'The resource could not be read';
+    throw new ProtocolError(ProtocolErrorCode.InvalidParams, message);
+  }
+}
+
 export function createMcpServerFactory(hub: AgentHub): McpServerFactory {
   return () => {
     const server = new Server(
       { name: SERVER_NAME, title: SERVER_TITLE, version: SERVER_VERSION },
       { capabilities: { tools: {}, resources: {}, prompts: {} }, instructions: SERVER_INSTRUCTIONS },
     );
+    // The client's name becomes the actor's name ("AI: …" steps, presence, the bridge's hello.ok): from `initialize`
+    // (2025-11-25) or the per-request envelope (2026-07-28).
+    const remember = (info: unknown): void => {
+      if (typeof info !== 'object' || info === null) return;
+      const { name, version } = info as { readonly name?: unknown; readonly version?: unknown };
+      if (typeof name !== 'string') return;
+      hub.setClientInfo({ name: name.slice(0, 64), version: typeof version === 'string' ? version.slice(0, 32) : '' });
+    };
+    server.oninitialized = () => remember(server.getClientVersion());
     server.setRequestHandler('tools/list', () => ({ tools: listedTools(hub) }) as never);
     server.setRequestHandler('tools/call', async (request, ctx) => {
       const { name, arguments: args } = request.params;
       if (!hub.hasTool(name)) throw new ProtocolError(ProtocolErrorCode.InvalidParams, `Tool ${name} not found`);
-      const result = await hub.callTool(name, args ?? {}, { signal: ctx.mcpReq.signal });
+      if (hub.clientInfo() === null) {
+        remember(
+          (ctx.mcpReq.envelope as Readonly<Record<string, unknown>> | undefined)?.[
+            'io.modelcontextprotocol/clientInfo'
+          ],
+        );
+      }
+      const token = ctx.mcpReq._meta?.progressToken;
+      const progress =
+        token === undefined
+          ? undefined
+          : (done: number, total: number | null, message?: string): void => {
+              void ctx.mcpReq
+                .notify({
+                  method: 'notifications/progress',
+                  params: {
+                    progressToken: token,
+                    progress: done,
+                    ...(total === null ? {} : { total }),
+                    ...(message === undefined ? {} : { message }),
+                  },
+                })
+                .catch(() => {});
+            };
+      const result = await hub.callTool(name, args ?? {}, {
+        signal: ctx.mcpReq.signal,
+        ...(progress === undefined ? {} : { progress }),
+      });
       return toCallToolResult(result) as never;
     });
-    server.setRequestHandler('resources/list', () => ({ resources: [] }));
-    server.setRequestHandler('resources/templates/list', () => ({ resourceTemplates: [] }));
+    server.setRequestHandler('resources/list', () => ({
+      resources: STATIC_RESOURCES.filter((resource) => GUIDE_TEXT[resource.uri] !== undefined).map((resource) => ({
+        ...resource,
+      })),
+    }));
+    server.setRequestHandler('resources/templates/list', () => ({
+      resourceTemplates: RESOURCE_TEMPLATES.map((template) => ({ ...template })),
+    }));
+    server.setRequestHandler('resources/read', async (request) => {
+      const { uri } = request.params;
+      const read = await readResource(hub, uri);
+      return { contents: [{ uri, mimeType: read.mimeType, text: read.text }] };
+    });
     server.setRequestHandler('prompts/list', () => ({
-      prompts: PROMPTS.filter((prompt) => prompt.plan !== null).map((prompt) => ({
+      prompts: listedPrompts().map((prompt) => ({
         name: prompt.name,
         title: prompt.title,
         description: prompt.description,
         arguments: prompt.arguments.map((argument) => ({ ...argument })),
       })),
     }));
+    server.setRequestHandler('prompts/get', (request) => {
+      const prompt = listedPrompts().find((candidate) => candidate.name === request.params.name);
+      if (prompt === undefined || prompt.plan === null) {
+        throw new ProtocolError(ProtocolErrorCode.InvalidParams, `Prompt ${request.params.name} not found`);
+      }
+      const args: Record<string, string> = {};
+      for (const [key, value] of Object.entries(request.params.arguments ?? {})) {
+        if (typeof value === 'string') args[key] = value;
+      }
+      return {
+        description: prompt.description,
+        messages: [{ role: 'user', content: { type: 'text', text: prompt.plan(args) } }],
+      } as never;
+    });
     return server;
   };
 }
