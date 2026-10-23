@@ -19,7 +19,7 @@ Binding definition: [MCP-SPEC §8 P2](../MCP-SPEC.md#p2--tools-core-agent-tools)
 | Full descriptions (§5.20.1) of tools 4–25, 31–32 and the connection tools; an `example` on every catalogue tool (MAI-D0-25 hand-off) | `src/tools/**/defs.ts` | schema lint green |
 | `READY.p2` | every package's `test/ready.ts` | true |
 
-## Decisions and deviations (INT copies them to DECISIONS-OPEN §H as MAI-P2-n)
+## Decisions and deviations (INT copies them to DECISIONS-OPEN §N as MAI-P2-n)
 
 - **MAI-P2-1** `AGENT_TOOLSET_VERSION` is `1.0.0-dev.1`: one bump for P2's whole change set over D0's empty `1.0.0`
   manifest (the D0 note MAI-D0-12 asks every manifest change to bump; a pre-release series avoids counting down; INT

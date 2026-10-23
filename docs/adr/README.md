@@ -35,6 +35,7 @@ Code sketches inside ADRs are illustrative. The normative TypeScript contracts a
 | [0019](0019-swatch-shaders.md) | Swatch shaders: a palette swatch is the material, versioned by its table | Accepted (2026-10-21, SHADING-SPEC v1.0) |
 | [0020](0020-m6b-mvp-cut.md) | M6b MVP cut: the owner flow first, VRM 1.0 as the OMOBA deliverable, a CC0 clip library | Accepted (2026-10-22, M6B-SPEC v1.2 §0) |
 | [0021](0021-autorig-mode.md) | Auto-Rig mode: a second shell over the same app and document | Proposed (2026-10-22, AUTORIG-SPEC v0.1) |
+| [0022](0022-m-ai-mvp-cut.md) | M-AI MVP cut: AI control over MCP first, character setup for agents, the rest later | Proposed (2026-10-23, MCP-SPEC v0.3 §0.4) |
 
 ADRs 0014–0016 were accepted on 2026-10-19 with the M6a build spec [`../M6A-SPEC.md`](../M6A-SPEC.md) v1.0, whose
 §4 holds their normative contracts (where an ADR sketch and the spec differ, the spec wins; its §12.2 lists the

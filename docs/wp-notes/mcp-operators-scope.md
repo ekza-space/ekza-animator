@@ -20,7 +20,7 @@ Branch `mcp/operators-scope` (worktree `mcp-operators-scope`), on top of `mcp/sp
 DoD: every §8 P1 test is green (list below); no shipped test changed; the policy test passes with the `runScope:
 true` entries (it also checks that every scope-ready operator has one).
 
-## Decisions and deviations (INT copies them to DECISIONS-OPEN §H as MAI-P1-n)
+## Decisions and deviations (INT copies them to DECISIONS-OPEN §N as MAI-P1-n)
 
 - **MAI-P1-1 No targets.** An agent run of a scope-ready operator whose `RunScope` selection names no controls, keys
   or channels poll-fails `No targets: an agent run acts only on the controls, keys or channels of its context` —

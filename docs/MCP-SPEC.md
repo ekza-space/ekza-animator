@@ -1,9 +1,9 @@
 # Ekza Studio — M-AI build specification ("agent bridge: MCP")
 
-Status: v0.2 (2026-10-19; v0.2 applies design review round 1, recorded in §11.3; binding from the start of package
-D0), the build spec for
+Status: v0.3 (2026-10-23: the MVP cut §0.4 and the port of D0, P1 and P2 onto `dev`, §0.1–§0.3 — **§0.4 wins over
+the rest of this file for the MVP**; v0.2 2026-10-19 applied design review round 1, recorded in §11.3), the build spec for
 milestone **M-AI**: an AI agent (Claude Code, Claude Desktop or any other MCP client) reads and edits an Ekza
-Animator project, either **live** in the editor tab the user has open or **headless** on project files, through one
+Studio project, either **live** in the editor tab the user has open or **headless** on project files, through one
 curated, typed tool layer over the operator registry. M-AI pulls the MCP/agent half of FR-EXT-06 (ROADMAP M5)
 forward as its own milestone, at the owner's request ("connect MCP so an AI agent can help make animation and do
 tasks in the editor").
@@ -11,7 +11,7 @@ Audience: the integration agent (D0 and the final integration INT), the implemen
 reviewers. Read [MVP-SPEC.md](MVP-SPEC.md) (v0.3) and [M2A-SPEC.md](M2A-SPEC.md) (v0.3) first: they stay the base
 contract. This file lists **deltas**; where they disagree for M-AI work, this file wins.
 Requirements: [REQUIREMENTS.md](REQUIREMENTS.md) FR-AI-01…FR-AI-19; decision record:
-[ADR 0018](adr/0018-agent-bridge-mcp.md); owner defaults: [DECISIONS-OPEN §H](DECISIONS-OPEN.md#h-agent-bridge-m-ai-defaults-chosen-2026-10-19).
+[ADR 0018](adr/0018-agent-bridge-mcp.md); owner defaults: [DECISIONS-OPEN §N](DECISIONS-OPEN.md#n-agent-bridge-m-ai-defaults-chosen-2026-10-19).
 Research: [20](research/20-mcp-state-and-dcc-servers.md) (MCP in October 2026, DCC servers, tool-design lessons),
 [21](research/21-agent-bridge-architecture.md) (runtimes, bridge, pairing, permissions, presence, security),
 [22](research/22-animation-agent-toolset.md) (tool catalogue, conventions, "see" tools, metrics, evaluation),
@@ -25,7 +25,7 @@ mentioned here are unchanged. Every fact about our code was checked against `dev
 against `M6A-SPEC.md` on `m6a/spec` and the B0a code on `m6a/contracts-foundation`; external facts were read on
 2026-10-19 (research 20–22 cite the sources).
 
-Contents: [0 M-AI in one screen](#0-m-ai-in-one-screen) · [1 Scope](#1-scope) ·
+Contents: [0 M-AI in one screen](#0-m-ai-in-one-screen) ([0.4 MVP cut](#04-mvp-cut-2026-10-23)) · [1 Scope](#1-scope) ·
 [2 Dependencies and toolchain](#2-dependencies-and-toolchain) · [3 Conventions](#3-conventions-deltas-to-mvp-spec-3-and-m2a-spec-3) ·
 [4 Contract deltas](#4-contract-deltas) · [5 Normative behaviours](#5-normative-behaviours) ·
 [6 Tool catalogue](#6-tool-catalogue-normative) · [7 UI](#7-ui) · [8 Work packages](#8-work-packages) ·
@@ -51,6 +51,142 @@ Contents: [0 M-AI in one screen](#0-m-ai-in-one-screen) · [1 Scope](#1-scope) �
 | 10 | **MCP surface beyond tools**: resources (conventions, project summary, the user's selection with selected keys and time band, current frame, rig description), prompts (motion recipes as user-invoked workflows, each with a tested reference script), server instructions. No sampling, roots, protocol logging, elicitation or tasks. | §5.20 |
 | 11 | **Evaluation**: `packages/agent-evals` runs 25 graded tasks (AE-01…AE-25: chores, walk blocking and foot fixing, animator notes on amplitude, spacing, holds and timing, a two-turn note, live-context tasks with a simulated user, a prompt-injection task) plus the reference script of every prompt through a real MCP client ↔ server pair in CI with a scripted reference agent, adversarial scripts, a seeded fuzzer and a schema lint; a recorded real-model run through Claude Code is a **gate before the first npm publish and release**. | §9.3, §10.2 |
 | 12 | **Size**: ≈ 55 agent-days plus a fix round (≈ 3); critical path ≈ 20 working days with nine agents after D0. M-AI runs **in parallel with M6a/M6b**: D0 lands on top of M6a's B0a and every file both milestones touch has one owner and a route (contract PR or an M6a extension point) in the overlap table §8.2. | §8, §10.1 |
+
+### 0.1 Where M-AI stands (2026-10-23)
+
+D0, P1 and P2 were built on the `mcp/*` branches on top of `dev` as of 2026-10-19 (merge base `2d05cda9`, before
+the `@ekza-studio/*` rename, M6a, M6b, shading and Auto-Rig) and never ran together. They are **ported onto the
+current `dev`** on branch `mai/port` (two merges, `mcp/operators-scope` then `mcp/tools-core`): the kernel contracts
+(§4.1, §4.2, §4.3), the ten explicit-target operators and the scope migrations (§4.10), the tool layer with the 24
+ready tools 4–25 and 31–32 (§6.2–§6.6, §6.9), the server skeleton (stdio, CLI, in-process server, empty hub) and the
+package scaffolds. Not built: the hub's routing and headless projects (P6), the bridge (P7), the Agent UI beyond the
+D0 placeholders (P8), operator tools (P3), analysis (P4), capture (P5) and evals (P9). The port's decisions are
+recorded as M-AI-MVP-1…20 in [DECISIONS-OPEN §N.6](DECISIONS-OPEN.md#n6-mvp-cut-and-port-2026-10-23).
+
+### 0.2 What the port changed against v0.2
+
+| Area | Change | Record |
+|---|---|---|
+| Names | `@ekza-studio/*`, bin and package **`ekza-studio-mcp`**, MCP server info `ekza-studio` / `Ekza Studio`; persisted identifiers keep their old names (GLOSSARY) | M-AI-MVP-11 |
+| Run context | `OperatorContext.source` and `repeat` stay **absent** when the run context has none (M6a code tests `source === undefined`); the four M-AI fields (`actor`, `runScope`, `signal`, `access`) are always set, null when absent | M-AI-MVP-4 |
+| Selection | `selectionOf(ctx)` of an actor run returns the M6a/M6b parts `objects`, `joints`, `constraints` empty | M-AI-MVP-4 |
+| Session invariant | `AGENT_PROTECTED_SESSION_FIELDS` gains M6b's `rig` (Rig & Skin mode, test pose, Quick Rig markers) | M-AI-MVP-5 |
+| LastRun | an actor run never becomes `lastRun`; its step closes the user's Last-op card (`LAST_RUN_CLOSED.another`) | M-AI-MVP-20 |
+| Lazy agent code | the ten explicit-target operators register as **one lazy chunk** (`operators/builtin/agentChunk.ts`: on the first run of one of their ids through `lazyOperatorChunk`, when an agent runtime attaches, or up front in `createHeadlessEditorApp`); the actor-only runner helpers (`operators/actorRun.ts`) load on an actor run's first step; `ViewportManager.agentHost()` is **async** (the temporary pose is `manager/agentPose.ts`); the memory store implements the restore hook from `undo/restoreHost.ts` without the planner | M-AI-MVP-3, -10 |
+| Policy | the M6a operators registered eagerly (`mesh.*`, `select.mesh.*`, `model.*`, `scene.*`, `palette.*`, `imagePlane.*`, `workspace.set`, `edit.adjustLast`, `edit.repeatLast`, `file.exportModel`, …) are classified **denied**; the lazily registered M6b (`skel.*`, `skin.*`, `char.*`, `library.*`) and Auto-Rig (`autorig.*`) operators stay unclassified, hence denied, until §0.4.4 | M-AI-MVP-9 |
+| Status pill | rendered before the `layout` group of every workspace, not as a workspace status group (the workspaces' group lists stay as shipped) | M-AI-MVP-14 |
+
+### 0.3 Bundle cost
+
+The agent code must stay out of the first visit. After the lazy moves of §0.2 the port still adds **+5,776 B gzip
+to `/editor`** (902,912 B against the 900,000 B gate; `dev` 897,136 B; the Auto-Rig eager-delta allowance of
++2,048 B over its 895,688 B baseline is exceeded by 5,176 B) and **+5,640 B to `/autorig`** (664,756 B against
+660,000 B; `dev` 659,116 B). What remains is eager by construction: P1's run-scope migration of the shipped operators
+(`builtin/scoped.ts` and the agent branches of `tween`, `ik`, `graph`, `file`, `clip`, `key`, `pose`, `mirrorPose`:
+≈ 3.1 kB), the frame bounds and implementation loader they share (`agentBase.ts`, 0.4 kB), the runner's actor rules
+(0.4 kB), `PresenceRegistry` (0.5 kB), the change journal and restore hook (0.4 kB), the status-line pill and the
+Agent panel's lazy registration (0.5 kB). The gates are **not raised by the port** (M-AI-MVP-2): the owner either
+raises them by ≈ 6 kB or funds package B5 (§0.4.5), which moves the actor branches of the shipped operators behind
+the lazy chunk.
+
+### 0.4 MVP cut (2026-10-23)
+
+The owner asked on 2026-10-23 for AI control of the editor over MCP as an MVP to release ("Сделай ИИ управление
+через MCP"). Studio is now modeling, rigging, Auto-Rig and animation in one app, so the MVP also lets an agent take a
+model from the scene to a rigged, animated, exported character. This section **wins over the rest of the spec** for
+the MVP; the rest stays as the full plan ([ADR 0022](adr/0022-m-ai-mvp-cut.md)).
+
+#### 0.4.1 In the MVP
+
+| # | Item | Scope in the MVP | Package |
+|---|---|---|---|
+| 1 | D0, P1, P2 | as ported (§0.1, §0.2): kernel contracts, ten explicit-target operators, scope migrations, the tool runtime and tools 4–25, 31–32 | done (`mai/port`) |
+| 2 | P6 server and headless host | stdio (default; both protocol eras); the hub with routing to the paired tab or a headless project (`prj_…`, ≤ 4 open); `projects_list`, `project_close`, `project_open`, `project_import`, `project_save`, `project_export` (§6.10) with the workspace sandbox of §5.17.3 (no `/` or home folder as the root, `.ekza-trash/`, size caps); bundled Polybot; no network | B1 |
+| 3 | P7 live bridge | loopback WebSocket on 47821–47830, `Origin` allow-list and loopback `Host`, server-generated one-time pairing code claimed by `editor_connect`, grants Read / Edit / Files / View, per-tab call queue, gesture and redo waits (already in the runtime), cooperative cancellation, server-side re-validation of tab results, `bye` on `pagehide` | B2 |
+| 4 | P8 minimal agent UI | Agent panel (Connect and the code, grants, Pause, Disconnect, the audit log with Undo and Show per step, **Revert all AI changes**), grants dialog, confirm card, status pill (off / offering / paired / working), the "AI is working on clip …" toast with [Show] | B3 |
+| 5 | `view_capture` live | one WebGL image of the user's active pane camera (`view: 'user'`) or a preset camera (`front`, `left`, `right`, `three_quarter_left`, `three_quarter_right`, `back`), still or a contact sheet of ≤ 6 frames, long edge ≤ 1,024 px, rendered offscreen through `ViewportManager.agentHost()` without moving any pane camera or the playhead | B3 |
+| 6 | Character setup tools (new, §0.4.4) | `model_inspect`, `model_fix`, `rig_create`, `library_list`, `library_use`; `project_import` of static models and the Auto-Rig samples; `project_export` of a character as VRM 1.0 or GLB | B4 (B1 for the two `project_*` kinds) |
+| 7 | Prompts | the existing seven, plus `rig_and_animate` ("rig this model and add a walk") with a reference script | B4 |
+| 8 | Evals smoke | 6 tasks through an in-memory MCP client ↔ server pair with the scripted reference agent: AE-01 (wave), AE-06 (retime), AE-13 (hand on head), AE-19 (ease), AE-24 (adversarial names), AE-R1 (rig and walk, §0.4.4); no real-model driver in CI | B1 |
+| 9 | Docs | `docs/agents.md` (Claude Code first, then Claude Desktop and Cursor), README section, `.mcp.json` for contributors | INT |
+
+#### 0.4.2 Deferred (spec text kept)
+
+P3 beyond what the MVP needs (`operators_list`, `operator_describe`, `operator_run` are **not** in the MVP tool list;
+the policy table stays the guard for a later P3); the full P4 (`analyze_*` tools; the AE-04/AE-07 seam grades wait
+for it, M-AI-MVP-6) and P5 (schematic headless capture, `view_plot_curves`, trails, ghosts — a headless
+`view_capture` answers `unsupported` with a hint to export and look in Studio); the full P9 (25 tasks, held-out
+variants, fuzzer, real-model drivers); **resume after an abnormal close** (a dropped socket ends the pairing; pair
+again), blobs over 1 MiB, presence drawing in the viewport and on the time slider, checkpoint groups in the audit log
+and "Restore the project as it was before the agent" in the UI (the operator `edit.restoreDocument` stays);
+Streamable HTTP (`--http` answers "not available in this build", as now); the npm publish (the owner's call,
+M-AI-MVP-11); the `.mcpb` bundle and the Claude Code plugin.
+
+#### 0.4.3 Tool list of the MVP
+
+33 tools: 1–25 (with `editor_connect`, `projects_list`, `project_close`), 29 (`view_capture`, live), 31–36 and the five
+setup tools of §0.4.4. `alwaysLoad` stays on the eleven of Q-AI-37 (with `view_capture`) plus `rig_create`. The
+manifest's toolset version becomes `1.0.0-mvp.1` at INT.
+
+#### 0.4.4 Character setup for agents (new; built in phase B by B4)
+
+The flow an agent runs for "rig this model and add a walk" is the Auto-Rig wizard's (AUTORIG-SPEC §4.5): every step is
+an existing `autorig.*` composition, so the agent and the wizard produce the same document. The compositions live in
+the `rig-workspace` lazy chunk and run their inner operators from `prepare`; under an actor the composition MUST
+forward the run context (`runContextOf(ctx)`: actor, signal, access) to every inner run, so each inner step is an
+`AI: …` step and the session invariant holds per step. A composition interrupted by the user (AUTORIG-SPEC §4.5
+exclusivity check) stops with `stale` and the steps already made stay.
+
+| Tool | Arguments (strict) | Runs | Access and grants | Confirm (live) | Result |
+|---|---|---|---|---|---|
+| `model_inspect` | `{project?, meshes?: string[]}` (default: every static scene mesh) | `autorig.inspect` | read | — | the `IntakeReport` in tool units: kind, meshes (names), triangles, `heightM`, `textured`, checks `centered`/`grounded`/`facingForward`/`upright`/`scaleOk` with one-line fixes, problems |
+| `model_fix` | `{project?, fix: 'center' \| 'face_forward' \| 'stand_up' \| 'scale' \| 'freeze', meshes?: string[], heightM?: number (0.3…3, with scale)}` | `autorig.fix` | edit | — | the inspect report after the fix |
+| `rig_create` | `{project?, meshes?: string[], markers?: 'guess' (default) \| Record<marker, [x, y, z]> (metres, character space), preset?: 'standard' \| 'standard_fingers', straightenToTPose?: boolean (default true for an A-pose), rigidParts?: boolean}` | `skel.quickRig.start {meshes}`, `skel.quickRig.guess` or `skel.quickRig.setMarker` ×n, then `autorig.rig {straighten, rigidParts}` | edit; **live: Edit + View** (the new character becomes the active one, Quick Rig and Rig & Skin session state change), run with `access: 'view'` | "AI wants to rig *name* (creates a skeleton and binds the skin: 2–3 undo steps)" | `{character, skeleton, straightened, joints, validation: [{code, severity, count}] (VRM profile), next: 'view_capture front, then library_use'}` |
+| `library_list` | `{}` | the starter pack manifest (`starter-pack.json`) | read | — | the 14 clips: id, label, loop, seconds, suggested use |
+| `library_use` | `{project?, character, clip: 'idle' \| 'walk' \| 'run' \| 'jog' \| … (the manifest's ids), name?, speedFactor? (0.25…3), mirror?, inPlace?, armSpaceDeg? (−10…30), trimSeconds?: [start, end], replace?: clip}` | `autorig.clip.add` (= `library.useClip` with params) | edit | — | `{clip, name, fps, rangeFrames, loop}` and the clip revision (the agent continues with the keys tools) |
+| `project_import` (extended, B1) | `{path}` of a static model (`.glb`, `.gltf`, `.obj`) or `{sample: 'cube_lad' \| 'polybot_tpose' \| 'polybot_apose'}` as well as the v0.2 kinds | `autorig.intake` / `autorig.sample` | `path`: files (+ workspace live); sample: edit | live: when the scene is not empty | the intake report |
+| `project_export` (extended, B1) | `kind: 'vrm' \| 'glb' \| 'omoba_kit'` with `{character, fileName}` | `autorig.export` (`ekza-vrm`, `glb`, `omoba-kit`) | files | live: always (a download) | artifacts with lints (`blockingLints`) and the read-back (humanoid bones, joints, triangles) |
+
+Policy rows for a later `operator_run` (B4 adds them to `policy.ts`, so the table is complete): `autorig.inspect`
+allowed (view, no writes); `autorig.fix`, `autorig.clip.add` allowed (edit); `autorig.rig`, `autorig.sample`,
+`autorig.intake` confirm (edit + view); `autorig.export` denied (files go through `project_export`); `autorig.cancel`,
+`autorig.navigate`, `autorig.controls`, `autorig.parts` denied (the user's UI); `skel.quickRig.*` denied except
+through `rig_create`; `skin.*` paint and weight edits denied in the MVP ("weight edits are not available to agents
+yet"); `library.preview`/`library.stop`/`library.open` denied (the user's preview), `library.useClip` allowed (edit).
+
+Headless: the bind runs without a worker (B4 verifies `skin.bind` in Node and adds a `headless-tests` case); the
+validation report is the VRM profile's; samples come from `fixtures/` (bundled: Polybot and the two unskinned Polybot
+GLBs, ≈ 2 MB; Cube Lad through `--samples-dir`).
+
+#### 0.4.5 Phase B work packages
+
+Branches `mai/<slug>` from `mai/port` after it merges into `dev` (or from `mai/port` directly), one worktree each
+outside the repository. Shared files: `agent-tools/src/tools/catalogue.ts` and `agent-tools/src/index.ts` (one line
+per tool or export, appended), `tools.manifest.json` (each package regenerates it in its branch; INT regenerates on
+merge), `editor-core/src/index.ts` (exports only), `docs/DECISIONS-OPEN.md` §N (rows `MAI-B<n>-<k>`, one block per
+package).
+
+| WP | Slug | Owns | Depends on | Size |
+|---|---|---|---|---|
+| B1 | `server-headless` | `packages/mcp-server/src/{hub,headless,files,mcp,start.ts,cli.ts,config.ts,args.ts}`, `agent-tools/src/tools/files/**`, `agent-tools/src/tools/connection/{projects_list,project_close}`, `packages/agent-evals/**` (smoke), `headless-tests` cases of the server | — | 4 |
+| B2 | `bridge` | `packages/mcp-server/src/bridge/**`, `agent-tools/src/bridge/protocol.ts`, `agent-tools/src/tools/connection/editor_connect`, `editor/src/agent/{session.ts,types.ts,bridge/**}`, `editor/src/test-api/mai/agent.ts`, `apps/web/e2e/ai-01-live.spec.ts` | B1's `TabLink` in `hub.ts` (D0 contract; B1 implements the hub side, B2 the link) | 4 |
+| B3 | `agent-ui` | `editor/src/agent/{panel,ui,capture}/**`, `editor/src/panels/agent/**`, the pill in `editor/src/shell/StatusLine.tsx`, `viewport/src/manager/agentPose.ts` and a new `viewport/src/manager/agentTile.ts`, `agent-tools/src/tools/view/**` | B2's `AgentSessionState` (D0 contract in `editor/src/agent/types.ts`, frozen) | 4 |
+| B4 | `rig-tools` | `agent-tools/src/tools/setup/**` (new group), `agent-tools/src/policy.ts` (the §0.4.4 rows), `agent-tools/src/text/prompts.ts` (`rig_and_animate`), `editor-core/src/operators/builtin/rig/wizard/**` (actor forwarding), `headless-tests/test/ai-rig.*` | — (the `project_*` kinds are B1's) | 3.5 |
+| B5 (optional) | `eager-diet` | the agent branches of the shipped operators behind the lazy chunk (`builtin/scoped.ts`, `tween.ts`, `ik.ts`, `graph.ts`, `file.ts`, `clip.ts`, `key.ts`, `pose.ts`), `rig/src/mirror/mirrorPose.ts` | lands before B1…B4 touch those files, or after them | 2 |
+| INT | `integration` | manifest and toolset version, `docs/agents.md`, README, ROADMAP/TODO, the acceptance runs below, the bundle decision | B1…B4 | 2 |
+
+#### 0.4.6 Acceptance
+
+| ID | Kind | Scenario | Pass |
+|---|---|---|---|
+| MVP-AC-1 | CI, headless (in-memory client ↔ server) | `project_open {sample: 'polybot'}`; the wave script of E2E-AI-01 step 5; `keys_read`; `project_save` into the workspace; `project_open` of the saved file; `project_export {kind: 'vrma'}` | the AE-01 grader passes; the reopened keys equal (1e-9); gltf-validator 0 errors; the read-back `maxRotErrorRad` ≤ 1e-4 |
+| MVP-AC-2 | CI, Playwright live | E2E-AI-01 steps 1–7 and 10 (pair, Polybot, wave, [Show], `Mod+Z`/redo, VRMA export with the confirm) plus `view_capture {view: 'user'}` and `{views: ['front'], frames: [0, 30, 60]}`; then **Revert all AI changes** in the panel; `agent-disconnect` | step 1–7/10 rows of E2E-AI-01; one PNG ≤ 1,024 px with `fidelity: 'shaded'`, pane cameras and clip frame unchanged; after Revert all the document equals the one before the first AI step; `agent().status` `off` |
+| MVP-AC-3 | CI, headless | `project_import {sample: 'polybot_tpose'}` → `model_inspect` → `rig_create` → `library_use {clip: 'walk'}` → `project_export {kind: 'vrm'}` | 2 undo steps for the rig (+1 straighten for `polybot_apose`); the VRM passes gltf-validator and the `vrm.*` lints, read back with 15+ humanoid bones; the walk clip plays (keys on the legs' controls) |
+| MVP-AC-4 | CI, Playwright live | MVP-AC-3 in the paired tab: the `rig_create` confirm card, Edit + View grants; the user's selection and playhead unchanged except what `rig_create` documents | as MVP-AC-3; every step `AI: …`; one `Mod+Z` per step |
+| MVP-AC-5 | manual, recorded (release gate) | one real **Claude Code** session against the live editor on `localhost:3000`: `claude mcp add ekza -- node packages/mcp-server/dist/cli.mjs`; pair with the code; prompts (a) "Wave the left hand three times in a new clip", (b) "Rig the model in my scene and add a walk, then export a VRM"; the transcript, the final contact sheet and the exported files go to `docs/evidence/m-ai-mvp/` | both requests done without the user touching the editor except the code, the grants and the confirm cards; no step outside `AI: …`; the owner accepts the result |
+
+The MVP is done when MVP-AC-1…4 run in `pnpm run ci`, MVP-AC-5 is recorded and accepted, and the bundle decision of
+§0.3 is taken.
 
 ---
 
@@ -223,7 +359,7 @@ entry point is in `files`. Publishing (with npm provenance) and the npm name are
    project, never with `CI=1`. The live specs spawn `packages/mcp-server/dist/cli.mjs`, so `turbo` builds it first.
    E2E-AI-02 is a Node test (`packages/mcp-server/test/acceptance.headless.test.ts`).
 5. **Notes.** Each package records interpretations in `docs/wp-notes/mai-<slug>.md`; INT copies decisions into
-   DECISIONS-OPEN §H "M-AI build deviations" (IDs `MAI-<id>-<n>`).
+   DECISIONS-OPEN §N "M-AI build deviations" (IDs `MAI-<id>-<n>`).
 6. **Tool names, argument names, error codes and resource URIs are a public API** (they reach prompts, skills and
    user scripts). After the first npm publish they are only added, never renamed: a renamed tool keeps answering
    under its old name for one minor toolset version with a description starting "Deprecated: use `<new>`." and is
@@ -3218,7 +3354,7 @@ Merge in the order of §10.1; turn every `READY`/`test.fixme` gate into a failur
 E2E-AI-02; review every tool description against §5.20.1 and the manifest; README (an "AI agents (MCP)" section with
 the plain statements of §1.4 and one GIF of an agent waving Polybot in the live editor, recorded from the e2e build),
 `docs/agents.md`, ARCHITECTURE (§3 rows of the new packages, a §12 note "agents use the operator registry through
-`agent-tools`"), ROADMAP status, REQUIREMENTS milestone marks, DECISIONS-OPEN §H build deviations; the ADR 0017 CSP
+`agent-tools`"), ROADMAP status, REQUIREMENTS milestone marks, DECISIONS-OPEN §N build deviations; the ADR 0017 CSP
 contract note (§5.10); `npm pack --dry-run` contents, `npm audit signatures` and a clean-folder `npx` smoke run of
 the packed tarball; the owner demo script (§10.3); **the real-model release gate** (§10.2): the recorded Claude Code
 run over the core tasks and one scripted live Claude Code session of demo steps 3–7, both in the INT notes. The npm
@@ -3324,7 +3460,7 @@ client-side); tool results carry the text envelope and the image; a spend cap fr
 credentials from `ANTHROPIC_API_KEY` or the `ant auth` profile. The model id is an argument (default the current
 Opus model at the time of the run). **Naming and profile A/B** (once, before the first npm publish): the same tasks
 with the manifest re-emitted with verb-first names (`set_pose`, `run_operator`, …), and with the always-loaded
-profile of v0.1 (8 tools) against v0.2's (11 tools); the results are recorded in DECISIONS-OPEN §H; a rename or
+profile of v0.1 (8 tools) against v0.2's (11 tools); the results are recorded in DECISIONS-OPEN §N; a rename or
 profile change before the first publish is a manifest change, after it §3 rule 6 applies.
 
 #### 9.3.3 Tasks
@@ -3404,14 +3540,14 @@ specs with `--project=chrome`).
   tarball runs from a clean folder with `npx` (no network beyond npm's own install) and answers `tools/list` over
   stdio; `npm audit signatures` passes; Claude Code (`claude mcp add …`) lists the tools and pairs with a local editor
   in a manual check recorded in the INT notes.
-- README, `docs/agents.md` (all five clients), ARCHITECTURE §3/§12, ROADMAP, REQUIREMENTS, DECISIONS-OPEN §H and
+- README, `docs/agents.md` (all five clients), ARCHITECTURE §3/§12, ROADMAP, REQUIREMENTS, DECISIONS-OPEN §N and
   this spec are consistent with the code. The npm publish and the release tag are the owner's call.
 - **Release gate (before the first npm publish and the release tag; the merge to `dev` does not wait for it)**: one
   recorded real-model run through the **Claude Code driver** over every core task's dev split, three trials per task:
   pass@1 ≥ 60 % (budgets included, §9.3.2), no `internal` error, the per-task report and contact sheets committed
   under `packages/agent-evals/reports/`; plus one scripted live Claude Code session of demo steps 3–7 against a
   real editor, its transcript summary in the INT notes. A run below the bar is a fix-round item (descriptions,
-  profile, budgets), not a waiver; the owner may publish anyway, recorded in DECISIONS-OPEN §H.
+  profile, budgets), not a waiver; the owner may publish anyway, recorded in DECISIONS-OPEN §N.
 - Reported (not gating): `renderTile` time per 512 px tile, a full 8-frame shaded sheet, a schematic sheet, the
   CLI's cold start, a `pose_set` round trip live (tab → server → client) and headless; the lazy agent chunk size; the
   held-out split's pass@1 next to the dev split's.
@@ -3443,7 +3579,7 @@ specs with `--project=chrome`).
 
 ## 11. Defaults chosen (owner may override)
 
-Every owner-facing default of M-AI is listed with its impact in [DECISIONS-OPEN §H](DECISIONS-OPEN.md#h-agent-bridge-m-ai-defaults-chosen-2026-10-19)
+Every owner-facing default of M-AI is listed with its impact in [DECISIONS-OPEN §N](DECISIONS-OPEN.md#n-agent-bridge-m-ai-defaults-chosen-2026-10-19)
 (Q-AI-1…Q-AI-37). The architecture decision is [ADR 0018](adr/0018-agent-bridge-mcp.md).
 
 ### 11.1 Reconciliation with research 20–22

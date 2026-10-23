@@ -28,7 +28,7 @@ cleanly; the built server starts, `tools/list` answers `[]` (no tool ready), and
 `@modelcontextprotocol/node` 2.1.1 (2026-10-02), `ws` 8.22.0, `@types/ws` 8.18.2, `ajv` 8.20.0, `rolldown` 1.2.12
 (already in the lockfile). `@modelcontextprotocol/sdk` (v1) is not used (§2).
 
-## Decisions and deviations (INT copies them to DECISIONS-OPEN §H as MAI-D0-n)
+## Decisions and deviations (INT copies them to DECISIONS-OPEN §N as MAI-D0-n)
 
 - **MAI-D0-1** `RestoreHost` gains `tables()` and `ids(table)`: `planSnapshotRestore` must find records created since
   the snapshot, which the three §4.2 members cannot enumerate. MCP-SPEC §4.2 updated. The memory store's transactions
@@ -155,7 +155,7 @@ cleanly; the built server starts, `tools/list` answers `[]` (no tool ready), and
   §8 D0 (7) asks for, eager by construction (kernel, registered operators, the viewport class, the status line);
   nothing was found that can move behind a lazy boundary without changing a contract (`withPose` is synchronous in
   §4.3). agent-tools and zod are not in the eager chunks. Remaining to the 850,000 B M2a target: 1,633 B; to the
-  900,000 B gate: 51,633 B. **Needs explicit acceptance by INT or the owner** (DECISIONS-OPEN §H, MAI-D0-22); P1's
+  900,000 B gate: 51,633 B. **Needs explicit acceptance by INT or the owner** (DECISIONS-OPEN §N, MAI-D0-22); P1's
   real operators replace the stubs and P8 must keep the pill and panel lazy or budget against these numbers.
 - **MAI-D0-23** (round 2) Targets (§6.1) refine "pass controls or bodyParts" on the shared schema (keys_read,
   keys_delete, keys_adjust, keys_retime, keys_tween, curves_set_interpolation, curves_summary, pose_read,
@@ -233,7 +233,7 @@ D0 landed first (§8.2 last rule); B0a rebases. The overlaps, each additive:
 | `readSample` errors leaked absolute paths | MAI-D0-26: message names the sample only, `details.cause` the code; `scrubPaths` in `failureFromEkza`; headless test with an fs-like rejection, runtime test for paths |
 | a cyclic failure detail rejected `runtime.call()` | MAI-D0-5: `sanitizeDeep` cycle/depth guard, fixed `internal` fallback on the error path; tests for cyclic detail, 10,000-deep detail and cyclic data |
 | NFC before the removals left non-NFC output | MAI-D0-5: NFC last; `e`+ZWJ+U+0301 → `é` and two more cases, NFC in the property test |
-| `clip_create {activate: true}` live needed View only (no Edit) | MAI-D0-24, **Q-AI-38** (DECISIONS-OPEN §H.3, owner to confirm): `extraGrants`, Edit and View; same for `operator_run clip.new`/`clip.duplicate`; runtime test of every grant combination, live and headless |
+| `clip_create {activate: true}` live needed View only (no Edit) | MAI-D0-24, **Q-AI-38** (DECISIONS-OPEN §N.3, owner to confirm): `extraGrants`, Edit and View; same for `operator_run clip.new`/`clip.duplicate`; runtime test of every grant combination, live and headless |
 | `attrs`, `params`, `operator_run.args` unbounded | MAI-D0-23: `boundedRecord` (64/32/64), lint rule "record without maxProperties"; tests at the limits and 50,000 entries |
 | progress messages unsanitised | MAI-D0-5: sanitised, ≤ 120 characters; runtime test with the hostile string |
 | `invalid_args` hint generic | MAI-D0-25: `AgentToolDef.example` → `detail.example`; per-tool examples handed to P2 |
