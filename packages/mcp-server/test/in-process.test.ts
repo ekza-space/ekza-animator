@@ -11,7 +11,7 @@ describe('in-process server (MCP-SPEC §4.6)', () => {
     const server = await createInProcessServer({ workspace: '/tmp/ekza-test', logLevel: 'error' });
     const client = new Client({ name: 'in-process', version: '1.0.0' });
     await client.connect(server.clientTransport);
-    expect(client.getServerVersion()).toMatchObject({ name: 'ekza-animator', version: SERVER_VERSION });
+    expect(client.getServerVersion()).toMatchObject({ name: 'ekza-studio', version: SERVER_VERSION });
     expect(client.getInstructions()).toBe(SERVER_INSTRUCTIONS);
     expect((await client.listTools()).tools.map((tool) => tool.name)).toEqual(
       buildManifest().tools.map((tool) => tool.name),

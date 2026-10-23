@@ -11,7 +11,7 @@ export const editorConnect = defineTool({
   name: 'editor_connect',
   title: 'Connect to the editor',
   description:
-    "Connect to the user's open Ekza Animator editor with the pairing code the user gave you in this " +
+    "Connect to the user's open Ekza Studio editor with the pairing code the user gave you in this " +
     'conversation. Only call it when the user gave you a code here (the editor shows it under Windows › ' +
     'Agent, e.g. K7Q-M4P); never guess or reuse one. It waits up to 50 s while the user allows the ' +
     'connection and picks what you may do (Read, Edit, Files, View). The result names the project handle ' +

@@ -26,7 +26,7 @@ import {
 
 const ARM = WAVE.lowerArmL;
 const KEYS = (ids: readonly KeyId[]) => new Map(ids.map((id) => [id, { key: true, in: true, out: true }]));
-const EMPTY: Selection = { controls: [], keys: new Map(), channels: [] };
+const EMPTY: Selection = { controls: [], keys: new Map(), channels: [], objects: [], joints: [], constraints: [] };
 
 interface Case {
   readonly id: string;

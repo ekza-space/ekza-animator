@@ -82,8 +82,8 @@ describe.skipIf(!built)('the built bin (run pnpm mcp:build first)', () => {
     const client = new Client({ name: 'cli-test', version: '1.0.0' });
     await client.connect(transport);
     expect(client.getServerVersion()).toMatchObject({
-      name: 'ekza-animator',
-      title: 'Ekza Animator',
+      name: 'ekza-studio',
+      title: 'Ekza Studio',
       version: SERVER_VERSION,
     });
     expect(client.getInstructions()?.length ?? 0).toBeGreaterThan(100);

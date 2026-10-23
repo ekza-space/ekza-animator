@@ -24,7 +24,7 @@ test('the built server lists the committed manifest’s tools and names itself',
   };
   const { tools } = await server.client.listTools();
   expect(tools.map((tool) => tool.name)).toEqual(manifest.tools.map((tool) => tool.name));
-  expect(server.client.getServerVersion()).toMatchObject({ name: 'ekza-animator', title: 'Ekza Animator' });
+  expect(server.client.getServerVersion()).toMatchObject({ name: 'ekza-studio', title: 'Ekza Studio' });
   expect(server.client.getInstructions()).toContain('editor_connect');
 });
 

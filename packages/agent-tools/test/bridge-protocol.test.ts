@@ -26,7 +26,7 @@ const SAMPLES: readonly BridgeMessage[] = [
     token: 't'.repeat(43),
     actor: { kind: 'agent', id: 'agt_ABCDEFGHIJKL', name: 'Claude Code' },
   },
-  { t: 'tab', title: 'Ekza Animator', project: 'walk' },
+  { t: 'tab', title: 'Ekza Studio', project: 'walk' },
   { t: 'resume', session: 's_1', token: 't'.repeat(43) },
   { t: 'resume.ok', waiting: ['c_1abc'] },
   { t: 'call', id: 'c_1abc', tool: 'pose_set', args: { frame: 0 }, progress: true, deadline: 30_000, files: [] },

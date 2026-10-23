@@ -1,4 +1,4 @@
-# Ekza Animator — M-AI build specification ("agent bridge: MCP")
+# Ekza Studio — M-AI build specification ("agent bridge: MCP")
 
 Status: v0.2 (2026-10-19; v0.2 applies design review round 1, recorded in §11.3; binding from the start of package
 D0), the build spec for
@@ -2039,7 +2039,7 @@ export dialog's rule); without it the tool answers `confirm_required` with the l
 
 #### 5.20.1 Server identity, protocol eras, tools/list
 
-- Server info: name `ekza-animator`, title `Ekza Animator`, version = the package version; the documented client key
+- Server info: name `ekza-studio`, title `Ekza Studio`, version = the package version; the documented client key
   is **`ekza`** (`mcp__ekza__pose_set` stays far below 128 characters).
 - `serveStdio(factory)` from `@modelcontextprotocol/server/stdio` with the default `'serve'` handling of 2025-era
   openings, so one server answers clients on revision 2025-11-25 (`initialize`) and 2026-07-28 (stateless). The
@@ -2116,7 +2116,7 @@ text names appears in its script, so a prompt cannot ship broken.
 
 #### 5.20.5 Server instructions (static; `agent-tools/src/text/instructions.ts`; ≤ 2,000 characters)
 
-> Ekza Animator edits character animation (glTF and VRM characters, keyed control curves) in the user's open editor
+> Ekza Studio edits character animation (glTF and VRM characters, keyed control curves) in the user's open editor
 > tab (only after the user gives you a pairing code in this conversation: call editor_connect, then tell the user
 > the origin it reports) or in project files in the workspace folder (project_open). Units: angles in degrees
 > (fields ending in Deg), distances in metres (M), time in clip frames (Frame/Frames) unless a field ends in
@@ -2233,7 +2233,7 @@ every row without "S" is a core tool); **Hosts**: L live, H headless; **Backing*
 
 | # | Tool | Purpose (first sentence) | Access | Ann. | ★ | Hosts | Backing | Owner |
 |---|---|---|---|---|---|---|---|---|
-| 1 | `editor_connect` | Connect to the user's open Ekza Animator editor with the pairing code the user gave you in this conversation. | pairing | — | ★ | L | bridge (§5.10); `requiresUserInteraction` | P7 |
+| 1 | `editor_connect` | Connect to the user's open Ekza Studio editor with the pairing code the user gave you in this conversation. | pairing | — | ★ | L | bridge (§5.10); `requiresUserInteraction` | P7 |
 | 2 | `projects_list` | List the open projects: the paired editor tab (with its origin) and headless project files, with their handles and grants. | read | ro id | | L H | hub | P6 |
 | 3 | `project_close` | Close a headless project, or end the pairing with the editor tab. | read | dx | | L H | hub | P6 |
 | 4 | `scene_summary` | Start here: characters, clips (fps, range, loop), the user's selection, selected keys, time band and frame (live), recent history and what this host can do. | read | ro id | ★ | L H | store, session (read), history | P2 |

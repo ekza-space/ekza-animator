@@ -3,7 +3,7 @@
 export const SERVER_INSTRUCTIONS_MAX_CHARS = 2_000;
 
 export const SERVER_INSTRUCTIONS = [
-  'Ekza Animator edits character animation (glTF and VRM characters, keyed control curves) in the user’s open editor',
+  'Ekza Studio edits character animation (glTF and VRM characters, keyed control curves) in the user’s open editor',
   'tab (only after the user gives you a pairing code in this conversation: call editor_connect, then tell the user',
   'the origin it reports) or in project files in the workspace folder (project_open). Units: angles in degrees',
   '(fields ending in Deg), distances in metres (M), time in clip frames (Frame/Frames) unless a field ends in',

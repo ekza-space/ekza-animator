@@ -12,15 +12,18 @@ function isActor(ctx: OperatorContext): boolean {
   return ctx.actor !== undefined && ctx.actor !== null;
 }
 
-/** Actor runs: the scope's selection (missing parts empty; M6a fields `objects` empty). Others: the session's. */
+/** Actor runs: the scope's selection (missing parts empty; the M6a/M6b parts `objects`, `joints` and `constraints`
+ *  are always empty: an actor's scope never names them). Others: the session's. */
 export function selectionOf(ctx: OperatorContext): Selection {
   if (!isActor(ctx)) return ctx.app.session.getState().selection;
   const scoped = ctx.runScope?.selection;
-  // M6a adds `objects` to Selection; an actor's scope never names objects, so the part stays empty when it exists.
   return {
     controls: scoped?.controls ?? NO_CONTROLS,
     keys: scoped?.keys ?? NO_KEYS,
     channels: scoped?.channels ?? NO_CHANNELS,
+    objects: NO_CONTROLS,
+    joints: NO_CONTROLS,
+    constraints: NO_CONTROLS,
   };
 }
 

@@ -2,9 +2,9 @@
   "name": "ekza-studio-mcp",
   "version": "0.1.0",
   "type": "module",
-  "description": "MCP server for Ekza Animator: lets an AI agent (Claude Code, Claude Desktop, Cursor, VS Code, Codex) read and edit animation in your open editor tab or in project files.",
+  "description": "MCP server for Ekza Studio: lets an AI agent (Claude Code, Claude Desktop, Cursor, VS Code, Codex) read and edit animation in your open editor tab or in project files.",
   "license": "MIT",
-  "keywords": ["mcp", "model-context-protocol", "animation", "vrm", "gltf", "ekza-animator"],
+  "keywords": ["mcp", "model-context-protocol", "animation", "vrm", "gltf", "ekza-studio"],
   "engines": {
     "node": ">=22"
   },

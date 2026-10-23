@@ -72,7 +72,7 @@ export const RESOURCE_TEMPLATES: readonly ResourceTemplateDef[] = [
   },
 ];
 
-const CONVENTIONS = `# Ekza Animator: conventions for agents
+const CONVENTIONS = `# Ekza Studio: conventions for agents
 
 ## Where you work
 - **The user's editor** (live): after the user gives you a pairing code in this conversation, call
