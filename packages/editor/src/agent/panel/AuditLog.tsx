@@ -49,6 +49,8 @@ const Row = memo(function Row(props: {
 }): JSX.Element {
   const { row, action } = props;
   const note = stateNote(action);
+  // The digest starts with the tool's name (§5.11: 'pose_set wave f12 (3 controls)'); the tool has its own column.
+  const digest = row.digest.startsWith(`${row.tool} `) ? row.digest.slice(row.tool.length + 1) : row.digest;
   const failed = row.status === 'error' || row.status === 'denied' || row.status === 'cancelled';
   return (
     <li
@@ -62,7 +64,7 @@ const Row = memo(function Row(props: {
         <span className="flex min-w-0 items-baseline gap-1.5">
           <code className="shrink-0 text-fg">{row.tool}</code>
           <span className="min-w-0 truncate text-fg-2" title={row.digest}>
-            {row.digest}
+            {digest === row.tool ? '' : digest}
           </span>
         </span>
         <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-fg-3">

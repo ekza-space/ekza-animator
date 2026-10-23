@@ -42,8 +42,8 @@ export function cropBounds(skeleton: SkeletonDesc, boneWorld: Float64Array, crop
   if (crop !== 'body' && humanoid !== null) {
     const pattern = CROPS[crop];
     const picked = Object.entries(humanoid)
-      .filter(([name, node]) => pattern.test(name) && node !== undefined)
-      .map(([, node]) => node as number);
+      .filter(([name]) => pattern.test(name))
+      .flatMap(([, node]) => (node === undefined ? [] : [node]));
     if (picked.length > 0) nodes = picked;
   }
   const min: [number, number, number] = [Infinity, Infinity, Infinity];
@@ -121,7 +121,9 @@ export function presetCamera(view: CaptureView, bounds: Bounds, aspect: number):
         orthoHeightM: 0,
       };
     }
-    default:
+    case 'user':
+    case 'shot':
+    case 'follow':
       return null;
   }
 }

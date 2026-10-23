@@ -8,8 +8,8 @@ import type { AgentRuntime } from './runtime';
 
 export interface AgentE2eHook {
   installFake(opts?: FakeSessionOptions): void;
-  /** A tool call as the paired agent; images come back as their size and PNG signature, not bytes. */
-  call(tool: string, args: unknown): Promise<unknown>;
+  /** A tool call as the paired agent; images come back as their size and PNG signature (and base64 bytes on request). */
+  call(tool: string, args: unknown, opts?: { readonly withBytes?: boolean }): Promise<unknown>;
   answerConfirm(answer: 'allow' | 'deny'): void;
   status(): string | null;
 }
@@ -20,7 +20,13 @@ declare global {
   }
 }
 
-function plain(result: AgentToolResult<unknown>): unknown {
+function base64(bytes: Uint8Array): string {
+  let text = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(text);
+}
+
+function plain(result: AgentToolResult<unknown>, withBytes: boolean): unknown {
   if (!result.ok) return result;
   const images = result.images?.map((image) => ({
     mime: image.mime,
@@ -28,6 +34,7 @@ function plain(result: AgentToolResult<unknown>): unknown {
     height: image.height,
     byteLength: image.bytes.length,
     signature: Array.from(image.bytes.subarray(0, 8)),
+    ...(withBytes ? { base64: base64(image.bytes) } : {}),
   }));
   return JSON.parse(JSON.stringify({ ...result, images }));
 }
@@ -39,9 +46,9 @@ export function installAgentE2eHook(runtime: AgentRuntime): () => void {
       fake = createFakeAgentSession(runtime.app, opts);
       runtime.install(fake);
     },
-    async call(tool, args) {
+    async call(tool, args, opts) {
       if (fake === null) throw new Error('installFake first');
-      return plain(await fake.call(tool, args));
+      return plain(await fake.call(tool, args), opts?.withBytes === true);
     },
     answerConfirm(answer) {
       const confirm = fake?.store.getState().confirm;
