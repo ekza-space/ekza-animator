@@ -21,7 +21,7 @@ import {
   type ToolPointerEvent,
   type ToolWheelEvent,
 } from '@ekza-studio/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
+import { createFakeEditorApp, type FakeEditorApp, loadOperatorBodies } from '@ekza-studio/editor-core/testing';
 import { commands } from 'vitest/browser';
 import { GraphEditorController } from '../../src';
 
@@ -149,6 +149,8 @@ export function drag(
 
 /** Lets pending operator runs (async prepare) settle. */
 export async function settle(): Promise<void> {
+  // The operators' apply bodies are lazy chunks (M-AI B5): a first run awaits its chunk.
+  await loadOperatorBodies();
   for (let i = 0; i < 4; i++) await Promise.resolve();
   await new Promise((resolve) => setTimeout(resolve, 0));
 }

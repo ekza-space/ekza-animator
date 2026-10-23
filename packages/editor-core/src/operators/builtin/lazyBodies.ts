@@ -33,3 +33,8 @@ export function lazyBodies<M>(load: () => Promise<M>): () => M | Promise<M> {
 export function preloadOperatorBodies(): void {
   for (const get of loaders) Promise.resolve(get()).catch(() => {});
 }
+
+/** Loads every body chunk (test setups whose runs must settle within a frame, and hosts that want them up front). */
+export async function loadOperatorBodies(): Promise<void> {
+  await Promise.all(loaders.map((get) => get()));
+}
