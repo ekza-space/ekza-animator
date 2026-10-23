@@ -13,6 +13,10 @@ const DENIED_UNDO = "the user's undo navigation; use history_revert";
 const DENIED_PANE_CAMERA = "needs the user's pane camera; ask the user to run View › Copy View to Shot";
 const DENIED_USER_STATE = "the user's preferences, tools, buffers and UI";
 const DENIED_MODELING = 'modeling and scene editing are not available to agents yet';
+// MCP-SPEC §0.4.4 (B4): the character setup operators
+const DENIED_QUICK_RIG = 'Quick Rig runs through rig_create';
+const DENIED_WEIGHTS = 'weight edits are not available to agents yet';
+const DENIED_EXPORT_SETUP = 'files go through project_export';
 /** The reason an operator without a classification answers `denied_operator` with. */
 export const UNCLASSIFIED_REASON = 'this operator is not classified for agents';
 
@@ -344,6 +348,69 @@ export const OPERATOR_POLICY: Readonly<Record<string, OperatorAgentPolicy>> = nu
   'mesh.setAttributes': denied(DENIED_MODELING),
   'mesh.makeEditable': denied(DENIED_MODELING),
   'file.exportModel': denied(DENIED_FILES),
+  // MCP-SPEC §0.4.4 (B4): Auto-Rig compositions, Quick Rig, skin and the clip library (lazy chunks; rig_create,
+  // model_*, library_* and the setup kinds of project_import/project_export run them, these rows guard operator_run)
+  'autorig.inspect': ALLOWED_VIEW,
+  'autorig.fix': ALLOWED_EDIT,
+  'autorig.clip.add': ALLOWED_EDIT,
+  'autorig.rig': {
+    policy: 'confirm',
+    access: 'view',
+    reason: 'creates a skeleton and binds the skin (2–3 undo steps)',
+  },
+  'autorig.sample': { policy: 'confirm', access: 'view', reason: 'adds a model to the scene and selects it' },
+  'autorig.intake': { policy: 'confirm', access: 'view', reason: 'adds a model to the scene and selects it' },
+  'autorig.export': denied(DENIED_EXPORT_SETUP),
+  'autorig.cancel': denied(DENIED_USER_STATE),
+  'autorig.navigate': denied(DENIED_USER_STATE),
+  'autorig.controls': denied(DENIED_USER_STATE),
+  'autorig.parts': denied(DENIED_USER_STATE),
+  'skel.quickRig.start': denied(DENIED_QUICK_RIG),
+  'skel.quickRig.setMarker': denied(DENIED_QUICK_RIG),
+  'skel.quickRig.guess': denied(DENIED_QUICK_RIG),
+  'skel.quickRig.clear': denied(DENIED_QUICK_RIG),
+  'skel.quickRig.setPreset': denied(DENIED_QUICK_RIG),
+  'skel.quickRig.cancel': denied(DENIED_QUICK_RIG),
+  'skel.quickRig.pick': denied(DENIED_QUICK_RIG),
+  'skel.quickRig.center': denied(DENIED_QUICK_RIG),
+  'skel.quickRig.faceForward': denied(DENIED_QUICK_RIG),
+  'skel.quickRig.commit': denied(DENIED_QUICK_RIG),
+  'skin.bind': denied(DENIED_QUICK_RIG),
+  'skin.unbind': denied(DENIED_WEIGHTS),
+  'skin.weights.autoForJoints': denied(DENIED_WEIGHTS),
+  'skin.weights.paint': denied(DENIED_WEIGHTS),
+  'skin.weights.flood': denied(DENIED_WEIGHTS),
+  'skin.weights.set': denied(DENIED_WEIGHTS),
+  'skin.weights.assign': denied(DENIED_WEIGHTS),
+  'skin.weights.rigidIslands': denied(DENIED_WEIGHTS),
+  'skin.weights.mirror': denied(DENIED_WEIGHTS),
+  'skin.weights.transfer': denied(DENIED_WEIGHTS),
+  'skin.weights.smooth': denied(DENIED_WEIGHTS),
+  'skin.weights.hammer': denied(DENIED_WEIGHTS),
+  'skin.weights.copyVertex': denied(DENIED_WEIGHTS),
+  'skin.weights.pasteVertex': denied(DENIED_WEIGHTS),
+  'skin.weights.prune': denied(DENIED_WEIGHTS),
+  'skin.weights.normalize': denied(DENIED_WEIGHTS),
+  'skin.weights.move': denied(DENIED_WEIGHTS),
+  'skin.weights.fillMissing': denied(DENIED_WEIGHTS),
+  'skin.palette.compact': denied(DENIED_WEIGHTS),
+  'skin.review.mark': denied(DENIED_WEIGHTS),
+  'skin.influence.setActive': denied(DENIED_USER_STATE),
+  'skin.influence.hold': denied(DENIED_USER_STATE),
+  'skin.influence.holdAll': denied(DENIED_USER_STATE),
+  'skin.influence.releaseAll': denied(DENIED_USER_STATE),
+  'skin.influence.walk': denied(DENIED_USER_STATE),
+  'skin.influence.pickDominant': denied(DENIED_USER_STATE),
+  'skin.paint.mode': denied(DENIED_USER_STATE),
+  'skin.paint.set': denied(DENIED_USER_STATE),
+  'skin.paint.mirrorToggle': denied(DENIED_USER_STATE),
+  'skin.paint.sample': denied(DENIED_USER_STATE),
+  'skin.testRotate.toggle': denied(DENIED_USER_STATE),
+  'skin.test.rom': denied(DENIED_USER_STATE),
+  'library.useClip': ALLOWED_EDIT,
+  'library.preview': denied(DENIED_USER_STATE),
+  'library.stop': denied(DENIED_USER_STATE),
+  'library.open': denied(DENIED_USER_STATE),
 });
 
 function nullPrototype<T>(entries: Readonly<Record<string, T>>): Readonly<Record<string, T>> {

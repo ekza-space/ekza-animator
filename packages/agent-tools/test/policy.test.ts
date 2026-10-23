@@ -373,8 +373,23 @@ function sessionRecord(app: EditorApp): unknown[] {
 /** `EkzaError` codes the tool layer maps to a code of its own (§5.4); every other failure is `internal`. */
 const MAPPED = new Set(['invalid-record', 'asset-missing', 'read-only']);
 
+/**
+ * MCP-SPEC §0.4.4 (B4): the allowed and confirm operators of the lazy rig-workspace and clip-library chunks (absent
+ * from this fixture until loaded) are run under an actor, with their session checks, by the setup tools' tests
+ * (`setup-tools.test.ts`) on static models.
+ */
+const SETUP_ROWS = new Set([
+  'autorig.inspect',
+  'autorig.fix',
+  'autorig.clip.add',
+  'autorig.rig',
+  'autorig.sample',
+  'autorig.intake',
+  'library.useClip',
+]);
+
 const RUN_IDS = Object.entries(OPERATOR_POLICY)
-  .filter(([, policy]) => policy.policy !== 'denied')
+  .filter(([id, policy]) => policy.policy !== 'denied' && !SETUP_ROWS.has(id))
   .map(([id]) => id);
 
 describe('every allowed and confirm operator under an actor (MCP-SPEC §5.14, runner rule 6)', () => {
