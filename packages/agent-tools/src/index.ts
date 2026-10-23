@@ -137,3 +137,15 @@ export {
   type ResourceTemplateDef,
   STATIC_RESOURCES,
 } from './text/resources';
+// character setup tools (MCP-SPEC §0.4.4; B4): the file hooks B1's project_import/project_export call
+export {
+  projectExportSetup,
+  projectImportSetup,
+  readBackModel,
+  SETUP_EXPORT,
+  SETUP_EXPORT_KINDS,
+  SETUP_IMPORT,
+  SETUP_SAMPLE_FILES,
+  SETUP_SAMPLES,
+} from './tools/setup/files';
+export { SETUP_TOOL_COUNT } from './tools/catalogue';

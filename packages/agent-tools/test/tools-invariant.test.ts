@@ -250,6 +250,8 @@ describe('the session-state invariant (§5.7, §9.2)', () => {
   it('draws every ready tool of the catalogue', () => {
     expect([...DRAWN].sort()).toEqual(
       readyTools()
+        // the setup tools need a static model and the clip library: setup-tools.test.ts checks their session rules
+        .filter((tool) => tool.group !== 'setup')
         .map((tool) => tool.name)
         .sort(),
     );

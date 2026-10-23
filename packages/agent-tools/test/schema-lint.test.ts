@@ -3,7 +3,7 @@
 // annotation rule of §6.0.
 import Ajv2020 from 'ajv/dist/2020';
 import { describe, expect, it } from 'vitest';
-import { allTools, CORE_TOOL_COUNT, lintTools, manifestToolOf, STRETCH_TOOL_COUNT } from '../src';
+import { allTools, CORE_TOOL_COUNT, lintTools, manifestToolOf, SETUP_TOOL_COUNT, STRETCH_TOOL_COUNT } from '../src';
 
 const CATALOGUE = [
   'editor_connect',
@@ -47,6 +47,8 @@ const CATALOGUE = [
   'operator_run',
 ];
 const STRETCH = ['pose_plant_feet', 'analyze_diff', 'view_set_time', 'recipe_apply'];
+/** MCP-SPEC §0.4.4 (B4): the character setup tools, core tools of the MVP listed after the stretch tools. */
+const SETUP = ['model_inspect', 'model_fix', 'rig_create', 'library_list', 'library_use'];
 const ALWAYS_LOADED = [
   'editor_connect',
   'scene_summary',
@@ -59,6 +61,7 @@ const ALWAYS_LOADED = [
   'view_capture',
   'history_checkpoint',
   'history_revert',
+  'rig_create', // §0.4.3
 ];
 const IDEMPOTENT = [
   'projects_list',
@@ -79,6 +82,8 @@ const IDEMPOTENT = [
   'operator_describe',
   'analyze_diff',
   'view_set_time',
+  'model_inspect',
+  'library_list',
 ];
 const READ_ONLY = [
   'projects_list',
@@ -96,13 +101,15 @@ const READ_ONLY = [
   'operators_list',
   'operator_describe',
   'analyze_diff',
+  'model_inspect',
+  'library_list',
 ];
 
 describe('tool catalogue (MCP-SPEC §6.0)', () => {
-  it('lists the 39 core tools then the 4 stretch tools, in tools/list order', () => {
+  it('lists the 39 core tools, the 4 stretch tools and the 5 setup tools, in tools/list order', () => {
     const tools = allTools();
-    expect(tools.map((tool) => tool.name)).toEqual([...CATALOGUE, ...STRETCH]);
-    expect(CORE_TOOL_COUNT + STRETCH_TOOL_COUNT).toBe(tools.length);
+    expect(tools.map((tool) => tool.name)).toEqual([...CATALOGUE, ...STRETCH, ...SETUP]);
+    expect(CORE_TOOL_COUNT + STRETCH_TOOL_COUNT + SETUP_TOOL_COUNT).toBe(tools.length);
     expect(tools.filter((tool) => tool.stretch).map((tool) => tool.name)).toEqual(STRETCH);
   });
 

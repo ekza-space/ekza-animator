@@ -13,6 +13,7 @@ import { poseAim, poseIkTarget, posePlantFeet, poseRead, poseReset, poseSet, pos
 import { recipeApply } from './recipes/defs';
 import { rigDescribe } from './rig/defs';
 import { sceneSummary } from './scene/defs';
+import { libraryList, libraryUse, modelFix, modelInspect, rigCreate } from './setup/defs';
 import { viewCapture, viewPlotCurves, viewSetTime } from './view/defs';
 
 const CATALOGUE: readonly AgentToolDef[] = Object.freeze([
@@ -59,11 +60,18 @@ const CATALOGUE: readonly AgentToolDef[] = Object.freeze([
   analyzeDiff, // S2
   viewSetTime, // S3
   recipeApply, // S4
+  modelInspect, // B4: character setup (§0.4.4)
+  modelFix, // B4
+  rigCreate, // B4
+  libraryList, // B4
+  libraryUse, // B4
 ]);
 
 /** Number of core tools (§1.1) and stretch tools (§1.2). */
 export const CORE_TOOL_COUNT = 39;
 export const STRETCH_TOOL_COUNT = 4;
+/** The character setup tools of MCP-SPEC §0.4.4 (B4; core tools of the MVP, listed after the stretch tools). */
+export const SETUP_TOOL_COUNT = 5;
 
 /** Every definition incl. not-ready ones (manifest generator, lint), in catalogue order. */
 export function allTools(): readonly AgentToolDef[] {
