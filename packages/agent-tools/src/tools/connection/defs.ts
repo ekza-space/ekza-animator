@@ -2,7 +2,21 @@
 // final schemas with `ready: false`; P2 wrote the full descriptions (§5.20.1); their owners make them ready.
 import { z } from 'zod';
 import { grantsOut, projectRef, sceneSummaryOut } from '../../schemas/common';
+import { AgentToolFailure } from '../../types';
 import { BUDGETS, defineTool } from '../define';
+
+/**
+ * projects_list and project_close are answered by the server's hub (B1, MCP-SPEC §4.6): it owns the headless projects
+ * and the pairing. A runtime that receives one (a tab, an in-app assistant) has no view of either.
+ */
+function serverSide(name: string) {
+  return () =>
+    Promise.reject(
+      new AgentToolFailure('unsupported', `${name} is answered by the MCP server.`, 'call it through the MCP server', {
+        retryable: false,
+      }),
+    );
+}
 
 /** Pairing codes: 6 characters of the server's alphabet, with or without the dash (§5.10). */
 export const PAIRING_CODE = /^[A-HJKMNP-Z2-9]{3}-?[A-HJKMNP-Z2-9]{3}$/i;
@@ -76,6 +90,8 @@ export const projectsList = defineTool({
   kind: 'read',
   budget: BUDGETS.summary,
   example: {},
+  ready: true,
+  run: serverSide('projects_list'),
 });
 
 export const projectClose = defineTool({
@@ -102,4 +118,6 @@ export const projectClose = defineTool({
   kind: 'read',
   budget: BUDGETS.write,
   example: { project: 'prj_0123456789ab' },
+  ready: true,
+  run: serverSide('project_close'),
 });

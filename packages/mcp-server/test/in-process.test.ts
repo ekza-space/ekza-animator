@@ -17,7 +17,11 @@ describe('in-process server (MCP-SPEC §4.6)', () => {
       buildManifest().tools.map((tool) => tool.name),
     );
     await expect(client.callTool({ name: 'no_such_tool', arguments: {} })).rejects.toThrow(/not found/);
-    expect((await client.listResources()).resources).toEqual([]);
+    expect((await client.listResources()).resources.map((resource) => resource.uri)).toEqual([
+      'ekza://guide/conventions',
+      'ekza://guide/animation-principles',
+      'ekza://guide/recipes',
+    ]);
     expect((await client.listPrompts()).prompts.map((prompt) => prompt.name)).toEqual(
       PROMPTS.filter((prompt) => prompt.plan !== null).map((prompt) => prompt.name),
     );

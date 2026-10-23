@@ -2,10 +2,29 @@
 // workspace sandbox and bridge server. The published bin is dist/cli.mjs (rolldown, every runtime dependency inlined).
 export { originWarnings, parseArgs, type ParsedArgs, parseOrigin, USAGE } from './args';
 export { configWithDefaults, DEFAULT_ALLOWED_ORIGINS, DEFAULTS, type McpServerConfig } from './config';
-export { type AgentHub, createAgentHub } from './hub/hub';
+export { type AgentHub, type AgentHubOptions, type CallOptions, createAgentHub } from './hub/hub';
+export type { HubBridge, TabCallOptions, TabLink, TabState } from './hub/link';
+export { type ProjectTarget, routeProject } from './hub/router';
+export {
+  createWorkspaceSandbox,
+  isUnsafeRoot,
+  lexicalProblem,
+  READ_MAX_BYTES,
+  type SandboxOptions,
+  TRASH_DIR,
+  type WorkspaceSandbox,
+} from './files/sandbox';
+export { BUNDLED_SAMPLES, createSampleReader } from './files/samples';
+export { type ConfirmPolicy, createHeadlessHost, HEADLESS_GRANTS, sandboxFileHost } from './headless/host';
+export {
+  createHeadlessProjectManager,
+  type HeadlessProject,
+  type HeadlessProjectManager,
+  type ProjectRow,
+} from './headless/projects';
 export { createLogger, type Logger } from './log';
 export { type CallToolResultShape, toCallToolResult } from './mcp/results';
-export { createMcpServerFactory, listedTools } from './mcp/server';
+export { createMcpServerFactory, listedPrompts, listedTools, readResource } from './mcp/server';
 export {
   createInProcessServer,
   type RunningServer,

@@ -121,6 +121,19 @@ export { BUDGETS, defineTool, notAvailableYet, withTruncated } from './tools/def
 export { buildManifest, canonicalJson, manifestAccess, manifestFileText, manifestToolOf } from './manifest/manifest';
 export { firstSentence, lintTool, lintTools, TOOL_NAME, TOOL_NOUNS, UNIT_SUFFIX } from './manifest/lint';
 export * as schemas from './schemas/common';
+// file tools (B1): file names, captured downloads, workspace reads and writes
+export {
+  baseName,
+  DERIVED_STEM_MAX,
+  deriveFileName,
+  EXPORTS_DIR,
+  fileExtension,
+  isReservedName,
+  READ_EXTENSIONS,
+  WRITE_EXTENSIONS,
+} from './tools/files/names';
+export { captureDownloads, type CapturedFile, isStaticSample, sha256Hex, STATIC_SAMPLES } from './tools/files/run';
+export { IMPORT_SAMPLE_IDS, SAMPLE_IDS } from './tools/files/defs';
 // operator policy and wire schemas
 export { agentPolicyOf, isClassified, OPERATOR_POLICY, tablePolicyOf, UNCLASSIFIED_REASON } from './policy';
 export { OPERATOR_WIRE, type OperatorWire, type OperatorWireMap, type WireUnit } from './operators/wire';
