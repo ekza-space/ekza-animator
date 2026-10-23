@@ -23,6 +23,7 @@ import {
   QUICK_RIG_SIDE_MARKERS,
   type QuickRigMarker,
   type QuickRigMarkers,
+  SKELETON_CHECKS,
   type SkeletonPreset,
   type TemplateJoint,
 } from '@ekza-studio/rig';
@@ -96,14 +97,25 @@ export const ARMS_NOT_FOUND =
   'in a T-pose or A-pose';
 const ARM_MARKERS = ['shoulder', 'elbow', 'wrist'] as const;
 
+/** AR-R5-1: why Auto-rig waits for ①'s *Set height*, or null — the head-top marker of a grounded model is its height. */
+export function sizeBlock(markers: QuickRigMarkers): string | null {
+  const height = markers.headTop?.[1];
+  if (height === undefined || (height >= SKELETON_CHECKS.heightMin && height <= SKELETON_CHECKS.heightMax)) return null;
+  return (
+    `The character is ${height.toFixed(2)} m tall: press Set height on step 1 ` +
+    `(a person is ${SKELETON_CHECKS.heightMin}–${SKELETON_CHECKS.heightMax} m)`
+  );
+}
+
 /**
- * Why `autorig.rig` refuses the open Quick Rig session, or null: Quick Rig's own block (start checks, preview), then
+ * Why `autorig.rig` refuses the open Quick Rig session, or null: Quick Rig's own block (start checks, preview), the
+ * character's height outside 0.3–3 m (AR-R5-1: a centimetre export rigged as a giant), then
  * AR-D10-3 — a new character whose One-Click guess failed (no arm run: arms hanging down, or not a person) rigs only
  * once the arm markers were placed by hand; the template's guess put them on a line through the head, and the rig
  * bound the body to arm bones in the air.
  */
 export function autoRigBlock(state: QuickRigState): string | null {
-  const block = quickRigCommitBlock(state);
+  const block = quickRigCommitBlock(state) ?? sizeBlock(state.markers);
   if (block !== null) return block;
   const guessFailed = state.guess !== null && state.guess.failed !== null;
   if (state.refit === null && guessFailed && !ARM_MARKERS.every((name) => state.moved.has(name))) {
