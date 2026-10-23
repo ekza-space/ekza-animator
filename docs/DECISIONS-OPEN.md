@@ -1086,6 +1086,21 @@ section H on the `mcp/*` branches; `dev` had given H to the naming decision, so 
 | M-AI-B2-13 | Agent URL params | Moved to `test-api/agentParams.ts` (lazy-only; ≈ 370 B eager otherwise) | — | B3 imports from there |
 | M-AI-B2-14 | First-visit bytes | +164 B `/editor`, +169 B `/autorig` (Turbopack export registration of eager editor-core modules the lazy agent chunk imports); no B2 code eager | Part of the M-AI-MVP-2 decision | owner |
 
+### N.7 Phase B — B3 agent UI and live capture (2026-10-23)
+
+Package B3 (`mai/b3-ui`), MCP-SPEC §0.4.1 items 4–5; build notes in [wp-notes/mai-b3.md](wp-notes/mai-b3.md).
+
+| ID | Decision | Default chosen | Impact if changed | Decide by |
+|---|---|---|---|---|
+| M-AI-B3-1 | Session access and actions | The agent runtime (`agentRuntimeOf(app)`) follows B2's page session through `agent/bridge/slot.ts` (copied byte-identical from `mai/b2-bridge`, B2's file) and creates it with `loadAgentSession` when the panel opens (ports of `?agentPort=` preselected; connecting at start stays B2's e2e test API). The panel calls B2's actions (`select`, `cancel`, `accept`, `deny`, `setGrants`, `setPaused`, `answerConfirm`, `extra.claim`), typed optional (`AgentSessionControls`), so a missing one is drawn disabled | — | INT (B2 ↔ B3 merge) |
+| M-AI-B3-2 | `view_capture` in the MVP | ≤ 6 frames (schema `frames` max 6; `keys`/`extremes` thinned evenly, `{every}` cut at 6 with a warning); views `user`, `front`, `back`, `left`, `right`, `top`, `three_quarter_left/right`; `shot`, `follow`, `fidelity: 'schematic'` and headless calls answer `unsupported` with a hint; contact marks and trails are not drawn (warning). Toolset version `1.0.0-dev.2` | INT sets `1.0.0-mvp.1` | INT |
+| M-AI-B3-3 | Where the live capture service lives | The editor creates its services before the lazy agent module, so the service attaches per app (`attachViewCapture(app, service)` in agent-tools; `app.services.viewCapture` wins when set). Cameras in `agent-tools/src/tools/view/cameras.ts` (not `see/`), tiles in `viewport/src/manager/agentTile.ts` (`renderAgentTile`, synchronous), no schematic fallback: a render failure answers `unsupported` (retryable) | P5 moves cameras to `see/` and adds the fallback | phase C |
+| M-AI-B3-4 | Audit row state | Computed in the UI from the history stacks (Undo at the top of the undo stack, Revert below it with a change record, "undone" on the redo stack, "can no longer be undone" when gone) plus the steps the panel reverted (`revertedBy`); the session's `reverted`/`unreachable` flags win when B2 sets them | — | — |
+| M-AI-B3-5 | Asking before Revert all, the confirm card's focus | Revert all asks inline in the panel (a second button), not a modal; the confirm card never takes focus by itself (`Esc` on its buttons = Deny) so an agent call cannot catch the user's keystrokes | A modal or a focusing card: a few lines | owner review |
+| M-AI-B3-6 | [Show] | `agent.show` (user-only: its poll refuses actor runs) queues `clip.setActive` + `time.setFrame {unit: 'clip'}` as user runs; unkeyed overrides on that character ask with the browser's confirm first; the 3 s outline of the touched controls waits for presence drawing (§0.4.2); switching to another character clears its selection as every clip switch does | — | phase C |
+| M-AI-B3-7 | Status pill and lazy loading | The status line keeps the muted `AI` pill (eager, plus a 0.2 kB slot, `editor/src/agent/ui/slot.ts`) until the agent module loads; the Agent panel's chunk then puts the live pill there, which also hosts the confirm card, the grants dialog and the [Show] toast. `?agentPort=` opens the panel from the eager pill. `--presence-agent` is used with its `#e66cff` fallback (no token added to `packages/ui`) | A token in `tokens.json`: ui package change | INT |
+| M-AI-B3-8 | e2e without the bridge | e2e builds expose `window.__EKZA_AGENT_E2E__` (only when the test API exists, a separate chunk) with a fake paired session that runs the real tool runtime (`editor/src/agent/ui/fakeSession.ts`); `ai-02-agent-panel.spec.ts` uses it, B2's `ai-01-live.spec.ts` covers the socket | — | — |
+
 ### N.9 Phase B — B1 server and headless (2026-10-23)
 
 Package B1 (`mai/b1-server`, MCP-SPEC §0.4.1 item 2 and 8): the hub's routing, headless projects, the workspace

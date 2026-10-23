@@ -30,13 +30,49 @@ import {
   ToggleGroupItem,
   Tooltip,
 } from '@ekza-studio/ui';
-import { Fragment, type JSX, lazy, type ReactNode, Suspense } from 'react';
+import {
+  Fragment,
+  type JSX,
+  lazy,
+  type ReactNode,
+  Suspense,
+  useCallback,
+  useEffect,
+  useSyncExternalStore,
+} from 'react';
+import { agentPill, subscribeAgentPill } from '../agent/ui/slot';
 import { usePrefs, useSession } from '../hooks';
 import { useRegistryList } from '../hooks/useRegistry';
 import { TweenBar } from '../panels/shared/TweenBar';
 import { useShell, useShellUi } from './context';
 import { RIG_LAYOUTS } from './rig/layouts';
 import { shortcutFor } from './menus';
+
+/** M-AI (§7.1): `?agentPort=` opens the Agent panel once per page (the panel applies the port rules). */
+let agentPortHandled = false;
+
+/** M-AI (§7.5): the muted "AI" pill until the lazy agent module puts its live pill in the slot. */
+function AgentPillSlot({ open }: { readonly open: () => void }): JSX.Element {
+  const live = useSyncExternalStore(subscribeAgentPill, agentPill, agentPill);
+  useEffect(() => {
+    if (agentPortHandled || typeof location === 'undefined' || !/[?&]agentPort=/.test(location.search)) return;
+    agentPortHandled = true;
+    open();
+  }, [open]);
+  if (live !== null) return live;
+  return (
+    <Tip text="AI agent (Windows › Agent)">
+      <button
+        type="button"
+        className="rounded px-1.5 text-ui text-fg-3 hover:bg-hover hover:text-fg"
+        data-testid="status-agent"
+        onClick={open}
+      >
+        AI
+      </button>
+    </Tip>
+  );
+}
 
 /** Model's groups (mode, symmetry, soft selection, snapping, pivot): a lazy chunk, drawn only in Model. */
 const ModelStatusGroup = lazy(() => import('./statusGroups').then((module) => ({ default: module.ModelStatusGroup })));
@@ -332,18 +368,10 @@ export function StatusLine(): JSX.Element {
     }
   };
 
-  const agentPill = (
+  const openAgentPanel = useCallback(() => void shell.runFromUi('workspace.showPanel', { panel: 'agent' }), [shell]);
+  const agentGroup = (
     <Group key="agent" label="AI agent">
-      <Tip text="AI agent (Windows › Agent)">
-        <button
-          type="button"
-          className="rounded px-1.5 text-ui text-fg-3 hover:bg-hover hover:text-fg"
-          data-testid="status-agent"
-          onClick={() => void shell.runFromUi('workspace.showPanel', { panel: 'agent' })}
-        >
-          AI
-        </button>
-      </Tip>
+      <AgentPillSlot open={openAgentPanel} />
     </Group>
   );
 
@@ -355,10 +383,10 @@ export function StatusLine(): JSX.Element {
       data-testid="statusline"
     >
       {/* M-AI (MCP-SPEC §7.1, §7.5): the agent pill sits before the layout buttons in every workspace (not a
-          workspace status group, so the workspaces' group lists stay as shipped). D0 placeholder: "AI" (muted) opens
-          the Agent panel; P8 shows the live state through the lazy agent chunk. */}
-      {groups.flatMap((id) => (id === 'layout' ? [agentPill, render(id)] : [render(id)]))}
-      {groups.includes('layout') ? null : agentPill}
+          workspace status group, so the workspaces' group lists stay as shipped). "AI" (muted) opens the Agent panel
+          until the lazy agent module puts its live pill in the slot (B3). */}
+      {groups.flatMap((id) => (id === 'layout' ? [agentGroup, render(id)] : [render(id)]))}
+      {groups.includes('layout') ? null : agentGroup}
     </div>
   );
 }

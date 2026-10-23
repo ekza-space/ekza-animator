@@ -255,6 +255,8 @@ describe('the session-state invariant (§5.7, §9.2)', () => {
         .map((tool) => tool.name)
         // editor_connect is answered by the server's bridge, never by a runtime (B2)
         .filter((name) => name !== 'editor_connect')
+        // view_capture is a live read with a capture service: tools-view.test.ts checks the invariant for it (B3)
+        .filter((name) => name !== 'view_capture')
         .sort(),
     );
   });
