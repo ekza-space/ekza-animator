@@ -87,7 +87,8 @@ describe('success envelopes against the manifest (§5.3, §5.21)', () => {
           // B1: the server's hub answers these, and the file tools need a workspace; ekza-studio-mcp's
           // test/tools-files.test.ts checks their envelopes through the MCP client
           tool.group !== 'files' &&
-          !['projects_list', 'project_close'].includes(tool.name),
+          // editor_connect is answered by the server's bridge, never by a runtime (B2)
+          !['projects_list', 'project_close', 'editor_connect'].includes(tool.name),
       )
       .map((tool) => tool.name)
       .filter((name) => manifest.tools.some((tool) => tool.name === name));

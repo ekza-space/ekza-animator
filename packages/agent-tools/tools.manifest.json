@@ -1,6 +1,578 @@
 {
-  "hash": "27d09b19b1447ce1105c1ba398b25afc216d3689f8d2cbe3a50fce9a8dfc0986",
+  "hash": "772e2facb95d08cb872a50709c627a34759dcaffb93391cd62120df45a06420f",
   "tools": [
+    {
+      "access": "pairing",
+      "alwaysLoad": true,
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Connect to the user's open Ekza Studio editor with the pairing code the user gave you in this conversation. Only call it when the user gave you a code here (the editor shows it under Windows › Agent, e.g. K7Q-M4P); never guess or reuse one. It waits up to 50 s while the user allows the connection and picks what you may do (Read, Edit, Files, View). The result names the project handle (tab_…), the grants, and the editor's origin: tell the user the origin, and say so when it is not the editor address they expect.",
+      "group": "connection",
+      "hosts": [
+        "live"
+      ],
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "The pairing code the user read from Windows › Agent (K7Q-M4P or K7QM4P).",
+            "pattern": "^[A-HJKMNP-Z2-9]{3}-?[A-HJKMNP-Z2-9]{3}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "type": "object"
+      },
+      "name": "editor_connect",
+      "outputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "clip": {
+            "additionalProperties": false,
+            "properties": {
+              "character": {
+                "type": "string"
+              },
+              "fps": {
+                "type": "number"
+              },
+              "loop": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "rangeFrames": {
+                "items": false,
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              "revision": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "character",
+              "name",
+              "fps",
+              "rangeFrames",
+              "loop",
+              "revision"
+            ],
+            "type": "object"
+          },
+          "data": {
+            "additionalProperties": false,
+            "properties": {
+              "actor": {
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "type": "object"
+              },
+              "grants": {
+                "additionalProperties": false,
+                "properties": {
+                  "edit": {
+                    "type": "boolean"
+                  },
+                  "files": {
+                    "type": "boolean"
+                  },
+                  "read": {
+                    "const": true,
+                    "type": "boolean"
+                  },
+                  "view": {
+                    "type": "boolean"
+                  },
+                  "workspace": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "read",
+                  "edit",
+                  "files",
+                  "view",
+                  "workspace"
+                ],
+                "type": "object"
+              },
+              "origin": {
+                "type": "string"
+              },
+              "project": {
+                "type": "string"
+              },
+              "summary": {
+                "additionalProperties": false,
+                "properties": {
+                  "characters": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "clips": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "active": {
+                                "type": "boolean"
+                              },
+                              "fps": {
+                                "type": "number"
+                              },
+                              "id": {
+                                "type": "string"
+                              },
+                              "keyCount": {
+                                "type": "number"
+                              },
+                              "loop": {
+                                "type": "boolean"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "rangeFrames": {
+                                "items": false,
+                                "maxItems": 2,
+                                "minItems": 2,
+                                "prefixItems": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "number"
+                                  }
+                                ],
+                                "type": "array"
+                              },
+                              "revision": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "id",
+                              "fps",
+                              "rangeFrames",
+                              "loop",
+                              "keyCount",
+                              "revision",
+                              "active"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "format": {
+                          "enum": [
+                            "vrm0",
+                            "vrm1",
+                            "glb"
+                          ],
+                          "type": "string"
+                        },
+                        "heightM": {
+                          "type": "number"
+                        },
+                        "humanoid": {
+                          "type": "boolean"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "limbs": {
+                          "additionalProperties": {
+                            "enum": [
+                              "ik",
+                              "fk",
+                              "blend"
+                            ],
+                            "type": "string"
+                          },
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "type": "object"
+                        },
+                        "meta": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "allowRedistribution": {
+                              "type": "string"
+                            },
+                            "author": {
+                              "type": "string"
+                            },
+                            "license": {
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "title",
+                            "author",
+                            "license",
+                            "allowRedistribution"
+                          ],
+                          "type": "object"
+                        },
+                        "name": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "id",
+                        "format",
+                        "humanoid",
+                        "heightM",
+                        "limbs",
+                        "clips"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "history": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "actor": {
+                          "enum": [
+                            "this_agent",
+                            "other_agent",
+                            "user"
+                          ],
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "step": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "step",
+                        "label",
+                        "actor"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "host": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "fidelity": {
+                        "items": {
+                          "enum": [
+                            "shaded",
+                            "schematic"
+                          ],
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "files": {
+                        "items": {
+                          "enum": [
+                            "download",
+                            "workspace"
+                          ],
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "grants": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "edit": {
+                            "type": "boolean"
+                          },
+                          "files": {
+                            "type": "boolean"
+                          },
+                          "read": {
+                            "const": true,
+                            "type": "boolean"
+                          },
+                          "view": {
+                            "type": "boolean"
+                          },
+                          "workspace": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "read",
+                          "edit",
+                          "files",
+                          "view",
+                          "workspace"
+                        ],
+                        "type": "object"
+                      },
+                      "mode": {
+                        "enum": [
+                          "live",
+                          "headless"
+                        ],
+                        "type": "string"
+                      },
+                      "paused": {
+                        "type": "boolean"
+                      },
+                      "previewActive": {
+                        "type": "boolean"
+                      },
+                      "toolset": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "mode",
+                      "fidelity",
+                      "files",
+                      "grants",
+                      "paused",
+                      "toolset",
+                      "previewActive"
+                    ],
+                    "type": "object"
+                  },
+                  "project": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "dirty": {
+                        "type": "boolean"
+                      },
+                      "docVersion": {
+                        "type": "number"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "readOnly": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "dirty",
+                      "readOnly",
+                      "docVersion"
+                    ],
+                    "type": "object"
+                  },
+                  "user": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "activeCharacter": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "activeClip": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "band": {
+                        "anyOf": [
+                          {
+                            "items": false,
+                            "maxItems": 2,
+                            "minItems": 2,
+                            "prefixItems": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "number"
+                              }
+                            ],
+                            "type": "array"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "frame": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "overrides": {
+                        "type": "number"
+                      },
+                      "playing": {
+                        "type": "boolean"
+                      },
+                      "selection": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "channels": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "controls": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "keyCount": {
+                            "type": "number"
+                          },
+                          "keys": {
+                            "items": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "channel": {
+                                  "type": "string"
+                                },
+                                "control": {
+                                  "type": "string"
+                                },
+                                "frames": {
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "type": "array"
+                                }
+                              },
+                              "required": [
+                                "control",
+                                "channel",
+                                "frames"
+                              ],
+                              "type": "object"
+                            },
+                            "type": "array"
+                          },
+                          "truncated": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "controls",
+                          "keys",
+                          "keyCount",
+                          "truncated",
+                          "channels"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "activeCharacter",
+                      "activeClip",
+                      "frame",
+                      "playing",
+                      "band",
+                      "selection",
+                      "overrides"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "host",
+                  "project",
+                  "characters",
+                  "history"
+                ],
+                "type": "object"
+              },
+              "truncated": {
+                "description": "true when the runtime cut lists to fit the hard token cap (§5.5); narrow the call or page.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "project",
+              "grants",
+              "actor",
+              "origin",
+              "summary"
+            ],
+            "type": "object"
+          },
+          "next": {
+            "type": "string"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "undo": {
+            "additionalProperties": false,
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "step": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "step",
+              "label"
+            ],
+            "type": "object"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok",
+          "data"
+        ],
+        "type": "object"
+      },
+      "requiresUserInteraction": true,
+      "title": "Connect to the editor"
+    },
     {
       "access": "read",
       "alwaysLoad": false,
@@ -8988,5 +9560,5 @@
       "title": "Export clips"
     }
   ],
-  "toolset": "1.0.0-dev.b1.1"
+  "toolset": "1.0.0-mvp.1"
 }

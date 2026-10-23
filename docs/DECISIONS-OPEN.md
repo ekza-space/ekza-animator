@@ -1066,6 +1066,26 @@ section H on the `mcp/*` branches; `dev` had given H to the naming decision, so 
 | M-AI-B5-5 | Kept eager | The presence registry (synchronous `upsert` API, 0.5 kB), the runner's rule branches, the change-journal cap (a history unit test records `changes` without the kit), the doc store's restore host (a method over the store's private state) and the status pill with the Agent panel's lazy registration (B3's files) stay as ported: ≈ 2.2 kB together | Lazy presence: an async `upsert` or a race with the first tool call | phase C |
 | M-AI-B5-6 | check:size boundaries | New lazy boundaries `actor-scope`, `graph-bodies`, `pose-bodies`, `clip-bodies` (markers only their chunks contain): a later eager import of them fails the gate | — | — |
 
+
+#### B2 — live bridge (2026-10-23, [wp-notes/mai-b2.md](wp-notes/mai-b2.md))
+
+| ID | Decision | Default chosen | Impact if changed | Decide by |
+|---|---|---|---|---|
+| M-AI-B2-1 | `TabLink` seam | D0 never landed it; defined in `mcp-server/src/bridge/link.ts`; `hub.ts` gets `attachTabLink`/`tabLink()` and one routing line (`bridge/route.ts`); without `project` the paired tab wins | B1's router decides tab vs headless | B1 / INT |
+| M-AI-B2-2 | Session actions | `AgentSessionState` unchanged; `AgentSession` adds `select`, `cancel`, `accept`, `deny`, `setGrants`, `setPaused`, `answerConfirm` and an `extra` store (`claim: {client, cwdName}`, `ports`); slot API `agentSessionOf`/`loadAgentSession`/`onAgentSession` | — | B3 |
+| M-AI-B2-3 | Test API | `agentAct(action, grants?)` added; `maiTestApi(app, host)`; `ai-01-live` pairs through the session, not the grants dialog (B3) | Switch the spec to `agent-allow` clicks after B3 | INT |
+| M-AI-B2-4 | Hosted origin | `https://studio.ekza.io` compiled into the bridge's allow-list (not `DEFAULT_ALLOWED_ORIGINS`) | — | — |
+| M-AI-B2-5 | Toolset version | `1.0.0-dev.1` → `1.0.0-dev.2` (`editor_connect` ready) | INT sets `1.0.0-mvp.1` | INT |
+| M-AI-B2-6 | Resume | Cut: `resume` → `error unsupported`; any close ends the pairing; no result cache | Resume ≈ 1 day | phase C |
+| M-AI-B2-7 | Client name | Not wired on `mai/port`: `client: null`, actor "Agent" until B1 calls `hub.setClientInfo` on `initialize` | — | B1 |
+| M-AI-B2-8 | Workspace transfers | Through `TabFileHooks` from B1's sandbox (`startHubBridge(hub, {files})`); without them no pre-attachment, `writes` → `unsupported` | — | B1 |
+| M-AI-B2-9 | Lockout | The fifth wrong code answers `not_found`; claims during the lockout `busy` | — | — |
+| M-AI-B2-10 | `?agentPort=` outside e2e | Panel (B3); e2e connect-at-start lives in the lazy test-API chunk | — | B3 |
+| M-AI-B2-11 | Audit fields | `reverted` false, `beforeAgent` null (Restore cut), `show` from the actor's presence focus | — | B3 |
+| M-AI-B2-12 | `capture.shaded` | Advertised when a ViewportManager exists at session creation | — | B3 |
+| M-AI-B2-13 | Agent URL params | Moved to `test-api/agentParams.ts` (lazy-only; ≈ 370 B eager otherwise) | — | B3 imports from there |
+| M-AI-B2-14 | First-visit bytes | +164 B `/editor`, +169 B `/autorig` (Turbopack export registration of eager editor-core modules the lazy agent chunk imports); no B2 code eager | Part of the M-AI-MVP-2 decision | owner |
+
 ### N.9 Phase B — B1 server and headless (2026-10-23)
 
 Package B1 (`mai/b1-server`, MCP-SPEC §0.4.1 item 2 and 8): the hub's routing, headless projects, the workspace

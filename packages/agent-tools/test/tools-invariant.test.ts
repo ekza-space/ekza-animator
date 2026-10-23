@@ -253,6 +253,8 @@ describe('the session-state invariant (§5.7, §9.2)', () => {
       readyTools()
         .filter((tool) => tool.group !== 'files' && !['projects_list', 'project_close'].includes(tool.name))
         .map((tool) => tool.name)
+        // editor_connect is answered by the server's bridge, never by a runtime (B2)
+        .filter((name) => name !== 'editor_connect')
         .sort(),
     );
   });

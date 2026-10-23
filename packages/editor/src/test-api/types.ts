@@ -212,4 +212,10 @@ export interface EkzaStudioTestApi {
   } | null;
   /** M-AI: history steps (oldest first) with their actor ('user' or the agent's name). */
   historySteps(): { id: number; label: string; actor: string; undone: boolean }[];
+  /** M-AI (B2, M-AI-B2-3): acts on the agent session as the user would in the Agent panel — connect (loads the agent
+   *  chunk), the grants dialog's Allow (with `grants`) or Deny, Pause/Resume, the confirm card, Disconnect. */
+  agentAct(
+    action: 'connect' | 'accept' | 'deny' | 'pause' | 'resume' | 'allowConfirm' | 'denyConfirm' | 'disconnect',
+    grants?: { edit?: boolean; files?: boolean; view?: boolean; workspace?: boolean },
+  ): Promise<void>;
 }

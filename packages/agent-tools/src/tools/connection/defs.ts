@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { grantsOut, projectRef, sceneSummaryOut } from '../../schemas/common';
 import { AgentToolFailure } from '../../types';
 import { BUDGETS, defineTool } from '../define';
+import { runEditorConnect } from './editor_connect';
 
 /**
  * projects_list and project_close are answered by the server's hub (B1, MCP-SPEC §4.6): it owns the headless projects
@@ -54,6 +55,8 @@ export const editorConnect = defineTool({
   kind: 'read',
   budget: BUDGETS.summary,
   example: { code: 'K7Q-M4P' },
+  ready: true,
+  run: runEditorConnect,
 });
 
 export const projectsList = defineTool({

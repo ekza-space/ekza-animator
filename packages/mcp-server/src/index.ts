@@ -35,3 +35,9 @@ export {
   startMcpServer,
 } from './start';
 export { SERVER_NAME, SERVER_TITLE, SERVER_VERSION } from './version';
+// B2: the live bridge (MCP-SPEC §4.5, §5.10)
+export { startHubBridge } from './bridge/attach';
+export { checkUpgrade, HOSTED_EDITOR_ORIGIN, hostAllowed, originAllowed } from './bridge/checks';
+export { displayPairingCode, generatePairingCode, normalizePairingCode, PAIRING_ALPHABET } from './bridge/codes';
+export { imageSize, revalidateTabResult, TAB_IMAGE_LIMITS } from './bridge/results';
+export { BRIDGE_DEADLINES, type BridgeServer, type BridgeServerOptions, startBridgeServer } from './bridge/server';

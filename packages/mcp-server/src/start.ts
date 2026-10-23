@@ -7,7 +7,7 @@ import { serveStdio, StdioServerTransport } from '@modelcontextprotocol/server/s
 import { configWithDefaults, type McpServerConfig } from './config';
 import type { ConfirmPolicy } from './headless/host';
 import { type AgentHub, type AgentHubOptions, createAgentHub } from './hub/hub';
-import type { TabFileHooks } from './bridge/link';
+import { startHubBridge } from './bridge/attach';
 import { createTabFileHooks } from './files/tabHooks';
 import { createLogger, type Logger } from './log';
 import { createMcpServerFactory } from './mcp/server';
@@ -28,29 +28,17 @@ export interface RunningServer {
 }
 
 /**
- * Starts the live bridge and attaches it to the hub as its `TabLink`, with the workspace hooks of live calls
- * (`createTabFileHooks`, B2's `TabFileHooks`). B2's branch provides `startHubBridge(hub, {files})` in
- * ./bridge/attach.ts; INT replaces the dynamic lookup below with that call. Until then, or when every bridge port is
- * taken, the server runs headless (the live tools answer `not_connected`).
+ * Starts the live bridge (B2's `startHubBridge`) and attaches it to the hub as its `TabLink`, with the workspace hooks
+ * of live calls (`createTabFileHooks`) when the sandbox is on. When every bridge port is taken the server runs headless
+ * (the live tools answer `not_connected`).
  */
 async function startBridge(hub: AgentHub, log: Logger): Promise<number | null> {
   if (!hub.config.bridge.enabled) return null;
   const files = hub.sandbox.enabled ? createTabFileHooks(hub.sandbox) : undefined;
   try {
-    const loaded = (await import('./bridge/server')) as unknown as {
-      readonly startHubBridge?: (hub: AgentHub, extra?: { readonly files?: TabFileHooks }) => Promise<number | null>;
-    };
-    if (loaded.startHubBridge === undefined) {
-      log.debug('the editor bridge is not in this build: headless only');
-      return null;
-    }
-    return await loaded.startHubBridge(hub, files === undefined ? {} : { files });
+    return await startHubBridge(hub, files === undefined ? {} : { files });
   } catch (error) {
-    if (error instanceof EkzaError && error.code === 'not-implemented') {
-      log.debug('the editor bridge is not in this build: headless only');
-    } else {
-      log.warn(`the editor bridge is off: ${error instanceof Error ? error.message : String(error)}`);
-    }
+    log.warn(`the editor bridge is off: ${error instanceof Error ? error.message : String(error)}`);
     return null;
   }
 }

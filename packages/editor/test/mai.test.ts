@@ -10,7 +10,7 @@ import { AGENT_PANEL } from '../src/panels/agent';
 import { createPanelRegistry } from '../src/panels/registry';
 import { shellMenuItems } from '../src/shell/menuItems';
 import { historyStepsOf } from '../src/test-api/mai/history';
-import { parseAgentParams } from '../src/test-api/params';
+import { parseAgentParams } from '../src/test-api/agentParams';
 import { readSynthetic } from './render';
 
 const AGENT: RunActor = { kind: 'agent', id: 'agt_EditorTest001', name: 'Claude Code' };
