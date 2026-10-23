@@ -697,7 +697,7 @@ export function createTestApi(host: HostShell, opts: { readonly engine?: CurveEn
       if (result.status === 'cancelled') throw new EkzaError('unsupported', `flushAutosave: ${result.reason}`);
     },
     // M-AI (MCP-SPEC §4.9, §8.1): the slices of test-api/mai/*.ts.
-    ...maiTestApi(app),
+    ...maiTestApi(app, host),
   };
 
   // Every probe-backed read sees the pending once-per-frame updates too (the kernel-level reads call `sync` above).
