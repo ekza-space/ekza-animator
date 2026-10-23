@@ -30,6 +30,9 @@ export const TOOL_NOUNS = [
   'operator',
   'operators',
   'recipe',
+  // MCP-SPEC §0.4.4 (B4): the character setup tools
+  'model',
+  'library',
 ] as const;
 /** Unit suffixes of §5.2 (field names end with one of them, or are the unit word itself). */
 export const UNIT_SUFFIX = /(Deg|M|Cm|Mm|Factor|Percent|Frame|Frames|Seconds|Mps|DegPerFrame|Px)$/;

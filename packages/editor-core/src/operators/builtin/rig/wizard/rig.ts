@@ -22,7 +22,7 @@
 import { EkzaError } from '@ekza-studio/anim-core';
 import type { CharacterId, SkeletonId } from '@ekza-studio/doc';
 import type { AutoRigRigResult, EditorApp, PollResult } from '../../../../types';
-import { type AnyOperator, defineOperator, fail, isRecord, OK } from '../../define';
+import { type AnyOperator, defineOperator, fail, isRecord, OK, runContextOf } from '../../define';
 import { autoRigBlock, quickRigCommitArgs, quickRigOf } from '../quickRigSession';
 import { rigidPartBinds } from '../../../../rig/validation/limbs';
 import { type CompositionOutcome, type CompositionStep, runComposition } from './compose';
@@ -72,7 +72,10 @@ const rig = defineOperator<'autorig.rig', AutoRigRigResult>({
     const block = autoRigBlock(state);
     return block === null ? OK : fail(block);
   },
-  async prepare({ app }, args): Promise<AutoRigRigResult> {
+  async prepare(ctx, args): Promise<AutoRigRigResult> {
+    const { app } = ctx;
+    // M-AI (MCP-SPEC §0.4.4): every inner run carries this run's context (an agent's actor, signal and access).
+    const context = runContextOf(ctx);
     const state = quickRigOf(app);
     if (state === null) throw new EkzaError('op-refused', NO_MARKERS);
     const block = autoRigBlock(state);
@@ -134,7 +137,7 @@ const rig = defineOperator<'autorig.rig', AutoRigRigResult>({
     busy();
     let result: AutoRigRigResult;
     try {
-      const outcome = await runComposition(app, steps, { alive });
+      const outcome = await runComposition(app, steps, { alive, context });
       if (outcome.status !== 'finished') fail(outcome);
       const value = (outcome as Extract<CompositionOutcome, { status: 'finished' }>).values[0] as {
         readonly character: CharacterId;
@@ -150,7 +153,7 @@ const rig = defineOperator<'autorig.rig', AutoRigRigResult>({
         });
       }
       if (rest.length > 0) {
-        const more = await runComposition(app, rest, { alive });
+        const more = await runComposition(app, rest, { alive, context });
         if (more.status !== 'finished') fail(more);
       }
       result = { character: value.character, skeleton: value.skeleton, straightened: straighten };

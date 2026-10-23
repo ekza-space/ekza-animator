@@ -159,6 +159,28 @@ function reviewPlan(args: Readonly<Record<string, string>>): string {
   );
 }
 
+/** MCP-SPEC §0.4.4 (B4): "rig this model and add a walk" — the Auto-Rig wizard's steps through the setup tools. */
+function rigAndAnimatePlan(args: Readonly<Record<string, string>>): string {
+  const clip = planWord(args['clip'], 'walk').toLowerCase();
+  const author = planWord(args['author'], '');
+  const license = planWord(args['license'], '').toLowerCase();
+  const meta =
+    author === '' || !['cc0', 'cc-by-4.0', 'personal'].includes(license)
+      ? 'meta: {authors: [the author], license: cc0 | cc-by-4.0 | personal} — ask the user for the author and the licence first'
+      : `meta: {authors: ["${author}"], license: "${license}"}`;
+  return lines(
+    `Rig the static model in the scene and add the library clip ${clip}, then export a VRM.`,
+    "The steps are the Auto-Rig wizard's; every tool reports what to call next.",
+    '1. model_inspect — the checks, the pose (T or A) and the fixes in order; readyToRig says the rig will accept it.',
+    `2. history_checkpoint {label: "Rig and add ${clip}"}.`,
+    '3. model_fix {fix} for each fix model_inspect listed, in its order (scale with heightM 1.7 when the size is off: the rig refuses outside 0.3–3 m).',
+    '4. rig_create {} — the guess places the markers; an A-pose is straightened to a T-pose. When it says the arms were not found, pass markers shoulder, elbow and wrist of the right arm (x < 0) in metres. Note the character it names.',
+    `5. library_list — find the clip; then library_use {character, clip: "${clip}"} (inPlace: true for a treadmill cycle). Pass that clip on any later edit.`,
+    `6. project_export {character, kind: "vrm", ${meta}}. Report its lints and read-back (humanoid bones).`,
+    PLAN_CLOSE,
+  );
+}
+
 export const PROMPTS: readonly PromptDef[] = [
   {
     name: 'wave',
@@ -256,5 +278,26 @@ export const PROMPTS: readonly PromptDef[] = [
     tools: ['scene_summary', 'analyze_contacts', 'analyze_loop', 'analyze_motion', 'view_capture'],
     grader: 'read-only',
     plan: reviewPlan,
+  },
+  {
+    name: 'rig_and_animate',
+    title: 'Rig and animate a model',
+    description: 'Rig the static model in the scene like Auto-Rig, add a library clip (walk) and export a VRM.',
+    arguments: [
+      arg('clip', 'library clip id (default walk)'),
+      arg('author', 'author saved in the VRM'),
+      arg('license', 'cc0, cc-by-4.0 or personal'),
+    ],
+    tools: [
+      'model_inspect',
+      'history_checkpoint',
+      'model_fix',
+      'rig_create',
+      'library_list',
+      'library_use',
+      'project_export',
+    ],
+    grader: 'AE-R1',
+    plan: rigAndAnimatePlan,
   },
 ];

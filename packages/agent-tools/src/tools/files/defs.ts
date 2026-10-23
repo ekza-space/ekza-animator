@@ -1,6 +1,7 @@
 // File tools (MCP-SPEC §6.10, §5.18, tools 33–36; D0 schemas, B1 runs, MCP-SPEC §0.4.4 kinds). The runs live in
 // ./run.ts; headless the server's hub opens projects and routes the rest by `project`.
 import { z } from 'zod';
+import { modelReportOut } from '../setup/common';
 import { characterRef, clipRef, confirmFlag, exactlyOne, projectRef, sceneSummaryOut } from '../../schemas/common';
 import type { AgentHostMode, ExtraGrant } from '../../types';
 import { BUDGETS, defineTool } from '../define';
@@ -71,38 +72,6 @@ export const projectOpen = defineTool({
   run: (ctx, args) => projectOpenRun(ctx, args),
 });
 
-/**
- * The model report of a static-model import, as the character setup module answers it (B4's `modelReportOut` in
- * `tools/setup/common.ts`, field for field: M-AI-B1-6; INT imports it from there instead of this copy).
- */
-const modelOut = z.object({
-  kind: z.string().describe('static, project, vrm, rigged-humanoid or rigged-other'),
-  fileName: z.string().nullable(),
-  meshes: z.array(z.string()),
-  triangles: z.number(),
-  heightM: z.number(),
-  textured: z.boolean(),
-  weight: z.enum(['light', 'medium', 'heavy', 'too-heavy']),
-  pose: z.enum(['t_pose', 'a_pose', 'unknown']),
-  armAngleDeg: z.number().nullable(),
-  checks: z.object({
-    centered: z.boolean(),
-    grounded: z.boolean(),
-    facingForward: z.boolean(),
-    upright: z.boolean(),
-    scaleOk: z.boolean(),
-    armsFound: z.boolean(),
-  }),
-  fixes: z.array(
-    z.object({
-      check: z.string(),
-      fix: z.enum(['center', 'face_forward', 'stand_up', 'scale', 'freeze']),
-      hint: z.string(),
-    }),
-  ),
-  problems: z.array(z.string()),
-  readyToRig: z.boolean(),
-});
 /** The static-model kinds of project_import (the setup hook's): an Auto-Rig sample or a .glb path, live it selects
  *  the new meshes (View) and a path needs Edit too (B4's `importExtraGrants`). */
 const STATIC_SAMPLE_IDS: readonly string[] = ['cube_lad', 'polybot_tpose', 'polybot_apose'];
@@ -147,7 +116,7 @@ export const projectImport = defineTool({
     character: z.string().nullable(),
     clips: z.array(z.string()),
     warnings: z.array(z.string()),
-    model: modelOut.nullable().describe('The model report of a static model; null for characters and clips.'),
+    model: modelReportOut.nullable().describe('The model report of a static model; null for characters and clips.'),
   }),
   annotations: { readOnly: false, destructive: false, idempotent: false },
   access: (args: { readonly path?: string | undefined }) => (args.path === undefined ? 'edit' : 'files'),

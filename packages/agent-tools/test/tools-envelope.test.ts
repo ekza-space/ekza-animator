@@ -83,6 +83,8 @@ describe('success envelopes against the manifest (§5.3, §5.21)', () => {
       .filter(
         (tool) =>
           tool.ready &&
+          // the setup tools need a static model: setup-tools.test.ts validates their envelopes (§0.4.4, B4)
+          tool.group !== 'setup' &&
           !['keys_tween', 'curves_set_interpolation', 'curves_euler_filter'].includes(tool.name) &&
           // B1: the server's hub answers these, and the file tools need a workspace; ekza-studio-mcp's
           // test/tools-files.test.ts checks their envelopes through the MCP client

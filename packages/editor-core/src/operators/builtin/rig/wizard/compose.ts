@@ -3,7 +3,7 @@
 // operators with — from its `prepare` (the runner refuses runs only inside `apply`, `nested-run`), one after the
 // other, each recording its own undo step, stopping at the first failure and when the history changes under it
 // (§4.5 "Exclusivity": an undo, a palette or MCP-bridge run between the inner runs).
-import type { EditorApp } from '../../../../types';
+import type { EditorApp, RunContext } from '../../../../types';
 import type { OperatorMap } from '../../../args';
 import type { AnyOperator } from '../../define';
 import { stubOperator } from '../../stub';
@@ -57,11 +57,15 @@ const topId = (app: EditorApp): number | null => app.history.peekUndo()?.id ?? n
  * ran since the composition started (the registry's `onBeforeDocumentRun` hook), and that `opts.alive()` holds (the
  * subject still exists); otherwise it stops with `interrupted`. A step that does not finish stops it with `failed`.
  * Never writes the store itself and records no history step of its own.
+ *
+ * M-AI (MCP-SPEC §0.4.4): `opts.context` is the composition's own run context (`runContextOf(ctx)`), forwarded to
+ * every inner run, so under an actor each inner step is its own `AI: …` step, attributed and checked like its parent
+ * (runner rules 2, 3, 6), and the agent's signal stops the composition between its steps.
  */
 export async function runComposition(
   app: EditorApp,
   steps: readonly CompositionStep[],
-  opts: { readonly alive?: () => boolean } = {},
+  opts: { readonly alive?: () => boolean; readonly context?: RunContext } = {},
 ): Promise<CompositionOutcome> {
   let navigated = false;
   const off = app.operators.onBeforeDocumentRun((id) => {
@@ -77,7 +81,7 @@ export async function runComposition(
       }
       const args =
         typeof step.args === 'function' ? (step.args as (v: readonly unknown[]) => unknown)([...values]) : step.args;
-      const result = await app.runUntyped(step.id, args);
+      const result = await app.runUntyped(step.id, args, opts.context);
       if (result.status === 'cancelled') {
         return { status: 'failed', step: index, id: step.id, code: 'cancelled', message: result.reason };
       }

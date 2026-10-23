@@ -4,7 +4,7 @@
 // reference script that must pass and known-bad scripts that must fail (grader integrity, §9.3.2).
 import { promises as fsp } from 'node:fs';
 import { join } from 'node:path';
-import { isClean } from '@ekza-studio/agent-tools';
+import { isClean, rigAndAnimateScript } from '@ekza-studio/agent-tools';
 import { createHeadlessEditorApp, type ImportResult } from '@ekza-studio/editor-core';
 import type { Agent } from '../drivers/scripted';
 import { charactersReady, type FixtureApp, userClip, userKeys, type UserKey } from '../fixtures/project';
@@ -304,23 +304,11 @@ export const AER1: Task = {
   prompt: 'Rig the model in my scene and add a walk, then export a VRM.',
   sample: null,
   needs: ['model_inspect', 'model_fix', 'rig_create', 'library_list', 'library_use'],
-  // The calls of B4's `rigAndAnimateScript` (agent-tools/test/setup-support.ts, the rig_and_animate prompt's reference);
-  // TODO(INT): call that script here once B4's test helpers are importable, so the two cannot drift.
+  // the rig_and_animate prompt's reference script (agent-tools `rigAndAnimateScript`, shared with B4's setup tests)
   async reference(agent) {
-    await agent.ok('project_import', { sample: 'polybot_tpose' });
-    const report = await agent.ok<{ fixes: { fix: string }[] }>('model_inspect');
-    await agent.ok('history_checkpoint', { label: 'Rig and add walk' });
-    for (const { fix } of report.fixes) {
-      await agent.ok('model_fix', fix === 'scale' ? { fix, heightM: 1.7 } : { fix });
-    }
-    const rig = await agent.ok<{ character: string }>('rig_create');
-    const library = await agent.ok<{ clips: { id: string }[] }>('library_list');
-    if (!library.clips.some((entry) => entry.id === 'walk')) throw new Error('no library clip walk');
-    await agent.ok('library_use', { character: rig.character, clip: 'walk' });
-    await agent.ok('project_export', {
-      character: rig.character,
-      kind: 'vrm',
-      meta: { authors: ['Ekza Studio evals'], license: 'cc0' },
+    await rigAndAnimateScript((name, args) => agent.call(name, args as Record<string, unknown>) as never, {
+      sample: 'polybot_tpose',
+      author: 'Ekza Studio evals',
     });
   },
   adversarial: [

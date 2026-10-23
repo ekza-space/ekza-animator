@@ -1,5 +1,5 @@
 {
-  "hash": "62c80d4f7a221fae1cc81ad7e325ee2324480501217135e5aeacf140a0469990",
+  "hash": "96e5c15a9e6c655d308d74e9f502e0c59a473ba5e56b13376c05e4132de95e9e",
   "tools": [
     {
       "access": "pairing",
@@ -9970,6 +9970,1242 @@
       },
       "requiresUserInteraction": false,
       "title": "Export clips"
+    },
+    {
+      "access": "read",
+      "alwaysLoad": false,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Check a static model in the scene before rigging it: height, triangles, pose (T or A) and whether it is centred, grounded, facing +Z, upright, 0.3–3 m tall and has arms the guess can find. fixes lists the model_fix calls to make, in order; readyToRig says rig_create will accept it. Changes nothing.",
+      "group": "setup",
+      "hosts": [
+        "live",
+        "headless"
+      ],
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "meshes": {
+            "description": "Scene meshes of the model by name or id (default: every scene mesh, i.e. the whole model).",
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "type": "array"
+          },
+          "project": {
+            "description": "Project handle (tab_… for the paired editor tab, prj_… for a headless project); omit when one is open.",
+            "pattern": "^(tab|prj)_[0-9A-Za-z]{12}$",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "name": "model_inspect",
+      "outputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "clip": {
+            "additionalProperties": false,
+            "properties": {
+              "character": {
+                "type": "string"
+              },
+              "fps": {
+                "type": "number"
+              },
+              "loop": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "rangeFrames": {
+                "items": false,
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              "revision": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "character",
+              "name",
+              "fps",
+              "rangeFrames",
+              "loop",
+              "revision"
+            ],
+            "type": "object"
+          },
+          "data": {
+            "additionalProperties": false,
+            "properties": {
+              "armAngleDeg": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "checks": {
+                "additionalProperties": false,
+                "properties": {
+                  "armsFound": {
+                    "type": "boolean"
+                  },
+                  "centered": {
+                    "type": "boolean"
+                  },
+                  "facingForward": {
+                    "type": "boolean"
+                  },
+                  "grounded": {
+                    "type": "boolean"
+                  },
+                  "scaleOk": {
+                    "type": "boolean"
+                  },
+                  "upright": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "centered",
+                  "grounded",
+                  "facingForward",
+                  "upright",
+                  "scaleOk",
+                  "armsFound"
+                ],
+                "type": "object"
+              },
+              "fileName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "fixes": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "check": {
+                      "type": "string"
+                    },
+                    "fix": {
+                      "enum": [
+                        "center",
+                        "face_forward",
+                        "stand_up",
+                        "scale",
+                        "freeze"
+                      ],
+                      "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "check",
+                    "fix",
+                    "hint"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "heightM": {
+                "type": "number"
+              },
+              "kind": {
+                "description": "static, project, vrm, rigged-humanoid or rigged-other",
+                "type": "string"
+              },
+              "meshes": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "pose": {
+                "enum": [
+                  "t_pose",
+                  "a_pose",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              "problems": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "readyToRig": {
+                "type": "boolean"
+              },
+              "textured": {
+                "type": "boolean"
+              },
+              "triangles": {
+                "type": "number"
+              },
+              "truncated": {
+                "description": "true when the runtime cut lists to fit the hard token cap (§5.5); narrow the call or page.",
+                "type": "boolean"
+              },
+              "weight": {
+                "enum": [
+                  "light",
+                  "medium",
+                  "heavy",
+                  "too-heavy"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "fileName",
+              "meshes",
+              "triangles",
+              "heightM",
+              "textured",
+              "weight",
+              "pose",
+              "armAngleDeg",
+              "checks",
+              "fixes",
+              "problems",
+              "readyToRig"
+            ],
+            "type": "object"
+          },
+          "next": {
+            "type": "string"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "undo": {
+            "additionalProperties": false,
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "step": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "step",
+              "label"
+            ],
+            "type": "object"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok",
+          "data"
+        ],
+        "type": "object"
+      },
+      "requiresUserInteraction": false,
+      "title": "Inspect a model for rigging"
+    },
+    {
+      "access": "edit",
+      "alwaysLoad": false,
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Apply one Auto-Rig fix to the model (one undo step) and return the inspection again. center: centre on the origin and stand on the ground; face_forward: turn to face +Z; stand_up: turn a model lying down upright; scale: uniform scale to heightM (default 1.7, 0.3–3 m; the rig refuses other heights); freeze: bake rotation and scale into the mesh. Apply the fixes model_inspect lists, in its order.",
+      "group": "setup",
+      "hosts": [
+        "live",
+        "headless"
+      ],
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "fix": {
+            "description": "center, face_forward, stand_up, scale or freeze.",
+            "enum": [
+              "center",
+              "face_forward",
+              "stand_up",
+              "scale",
+              "freeze"
+            ],
+            "type": "string"
+          },
+          "heightM": {
+            "description": "With scale: the new height in metres (default 1.7).",
+            "maximum": 3,
+            "minimum": 0.3,
+            "type": "number"
+          },
+          "meshes": {
+            "description": "Scene meshes of the model by name or id (default: every scene mesh, i.e. the whole model).",
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "type": "array"
+          },
+          "project": {
+            "description": "Project handle (tab_… for the paired editor tab, prj_… for a headless project); omit when one is open.",
+            "pattern": "^(tab|prj)_[0-9A-Za-z]{12}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fix"
+        ],
+        "type": "object"
+      },
+      "name": "model_fix",
+      "outputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "clip": {
+            "additionalProperties": false,
+            "properties": {
+              "character": {
+                "type": "string"
+              },
+              "fps": {
+                "type": "number"
+              },
+              "loop": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "rangeFrames": {
+                "items": false,
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              "revision": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "character",
+              "name",
+              "fps",
+              "rangeFrames",
+              "loop",
+              "revision"
+            ],
+            "type": "object"
+          },
+          "data": {
+            "additionalProperties": false,
+            "properties": {
+              "armAngleDeg": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "checks": {
+                "additionalProperties": false,
+                "properties": {
+                  "armsFound": {
+                    "type": "boolean"
+                  },
+                  "centered": {
+                    "type": "boolean"
+                  },
+                  "facingForward": {
+                    "type": "boolean"
+                  },
+                  "grounded": {
+                    "type": "boolean"
+                  },
+                  "scaleOk": {
+                    "type": "boolean"
+                  },
+                  "upright": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "centered",
+                  "grounded",
+                  "facingForward",
+                  "upright",
+                  "scaleOk",
+                  "armsFound"
+                ],
+                "type": "object"
+              },
+              "fileName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "fixes": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "check": {
+                      "type": "string"
+                    },
+                    "fix": {
+                      "enum": [
+                        "center",
+                        "face_forward",
+                        "stand_up",
+                        "scale",
+                        "freeze"
+                      ],
+                      "type": "string"
+                    },
+                    "hint": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "check",
+                    "fix",
+                    "hint"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "heightM": {
+                "type": "number"
+              },
+              "kind": {
+                "description": "static, project, vrm, rigged-humanoid or rigged-other",
+                "type": "string"
+              },
+              "meshes": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "pose": {
+                "enum": [
+                  "t_pose",
+                  "a_pose",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              "problems": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "readyToRig": {
+                "type": "boolean"
+              },
+              "textured": {
+                "type": "boolean"
+              },
+              "triangles": {
+                "type": "number"
+              },
+              "truncated": {
+                "description": "true when the runtime cut lists to fit the hard token cap (§5.5); narrow the call or page.",
+                "type": "boolean"
+              },
+              "weight": {
+                "enum": [
+                  "light",
+                  "medium",
+                  "heavy",
+                  "too-heavy"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "fileName",
+              "meshes",
+              "triangles",
+              "heightM",
+              "textured",
+              "weight",
+              "pose",
+              "armAngleDeg",
+              "checks",
+              "fixes",
+              "problems",
+              "readyToRig"
+            ],
+            "type": "object"
+          },
+          "next": {
+            "type": "string"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "undo": {
+            "additionalProperties": false,
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "step": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "step",
+              "label"
+            ],
+            "type": "object"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok",
+          "data"
+        ],
+        "type": "object"
+      },
+      "requiresUserInteraction": false,
+      "title": "Fix a model for rigging"
+    },
+    {
+      "access": "by_argument",
+      "alwaysLoad": true,
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Rig a static humanoid model the way Auto-Rig does: place the Quick Rig markers (One-Click guess, or your markers), create the VRM skeleton, bind the skin and, for an A-pose, straighten it to a T-pose (2–3 undo steps, each AI: …). The model must pass model_inspect first: centred, grounded, facing +Z and 0.3–3 m tall (else model_fix). When the guess finds no arms, pass markers shoulder, elbow and wrist of the right arm. Markers are metres in character space (+Y up, +Z forward, +X the character's left): centre markers sit on x = 0, side markers on the character's right side (x < 0). rigidParts binds separate parts rigidly (default on for a model of several meshes). In the user's editor it needs the Edit and View grants and the user confirms; the new character becomes the active, selected one (as in Auto-Rig) and the playhead stays. The result names the new character and the Validation rows of the VRM profile.",
+      "group": "setup",
+      "hosts": [
+        "live",
+        "headless"
+      ],
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "markers": {
+            "description": "Markers to place after the guess (omit to use the guess as it is).",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "description": "Marker: headTop, chin, pelvis, shoulder, elbow, wrist, knee, ankle, toe.",
+                  "enum": [
+                    "headTop",
+                    "chin",
+                    "pelvis",
+                    "shoulder",
+                    "elbow",
+                    "wrist",
+                    "knee",
+                    "ankle",
+                    "toe"
+                  ],
+                  "type": "string"
+                },
+                "positionM": {
+                  "description": "Position [x, y, z] in metres, character space (side markers on the character's right side, x < 0).",
+                  "items": false,
+                  "maxItems": 3,
+                  "minItems": 3,
+                  "prefixItems": [
+                    {
+                      "description": "x",
+                      "maximum": 10,
+                      "minimum": -10,
+                      "type": "number"
+                    },
+                    {
+                      "description": "y",
+                      "maximum": 10,
+                      "minimum": -10,
+                      "type": "number"
+                    },
+                    {
+                      "description": "z",
+                      "maximum": 10,
+                      "minimum": -10,
+                      "type": "number"
+                    }
+                  ],
+                  "type": "array"
+                }
+              },
+              "required": [
+                "name",
+                "positionM"
+              ],
+              "type": "object"
+            },
+            "maxItems": 9,
+            "minItems": 1,
+            "type": "array"
+          },
+          "meshes": {
+            "description": "Scene meshes of the model by name or id (default: every scene mesh, i.e. the whole model).",
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "type": "array"
+          },
+          "preset": {
+            "description": "Skeleton: standard (33 joints, mitten hands; default) or standard_fingers (52, every finger).",
+            "enum": [
+              "standard",
+              "standard_fingers"
+            ],
+            "type": "string"
+          },
+          "project": {
+            "description": "Project handle (tab_… for the paired editor tab, prj_… for a headless project); omit when one is open.",
+            "pattern": "^(tab|prj)_[0-9A-Za-z]{12}$",
+            "type": "string"
+          },
+          "rigidParts": {
+            "description": "Separate parts move rigidly with their limb (default: true for several meshes).",
+            "type": "boolean"
+          },
+          "straightenToTPose": {
+            "description": "Straighten an A-posed model to a T-pose rest (default: true when the arms hang over 5°).",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "name": "rig_create",
+      "outputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "clip": {
+            "additionalProperties": false,
+            "properties": {
+              "character": {
+                "type": "string"
+              },
+              "fps": {
+                "type": "number"
+              },
+              "loop": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "rangeFrames": {
+                "items": false,
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              "revision": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "character",
+              "name",
+              "fps",
+              "rangeFrames",
+              "loop",
+              "revision"
+            ],
+            "type": "object"
+          },
+          "data": {
+            "additionalProperties": false,
+            "properties": {
+              "character": {
+                "type": "string"
+              },
+              "joints": {
+                "type": "number"
+              },
+              "skeleton": {
+                "type": "string"
+              },
+              "steps": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "straightened": {
+                "type": "boolean"
+              },
+              "truncated": {
+                "description": "true when the runtime cut lists to fit the hard token cap (§5.5); narrow the call or page.",
+                "type": "boolean"
+              },
+              "validation": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "count": {
+                      "type": "number"
+                    },
+                    "severity": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "severity",
+                    "count"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "character",
+              "skeleton",
+              "straightened",
+              "joints",
+              "steps",
+              "validation"
+            ],
+            "type": "object"
+          },
+          "next": {
+            "type": "string"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "undo": {
+            "additionalProperties": false,
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "step": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "step",
+              "label"
+            ],
+            "type": "object"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok",
+          "data"
+        ],
+        "type": "object"
+      },
+      "requiresUserInteraction": false,
+      "title": "Rig a model"
+    },
+    {
+      "access": "read",
+      "alwaysLoad": false,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "List the clips of the starter animation library (CC0, Quaternius): id, label, loop, length and what each is for. Add one to a rigged character with library_use.",
+      "group": "setup",
+      "hosts": [
+        "live",
+        "headless"
+      ],
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "project": {
+            "description": "Project handle (tab_… for the paired editor tab, prj_… for a headless project); omit when one is open.",
+            "pattern": "^(tab|prj)_[0-9A-Za-z]{12}$",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "name": "library_list",
+      "outputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "clip": {
+            "additionalProperties": false,
+            "properties": {
+              "character": {
+                "type": "string"
+              },
+              "fps": {
+                "type": "number"
+              },
+              "loop": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "rangeFrames": {
+                "items": false,
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              "revision": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "character",
+              "name",
+              "fps",
+              "rangeFrames",
+              "loop",
+              "revision"
+            ],
+            "type": "object"
+          },
+          "data": {
+            "additionalProperties": false,
+            "properties": {
+              "clips": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "loop": {
+                      "type": "boolean"
+                    },
+                    "seconds": {
+                      "type": "number"
+                    },
+                    "slot": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "use": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "label",
+                    "loop",
+                    "seconds",
+                    "slot",
+                    "use"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "credit": {
+                "type": "string"
+              },
+              "license": {
+                "type": "string"
+              },
+              "truncated": {
+                "description": "true when the runtime cut lists to fit the hard token cap (§5.5); narrow the call or page.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "clips",
+              "license",
+              "credit"
+            ],
+            "type": "object"
+          },
+          "next": {
+            "type": "string"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "undo": {
+            "additionalProperties": false,
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "step": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "step",
+              "label"
+            ],
+            "type": "object"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok",
+          "data"
+        ],
+        "type": "object"
+      },
+      "requiresUserInteraction": false,
+      "title": "List library clips"
+    },
+    {
+      "access": "edit",
+      "alwaysLoad": false,
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Add a starter library clip (walk, idle, run, …) to a rigged humanoid character as a new editable clip, with the Auto-Rig parameters: speedFactor (0.25–3), mirror, inPlace (no root travel), armSpaceDeg (−10…30, arms further from the body), trimSeconds [start, end] of the source. One undo step (Use Clip); name renames it (one more step); replace swaps an existing clip keeping its name and slot. In the user's editor the clip stays out of their view; pass clip on later edits.",
+      "group": "setup",
+      "hosts": [
+        "live",
+        "headless"
+      ],
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "armSpaceDeg": {
+            "description": "Upper-arm spread offset in degrees (default 0).",
+            "maximum": 30,
+            "minimum": -10,
+            "type": "number"
+          },
+          "character": {
+            "description": "Character name (case-insensitive) or id; omit when the project has one character.",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "clip": {
+            "description": "Library clip id (library_list).",
+            "enum": [
+              "idle",
+              "walk",
+              "run",
+              "jog",
+              "sword-attack",
+              "punch",
+              "cast",
+              "hit",
+              "death",
+              "dance",
+              "pistol-shoot",
+              "jump-start",
+              "jump-loop",
+              "jump-land"
+            ],
+            "type": "string"
+          },
+          "inPlace": {
+            "description": "Remove the root travel (a treadmill walk).",
+            "type": "boolean"
+          },
+          "mirror": {
+            "description": "Mirror left and right.",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "Name of the new clip (default: the library label, made unique).",
+            "pattern": "^[A-Za-z0-9 _.-]{1,64}$",
+            "type": "string"
+          },
+          "project": {
+            "description": "Project handle (tab_… for the paired editor tab, prj_… for a headless project); omit when one is open.",
+            "pattern": "^(tab|prj)_[0-9A-Za-z]{12}$",
+            "type": "string"
+          },
+          "replace": {
+            "description": "A clip of the character to replace (keeps its name and slot).",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "speedFactor": {
+            "description": "Playback speed factor (default 1).",
+            "maximum": 3,
+            "minimum": 0.25,
+            "type": "number"
+          },
+          "trimSeconds": {
+            "description": "Use only [start, end] seconds of the source clip.",
+            "items": false,
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "description": "start",
+                "maximum": 600,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "description": "end",
+                "maximum": 600,
+                "minimum": 0,
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          }
+        },
+        "required": [
+          "clip"
+        ],
+        "type": "object"
+      },
+      "name": "library_use",
+      "outputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "clip": {
+            "additionalProperties": false,
+            "properties": {
+              "character": {
+                "type": "string"
+              },
+              "fps": {
+                "type": "number"
+              },
+              "loop": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "rangeFrames": {
+                "items": false,
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              "revision": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "character",
+              "name",
+              "fps",
+              "rangeFrames",
+              "loop",
+              "revision"
+            ],
+            "type": "object"
+          },
+          "data": {
+            "additionalProperties": false,
+            "properties": {
+              "activated": {
+                "type": "boolean"
+              },
+              "clip": {
+                "type": "string"
+              },
+              "fps": {
+                "type": "number"
+              },
+              "loop": {
+                "type": "boolean"
+              },
+              "rangeFrames": {
+                "items": false,
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              "source": {
+                "type": "string"
+              },
+              "truncated": {
+                "description": "true when the runtime cut lists to fit the hard token cap (§5.5); narrow the call or page.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "clip",
+              "source",
+              "fps",
+              "rangeFrames",
+              "loop",
+              "activated"
+            ],
+            "type": "object"
+          },
+          "next": {
+            "type": "string"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "undo": {
+            "additionalProperties": false,
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "step": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "step",
+              "label"
+            ],
+            "type": "object"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok",
+          "data"
+        ],
+        "type": "object"
+      },
+      "requiresUserInteraction": false,
+      "title": "Add a library clip"
     }
   ],
   "toolset": "1.0.0-mvp.1"

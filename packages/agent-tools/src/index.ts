@@ -170,3 +170,14 @@ export {
   tileRect,
   visualTokens,
 } from './tools/view/sheet';
+// character setup tools (MCP-SPEC §0.4.4; B4): the file hooks B1's project_import/project_export call
+export {
+  readBackModel,
+  SETUP_EXPORT,
+  SETUP_EXPORT_KINDS,
+  SETUP_IMPORT,
+  SETUP_SAMPLE_FILES,
+  SETUP_SAMPLES,
+} from './tools/setup/files';
+export { SETUP_TOOL_COUNT } from './tools/catalogue';
+export { type RigAndAnimateCall, type RigAndAnimateOptions, rigAndAnimateScript } from './text/rigAndAnimate';

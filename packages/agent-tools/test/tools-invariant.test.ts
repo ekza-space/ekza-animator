@@ -251,7 +251,11 @@ describe('the session-state invariant (§5.7, §9.2)', () => {
     // B1: the hub's tools and the file tools are drawn by ekza-studio-mcp's invariant test (they need a server)
     expect([...DRAWN].sort()).toEqual(
       readyTools()
-        .filter((tool) => tool.group !== 'files' && !['projects_list', 'project_close'].includes(tool.name))
+        .filter(
+          (tool) =>
+            tool.group !== 'files' && tool.group !== 'setup' && !['projects_list', 'project_close'].includes(tool.name),
+        )
+        // the setup tools need a static model and the clip library: setup-tools.test.ts checks their session rules
         .map((tool) => tool.name)
         // editor_connect is answered by the server's bridge, never by a runtime (B2)
         .filter((name) => name !== 'editor_connect')

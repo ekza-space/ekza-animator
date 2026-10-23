@@ -32,7 +32,8 @@ export type ToolGroup =
   | 'history'
   | 'files'
   | 'operators'
-  | 'recipes'; // catalogue order (§6)
+  | 'recipes'
+  | 'setup'; // catalogue order (§6); 'setup' = the character setup tools of MCP-SPEC §0.4.4 (B4)
 export type HostCapability =
   | 'capture.shaded'
   | 'capture.schematic' // fidelities
