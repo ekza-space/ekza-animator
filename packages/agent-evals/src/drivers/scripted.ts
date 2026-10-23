@@ -68,7 +68,7 @@ export async function evalSession(opts: EvalSessionOptions = {}): Promise<EvalSe
   });
   const client = new Client(
     { name: 'agent-evals', version: '1.0.0' },
-    opts.era === 'modern' ? { versionNegotiation: { mode: { pin: '2026-07-28' } } as never } : {},
+    opts.era === 'modern' ? { versionNegotiation: { mode: { pin: '2026-07-28' } } } : {},
   );
   await client.connect(server.clientTransport);
   const tools = (await client.listTools()).tools.map((tool) => tool.name);
@@ -79,7 +79,8 @@ export async function evalSession(opts: EvalSessionOptions = {}): Promise<EvalSe
       const text = (result.content as { readonly text?: string }[])[0]?.text ?? '{}';
       return JSON.parse(text) as Envelope;
     }
-    return result.structuredContent as unknown as Envelope;
+    const structured: unknown = result.structuredContent;
+    return structured as Envelope;
   };
   const agent: Agent = {
     tools,

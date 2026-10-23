@@ -95,7 +95,7 @@ export function createHeadlessProjectManager(opts: HeadlessProjectManagerOptions
   };
   const sweep = (): void => {
     const at = now();
-    for (const project of [...projects.values()]) {
+    for (const project of projects.values()) {
       if (project.running > 0 || at - project.lastCallAt < opts.idleMs) continue;
       const dirty = isDirty(project.app);
       dispose(project);
@@ -194,7 +194,7 @@ export function createHeadlessProjectManager(opts: HeadlessProjectManagerOptions
     },
     sweep,
     closeAll() {
-      for (const project of [...projects.values()]) {
+      for (const project of projects.values()) {
         dispose(project);
         forget(project.handle, 'The server stopped.');
       }

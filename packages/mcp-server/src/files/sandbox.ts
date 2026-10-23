@@ -3,8 +3,7 @@
 // the `io` input budget for reads; refuses `/`, the home folder and system folders as a default root (file tools off).
 // Messages name roots by folder name only: no absolute path outside a root ever reaches the agent.
 import { randomBytes } from 'node:crypto';
-import { constants as fsConstants } from 'node:fs';
-import { lstat, mkdir, open, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { constants as fsConstants, promises as fsp } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import {
@@ -89,8 +88,10 @@ function sandboxError(message: string, hint: string, detail?: Record<string, unk
 export function lexicalProblem(raw: string): string | null {
   if (raw.length === 0) return 'an empty path';
   if (raw.includes('\0')) return 'a NUL character';
-  // biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are what this rejects
-  if (/[\u0000-\u001f\u007f]/.test(raw)) return 'a control character';
+  for (let i = 0; i < raw.length; i++) {
+    const code = raw.charCodeAt(i);
+    if (code < 0x20 || code === 0x7f) return 'a control character';
+  }
   if (raw.startsWith('\\\\') || raw.startsWith('//') || raw.startsWith('\\??\\')) return 'a UNC or device path';
   if (/^[A-Za-z]:(?![\\/])/.test(raw)) return 'a drive-relative path';
   const body = /^[A-Za-z]:[\\/]/.test(raw) ? raw.slice(2) : raw;
@@ -130,7 +131,7 @@ interface Root {
 
 async function pathExists(path: string): Promise<boolean> {
   try {
-    await lstat(path);
+    await fsp.lstat(path);
     return true;
   } catch {
     return false;
@@ -139,7 +140,7 @@ async function pathExists(path: string): Promise<boolean> {
 
 async function realOrSelf(path: string): Promise<string> {
   try {
-    return await realpath(path);
+    return await fsp.realpath(path);
   } catch {
     return resolve(path);
   }
@@ -156,10 +157,16 @@ export async function createWorkspaceSandbox(opts: SandboxOptions): Promise<Work
   const workspaceReal = await realOrSelf(opts.root);
   const unsafe = opts.source !== 'flag' && (isUnsafeRoot(opts.root, home) || isUnsafeRoot(workspaceReal, home));
   const roots: Root[] = [{ given: resolve(opts.root), real: workspaceReal, writable: true }];
-  for (const dir of opts.readOnlyRoots) roots.push({ given: resolve(dir), real: await realOrSelf(dir), writable: false });
+  for (const dir of opts.readOnlyRoots)
+    roots.push({ given: resolve(dir), real: await realOrSelf(dir), writable: false });
   const rootNames = roots.map((root) => basename(root.real) || root.real);
   const where = `the workspace folder ${JSON.stringify(rootNames[0])}${
-    rootNames.length > 1 ? ` (read-only: ${rootNames.slice(1).map((n) => JSON.stringify(n)).join(', ')})` : ''
+    rootNames.length > 1
+      ? ` (read-only: ${rootNames
+          .slice(1)
+          .map((n) => JSON.stringify(n))
+          .join(', ')})`
+      : ''
   }`;
 
   const off = (): AgentToolFailure =>
@@ -236,13 +243,13 @@ export async function createWorkspaceSandbox(opts: SandboxOptions): Promise<Work
 
   const pruneTrash = async (trash: string): Promise<void> => {
     try {
-      const names = (await readdir(trash)).sort().reverse(); // newest first (timestamp prefix)
+      const names = (await fsp.readdir(trash)).sort().reverse(); // newest first (timestamp prefix)
       let total = 0;
       for (let i = 0; i < names.length; i++) {
         const file = join(trash, names[i] as string);
-        const size = (await lstat(file)).size;
+        const size = (await fsp.lstat(file)).size;
         total += size;
-        if (i >= TRASH_MAX_FILES || total > TRASH_MAX_BYTES) await rm(file, { force: true });
+        if (i >= TRASH_MAX_FILES || total > TRASH_MAX_BYTES) await fsp.rm(file, { force: true });
       }
     } catch {
       // best effort
@@ -257,15 +264,19 @@ export async function createWorkspaceSandbox(opts: SandboxOptions): Promise<Work
       const { root, abs } = locate(path, false, readOpts?.extensions ?? READ_EXTENSIONS);
       let real: string;
       try {
-        real = await realpath(abs);
+        real = await fsp.realpath(abs);
       } catch (error) {
         if ((error as { code?: string }).code === 'ENOENT') {
-          throw new AgentToolFailure('not_found', `There is no file ${JSON.stringify(shown(root, abs))}.`, `list the files in ${where} and pass an existing one`);
+          throw new AgentToolFailure(
+            'not_found',
+            `There is no file ${JSON.stringify(shown(root, abs))}.`,
+            `list the files in ${where} and pass an existing one`,
+          );
         }
         throw ioError('Reading the file', error);
       }
       confine(real, root);
-      const info = await stat(real);
+      const info = await fsp.stat(real);
       if (!info.isFile()) throw sandboxError('The path is not a regular file.', `pass a file inside ${where}`);
       if (info.size > READ_MAX_BYTES) {
         throw new AgentToolFailure('limit', 'The file is larger than 256 MiB.', 'use a smaller file', {
@@ -274,7 +285,7 @@ export async function createWorkspaceSandbox(opts: SandboxOptions): Promise<Work
         });
       }
       try {
-        const handle = await open(real, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0));
+        const handle = await fsp.open(real, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0));
         try {
           return { path: shown(root, abs), bytes: new Uint8Array(await handle.readFile()) };
         } finally {
@@ -290,14 +301,14 @@ export async function createWorkspaceSandbox(opts: SandboxOptions): Promise<Work
       // the parent must exist, except exports/ directly under the workspace, which is created
       if (parent === join(root.real, EXPORTS_DIR)) {
         try {
-          await mkdir(parent, { recursive: false });
+          await fsp.mkdir(parent, { recursive: false });
         } catch (error) {
           if ((error as { code?: string }).code !== 'EEXIST') throw ioError('Creating exports/', error);
         }
       }
       let realParent: string;
       try {
-        realParent = await realpath(parent);
+        realParent = await fsp.realpath(parent);
       } catch (error) {
         if ((error as { code?: string }).code === 'ENOENT') {
           throw sandboxError('The folder does not exist.', `write into an existing folder inside ${where}`);
@@ -308,9 +319,12 @@ export async function createWorkspaceSandbox(opts: SandboxOptions): Promise<Work
       const target = join(realParent, basename(abs));
       let present = false;
       try {
-        const info = await lstat(target);
+        const info = await fsp.lstat(target);
         if (!info.isFile()) {
-          throw sandboxError('The path names something that is not a regular file.', `pick another name inside ${where}`);
+          throw sandboxError(
+            'The path names something that is not a regular file.',
+            `pick another name inside ${where}`,
+          );
         }
         present = true;
       } catch (error) {
@@ -328,10 +342,11 @@ export async function createWorkspaceSandbox(opts: SandboxOptions): Promise<Work
         }
         const trash = join(root.real, TRASH_DIR);
         try {
-          await mkdir(trash, { recursive: true });
+          await fsp.mkdir(trash, { recursive: true });
           let name = `${stamp(new Date())}-${basename(target)}`;
-          for (let n = 2; await pathExists(join(trash, name)); n++) name = `${stamp(new Date())}-${n}-${basename(target)}`;
-          await rename(target, join(trash, name));
+          for (let n = 2; await pathExists(join(trash, name)); n++)
+            name = `${stamp(new Date())}-${n}-${basename(target)}`;
+          await fsp.rename(target, join(trash, name));
           backup = `${TRASH_DIR}/${name}`;
         } catch (error) {
           throw ioError('Keeping the old file in .ekza-trash/', error);
@@ -340,10 +355,10 @@ export async function createWorkspaceSandbox(opts: SandboxOptions): Promise<Work
       }
       const temp = join(realParent, `.ekza-tmp-${randomBytes(6).toString('hex')}`);
       try {
-        await writeFile(temp, bytes, { flag: 'wx', mode: 0o644 });
-        await rename(temp, target);
+        await fsp.writeFile(temp, bytes, { flag: 'wx', mode: 0o644 });
+        await fsp.rename(temp, target);
       } catch (error) {
-        await rm(temp, { force: true }).catch(() => {});
+        await fsp.rm(temp, { force: true }).catch(() => {});
         throw ioError('Writing the file', error);
       }
       return { path: shown(root, target), backup };

@@ -1,9 +1,9 @@
 // The hub (MCP-SPEC §4.6, §5.1, §5.8, §5.17): the process-wide state — one per process, outside the per-request
-// server factory — the bridge (B2 attaches it through `HubBridge`, ./link.ts), the headless projects, the actor, the
+// server factory — the bridge (B2 attaches it as a `TabLink`, ../bridge/link.ts), the headless projects, the actor, the
 // last client info, the connection tools and the routing. Hub-level tools: `editor_connect` (the bridge),
 // `projects_list`, `project_close` and `project_open` (a new headless project, or `project: tab_…`); every other tool
 // is routed by its `project` argument to the paired tab or a headless project's runtime.
-import { appendFile } from 'node:fs/promises';
+import { promises as fsp } from 'node:fs';
 import {
   AGENT_TOOLSET_VERSION,
   type AgentToolDef,
@@ -25,15 +25,14 @@ import {
 import type { RunActor } from '@ekza-studio/editor-core';
 import { setGltfValidator, validateGltf } from '@ekza-studio/io';
 import type { McpServerConfig } from '../config';
+import { installLibraryFetch } from '../files/library';
 import { createSampleReader } from '../files/samples';
 import { createWorkspaceSandbox, type WorkspaceSandbox } from '../files/sandbox';
 import { type ConfirmPolicy, HEADLESS_GRANTS } from '../headless/host';
 import { createHeadlessProjectManager, type HeadlessProject, type HeadlessProjectManager } from '../headless/projects';
 import type { Logger } from '../log';
-import type { HubBridge, TabCallOptions, TabLink } from './link';
+import type { TabCallOptions, TabLink } from '../bridge/link';
 import { routeProject } from './router';
-
-export type { HubBridge, TabCallOptions, TabLink, TabState } from './link';
 
 export interface CallOptions {
   readonly signal: AbortSignal;
@@ -55,13 +54,17 @@ export interface AgentHub {
   /** Routes a call to the paired tab or a headless project (§5.8). Never rejects. */
   callTool(name: string, args: unknown, opts: CallOptions): Promise<AgentToolResult<unknown>>;
   /** Resource reads of a project (§5.20.3): JSON text, or `expired_handle`/`not_connected` failures (thrown). */
-  readProjectResource(project: string, kind: 'summary' | 'selection' | 'time' | 'rig', character?: string): Promise<unknown>;
+  readProjectResource(
+    project: string,
+    kind: 'summary' | 'selection' | 'time' | 'rig',
+    character?: string,
+  ): Promise<unknown>;
   /** The MCP client's name and version as reported (sanitised), for the bridge's `hello.ok`. */
   clientInfo(): ClientInfo | null;
   setClientInfo(info: ClientInfo | null): void;
-  /** B2: the bridge server, once it started (null: headless only). */
-  attachBridge(bridge: HubBridge | null): void;
-  bridge(): HubBridge | null;
+  /** B2 (MCP-SPEC §0.4.5): the live bridge, attached when it listens; null when off. */
+  attachTabLink(link: TabLink | null): void;
+  tabLink(): TabLink | null;
   close(): Promise<void>;
 }
 
@@ -85,8 +88,8 @@ async function loadValidator(log: Logger): Promise<((bytes: Uint8Array) => Retur
   try {
     // a non-literal specifier: the optional peer stays outside the bundle and needs no type declarations
     const specifier = 'gltf-validator';
-    const module = (await import(specifier)) as Parameters<typeof setGltfValidator>[0];
-    setGltfValidator(module);
+    const loaded = (await import(specifier)) as Parameters<typeof setGltfValidator>[0];
+    setGltfValidator(loaded);
     return (bytes) => validateGltf(bytes);
   } catch {
     log.warn('--validate: gltf-validator is not installed; exports are checked by the read-back only');
@@ -104,7 +107,7 @@ export async function createAgentHub(
   const byName = new Map<string, AgentToolDef>(tools.map((tool) => [tool.name, tool]));
   const now = opts.now ?? Date.now;
   let client: ClientInfo | null = null;
-  let bridge: HubBridge | null = null;
+  let bridge: TabLink | null = null;
   const actorId = `agt_${randomBase62(12)}`;
   const actor = (): RunActor => ({ kind: 'agent', id: actorId, name: clientActorName(client) });
   const sandbox =
@@ -120,6 +123,8 @@ export async function createAgentHub(
     );
   }
   const validate = config.validate ? await loadValidator(log) : null;
+  // the clip library of headless projects (library_list, library_use): served from disk, no network
+  const uninstallFetch = installLibraryFetch();
   const projects = createHeadlessProjectManager({
     maxProjects: config.maxProjects,
     idleMs: config.projectIdleMs,
@@ -145,7 +150,8 @@ export async function createAgentHub(
     }
   };
 
-  const tab = (): TabLink | null => bridge?.tab() ?? null;
+  /** The bridge while a tab is paired (the hub routes `tab_…` handles to it). */
+  const tab = (): TabLink | null => ((bridge?.tab() ?? null) === null ? null : bridge);
 
   const runProject = async (
     project: HeadlessProject,
@@ -163,20 +169,20 @@ export async function createAgentHub(
   };
 
   const listProjects = (): AgentToolResult<unknown> => {
-    const status = bridge?.status() ?? { status: 'off' as const, port: null };
+    const status =
+      bridge === null ? { status: 'off' as const, port: null } : { status: bridge.status(), port: bridge.port };
     const rows: Record<string, unknown>[] = [];
-    const paired = tab();
+    const paired = bridge?.tab() ?? null;
     if (paired !== null) {
-      const state = paired.state();
       rows.push({
         project: paired.handle,
         kind: 'tab',
-        name: state.projectName,
-        dirty: state.dirty ?? false,
+        name: paired.project,
+        dirty: false,
         readOnly: false,
-        characters: state.characters ?? 0,
-        grants: state.grants,
-        toolset: state.toolset,
+        characters: 0,
+        grants: paired.grants,
+        toolset: paired.toolset,
         idleMs: null,
         origin: paired.origin,
       });
@@ -252,15 +258,13 @@ export async function createAgentHub(
     const handle = args['project'] as string;
     const discard = args['discardChanges'] === true;
     if (handle.startsWith('tab_')) {
-      const paired = tab();
-      if (paired === null || paired.handle !== handle) {
+      if (bridge === null || !bridge.unpair(handle)) {
         throw new AgentToolFailure(
           'expired_handle',
           'This editor pairing has ended.',
           'projects_list shows what is open; ask the user for a new code to pair again',
         );
       }
-      await paired.close('server');
       return finish(tool, { ok: true, data: { closed: handle, discarded: false } });
     }
     const { discarded } = projects.close(handle, { discardChanges: discard });
@@ -277,7 +281,7 @@ export async function createAgentHub(
       ...(result.ok ? {} : { code: result.error.code }),
       ms: Date.now() - startedAt,
     });
-    appendFile(config.auditLog, `${line}\n`, { mode: 0o600 }).catch(() => {});
+    fsp.appendFile(config.auditLog, `${line}\n`, { mode: 0o600 }).catch(() => {});
   };
 
   const dispatch = async (
@@ -298,7 +302,7 @@ export async function createAgentHub(
             'the server runs headless (--no-bridge, or all bridge ports were in use): use project_open',
           );
         }
-        return bridge.connect({ code: args['code'] as string }, callOpts);
+        return bridge.claim(args['code'] as string, callOpts);
       }
       case 'projects_list':
         return finish(tool, listProjects());
@@ -316,14 +320,14 @@ export async function createAgentHub(
               { detail: { path: 'project' } },
             );
           }
-          return target.tab.call(tool.name, raw, callOpts);
+          return target.tab.call(tool, raw, callOpts);
         }
         return openHeadless(tool, args, callOpts);
       }
       default: {
-        const handle = typeof args['project'] === 'string' ? (args['project'] as string) : undefined;
+        const handle = typeof args['project'] === 'string' ? args['project'] : undefined;
         const target = routeProject(handle, { tab: tab(), projects });
-        if (target.kind === 'tab') return target.tab.call(tool.name, raw, callOpts);
+        if (target.kind === 'tab') return target.tab.call(tool, raw, callOpts);
         return runProject(target.project, tool.name, raw, callOpts);
       }
     }
@@ -359,16 +363,18 @@ export async function createAgentHub(
       } catch (error) {
         result = failure(error);
       }
-      audit(name, typeof raw['project'] === 'string' ? (raw['project'] as string) : null, result, startedAt);
+      audit(name, typeof raw['project'] === 'string' ? raw['project'] : null, result, startedAt);
       return result;
     },
     async readProjectResource(handle, kind, character) {
       const target = routeProject(handle, { tab: tab(), projects });
       const callOpts: TabCallOptions = { signal: new AbortController().signal };
-      const call = (name: string, args: Readonly<Record<string, unknown>>): Promise<AgentToolResult<unknown>> =>
-        target.kind === 'tab'
-          ? target.tab.call(name, { ...args, project: handle }, callOpts)
-          : runProject(target.project, name, args, callOpts);
+      const call = (name: string, args: Readonly<Record<string, unknown>>): Promise<AgentToolResult<unknown>> => {
+        if (target.kind === 'headless') return runProject(target.project, name, args, callOpts);
+        const def = byName.get(name);
+        if (def === undefined) throw new AgentToolFailure('unsupported', `${name} is not available.`, 'use tools');
+        return target.tab.call(def, { ...args, project: handle }, callOpts);
+      };
       const dataOf = (result: AgentToolResult<unknown>): unknown => {
         if (!result.ok) throw new AgentToolFailure(result.error.code, result.error.message, result.error.hint);
         return result.data;
@@ -385,7 +391,16 @@ export async function createAgentHub(
         if (kind === 'selection') {
           return userSession
             ? { ...userTimeOf(app), ...userSelectionOf(app) }
-            : { character: null, clip: null, controls: [], keys: [], keyCount: 0, truncated: false, channels: [], band: null };
+            : {
+                character: null,
+                clip: null,
+                controls: [],
+                keys: [],
+                keyCount: 0,
+                truncated: false,
+                channels: [],
+                band: null,
+              };
         }
         return userSession
           ? userTimeOf(app)
@@ -398,7 +413,7 @@ export async function createAgentHub(
         return {
           character: user['activeCharacter'] ?? null,
           clip: user['activeClip'] ?? null,
-          ...((user['selection'] as Record<string, unknown> | undefined) ?? {}),
+          ...(user['selection'] as Record<string, unknown> | undefined),
           band: user['band'] ?? null,
         };
       }
@@ -414,12 +429,13 @@ export async function createAgentHub(
     setClientInfo(info) {
       client = info;
     },
-    attachBridge(next) {
+    attachTabLink(next) {
       bridge = next;
     },
-    bridge: () => bridge,
+    tabLink: () => bridge,
     async close() {
       projects.closeAll();
+      uninstallFetch();
       const current = bridge;
       bridge = null;
       if (current !== null) await current.close().catch(() => {});

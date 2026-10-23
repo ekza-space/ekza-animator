@@ -21,9 +21,10 @@ describe('the MVP smoke (6 tasks)', () => {
       expect(run.grade.notes.filter((note) => note.startsWith('FAIL'))).toEqual([]);
       expect(run.grade.pass).toBe(true);
       // every edit call of the script is one AI step
-      for (const entry of run.transcript) {
-        if (entry.result.undo !== undefined) expect(entry.result.undo.label).toMatch(/^AI: /);
-      }
+      const labels = run.transcript.flatMap((entry) =>
+        entry.result.undo === undefined ? [] : [entry.result.undo.label],
+      );
+      expect(labels.filter((label) => !label.startsWith('AI: '))).toEqual([]);
     });
 
     it.skipIf(!available(task)).each(task.adversarial.map((bad) => [bad.name, bad] as const))(

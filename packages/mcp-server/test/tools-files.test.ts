@@ -1,16 +1,14 @@
-// MCP-SPEC §6.10, §5.17, §5.18, §0.4.4 (B1): the file and project tools through the MCP client — every success
-// envelope validates against its advertised outputSchema (Ajv 2020-12, as SDK clients check structuredContent), opens
-// of .ekzanim/.vrm/samples, imports of .vrma clips, models and static samples, saves with the overwrite rule and the
-// trash, exports into exports/ under derived names, the file tools off for an unsafe default workspace, and the
+// MCP-SPEC §6.10, §5.17, §5.18, §0.4.4 (B1): the file and project tools through the MCP client (their envelopes are
+// checked against the advertised outputSchema in agent-evals' test/files-envelopes.test.ts, where Ajv is allowed):
+// opens of .ekzanim/.vrm/samples, imports of .vrma clips (static models are the setup hook's), saves with the
+// overwrite rule and the trash, exports into exports/ under derived names, the file tools off for an unsafe default workspace, and the
 // user's session left alone by the file tools (the simulated user, §5.7).
 import { copyFileSync, existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildManifest } from '@ekza-studio/agent-tools';
-import Ajv2020 from 'ajv/dist/2020';
 import { afterEach, describe, expect, it } from 'vitest';
-import { connect, type Envelope, type Session, tempWorkspace, waveScript } from './support';
+import { connect, type Session, tempWorkspace, waveScript } from './support';
 
 const FIXTURES = fileURLToPath(new URL('../../../fixtures/', import.meta.url));
 const fixture = (path: string): string => join(FIXTURES, path);
@@ -19,40 +17,6 @@ let session: Session | null = null;
 afterEach(async () => {
   await session?.close();
   session = null;
-});
-
-describe('success envelopes of the hub and file tools against the manifest (§5.3)', () => {
-  it('validate against their outputSchema', async () => {
-    const workspace = tempWorkspace();
-    copyFileSync(fixture('models/polybot.vrm'), join(workspace, 'bot.vrm'));
-    session = await connect({ workspace });
-    const manifest = buildManifest();
-    const checked = new Set<string>();
-    const ajv = new Ajv2020({ strict: false, allErrors: true });
-    const check = async (name: string, args: Record<string, unknown>): Promise<Envelope> => {
-      const envelope = await session?.call(name, args);
-      if (envelope === undefined) throw new Error('no session');
-      expect([name, envelope.ok ? 'ok' : JSON.stringify(envelope.error)]).toEqual([name, 'ok']);
-      const validate = ajv.compile(manifest.tools.find((tool) => tool.name === name)?.outputSchema ?? {});
-      expect([name, validate(envelope) ? 'valid' : ajv.errorsText(validate.errors)]).toEqual([name, 'valid']);
-      checked.add(name);
-      return envelope;
-    };
-    const opened = await check('project_open', { path: 'bot.vrm', name: 'Bot' });
-    const project = opened.data?.['project'] as string;
-    await check('projects_list', {});
-    await check('project_import', { sample: 'polybot_tpose' });
-    await waveScript(session, project);
-    await check('project_export', { kind: 'vrma', clips: ['wave'] });
-    await check('project_save', {});
-    await check('project_close', { project });
-    expect([...checked].sort()).toEqual(
-      manifest.tools
-        .filter((tool) => tool.group === 'files' || ['projects_list', 'project_close'].includes(tool.name))
-        .map((tool) => tool.name)
-        .sort(),
-    );
-  });
 });
 
 describe('project_open', () => {
@@ -108,7 +72,7 @@ describe('project_open', () => {
 });
 
 describe('project_import', () => {
-  it('adds a .vrma clip onto the character, a static sample as a model, and refuses a project file', async () => {
+  it('adds a .vrma clip onto the character and refuses a project file', async () => {
     const workspace = tempWorkspace();
     session = await connect({ workspace });
     const { project } = await session.ok<{ project: string }>('project_open', { sample: 'polybot' });
@@ -119,13 +83,12 @@ describe('project_import', () => {
     });
     expect(exported.artifacts[0]?.path).toBe('exports/wave.vrma');
     const imported = await session.call('project_import', { path: 'exports/wave.vrma', character: 'Polybot' });
-    expect(imported).toMatchObject({ ok: true, data: { character: 'Polybot' }, undo: { label: expect.stringMatching(/^AI: /) } });
-    expect((imported.data?.['clips'] as string[]).length).toBe(1);
-    const model = await session.call('project_import', { sample: 'polybot_apose' });
-    expect(model).toMatchObject({
-      ok: true,
-      data: { character: null, model: { kind: 'static', checks: { grounded: true } } },
-      next: expect.stringContaining('rig_create'),
+    expect(imported).toMatchObject({ ok: true, data: { character: 'Polybot' } });
+    expect(imported.undo?.label.startsWith('AI: ')).toBe(true);
+    expect(imported.data?.['clips']).toHaveLength(1);
+    // the static-model kinds are the character setup module's (B4): without its hook they are unsupported
+    expect((await session.call('project_import', { sample: 'polybot_apose' })).error).toMatchObject({
+      code: 'unsupported',
     });
     await session.ok('project_save', { path: 'scene.ekzanim' });
     expect((await session.call('project_import', { path: 'scene.ekzanim' })).error).toMatchObject({
@@ -140,7 +103,12 @@ describe('project_save and project_export', () => {
     session = await connect({ workspace });
     await session.ok('project_open', { sample: 'polybot', name: 'My Walk' });
     const saved = await session.ok<{ fileName: string; path: string; backup: null }>('project_save', {});
-    expect(saved).toMatchObject({ fileName: 'My Walk.ekzanim', path: 'My Walk.ekzanim', backup: null, delivered: 'workspace' });
+    expect(saved).toMatchObject({
+      fileName: 'My Walk.ekzanim',
+      path: 'My Walk.ekzanim',
+      backup: null,
+      delivered: 'workspace',
+    });
     expect((await session.call('project_save', {})).error).toMatchObject({ code: 'exists' });
     const again = await session.ok<{ backup: string }>('project_save', { overwrite: true });
     expect(again.backup).toMatch(/^\.ekza-trash\//);
@@ -163,12 +131,16 @@ describe('project_save and project_export', () => {
       clips: ['wave'],
     });
     expect(baked.artifacts).toEqual([expect.objectContaining({ path: 'exports/Polybot-baked.vrm' })]);
-    expect((await session.call('project_export', { kind: 'vrma', clips: ['wave'], fileName: '../../x' })).error).toMatchObject({
+    expect(
+      (await session.call('project_export', { kind: 'vrma', clips: ['wave'], fileName: '../../x' })).error,
+    ).toMatchObject({
       code: 'invalid_args',
     });
     expect((await session.call('project_export', { kind: 'vrma', clips: ['wave'], fileName: 'CON' })).ok).toBe(true);
     expect(existsSync(join(workspace, 'exports', '_CON.vrma'))).toBe(true);
-    expect((await session.call('project_export', { kind: 'vrma', clips: ['wave'], fileName: 'CON' })).error).toMatchObject({
+    expect(
+      (await session.call('project_export', { kind: 'vrma', clips: ['wave'], fileName: 'CON' })).error,
+    ).toMatchObject({
       code: 'exists',
     });
   });

@@ -27,7 +27,7 @@ describe.each<Era>(['legacy', 'modern'])('the %s era', (era) => {
       expect(tool._meta?.['anthropic/alwaysLoad'] === true).toBe(entry?.alwaysLoad === true);
       // defaulted fields are never required (§5.20.1)
       const props = (tool.inputSchema.properties ?? {}) as Record<string, { default?: unknown }>;
-      for (const name of (tool.inputSchema.required ?? []) as string[]) {
+      for (const name of tool.inputSchema.required ?? []) {
         expect([tool.name, name, props[name]?.default]).toEqual([tool.name, name, undefined]);
       }
     }
@@ -47,7 +47,12 @@ describe.each<Era>(['legacy', 'modern'])('the %s era', (era) => {
     await expect(session.client.callTool({ name: 'no_such_tool', arguments: {} })).rejects.toThrow(/not found/);
     const opened = await session.client.callTool({ name: 'project_open', arguments: { sample: 'polybot' } });
     expect(opened.isError).not.toBe(true);
-    expect(opened.structuredContent).toMatchObject({ ok: true, data: { project: expect.stringMatching(/^prj_/) } });
+    const structured = opened.structuredContent as {
+      readonly ok?: boolean;
+      readonly data?: { readonly project?: string };
+    };
+    expect(structured.ok).toBe(true);
+    expect(structured.data?.project).toMatch(/^prj_/);
   });
 
   it('serves the guides, the templates and project reads; an unknown project is a JSON-RPC error', async () => {
@@ -64,11 +69,11 @@ describe.each<Era>(['legacy', 'modern'])('the %s era', (era) => {
       'ekza://projects/{project}/rig/{character}',
     ]);
     const { project } = await session.ok<{ project: string }>('project_open', { sample: 'polybot' });
-    const read = async (uri: string) =>
-      JSON.parse(((await session?.client.readResource({ uri }))?.contents[0] as { text: string }).text) as Record<
-        string,
-        unknown
-      >;
+    const client = session.client;
+    const read = async (uri: string): Promise<Record<string, unknown>> => {
+      const content = (await client.readResource({ uri })).contents[0] as { readonly text?: string } | undefined;
+      return JSON.parse(content?.text ?? '{}') as Record<string, unknown>;
+    };
     expect(await read(`ekza://projects/${project}/summary`)).toMatchObject({ characters: [{ name: 'Polybot' }] });
     expect(await read(`ekza://projects/${project}/selection`)).toMatchObject({ controls: [], keys: [] });
     expect(await read(`ekza://projects/${project}/time`)).toMatchObject({ frame: null, playing: false });
@@ -86,7 +91,7 @@ describe.each<Era>(['legacy', 'modern'])('the %s era', (era) => {
       PROMPTS.filter((prompt) => prompt.plan !== null).map((prompt) => prompt.name),
     );
     const wave = await session.client.getPrompt({ name: 'wave', arguments: { side: 'R', times: '2' } });
-    const text = (wave.messages[0]?.content as { text: string }).text;
+    const text = (wave.messages[0]?.content as { readonly text?: string } | undefined)?.text ?? '';
     expect(wave.messages[0]?.role).toBe('user');
     expect(text).toContain('right hand 2 times');
     await expect(session.client.getPrompt({ name: 'nope' })).rejects.toThrow(/not found/);
@@ -110,16 +115,28 @@ describe.each<Era>(['legacy', 'modern'])('the %s era', (era) => {
     };
     const progress: { progress: number; total?: number | undefined; message?: string | undefined }[] = [];
     const controller = new AbortController();
-    const pending = session.client.callTool({ name: 'scene_summary', arguments: {} }, {
-      signal: controller.signal,
-      onprogress: (update) => {
-        progress.push(update);
-        controller.abort();
+    const pending = session.client.callTool(
+      { name: 'scene_summary', arguments: {} },
+      {
+        signal: controller.signal,
+        onprogress: (update) => {
+          progress.push(update);
+          controller.abort();
+        },
       },
-    });
-    await expect(pending).rejects.toThrow();
+    );
+    await expect(pending).rejects.toThrow(/abort|cancel/i);
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(progress).toEqual([{ progress: 1, total: 2, message: 'half way' }]);
     expect((seen as AbortSignal | null)?.aborted).toBe(true);
+  });
+});
+
+describe.each<Era>(['legacy', 'modern'])('the client’s name (%s era)', (era) => {
+  it('names the actor of AI steps after the MCP client', async () => {
+    session = await connect({ workspace: tempWorkspace() }, era);
+    await session.ok('project_open', { sample: 'polybot' });
+    expect(session.server.hub.clientInfo()).toMatchObject({ name: 'server-test' });
+    expect(session.server.hub.actor().name).toBe('server-test');
   });
 });

@@ -18,6 +18,10 @@
     "dist/http.mjs.map",
     "samples/polybot.vrm",
     "samples/LICENSES.md",
+    "samples/polybot-unskinned.glb",
+    "samples/polybot-unskinned-tpose.glb",
+    "samples/cube-lad.glb",
+    "library/animations/",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",
     "README.md"
@@ -56,7 +60,6 @@
     "@modelcontextprotocol/server": "2.3.1",
     "@types/node": "catalog:",
     "@types/ws": "8.18.2",
-    "ajv": "8.20.0",
     "gltf-validator": "2.0.0-dev.3.10",
     "rolldown": "1.2.12",
     "vitest": "catalog:",

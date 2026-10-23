@@ -40,7 +40,7 @@ export async function connect(
   const server = await createInProcessServer({ logLevel: 'error', ...config });
   const client = new Client(
     { name: 'server-test', version: '1.0.0' },
-    era === 'modern' ? { versionNegotiation: { mode: { pin: '2026-07-28' } } as never } : {},
+    era === 'modern' ? { versionNegotiation: { mode: { pin: '2026-07-28' } } } : {},
   );
   await client.connect(server.clientTransport);
   const call = async (name: string, args: Record<string, unknown> = {}): Promise<Envelope> => {
@@ -50,7 +50,8 @@ export async function connect(
       const text = (result.content as { type: string; text: string }[])[0]?.text ?? '{}';
       return JSON.parse(text) as Envelope;
     }
-    return result.structuredContent as unknown as Envelope;
+    const structured: unknown = result.structuredContent;
+    return structured as Envelope;
   };
   return {
     client,

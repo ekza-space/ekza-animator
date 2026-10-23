@@ -3,7 +3,9 @@
 export { originWarnings, parseArgs, type ParsedArgs, parseOrigin, USAGE } from './args';
 export { configWithDefaults, DEFAULT_ALLOWED_ORIGINS, DEFAULTS, type McpServerConfig } from './config';
 export { type AgentHub, type AgentHubOptions, type CallOptions, createAgentHub } from './hub/hub';
-export type { HubBridge, TabCallOptions, TabLink, TabState } from './hub/link';
+export type { TabCallOptions, TabFileHooks, TabInfo, TabLink } from './bridge/link';
+export { createTabFileHooks } from './files/tabHooks';
+export { createLibraryFetch, installLibraryFetch, LIBRARY_PREFIX } from './files/library';
 export { type ProjectTarget, routeProject } from './hub/router';
 export {
   createWorkspaceSandbox,

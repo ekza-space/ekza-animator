@@ -2,7 +2,7 @@
 // 'polybot'}`; the wave script of E2E-AI-01 step 5; `keys_read`; `project_save` into the workspace; `project_open` of
 // the saved file; `project_export {kind: 'vrma'}`. Pass: the AE-01 grader passes; the reopened keys equal (1e-9);
 // gltf-validator reports 0 errors; the read-back `maxRotErrorRad` ≤ 1e-4.
-import { readFile } from 'node:fs/promises';
+import { promises as fsp } from 'node:fs';
 import { join } from 'node:path';
 import * as gltfValidator from 'gltf-validator';
 import { describe, expect, it } from 'vitest';
@@ -34,7 +34,7 @@ describe.each(['legacy', 'modern'] as const)('MVP-AC-1 (%s era)', (era) => {
       expect(saved).toMatchObject({ path: 'wave.ekzanim', delivered: 'workspace' });
 
       // AE-01's grader on the saved bytes, in a separate app (never the agent's runtime)
-      const graded = await openProject(new Uint8Array(await readFile(join(workspace, 'wave.ekzanim'))));
+      const graded = await openProject(new Uint8Array(await fsp.readFile(join(workspace, 'wave.ekzanim'))));
       const wave = gradeWave(graded.app, graded.character, graded.clip('wave'));
       expect(wave.notes.filter((note) => note.startsWith('FAIL'))).toEqual([]);
 
@@ -67,7 +67,7 @@ describe.each(['legacy', 'modern'] as const)('MVP-AC-1 (%s era)', (era) => {
       expect(artifact?.readBack.ok).toBe(true);
       expect(artifact?.readBack.maxRotErrorRad).toBeLessThanOrEqual(1e-4);
       expect(artifact?.lints.filter((lint) => lint.severity === 'error')).toEqual([]);
-      const bytes = new Uint8Array(await readFile(join(workspace, 'exports', 'wave.vrma')));
+      const bytes = new Uint8Array(await fsp.readFile(join(workspace, 'exports', 'wave.vrma')));
       const report = await gltfValidator.validateBytes(bytes, { maxIssues: 0, writeTimestamp: false });
       expect(report.issues.numErrors).toBe(0);
       // one AI step per edit call of the wave script (checkpoint excluded), labelled

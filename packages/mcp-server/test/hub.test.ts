@@ -1,10 +1,10 @@
 // MCP-SPEC §4.6, §5.1, §5.17.1 (B1): the hub's routing (the only project by default, `ambiguous` with several,
 // `not_connected` with none, `expired_handle` for closed and idle-closed handles), the project cap, the idle close on
-// a fake clock, `project_close` of a dirty project, `projects_list`, and the TabLink/HubBridge contract the bridge
+// a fake clock, `project_close` of a dirty project, `projects_list`, and the TabLink contract the bridge
 // implements (B2): calls with `project: tab_…` go to the tab, `editor_connect` to the bridge.
-import type { AgentToolResult, Grants } from '@ekza-studio/agent-tools';
+import { type AgentToolResult, type Grants, readyTools } from '@ekza-studio/agent-tools';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { HubBridge, TabLink } from '../src';
+import type { TabLink } from '../src';
 import { connect, type Session, tempWorkspace } from './support';
 
 let session: Session | null = null;
@@ -15,48 +15,43 @@ afterEach(async () => {
 
 const GRANTS: Grants = { read: true, edit: true, files: false, view: false, workspace: false };
 
-/** A paired tab as B2's bridge would expose it: records calls, answers a canned envelope. */
-function fakeTab(handle = 'tab_AbCdEfGhIjKl'): TabLink & { calls: { tool: string; args: unknown }[]; closed: string[] } {
-  const calls: { tool: string; args: unknown }[] = [];
-  const closed: string[] = [];
-  return {
-    handle,
-    origin: 'http://localhost:3000',
-    calls,
-    closed,
-    state: () => ({
-      title: 'Ekza Studio',
-      projectName: 'Tab project',
-      grants: GRANTS,
-      paused: false,
-      toolset: '1.0.0-dev.b1',
-      characters: 1,
-      dirty: true,
-    }),
-    call(tool, args) {
-      calls.push({ tool, args });
-      return Promise.resolve({ ok: true, data: { from: 'tab', tool } } as AgentToolResult<unknown>);
-    },
-    close(reason) {
-      closed.push(reason);
-      return Promise.resolve();
-    },
-  };
-}
+const HANDLE = 'tab_AbCdEfGhIjKl';
 
-function fakeBridge(tab: TabLink | null): HubBridge & { link: TabLink | null } {
-  const bridge = {
-    link: tab,
-    status: () => ({ status: bridge.link === null ? ('listening' as const) : ('paired' as const), port: 47821 }),
-    tab: () => bridge.link,
-    connect: (args: { readonly code: string }) =>
-      Promise.resolve({
-        ok: true,
-        data: { project: tab?.handle ?? '', code: args.code },
-      } as AgentToolResult<unknown>),
+/** The bridge as B2 exposes it (`TabLink`, bridge/link.ts) with one paired tab: records calls, answers canned envelopes. */
+function fakeLink(): TabLink & { calls: { tool: string; args: unknown }[]; unpaired: string[]; paired: boolean } {
+  const link = {
+    port: 47821,
+    paired: true,
+    calls: [] as { tool: string; args: unknown }[],
+    unpaired: [] as string[],
+    status: () => (link.paired ? ('paired' as const) : ('listening' as const)),
+    tab: () =>
+      link.paired
+        ? {
+            handle: HANDLE,
+            origin: 'http://localhost:3000',
+            title: 'Ekza Studio',
+            project: 'Tab project',
+            grants: GRANTS,
+            paused: false,
+            toolset: '1.0.0-dev.b1',
+            pairedAt: 0,
+          }
+        : null,
+    claim: (code: string) => Promise.resolve({ ok: true, data: { project: HANDLE, code } } as AgentToolResult<unknown>),
+    call(tool: { readonly name: string }, args: unknown) {
+      link.calls.push({ tool: tool.name, args });
+      return Promise.resolve({ ok: true, data: { from: 'tab', tool: tool.name } } as AgentToolResult<unknown>);
+    },
+    unpair(handle: string) {
+      if (!link.paired || handle !== HANDLE) return false;
+      link.unpaired.push(handle);
+      link.paired = false;
+      return true;
+    },
     close: () => Promise.resolve(),
   };
-  return bridge;
+  return link;
 }
 
 describe('routing (§5.1)', () => {
@@ -69,10 +64,13 @@ describe('routing (§5.1)', () => {
     const second = await session.ok<{ project: string }>('project_open', {});
     const ambiguous = await session.call('scene_summary');
     expect(ambiguous.error).toMatchObject({ code: 'ambiguous' });
-    expect((ambiguous.error as unknown as { candidates: string[] }).candidates).toEqual([first.project, second.project]);
-    expect((await session.ok<{ characters: unknown[] }>('scene_summary', { project: second.project })).characters).toEqual(
-      [],
-    );
+    expect((ambiguous.error as unknown as { candidates: string[] }).candidates).toEqual([
+      first.project,
+      second.project,
+    ]);
+    expect(
+      (await session.ok<{ characters: unknown[] }>('scene_summary', { project: second.project })).characters,
+    ).toEqual([]);
     expect((await session.call('scene_summary', { project: 'prj_000000000000' })).error).toMatchObject({
       code: 'expired_handle',
     });
@@ -142,28 +140,31 @@ describe('headless projects (§5.17.1)', () => {
 });
 
 describe('the paired tab through TabLink (the B2 contract)', () => {
-  it('routes tab_… calls to the tab, lists it, closes the pairing, and hands editor_connect to the bridge', async () => {
-    session = await connect({ workspace: tempWorkspace() });
-    const { hub } = session.server;
-    // editor_connect is B2's tool: listed once its owner makes it ready
-    const connectReady = hub.hasTool('editor_connect');
-    if (connectReady) {
+  // editor_connect is B2's tool: listed once its owner makes it ready
+  it.skipIf(!readyTools().some((tool) => tool.name === 'editor_connect'))(
+    'hands editor_connect to the bridge, or answers not_connected without one',
+    async () => {
+      session = await connect({ workspace: tempWorkspace() });
       expect((await session.call('editor_connect', { code: 'K7Q-M4P' })).error).toMatchObject({
         code: 'not_connected',
       });
-    }
-    const tab = fakeTab();
-    const bridge = fakeBridge(tab);
-    hub.attachBridge(bridge);
-    if (connectReady) {
-      expect(await session.ok('editor_connect', { code: 'K7Q-M4P' })).toEqual({ project: tab.handle, code: 'K7Q-M4P' });
-    }
+      session.server.hub.attachTabLink(fakeLink());
+      expect(await session.ok('editor_connect', { code: 'K7Q-M4P' })).toEqual({ project: HANDLE, code: 'K7Q-M4P' });
+    },
+  );
+
+  it('routes tab_… calls to the tab, lists it and closes the pairing', async () => {
+    session = await connect({ workspace: tempWorkspace() });
+    const { hub } = session.server;
+    const link = fakeLink();
+    hub.attachTabLink(link);
     // the only project: the tab
     expect(await session.ok('scene_summary')).toEqual({ from: 'tab', tool: 'scene_summary' });
-    expect(await session.ok('keys_read', { project: tab.handle, clip: 'walk', targets: { controls: ['cog'] } })).toEqual(
-      { from: 'tab', tool: 'keys_read' },
-    );
-    expect(tab.calls.at(-1)?.args).toMatchObject({ project: tab.handle, clip: 'walk' });
+    expect(await session.ok('keys_read', { project: HANDLE, clip: 'walk', targets: { controls: ['cog'] } })).toEqual({
+      from: 'tab',
+      tool: 'keys_read',
+    });
+    expect(link.calls.at(-1)?.args).toMatchObject({ project: HANDLE, clip: 'walk' });
     // a headless project next to it: the default is ambiguous, both are listed
     const { project } = await session.ok<{ project: string }>('project_open', {});
     expect((await session.call('scene_summary')).error).toMatchObject({ code: 'ambiguous' });
@@ -171,25 +172,22 @@ describe('the paired tab through TabLink (the B2 contract)', () => {
     expect(list.bridge).toEqual({ status: 'paired', port: 47821 });
     expect(list.projects).toEqual([
       expect.objectContaining({
-        project: tab.handle,
+        project: HANDLE,
         kind: 'tab',
         name: 'Tab project',
         origin: 'http://localhost:3000',
         idleMs: null,
-        characters: 1,
-        dirty: true,
       }),
       expect.objectContaining({ project, kind: 'headless', origin: null }),
     ]);
     // project_open {project: tab_…} replaces the tab's project (the tab confirms)
-    await session.ok('project_open', { project: tab.handle, sample: 'polybot' });
-    expect(tab.calls.at(-1)).toEqual({ tool: 'project_open', args: { project: tab.handle, sample: 'polybot' } });
+    await session.ok('project_open', { project: HANDLE, sample: 'polybot' });
+    expect(link.calls.at(-1)).toEqual({ tool: 'project_open', args: { project: HANDLE, sample: 'polybot' } });
     expect((await session.call('project_open', { project })).error).toMatchObject({ code: 'invalid_args' });
     // closing the tab's handle ends the pairing
-    expect(await session.ok('project_close', { project: tab.handle })).toEqual({ closed: tab.handle, discarded: false });
-    expect(tab.closed).toEqual(['server']);
-    bridge.link = null;
-    expect((await session.call('scene_summary', { project: tab.handle })).error).toMatchObject({
+    expect(await session.ok('project_close', { project: HANDLE })).toEqual({ closed: HANDLE, discarded: false });
+    expect(link.unpaired).toEqual([HANDLE]);
+    expect((await session.call('scene_summary', { project: HANDLE })).error).toMatchObject({
       code: 'expired_handle',
     });
   });

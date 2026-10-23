@@ -1,9 +1,10 @@
 // Deterministic fixture builders (MCP-SPEC §9.3.1): a task's starting document is a bundled sample loaded in a
 // separate headless app, edited by the simulated user (clips and keys written without an actor) and saved as
 // `.ekzanim` bytes for the agent to open; graders open the agent's saved bytes in another fresh app.
-import { readFile } from 'node:fs/promises';
+import { promises as fsp } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { TangentType } from '@ekza-studio/anim-core';
+import { captureDownloads } from '@ekza-studio/agent-tools';
 import { type CharacterId, type ClipId, seededIdSource } from '@ekza-studio/doc';
 import {
   createHeadlessEditorApp,
@@ -22,7 +23,7 @@ const FIXTURES = new URL('../../../../fixtures/', import.meta.url);
 export async function readFixtureFile(file: string): Promise<Uint8Array> {
   for (const dir of ['models/', 'animations/']) {
     try {
-      return new Uint8Array(await readFile(fileURLToPath(new URL(`${dir}${file}`, FIXTURES))));
+      return new Uint8Array(await fsp.readFile(fileURLToPath(new URL(`${dir}${file}`, FIXTURES))));
     } catch {
       // next folder
     }
@@ -54,7 +55,10 @@ export interface FixtureApp {
 
 /** A headless app with a bundled sample loaded (as the user would: no actor). */
 export async function sampleApp(sample: SampleName, seed = 1): Promise<FixtureApp> {
-  const app = createHeadlessEditorApp({ readSample: (def) => readFixtureFile(def.file), idSource: seededIdSource(seed) });
+  const app = createHeadlessEditorApp({
+    readSample: (def) => readFixtureFile(def.file),
+    idSource: seededIdSource(seed),
+  });
   const loaded = await app.runUntyped('file.loadSample', { sample });
   if (loaded.status !== 'finished') throw new Error(`${sample} did not load: ${JSON.stringify(loaded)}`);
   const character = (loaded.value as ImportResult).character;
@@ -103,19 +107,11 @@ export function userKeys(fx: FixtureApp, clip: ClipId, keys: readonly UserKey[])
 
 /** The document as `.ekzanim` bytes (`file.save`, captured). */
 export async function projectBytes(app: EditorApp): Promise<Uint8Array> {
-  const files: Uint8Array[] = [];
-  const service = app.services.files as { download: (name: string, bytes: Uint8Array, mime: string) => void };
-  const original = service.download;
-  service.download = (_name, bytes) => {
-    files.push(bytes);
-  };
-  try {
+  const { files } = await captureDownloads(app, async () => {
     const saved = await app.runUntyped('file.save', { fileName: 'task.ekzanim' });
     if (saved.status !== 'finished') throw new Error(`file.save: ${JSON.stringify(saved)}`);
-  } finally {
-    service.download = original;
-  }
-  const bytes = files[0];
+  });
+  const bytes = files[0]?.bytes;
   if (bytes === undefined) throw new Error('file.save produced no bytes');
   return bytes;
 }

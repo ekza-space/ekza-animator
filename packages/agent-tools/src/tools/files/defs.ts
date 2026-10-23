@@ -2,6 +2,7 @@
 // ./run.ts; headless the server's hub opens projects and routes the rest by `project`.
 import { z } from 'zod';
 import { characterRef, clipRef, confirmFlag, exactlyOne, projectRef, sceneSummaryOut } from '../../schemas/common';
+import type { AgentHostMode, ExtraGrant } from '../../types';
 import { BUDGETS, defineTool } from '../define';
 import {
   projectExportConfirm,
@@ -70,20 +71,53 @@ export const projectOpen = defineTool({
   run: (ctx, args) => projectOpenRun(ctx, args),
 });
 
+/**
+ * The model report of a static-model import, as the character setup module answers it (B4's `modelReportOut` in
+ * `tools/setup/common.ts`, field for field: M-AI-B1-6; INT imports it from there instead of this copy).
+ */
 const modelOut = z.object({
-  kind: z.enum(['static', 'vrm', 'rigged-humanoid', 'rigged-other', 'project']),
+  kind: z.string().describe('static, project, vrm, rigged-humanoid or rigged-other'),
+  fileName: z.string().nullable(),
   meshes: z.array(z.string()),
   triangles: z.number(),
   heightM: z.number(),
   textured: z.boolean(),
+  weight: z.enum(['light', 'medium', 'heavy', 'too-heavy']),
+  pose: z.enum(['t_pose', 'a_pose', 'unknown']),
+  armAngleDeg: z.number().nullable(),
   checks: z.object({
     centered: z.boolean(),
     grounded: z.boolean(),
     facingForward: z.boolean(),
     upright: z.boolean(),
     scaleOk: z.boolean(),
+    armsFound: z.boolean(),
   }),
+  fixes: z.array(
+    z.object({
+      check: z.string(),
+      fix: z.enum(['center', 'face_forward', 'stand_up', 'scale', 'freeze']),
+      hint: z.string(),
+    }),
+  ),
+  problems: z.array(z.string()),
+  readyToRig: z.boolean(),
 });
+/** The static-model kinds of project_import (the setup hook's): an Auto-Rig sample or a .glb path, live it selects
+ *  the new meshes (View) and a path needs Edit too (B4's `importExtraGrants`). */
+const STATIC_SAMPLE_IDS: readonly string[] = ['cube_lad', 'polybot_tpose', 'polybot_apose'];
+function importExtraGrants(
+  args: { readonly path?: string | undefined; readonly sample?: string | undefined },
+  host: AgentHostMode,
+): readonly ExtraGrant[] {
+  if (host !== 'live') return [];
+  const staticModel =
+    (args.sample !== undefined && STATIC_SAMPLE_IDS.includes(args.sample)) ||
+    (args.path !== undefined && /\.glb$/i.test(args.path));
+  if (!staticModel) return [];
+  return args.path === undefined ? ['view'] : ['edit', 'view'];
+}
+const VRM_LICENSES = ['cc0', 'cc-by-4.0', 'personal'] as const;
 
 export const projectImport = defineTool({
   name: 'project_import',
@@ -113,10 +147,11 @@ export const projectImport = defineTool({
     character: z.string().nullable(),
     clips: z.array(z.string()),
     warnings: z.array(z.string()),
-    model: modelOut.optional(),
+    model: modelOut.nullable().describe('The model report of a static model; null for characters and clips.'),
   }),
   annotations: { readOnly: false, destructive: false, idempotent: false },
   access: (args: { readonly path?: string | undefined }) => (args.path === undefined ? 'edit' : 'files'),
+  extraGrants: importExtraGrants,
   hosts: ['live', 'headless'],
   alwaysLoad: false,
   stretch: false,
@@ -125,7 +160,7 @@ export const projectImport = defineTool({
   example: { sample: 'polybot' },
   ready: true,
   confirm: (ctx, args) => projectImportConfirm(ctx, args),
-  run: (ctx, args) => projectImportRun(ctx, args),
+  run: (ctx, args) => projectImportRun(ctx, args) as never,
 });
 
 export const projectSave = defineTool({
@@ -188,6 +223,24 @@ export const projectExport = defineTool({
     reduce: z.boolean().default(true).describe('Reduce keys within the profile tolerance (default true).'),
     rootMotion: z.enum(['keep', 'in_place']).optional().describe('Root motion on export.'),
     acknowledgeLicense: z.boolean().default(false).describe('Bake a model whose licence needs acknowledging.'),
+    meta: z
+      .strictObject({
+        name: z
+          .string()
+          .min(1)
+          .max(64)
+          .optional()
+          .describe('Avatar name saved in the VRM (default: the character name).'),
+        authors: z
+          .array(z.string().min(1).max(64))
+          .min(1)
+          .max(8)
+          .optional()
+          .describe('Authors saved in the VRM (at least one is required).'),
+        license: z.enum(VRM_LICENSES).optional().describe('Licence: cc0, cc-by-4.0 or personal (required once).'),
+      })
+      .optional()
+      .describe('vrm, glb, omoba_kit: VRM meta to set first (one undo step).'),
     delivery,
     overwrite,
   }),
@@ -198,13 +251,25 @@ export const projectExport = defineTool({
         path: z.string().nullable(),
         bytes: z.number(),
         sha256: z.string(),
-        backup: z.string().nullable(),
+        backup: z.string().nullable().optional(),
+        delivered: z.enum(['download', 'workspace', 'none']).optional(),
         lints: z.array(
           z.object({ id: z.string(), severity: z.enum(['error', 'warning', 'info']), message: z.string() }),
         ),
-        readBack: z.object({ ok: z.boolean(), maxRotErrorRad: z.number(), maxPosErrorM: z.number() }),
+        // clips: the animation read-back; characters (vrm, glb, omoba_kit): the model read-back of the setup hook
+        readBack: z.union([
+          z.object({ ok: z.boolean(), maxRotErrorRad: z.number(), maxPosErrorM: z.number() }),
+          z.object({
+            format: z.enum(['vrm1', 'vrm0', 'glb']),
+            humanoidBones: z.number(),
+            joints: z.number(),
+            triangles: z.number(),
+            animations: z.number(),
+          }),
+        ]),
       }),
     ),
+    character: z.string().optional(),
   }),
   annotations: { readOnly: false, destructive: true, idempotent: false },
   access: 'files',
@@ -213,8 +278,9 @@ export const projectExport = defineTool({
   stretch: false,
   kind: 'files',
   budget: BUDGETS.summary,
+  extraGrants: (args: { readonly meta?: unknown }) => (args.meta === undefined ? [] : ['edit']),
   example: { clips: ['walk'], kind: 'vrma' },
   ready: true,
   confirm: (ctx, args) => projectExportConfirm(ctx, args),
-  run: (ctx, args) => projectExportRun(ctx, args),
+  run: (ctx, args) => projectExportRun(ctx, args) as never,
 });

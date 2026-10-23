@@ -7,7 +7,8 @@ import { serveStdio, StdioServerTransport } from '@modelcontextprotocol/server/s
 import { configWithDefaults, type McpServerConfig } from './config';
 import type { ConfirmPolicy } from './headless/host';
 import { type AgentHub, type AgentHubOptions, createAgentHub } from './hub/hub';
-import type { HubBridge } from './hub/link';
+import type { TabFileHooks } from './bridge/link';
+import { createTabFileHooks } from './files/tabHooks';
 import { createLogger, type Logger } from './log';
 import { createMcpServerFactory } from './mcp/server';
 import { InMemoryTransport, type SessionStore } from './sdk';
@@ -27,18 +28,23 @@ export interface RunningServer {
 }
 
 /**
- * Starts the live bridge (B2's `startBridgeServer(hub)` in ./bridge/server.ts returns a `HubBridge`) and attaches it
- * to the hub. Until B2 lands, or when every bridge port is taken, the server runs headless (the live tools answer
- * `not_connected`).
+ * Starts the live bridge and attaches it to the hub as its `TabLink`, with the workspace hooks of live calls
+ * (`createTabFileHooks`, B2's `TabFileHooks`). B2's branch provides `startHubBridge(hub, {files})` in
+ * ./bridge/attach.ts; INT replaces the dynamic lookup below with that call. Until then, or when every bridge port is
+ * taken, the server runs headless (the live tools answer `not_connected`).
  */
-async function startBridge(hub: AgentHub, log: Logger): Promise<HubBridge | null> {
+async function startBridge(hub: AgentHub, log: Logger): Promise<number | null> {
   if (!hub.config.bridge.enabled) return null;
+  const files = hub.sandbox.enabled ? createTabFileHooks(hub.sandbox) : undefined;
   try {
-    const module = await import('./bridge/server');
-    const start = module.startBridgeServer as unknown as (hub: AgentHub) => Promise<HubBridge>;
-    const bridge = await start(hub);
-    hub.attachBridge(bridge);
-    return bridge;
+    const loaded = (await import('./bridge/server')) as unknown as {
+      readonly startHubBridge?: (hub: AgentHub, extra?: { readonly files?: TabFileHooks }) => Promise<number | null>;
+    };
+    if (loaded.startHubBridge === undefined) {
+      log.debug('the editor bridge is not in this build: headless only');
+      return null;
+    }
+    return await loaded.startHubBridge(hub, files === undefined ? {} : { files });
   } catch (error) {
     if (error instanceof EkzaError && error.code === 'not-implemented') {
       log.debug('the editor bridge is not in this build: headless only');
@@ -60,7 +66,7 @@ export async function startMcpServer(config: McpServerConfig, io?: StdioIo): Pro
     onerror: (error) => log.warn(error.message),
   });
   log.info(`workspace ${hub.sandbox.root} (${config.workspaceSource}${hub.sandbox.enabled ? '' : ', file tools off'})`);
-  const bridge = await startBridge(hub, log);
+  const bridgePort = await startBridge(hub, log);
   let done = false;
   let resolveClosed: () => void = () => {};
   const closed = new Promise<void>((resolve) => {
@@ -76,7 +82,7 @@ export async function startMcpServer(config: McpServerConfig, io?: StdioIo): Pro
   // §5.22.2: the process exits when stdin closes.
   stdio.stdin.once('end', () => void close());
   stdio.stdin.once('close', () => void close());
-  return { close, bridgePort: bridge?.status().port ?? null, closed, hub };
+  return { close, bridgePort, closed, hub };
 }
 
 /** Drives the session of a headless project as a user would (§9.3.1; evals and tests only, never the CLI). */

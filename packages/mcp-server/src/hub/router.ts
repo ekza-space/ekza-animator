@@ -3,13 +3,14 @@
 // candidates; an unknown, closed or idle-closed handle → `expired_handle`.
 import { AgentToolFailure } from '@ekza-studio/agent-tools';
 import type { HeadlessProject, HeadlessProjectManager } from '../headless/projects';
-import type { TabLink } from './link';
+import type { TabLink } from '../bridge/link';
 
 export type ProjectTarget =
   | { readonly kind: 'tab'; readonly handle: string; readonly tab: TabLink }
   | { readonly kind: 'headless'; readonly handle: string; readonly project: HeadlessProject };
 
 export interface RouteSources {
+  /** The bridge while a tab is paired, else null. */
   readonly tab: TabLink | null;
   readonly projects: HeadlessProjectManager;
 }
@@ -28,7 +29,8 @@ export function routeProject(handle: string | undefined, sources: RouteSources):
       );
     }
     if (count > 1) {
-      const candidates = [...(tab === null ? [] : [`${tab.handle} (the editor tab)`]), ...handles].slice(0, 5);
+      const paired = tab?.tab() ?? null;
+      const candidates = [...(paired === null ? [] : [`${paired.handle} (the editor tab)`]), ...handles].slice(0, 5);
       throw new AgentToolFailure(
         'ambiguous',
         `${count} projects are open.`,
@@ -36,12 +38,13 @@ export function routeProject(handle: string | undefined, sources: RouteSources):
         { candidates },
       );
     }
-    if (tab !== null) return { kind: 'tab', handle: tab.handle, tab };
+    const paired = tab?.tab() ?? null;
+    if (tab !== null && paired !== null) return { kind: 'tab', handle: paired.handle, tab };
     const only = handles[0] as string;
     return { kind: 'headless', handle: only, project: projects.get(only) };
   }
   if (handle.startsWith('tab_')) {
-    if (tab !== null && tab.handle === handle) return { kind: 'tab', handle, tab };
+    if (tab !== null && tab.tab()?.handle === handle) return { kind: 'tab', handle, tab };
     throw new AgentToolFailure(
       'expired_handle',
       'This editor pairing has ended.',

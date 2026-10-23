@@ -1,14 +1,19 @@
 // `readSample` for Node (MCP-SPEC §4.6, §5.17.2, §0.4.4): the bundled samples (Polybot and the two unskinned Polybot
-// GLBs, CC0, in the package's `samples/`), the others from `--samples-dir` (either `<dir>/<file>` or the repository
-// layout `<dir>/models/<file>`, `<dir>/animations/<file>`). No network: a sample that is neither bundled nor in the
-// samples folder is `asset-missing` with a hint.
-import { readFile } from 'node:fs/promises';
+// GLBs, CC0, and the Cube Lad, MIT, in the package's `samples/`), answered by `SampleDef.file`; the others from
+// `--samples-dir` (either `<dir>/<file>` or the repository layout `<dir>/models/<file>`, `<dir>/animations/<file>`).
+// No network: a sample that is neither bundled nor in the samples folder is `asset-missing` with a hint.
+import { promises as fsp } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { EkzaError } from '@ekza-studio/anim-core';
 
 /** Files the package bundles (scripts/build.mjs copies them from fixtures/models). */
-export const BUNDLED_SAMPLES = ['polybot.vrm', 'polybot-unskinned.glb', 'polybot-unskinned-tpose.glb'] as const;
+export const BUNDLED_SAMPLES = [
+  'polybot.vrm',
+  'polybot-unskinned.glb',
+  'polybot-unskinned-tpose.glb',
+  'cube-lad.glb',
+] as const;
 
 /** Where the bundled samples are: `<package>/samples` next to `dist/` (built) or `src/` (sources), then fixtures/. */
 function bundledDirs(): string[] {
@@ -23,7 +28,7 @@ function bundledDirs(): string[] {
 async function firstReadable(paths: readonly string[]): Promise<Uint8Array | null> {
   for (const path of paths) {
     try {
-      return new Uint8Array(await readFile(path));
+      return new Uint8Array(await fsp.readFile(path));
     } catch {
       // next candidate
     }

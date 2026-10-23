@@ -1,10 +1,18 @@
 // A graded task (MCP-SPEC §9.3.1, §0.4.1 item 8): a starting document built by the simulated user, a reference script
 // (the scripted agent's solution), known-bad adversarial scripts, and a grader over the saved result.
-import { readFile, writeFile } from 'node:fs/promises';
+import { promises as fsp } from 'node:fs';
 import { join } from 'node:path';
 import type { Agent, EvalSession, TranscriptEntry } from '../drivers/scripted';
 import { evalSession } from '../drivers/scripted';
-import { type FixtureApp, FIXTURES_DIR, type OpenedProject, openProject, projectBytes, type SampleName, sampleApp } from '../fixtures/project';
+import {
+  type FixtureApp,
+  FIXTURES_DIR,
+  type OpenedProject,
+  openProject,
+  projectBytes,
+  type SampleName,
+  sampleApp,
+} from '../fixtures/project';
 import type { GradeResult } from '../graders';
 
 export interface GradeInput {
@@ -46,7 +54,7 @@ export async function runTask(task: Task, script: (agent: Agent) => Promise<void
       const fx = await sampleApp(task.sample, 7);
       await task.setup?.(fx);
       const bytes = await projectBytes(fx.app);
-      await writeFile(join(session.workspace, 'task.ekzanim'), bytes);
+      await fsp.writeFile(join(session.workspace, 'task.ekzanim'), bytes);
       before = await openProject(bytes);
       const opened = await session.harness('project_open', { path: 'task.ekzanim' });
       if (!opened.ok) throw new Error(`the task project did not open: ${JSON.stringify(opened.error)}`);
@@ -57,7 +65,7 @@ export async function runTask(task: Task, script: (agent: Agent) => Promise<void
     await script(session.agent);
     const saved = await session.harness('project_save', { path: 'result.ekzanim', overwrite: true });
     if (!saved.ok) throw new Error(`the harness could not save the result: ${JSON.stringify(saved.error)}`);
-    const after = await openProject(new Uint8Array(await readFile(join(session.workspace, 'result.ekzanim'))));
+    const after = await openProject(new Uint8Array(await fsp.readFile(join(session.workspace, 'result.ekzanim'))));
     const grade = await task.grade({ before, after, transcript: session.transcript, workspace: session.workspace });
     return { grade, transcript: [...session.transcript], calls: session.transcript.length };
   } finally {

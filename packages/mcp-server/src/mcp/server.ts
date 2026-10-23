@@ -64,7 +64,10 @@ export async function readResource(
   }
   try {
     const data = await hub.readProjectResource(project, resource, character);
-    return { mimeType: 'application/json', text: JSON.stringify(sanitizeDeep(data, { maxChars: 2_000, kind: 'prose' })) };
+    return {
+      mimeType: 'application/json',
+      text: JSON.stringify(sanitizeDeep(data, { maxChars: 2_000, kind: 'prose' })),
+    };
   } catch (error) {
     const message =
       error instanceof AgentToolFailure ? `${error.message} ${error.hint}`.trim() : 'The resource could not be read';
@@ -78,19 +81,26 @@ export function createMcpServerFactory(hub: AgentHub): McpServerFactory {
       { name: SERVER_NAME, title: SERVER_TITLE, version: SERVER_VERSION },
       { capabilities: { tools: {}, resources: {}, prompts: {} }, instructions: SERVER_INSTRUCTIONS },
     );
-    server.oninitialized = () => {
-      const info = server.getClientVersion();
-      if (info !== undefined) {
-        hub.setClientInfo({
-          name: String(info.name).slice(0, 64),
-          version: String(info.version).slice(0, 32),
-        });
-      }
+    // The client's name becomes the actor's name ("AI: …" steps, presence, the bridge's hello.ok): from `initialize`
+    // (2025-11-25) or the per-request envelope (2026-07-28).
+    const remember = (info: unknown): void => {
+      if (typeof info !== 'object' || info === null) return;
+      const { name, version } = info as { readonly name?: unknown; readonly version?: unknown };
+      if (typeof name !== 'string') return;
+      hub.setClientInfo({ name: name.slice(0, 64), version: typeof version === 'string' ? version.slice(0, 32) : '' });
     };
+    server.oninitialized = () => remember(server.getClientVersion());
     server.setRequestHandler('tools/list', () => ({ tools: listedTools(hub) }) as never);
     server.setRequestHandler('tools/call', async (request, ctx) => {
       const { name, arguments: args } = request.params;
       if (!hub.hasTool(name)) throw new ProtocolError(ProtocolErrorCode.InvalidParams, `Tool ${name} not found`);
+      if (hub.clientInfo() === null) {
+        remember(
+          (ctx.mcpReq.envelope as Readonly<Record<string, unknown>> | undefined)?.[
+            'io.modelcontextprotocol/clientInfo'
+          ],
+        );
+      }
       const token = ctx.mcpReq._meta?.progressToken;
       const progress =
         token === undefined
@@ -105,7 +115,7 @@ export function createMcpServerFactory(hub: AgentHub): McpServerFactory {
                     ...(total === null ? {} : { total }),
                     ...(message === undefined ? {} : { message }),
                   },
-                } as never)
+                })
                 .catch(() => {});
             };
       const result = await hub.callTool(name, args ?? {}, {

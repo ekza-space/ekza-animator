@@ -138,7 +138,10 @@ export function channelAt(app: EditorApp, clip: ClipId, control: ControlId, chan
   if (curve === undefined) return 0;
   const keys = app.store.query.keysOfCurve(curve.id);
   if (keys.length === 0) return curve.staticValue ?? 0;
-  return evaluateAnimCurve(compileAnimCurve({ keys, weighted: curve.weighted, pre: curve.pre, post: curve.post }), frame);
+  return evaluateAnimCurve(
+    compileAnimCurve({ keys, weighted: curve.weighted, pre: curve.pre, post: curve.post }),
+    frame,
+  );
 }
 
 /** The id of a control by template key. */

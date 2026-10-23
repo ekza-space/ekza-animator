@@ -91,7 +91,8 @@ export function gradeWave(
   const want = opts.seconds ?? 2;
   let rms = 0;
   const rest = restWorld(app, character, `${other}LowerArm`);
-  for (const f of frames) rms += angleDeg(boneWorld(app, character, clip, `${other}LowerArm`, f).rotation, rest.rotation) ** 2;
+  for (const f of frames)
+    rms += angleDeg(boneWorld(app, character, clip, `${other}LowerArm`, f).rotation, rest.rotation) ** 2;
   rms = Math.sqrt(rms / frames.length);
   const ptp = Math.max(...values) - Math.min(...values);
   return grade([
@@ -169,11 +170,13 @@ export function gradeHandOnHead(
   let far = 0;
   let flexOk = true;
   for (const f of range(30, 40)) {
-    const [shoulder, elbow, hand] = bonesAt(app, character, clip, ['rightUpperArm', 'rightLowerArm', 'rightHand'], f) as [
-      World,
-      World,
-      World,
-    ];
+    const [shoulder, elbow, hand] = bonesAt(
+      app,
+      character,
+      clip,
+      ['rightUpperArm', 'rightLowerArm', 'rightHand'],
+      f,
+    ) as [World, World, World];
     far = Math.max(far, length(sub(hand.position, headTop(app, character, clip, f))));
     const upper = norm(sub(elbow.position, shoulder.position));
     const lower = norm(sub(hand.position, elbow.position));
@@ -210,7 +213,8 @@ export function gradeEase(
   const first = d.slice(0, third);
   const last = d.slice(d.length - third);
   const peak = d.indexOf(Math.max(...d));
-  const arm = (side: typeof before, f: number) => boneWorld(side.app, side.character, side.clip, 'leftUpperArm', f).rotation;
+  const arm = (side: typeof before, f: number) =>
+    boneWorld(side.app, side.character, side.clip, 'leftUpperArm', f).rotation;
   const poses = Math.max(angleDeg(arm(after, 10), arm(before, 10)), angleDeg(arm(after, 30), arm(before, 30)));
   return grade([
     cond('eases out', (first.at(-1) as number) > 1.2 * (first[0] as number), `${first[0]} → ${first.at(-1)}`),
@@ -239,7 +243,10 @@ export function gradeFlips(app: EditorApp, character: CharacterId, clip: ClipId,
     const id = controlOf(app, character, key);
     for (const channel of ['rx', 'ry', 'rz']) {
       for (const f of frames.slice(1)) {
-        jump = Math.max(jump, Math.abs(channelAt(app, clip, id, channel, f) - channelAt(app, clip, id, channel, f - 1)) / DEG);
+        jump = Math.max(
+          jump,
+          Math.abs(channelAt(app, clip, id, channel, f) - channelAt(app, clip, id, channel, f - 1)) / DEG,
+        );
       }
     }
   }

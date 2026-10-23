@@ -107,7 +107,7 @@ describe('the workspace sandbox', () => {
     mkdirSync(root, { recursive: true });
     writeFileSync(join(root, 'bot.vrm'), 'vrm');
     const sandbox = await createWorkspaceSandbox({ root, readOnlyRoots: [], source: 'flag' });
-    if (base.startsWith('/var/')) expect(sandbox.root.startsWith('/private/var/')).toBe(true);
+    expect(sandbox.root.startsWith('/private/var/') || !base.startsWith('/var/')).toBe(true);
     expect(await sandbox.read('bot.vrm')).toMatchObject({ path: 'bot.vrm' });
     // the absolute path in its non-realpath'd spelling is inside the root too
     expect(await sandbox.read(join(root, 'bot.vrm'))).toMatchObject({ path: 'bot.vrm' });

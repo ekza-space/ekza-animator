@@ -1,5 +1,5 @@
 {
-  "hash": "6210a29542a6ae4875178f2a96cedf0a3b634275fb8aae2ab668c8f1a91b7dfb",
+  "hash": "27d09b19b1447ce1105c1ba398b25afc216d3689f8d2cbe3a50fce9a8dfc0986",
   "tools": [
     {
       "access": "read",
@@ -8235,71 +8235,152 @@
                 "type": "array"
               },
               "model": {
-                "additionalProperties": false,
-                "properties": {
-                  "checks": {
+                "anyOf": [
+                  {
                     "additionalProperties": false,
                     "properties": {
-                      "centered": {
+                      "armAngleDeg": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "checks": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "armsFound": {
+                            "type": "boolean"
+                          },
+                          "centered": {
+                            "type": "boolean"
+                          },
+                          "facingForward": {
+                            "type": "boolean"
+                          },
+                          "grounded": {
+                            "type": "boolean"
+                          },
+                          "scaleOk": {
+                            "type": "boolean"
+                          },
+                          "upright": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "centered",
+                          "grounded",
+                          "facingForward",
+                          "upright",
+                          "scaleOk",
+                          "armsFound"
+                        ],
+                        "type": "object"
+                      },
+                      "fileName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "fixes": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "check": {
+                              "type": "string"
+                            },
+                            "fix": {
+                              "enum": [
+                                "center",
+                                "face_forward",
+                                "stand_up",
+                                "scale",
+                                "freeze"
+                              ],
+                              "type": "string"
+                            },
+                            "hint": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "check",
+                            "fix",
+                            "hint"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "heightM": {
+                        "type": "number"
+                      },
+                      "kind": {
+                        "description": "static, project, vrm, rigged-humanoid or rigged-other",
+                        "type": "string"
+                      },
+                      "meshes": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "pose": {
+                        "enum": [
+                          "t_pose",
+                          "a_pose",
+                          "unknown"
+                        ],
+                        "type": "string"
+                      },
+                      "problems": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "readyToRig": {
                         "type": "boolean"
                       },
-                      "facingForward": {
+                      "textured": {
                         "type": "boolean"
                       },
-                      "grounded": {
-                        "type": "boolean"
+                      "triangles": {
+                        "type": "number"
                       },
-                      "scaleOk": {
-                        "type": "boolean"
-                      },
-                      "upright": {
-                        "type": "boolean"
+                      "weight": {
+                        "enum": [
+                          "light",
+                          "medium",
+                          "heavy",
+                          "too-heavy"
+                        ],
+                        "type": "string"
                       }
                     },
                     "required": [
-                      "centered",
-                      "grounded",
-                      "facingForward",
-                      "upright",
-                      "scaleOk"
+                      "kind",
+                      "fileName",
+                      "meshes",
+                      "triangles",
+                      "heightM",
+                      "textured",
+                      "weight",
+                      "pose",
+                      "armAngleDeg",
+                      "checks",
+                      "fixes",
+                      "problems",
+                      "readyToRig"
                     ],
                     "type": "object"
                   },
-                  "heightM": {
-                    "type": "number"
-                  },
-                  "kind": {
-                    "enum": [
-                      "static",
-                      "vrm",
-                      "rigged-humanoid",
-                      "rigged-other",
-                      "project"
-                    ],
-                    "type": "string"
-                  },
-                  "meshes": {
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array"
-                  },
-                  "textured": {
-                    "type": "boolean"
-                  },
-                  "triangles": {
-                    "type": "number"
+                  {
+                    "type": "null"
                   }
-                },
-                "required": [
-                  "kind",
-                  "meshes",
-                  "triangles",
-                  "heightM",
-                  "textured",
-                  "checks"
                 ],
-                "type": "object"
+                "description": "The model report of a static model; null for characters and clips."
               },
               "truncated": {
                 "description": "true when the runtime cut lists to fit the hard token cap (§5.5); narrow the call or page.",
@@ -8315,7 +8396,8 @@
             "required": [
               "character",
               "clips",
-              "warnings"
+              "warnings",
+              "model"
             ],
             "type": "object"
           },
@@ -8536,7 +8618,7 @@
       "title": "Save the project"
     },
     {
-      "access": "files",
+      "access": "by_argument",
       "alwaysLoad": false,
       "annotations": {
         "destructiveHint": true,
@@ -8601,6 +8683,39 @@
               "omoba_kit"
             ],
             "type": "string"
+          },
+          "meta": {
+            "additionalProperties": false,
+            "description": "vrm, glb, omoba_kit: VRM meta to set first (one undo step).",
+            "properties": {
+              "authors": {
+                "description": "Authors saved in the VRM (at least one is required).",
+                "items": {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "minItems": 1,
+                "type": "array"
+              },
+              "license": {
+                "description": "Licence: cc0, cc-by-4.0 or personal (required once).",
+                "enum": [
+                  "cc0",
+                  "cc-by-4.0",
+                  "personal"
+                ],
+                "type": "string"
+              },
+              "name": {
+                "description": "Avatar name saved in the VRM (default: the character name).",
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "type": "object"
           },
           "overwrite": {
             "default": false,
@@ -8701,6 +8816,14 @@
                     "bytes": {
                       "type": "number"
                     },
+                    "delivered": {
+                      "enum": [
+                        "download",
+                        "workspace",
+                        "none"
+                      ],
+                      "type": "string"
+                    },
                     "fileName": {
                       "type": "string"
                     },
@@ -8739,24 +8862,61 @@
                       ]
                     },
                     "readBack": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "maxPosErrorM": {
-                          "type": "number"
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "maxPosErrorM": {
+                              "type": "number"
+                            },
+                            "maxRotErrorRad": {
+                              "type": "number"
+                            },
+                            "ok": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "ok",
+                            "maxRotErrorRad",
+                            "maxPosErrorM"
+                          ],
+                          "type": "object"
                         },
-                        "maxRotErrorRad": {
-                          "type": "number"
-                        },
-                        "ok": {
-                          "type": "boolean"
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "animations": {
+                              "type": "number"
+                            },
+                            "format": {
+                              "enum": [
+                                "vrm1",
+                                "vrm0",
+                                "glb"
+                              ],
+                              "type": "string"
+                            },
+                            "humanoidBones": {
+                              "type": "number"
+                            },
+                            "joints": {
+                              "type": "number"
+                            },
+                            "triangles": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "format",
+                            "humanoidBones",
+                            "joints",
+                            "triangles",
+                            "animations"
+                          ],
+                          "type": "object"
                         }
-                      },
-                      "required": [
-                        "ok",
-                        "maxRotErrorRad",
-                        "maxPosErrorM"
-                      ],
-                      "type": "object"
+                      ]
                     },
                     "sha256": {
                       "type": "string"
@@ -8767,13 +8927,15 @@
                     "path",
                     "bytes",
                     "sha256",
-                    "backup",
                     "lints",
                     "readBack"
                   ],
                   "type": "object"
                 },
                 "type": "array"
+              },
+              "character": {
+                "type": "string"
               },
               "truncated": {
                 "description": "true when the runtime cut lists to fit the hard token cap (§5.5); narrow the call or page.",
@@ -8826,5 +8988,5 @@
       "title": "Export clips"
     }
   ],
-  "toolset": "1.0.0-dev.b1"
+  "toolset": "1.0.0-dev.b1.1"
 }
