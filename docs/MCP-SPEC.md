@@ -124,7 +124,7 @@ M-AI-MVP-11); the `.mcpb` bundle and the Claude Code plugin.
 
 #### 0.4.3 Tool list of the MVP
 
-33 tools: 1–25 (with `editor_connect`, `projects_list`, `project_close`), 29 (`view_capture`, live), 31–36 and the five
+37 tools: 1–25 (with `editor_connect`, `projects_list`, `project_close`), 29 (`view_capture`, live), 31–36 and the five
 setup tools of §0.4.4. `alwaysLoad` stays on the eleven of Q-AI-37 (with `view_capture`) plus `rig_create`. The
 manifest's toolset version becomes `1.0.0-mvp.1` at INT.
 

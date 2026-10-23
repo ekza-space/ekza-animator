@@ -30,7 +30,7 @@ port; the agent kernel contracts are eager by nature (the runner, the history, t
 2. **The MVP is the live loop plus headless files**: the stdio server with headless projects and the workspace
    sandbox, the paired bridge with grants and confirmations, a minimal Agent panel (connect, grants, Pause,
    Disconnect, the audit log with Undo/Show per step, Revert all AI changes), a live `view_capture`, and the 24
-   ported tools plus the connection, file and setup tools (33 tools). Operator escape hatch, analysis tools, headless
+   ported tools plus the connection, view, file and setup tools (37 tools). Operator escape hatch, analysis tools, headless
    pictures, the full evaluation suite, resume after a dropped socket, HTTP and the npm publish wait (spec text kept).
 3. **Character setup is a first-class agent workflow**: five new tools (`model_inspect`, `model_fix`, `rig_create`,
    `library_list`, `library_use`) and two new `project_*` kinds run the Auto-Rig compositions, so an agent and the
