@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { grantsOut, projectRef, sceneSummaryOut } from '../../schemas/common';
 import { BUDGETS, defineTool } from '../define';
+import { runEditorConnect } from './editor_connect';
 
 /** Pairing codes: 6 characters of the server's alphabet, with or without the dash (§5.10). */
 export const PAIRING_CODE = /^[A-HJKMNP-Z2-9]{3}-?[A-HJKMNP-Z2-9]{3}$/i;
@@ -40,6 +41,8 @@ export const editorConnect = defineTool({
   kind: 'read',
   budget: BUDGETS.summary,
   example: { code: 'K7Q-M4P' },
+  ready: true,
+  run: runEditorConnect,
 });
 
 export const projectsList = defineTool({

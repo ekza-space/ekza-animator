@@ -9,6 +9,7 @@ import { createLogger } from './log';
 import { createMcpServerFactory } from './mcp/server';
 import { serveStdio, StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import { EkzaError } from '@ekza-studio/anim-core';
+import { startHubBridge } from './bridge/attach';
 
 export interface StdioIo {
   readonly stdin: NodeJS.ReadableStream;
@@ -28,6 +29,7 @@ export async function startMcpServer(config: McpServerConfig, io?: StdioIo): Pro
   const log = createLogger(config.logLevel, stdio.stderr);
   if (config.http !== null) throw new EkzaError('not-implemented', 'ekza-studio-mcp --http (P6)');
   const hub = createAgentHub(config, log);
+  const bridgePort = await startHubBridge(hub);
   const transport = new StdioServerTransport(stdio.stdin as never, stdio.stdout as never);
   const handle = serveStdio(createMcpServerFactory(hub), {
     transport,
@@ -49,7 +51,7 @@ export async function startMcpServer(config: McpServerConfig, io?: StdioIo): Pro
   // §5.22.2: the process exits when stdin closes.
   stdio.stdin.once('end', () => void close());
   stdio.stdin.once('close', () => void close());
-  return { close, bridgePort: null, closed };
+  return { close, bridgePort, closed };
 }
 
 /** Drives the session of a headless project as a user would (§9.3.1; evals and tests only, never the CLI). */
@@ -72,6 +74,7 @@ export async function createInProcessServer(
   if (simulatedUser === true) throw new EkzaError('not-implemented', 'ekza-studio-mcp simulatedUser (P6)');
   const full = configWithDefaults({ workspace: partial.workspace ?? '/nonexistent-workspace', ...partial });
   const hub = createAgentHub(full, createLogger(full.logLevel, process.stderr));
+  await startHubBridge(hub);
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const server = await createMcpServerFactory(hub)({} as never);
   await server.connect(serverTransport);

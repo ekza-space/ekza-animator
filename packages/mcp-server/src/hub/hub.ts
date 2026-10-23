@@ -12,6 +12,8 @@ import {
   manifestToolOf,
   readyTools,
 } from '@ekza-studio/agent-tools';
+import type { TabLink } from '../bridge/link';
+import { routeToTab } from '../bridge/route';
 import type { McpServerConfig } from '../config';
 import type { Logger } from '../log';
 
@@ -35,6 +37,9 @@ export interface AgentHub {
   clientInfo(): ClientInfo | null;
   setClientInfo(info: ClientInfo | null): void;
   close(): Promise<void>;
+  /** B2 (MCP-SPEC §0.4.5): the live bridge, attached by `startMcpServer` when it listens; null when off. */
+  attachTabLink(link: TabLink | null): void;
+  tabLink(): TabLink | null;
 }
 
 export function createAgentHub(config: McpServerConfig, log: Logger): AgentHub {
@@ -42,12 +47,18 @@ export function createAgentHub(config: McpServerConfig, log: Logger): AgentHub {
   const listed = tools.map(manifestToolOf);
   const names = new Set(tools.map((tool) => tool.name));
   let client: ClientInfo | null = null;
+  let link: TabLink | null = null;
+  const byName = new Map(tools.map((tool) => [tool.name, tool]));
   return {
     config,
     log,
     listTools: () => listed,
     hasTool: (name) => names.has(name),
-    callTool(name) {
+    callTool(name, args, opts) {
+      // B2: editor_connect and calls addressed to the paired tab go over the bridge (`bridge/route.ts`).
+      const tool = byName.get(name);
+      const live = tool === undefined ? null : routeToTab(link, tool, args, opts);
+      if (live !== null) return live;
       // P6 routes to a headless project or the paired tab (§5.8); until then no project exists.
       const failure = new AgentToolFailure(
         'not_connected',
@@ -60,6 +71,12 @@ export function createAgentHub(config: McpServerConfig, log: Logger): AgentHub {
     setClientInfo(info) {
       client = info;
     },
-    close: () => Promise.resolve(),
+    close: async () => {
+      await link?.close();
+    },
+    attachTabLink(next) {
+      link = next;
+    },
+    tabLink: () => link,
   };
 }
