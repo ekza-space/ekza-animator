@@ -1059,3 +1059,22 @@ section H on the `mcp/*` branches; `dev` had given H to the naming decision, so 
 | M-AI-MVP-18 | Headless pictures | Deferred: headless `view_capture` answers `unsupported` with a hint; the schematic renderer stays a skeleton package | Headless agents work blind (numbers only) | phase C |
 | M-AI-MVP-19 | Evals in the MVP | A smoke of 6 tasks (AE-01, -06, -13, -19, -24 and the new AE-R1 rig-and-walk) through an in-memory client ↔ server pair; the real-model gate is MVP-AC-5 (one recorded Claude Code session), not pass@1 over 25 tasks | Full P9 before release: ≈ 6 agent-days | release |
 | M-AI-MVP-20 | LastRun and agent steps | An agent step never becomes `lastRun` and closes the user's Last-op card (`LAST_RUN_CLOSED.another`), as M6A-SPEC §5.7 asks of "another undoable operator" | — | — |
+
+#### B2 — live bridge (2026-10-23, [wp-notes/mai-b2.md](wp-notes/mai-b2.md))
+
+| ID | Decision | Default chosen | Impact if changed | Decide by |
+|---|---|---|---|---|
+| M-AI-B2-1 | `TabLink` seam | D0 never landed it; defined in `mcp-server/src/bridge/link.ts`; `hub.ts` gets `attachTabLink`/`tabLink()` and one routing line (`bridge/route.ts`); without `project` the paired tab wins | B1's router decides tab vs headless | B1 / INT |
+| M-AI-B2-2 | Session actions | `AgentSessionState` unchanged; `AgentSession` adds `select`, `cancel`, `accept`, `deny`, `setGrants`, `setPaused`, `answerConfirm` and an `extra` store (`claim: {client, cwdName}`, `ports`); slot API `agentSessionOf`/`loadAgentSession`/`onAgentSession` | — | B3 |
+| M-AI-B2-3 | Test API | `agentAct(action, grants?)` added; `maiTestApi(app, host)`; `ai-01-live` pairs through the session, not the grants dialog (B3) | Switch the spec to `agent-allow` clicks after B3 | INT |
+| M-AI-B2-4 | Hosted origin | `https://studio.ekza.io` compiled into the bridge's allow-list (not `DEFAULT_ALLOWED_ORIGINS`) | — | — |
+| M-AI-B2-5 | Toolset version | `1.0.0-dev.1` → `1.0.0-dev.2` (`editor_connect` ready) | INT sets `1.0.0-mvp.1` | INT |
+| M-AI-B2-6 | Resume | Cut: `resume` → `error unsupported`; any close ends the pairing; no result cache | Resume ≈ 1 day | phase C |
+| M-AI-B2-7 | Client name | Not wired on `mai/port`: `client: null`, actor "Agent" until B1 calls `hub.setClientInfo` on `initialize` | — | B1 |
+| M-AI-B2-8 | Workspace transfers | Through `TabFileHooks` from B1's sandbox (`startHubBridge(hub, {files})`); without them no pre-attachment, `writes` → `unsupported` | — | B1 |
+| M-AI-B2-9 | Lockout | The fifth wrong code answers `not_found`; claims during the lockout `busy` | — | — |
+| M-AI-B2-10 | `?agentPort=` outside e2e | Panel (B3); e2e connect-at-start lives in the lazy test-API chunk | — | B3 |
+| M-AI-B2-11 | Audit fields | `reverted` false, `beforeAgent` null (Restore cut), `show` from the actor's presence focus | — | B3 |
+| M-AI-B2-12 | `capture.shaded` | Advertised when a ViewportManager exists at session creation | — | B3 |
+| M-AI-B2-13 | Agent URL params | Moved to `test-api/agentParams.ts` (lazy-only; ≈ 370 B eager otherwise) | — | B3 imports from there |
+| M-AI-B2-14 | First-visit bytes | +164 B `/editor`, +169 B `/autorig` (Turbopack export registration of eager editor-core modules the lazy agent chunk imports); no B2 code eager | Part of the M-AI-MVP-2 decision | owner |

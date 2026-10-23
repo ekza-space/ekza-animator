@@ -5,7 +5,7 @@ import type { EditorApp } from '@ekza-studio/editor-core';
 import { agentSessionOf, loadAgentSession } from '../../agent/bridge/slot';
 import type { AgentSession } from '../../agent/session';
 import type { HostShell } from '../../host/types';
-import { parseAgentParams } from '../params';
+import { parseAgentParams } from '../agentParams';
 import type { EkzaStudioTestApi } from '../types';
 
 type AgentView = NonNullable<ReturnType<EkzaStudioTestApi['agent']>>;

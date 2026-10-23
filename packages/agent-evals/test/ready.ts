@@ -9,7 +9,8 @@ export const READY = {
   p4: false,
   p5: false,
   p6: false,
-  p7: false,
+  /** P7 (B2 in the MVP): the live bridge, pairing and editor_connect. */
+  p7: true,
   p8: false,
   p9: false,
 } as const;
