@@ -3,6 +3,7 @@
 // a run's outcome never depends on it, because the runner polls again after `prepare`, which awaits the load. This
 // file must not load the implementation before its first test (vitest isolates the module registry per file).
 import { describe, expect, it } from 'vitest';
+import { loadAgentOperators } from '../../src/operators/builtin/agentChunk';
 import { loadAgentImpl, loadedAgentImpl } from '../../src/operators/builtin/agentLoad';
 import { agentRefusal, asAgent, opsApp, WAVE } from './support';
 
@@ -10,6 +11,9 @@ describe('agent operators load on first use', () => {
   it('answers the shape check before the load and the full check after it; runs refuse with the full reason', async () => {
     expect(loadedAgentImpl()).toBeNull();
     const app = opsApp();
+    // The definitions are a lazy chunk too (MCP-SPEC §0.4); registering them does not load the implementation.
+    await loadAgentOperators(app);
+    expect(loadedAgentImpl()).toBeNull();
     const empty = { clip: WAVE.clip, keys: [] };
     expect(app.operators.poll('key.write', asAgent(), {})).toEqual({ ok: false, reason: 'expects { clip, … }' });
     expect(app.operators.poll('key.write', asAgent(), { clip: 'clip_nope' })).toEqual({

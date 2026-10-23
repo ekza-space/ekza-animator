@@ -36,7 +36,7 @@ import {
 } from '../../workflows/ik';
 import { editsFromValues } from '../../workflows/pose';
 import type { CountResult } from '../args';
-import { AGENT_SPAN_LIMIT, type AgentImpl, loadAgentImpl, loadedAgentImpl } from './agentLoad';
+import { AGENT_SPAN_LIMIT, type AgentImpl, loadAgentImpl, loadedAgentImpl } from './agentBase';
 import {
   type AnyOperator,
   defineOperator,

@@ -49,7 +49,7 @@ import {
   validateAny,
 } from '../tables/registry';
 import { DEFAULT_UNDO_LIMIT, PatchUndoManager, type UndoWrite } from '../undo/patchUndo';
-import { RESTORE_HOST, type RestoreHost } from '../undo/restorePlan';
+import { RESTORE_HOST, type RestoreHost } from '../undo/restoreHost';
 import { compareStrings, deepEqual } from './diff';
 import { Journal, type JournalOriginal, NOT_SHOWN, type Savepoint } from './journal';
 import { type PlannedWrites, ReferenceIndex } from './references';

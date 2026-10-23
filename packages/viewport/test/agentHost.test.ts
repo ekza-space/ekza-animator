@@ -42,7 +42,7 @@ describe('ViewportManager.agentHost (MCP-SPEC §4.3)', () => {
   it('exposes the renderer, the scene, the active pane and its camera without changing anything', async () => {
     rig = await createRig();
     rig.layout('split');
-    const host = rig.vm.agentHost();
+    const host = await rig.vm.agentHost();
     expect(host.renderer).toBe(rig.renderer);
     expect(host.scene).toBe(rig.vm.scene);
     expect(host.activePaneId()).toBeNull();
@@ -52,7 +52,7 @@ describe('ViewportManager.agentHost (MCP-SPEC §4.3)', () => {
   it('takes the pane holding keyboard focus as the active pane, then the last pointer pane', async () => {
     rig = await createRig();
     rig.layout('split');
-    const host = rig.vm.agentHost();
+    const host = await rig.vm.agentHost();
     const left = rig.panes.get('pane-left') as HTMLElement;
     const right = rig.panes.get('pane-right') as HTMLElement;
     left.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, clientX: 100, clientY: 100 }));
@@ -78,7 +78,7 @@ describe('ViewportManager.agentHost (MCP-SPEC §4.3)', () => {
     rig = await createRig();
     rig.layout('split');
     const draws: string[] = [];
-    const dispose = rig.vm.agentHost().addOverlayPass({
+    const dispose = (await rig.vm.agentHost()).addOverlayPass({
       id: 'test.presence',
       draw: ({ camera, scene }) => draws.push(`${camera.type}:${scene === rig?.vm.scene}`),
     });
@@ -107,7 +107,7 @@ describe('ViewportManager.agentHost (MCP-SPEC §4.3)', () => {
     const other = runtime.program.allocPose();
     app.evaluation.evaluateAt(character, clip, 15, other);
     let inside: number[][] = [];
-    const value = rig.vm.agentHost().withPose(character, other.boneWorld, () => {
+    const value = (await rig.vm.agentHost()).withPose(character, other.boneWorld, () => {
       inside = model.nodes.map((node) => [...node.position.toArray(), ...node.quaternion.toArray()]);
       return 42;
     });

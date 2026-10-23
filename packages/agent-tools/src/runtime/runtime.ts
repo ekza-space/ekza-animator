@@ -10,7 +10,7 @@
 //   `confirm: true`, else `confirm_required`), read-only projects, cooperative cancellation at every wait;
 // - presence focus and activity (cleared 3 s after the call), progress throttled to 4 per second, toasts raised
 //   during an operator run returned as warnings, and the actor's own steps and batches (revisions, history tools).
-import type { AgentAccess, Notifier, RunContext } from '@ekza-studio/editor-core';
+import { type AgentAccess, loadAgentOperators, type Notifier, type RunContext } from '@ekza-studio/editor-core';
 import type { z } from 'zod';
 import { outputJsonSchemaOf } from '../budget/budget';
 import { failureFrom } from '../envelope/errors';
@@ -259,6 +259,9 @@ export function createAgentToolRuntime(opts: AgentToolRuntimeOptions): AgentTool
   const state = createState(gestureWaitMs);
   STATES.set(revisions, state);
   const presence = host.capabilities.has('presence');
+  // The explicit-target operators are a lazy chunk (MCP-SPEC §0.4): load it now, so `operators.get`/`poll` of their
+  // ids answer from the first call (a run would load it anyway).
+  void loadAgentOperators(app).catch(() => {});
 
   // ---------- rate limit (token bucket) and the queue ----------
   let tokens = RATE_BURST;

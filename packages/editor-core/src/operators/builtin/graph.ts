@@ -80,7 +80,7 @@ import {
   selectScopedKeysOnly,
   snapOf,
 } from './scoped';
-import { AGENT_SPAN_LIMIT } from './agentLoad';
+import { AGENT_SPAN_LIMIT } from './agentBase';
 
 const TANGENT_TYPES: readonly TangentType[] = [
   'auto',

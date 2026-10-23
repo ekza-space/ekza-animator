@@ -61,75 +61,18 @@ export const GESTURE_IN_PROGRESS = 'gesture in progress';
 export const AI_LABEL_PREFIX = 'AI: ';
 export const AI_LABEL_MAX = 80;
 
-/** Runner rule 2: `AI: <label>`, at most 80 characters (a label that already carries the prefix keeps it once). */
-export function actorLabel(label: string): string {
-  const full = label.startsWith(AI_LABEL_PREFIX) ? label : `${AI_LABEL_PREFIX}${label}`;
-  return full.length <= AI_LABEL_MAX ? full : `${full.slice(0, AI_LABEL_MAX - 1)}…`;
-}
-
-/**
- * Runner rule 6: the session fields an actor run must leave as they were (by reference), M6a's included when the
- * session has them. `prefs` is compared as the whole preferences state object.
- */
-export const AGENT_PROTECTED_SESSION_FIELDS = [
-  'selection',
-  'time',
-  'overrides',
-  'activeCharacter',
-  'activeClip',
-  'tools',
-  'clipboard',
-  'curveBuffers',
-  'hiddenControls',
-  'showSecondary',
-  'viewportLayout',
-  'maximizedPane',
-  'dialog',
-  'feetPins',
-  // M6a (present once its session fields land)
-  'workspace',
-  'model',
-  'workspaceViews',
-  // M6b (Rig & Skin session: mode, test pose, Quick Rig markers)
-  'rig',
-] as const;
-
-interface SessionRecord {
-  readonly fields: ReadonlyMap<string, unknown>;
-  readonly prefs: unknown;
-}
-
-function recordSession(app: EditorApp): SessionRecord {
-  const state = app.session.getState() as unknown as Readonly<Record<string, unknown>>;
-  const fields = new Map<string, unknown>();
-  for (const field of AGENT_PROTECTED_SESSION_FIELDS) if (field in state) fields.set(field, state[field]);
-  return { fields, prefs: app.prefs.getState() };
-}
-
-/** Throws `agent-ustate` when an actor run changed a protected session field or the preferences. */
-function checkSession(app: EditorApp, id: string, recorded: SessionRecord): void {
-  const state = app.session.getState() as unknown as Readonly<Record<string, unknown>>;
-  for (const [field, value] of recorded.fields) {
-    if (state[field] !== value) {
-      throw new EkzaError('agent-ustate', `${id} changed session.${field} during an agent run`);
-    }
+type ActorKit = typeof import('./actorRun');
+let actorKit: Promise<ActorKit> | null = null;
+/** The actor-only helpers (labels, the session check, the annotate proxy): loaded once, retried after a failure. */
+function loadActorKit(): Promise<ActorKit> {
+  if (actorKit === null) {
+    const attempt = import('./actorRun');
+    actorKit = attempt;
+    attempt.catch(() => {
+      if (actorKit === attempt) actorKit = null;
+    });
   }
-  if (app.prefs.getState() !== recorded.prefs) {
-    throw new EkzaError('agent-ustate', `${id} changed the preferences during an agent run`);
-  }
-}
-
-/** Runner rule 2: a view of `tx` whose `annotate({label})` adds the actor prefix. */
-function actorTx(tx: Tx): Tx {
-  const annotate: Tx['annotate'] = (meta) =>
-    tx.annotate(meta.label === undefined ? meta : { ...meta, label: actorLabel(meta.label) });
-  return new Proxy(tx, {
-    get(target, prop) {
-      if (prop === 'annotate') return annotate;
-      const value: unknown = Reflect.get(target, prop, target);
-      return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(target) : value;
-    },
-  });
+  return actorKit;
 }
 
 function aborted(signal: AbortSignal | undefined): boolean {
@@ -318,6 +261,9 @@ export function createOperatorRunner(deps: {
     let applied = false;
     try {
       if (aborted(signal)) return cancelled(CANCELLED_BY_AGENT);
+      // Actor runs load their helpers first (a lazy chunk; MCP-SPEC §0.4), then check the signal again.
+      const kit = actor === null ? null : await loadActorKit();
+      if (aborted(signal)) return cancelled(CANCELLED_BY_AGENT);
       const args = coerceRunArgs(app, def, rawArgs, ctx);
       // M6b C7 (§5.17, §5.24): keying and curve edits are refused in Rig & Skin, whichever surface runs them (and
       // every document edit while the window is narrower than 1024 px).
@@ -350,8 +296,8 @@ export function createOperatorRunner(deps: {
       const baseLabel = def.undoLabel?.(args) ?? def.label;
       // §5.7: the re-run of `edit.adjustLast` replaces the step under the label "<label> (adjusted)".
       const label =
-        actor !== null
-          ? actorLabel(baseLabel)
+        kit !== null
+          ? kit.actorLabel(baseLabel)
           : ctx?.source === 'card' && adjustingOperator(app) === def.id
             ? `${baseLabel} (adjusted)`
             : baseLabel;
@@ -360,7 +306,7 @@ export function createOperatorRunner(deps: {
       const navigations = history.navigations;
       const scope = capture.begin();
       // Runner rule 6: recorded right before apply, by reference.
-      const recorded = checked ? recordSession(app) : null;
+      const recorded = checked && kit !== null ? kit.recordSession(app) : null;
       let value: unknown;
       let outcome: CaptureOutcome = { kind: 'none' };
       applying++;
@@ -374,9 +320,9 @@ export function createOperatorRunner(deps: {
             ...(coalescing === null ? {} : { coalesceKey: coalescing.key, coalesceMs: coalescing.ms }),
           };
           value = store.transact(meta, (tx) => {
-            const result = def.apply({ ...opCtx, tx: actor === null ? tx : actorTx(tx) }, args, prepared);
+            const result = def.apply({ ...opCtx, tx: kit === null ? tx : kit.actorTx(tx) }, args, prepared);
             // Inside the transaction, before the commit: the keeper's reactions to the batch are not counted.
-            if (recorded !== null) checkSession(app, def.id, recorded);
+            if (recorded !== null && kit !== null) kit.checkSession(app, def.id, recorded);
             if (actor === null) {
               const after = session.getState();
               tx.annotate({ selectionAfter: selectionSnapshot(after.selection, after.model) });
@@ -385,7 +331,7 @@ export function createOperatorRunner(deps: {
           });
         } else {
           value = def.apply({ ...opCtx, tx: null }, args, prepared);
-          if (recorded !== null) checkSession(app, def.id, recorded);
+          if (recorded !== null && kit !== null) kit.checkSession(app, def.id, recorded);
         }
       } finally {
         applying--;

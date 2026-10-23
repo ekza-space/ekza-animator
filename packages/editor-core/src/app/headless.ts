@@ -9,6 +9,7 @@ import { createMemoryAssetStore } from '../services/assets';
 import type { EditorApp, EditorServices, Notifier, ViewCaptureService } from '../types';
 import type { SampleDef } from '../workflows/samples';
 import { createEditorApp } from './createEditorApp';
+import { AGENT_OPERATORS } from '../operators/builtin/agentOperators';
 
 export interface HeadlessServicesOptions {
   readonly validate?: ((bytes: Uint8Array) => Promise<ValidationReport>) | null; // default null (read-back only)
@@ -65,9 +66,15 @@ export function createHeadlessEditorApp(
     readonly store?: DocumentStore;
   },
 ): EditorApp {
-  return createEditorApp({
+  const app = createEditorApp({
     services: createHeadlessServices(opts),
     ...(opts?.store === undefined ? {} : { store: opts.store }),
     ...(opts?.idSource === undefined ? {} : { idSource: opts.idSource }),
   });
+  // A headless host is an agent host: the explicit-target operators (a lazy chunk in the browser, MCP-SPEC §0.4) are
+  // registered up front.
+  for (const def of AGENT_OPERATORS) {
+    if (app.operators.get(def.id) === undefined) app.contribute({ kind: 'operator', def });
+  }
+  return app;
 }

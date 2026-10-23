@@ -18,7 +18,7 @@ import {
 import { selectionOf } from '../scope';
 import { type EditorApp, GLOBAL_SCOPE, type OperatorContext, type TweenMode } from '../../types';
 import type { CountResult } from '../args';
-import { framesProblem } from './agentLoad';
+import { framesProblem } from './agentBase';
 import { type AnyOperator, defineOperator, fail, isActorRun, isFiniteNumber, isRecord, OK } from './define';
 import {
   pollScopedClipEdit,

@@ -16,6 +16,7 @@ import {
   registerBuiltins,
 } from '../../src';
 import { BUILTIN_OPERATORS } from '../../src/operators/builtin';
+import { AGENT_OPERATOR_IDS, loadAgentOperators } from '../../src/operators/builtin/agentChunk';
 import { resolveImporter } from '../../src/operators/builtin/importers';
 import { createFakeEditorApp } from '../../src/testing';
 import type { OperatorContext } from '../../src/types';
@@ -285,9 +286,12 @@ const OTHERS: ReadonlySet<string> = new Set([
 const ALL_MENU_ITEMS = [...BUILTIN_MENU_ITEMS, ...MODEL_MENU_ITEMS];
 
 describe('built-in operators', () => {
-  it('registers every §4.9 operator owned by WP-7b with its undo flag, plus the requested additions', () => {
+  it('registers every §4.9 operator owned by WP-7b with its undo flag, plus the requested additions', async () => {
     const app = createFakeEditorApp({ snapshot: waveDoc(), skeleton: humanoidSkeleton() });
     const dispose = registerBuiltinOperators(app);
+    // M-AI (MCP-SPEC §0.4): the explicit-target operators are a lazy chunk, registered on demand.
+    expect(app.operators.get('key.write')).toBeUndefined();
+    await loadAgentOperators(app);
     const ids = app.operators.list().map((def) => def.id);
     expect([...ids].sort()).toEqual(
       [
@@ -305,7 +309,8 @@ describe('built-in operators', () => {
       expect([id, app.operators.get(id)?.flags?.undo === true]).toEqual([id, undo]);
     }
     dispose();
-    expect(app.operators.list()).toEqual([]);
+    // The lazily registered agent operators are not the built-ins' to dispose.
+    expect(app.operators.list().filter((def) => !AGENT_OPERATOR_IDS.has(def.id))).toEqual([]);
   });
 
   it('gives every operator a label, a description, a category and a scope', () => {
