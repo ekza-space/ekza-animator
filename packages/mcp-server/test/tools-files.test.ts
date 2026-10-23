@@ -88,7 +88,10 @@ describe('project_import', () => {
     expect(imported.data?.['clips']).toHaveLength(1);
     // the static-model kinds go to the character setup module's hook (B4, registered by the catalogue since INT)
     const model = await session.call('project_import', { sample: 'polybot_apose' });
-    expect(model).toMatchObject({ ok: true, data: { character: null, model: { readyToRig: expect.any(Boolean) } } });
+    expect(model).toMatchObject({
+      ok: true,
+      data: { character: null, model: { readyToRig: expect.any(Boolean) as unknown } },
+    });
     await session.ok('project_save', { path: 'scene.ekzanim' });
     expect((await session.call('project_import', { path: 'scene.ekzanim' })).error).toMatchObject({
       code: 'invalid_args',

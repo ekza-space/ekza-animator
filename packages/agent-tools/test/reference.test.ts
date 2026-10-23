@@ -35,9 +35,9 @@ function typeOf(schema: JsonSchema): string {
   if (type === 'array' && schema.items !== undefined) return `${typeOf(schema.items)}[]`;
   const range =
     schema.minimum !== undefined || schema.maximum !== undefined
-      ? ` ${schema.minimum ?? '…'}…${schema.maximum ?? '…'}`
+      ? ` ${String(schema.minimum ?? '…')}…${String(schema.maximum ?? '…')}`
       : '';
-  return `${type}${range}`;
+  return `${String(type)}${range}`;
 }
 
 function argumentsOf(schema: JsonSchema): string {
@@ -68,7 +68,7 @@ export function referenceText(manifest: ToolManifest): string {
     const access = typeof tool.access === 'string' ? tool.access : 'arg';
     lines.push(
       `| \`${tool.name}\`${tool.alwaysLoad ? ' ★' : ''} | ${cell(firstSentence(tool.description))} | ${access} | ` +
-        `${tool.hosts.join(', ')} | ${cell(argumentsOf(tool.inputSchema as JsonSchema))} |`,
+        `${tool.hosts.join(', ')} | ${cell(argumentsOf(tool.inputSchema))} |`,
     );
   }
   return `${lines.join('\n')}\n`;

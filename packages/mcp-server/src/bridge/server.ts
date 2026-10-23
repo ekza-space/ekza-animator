@@ -760,8 +760,8 @@ export async function startBridgeServer(opts: BridgeServerOptions): Promise<Brid
       callOpts.signal.addEventListener('abort', onAbort, { once: true });
       void (async () => {
         // workspace bytes go to the tab only while the user granted Files with the workspace folder (§5.9, INT)
-        const mayAttach = opts.files !== undefined && current.grants.files && current.grants.workspace;
-        const files = mayAttach ? await (opts.files as TabFileHooks).attach(tool, args).catch(() => []) : [];
+        const hooks = current.grants.files && current.grants.workspace ? opts.files : undefined;
+        const files = hooks === undefined ? [] : await hooks.attach(tool, args).catch(() => []);
         if (!current.calls.has(id)) return;
         const attached: { path: string; blob: string }[] = [];
         for (const [index, file] of files.entries()) {

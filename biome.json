@@ -19,7 +19,8 @@
       "!packages/agent-tools/tools.manifest.json",
       "!docs/research",
       "!fixtures/synthetic",
-      "!fixtures/models/*-truth.json"
+      "!fixtures/models/*-truth.json",
+      "!docs/evidence"
     ]
   },
   "formatter": {
