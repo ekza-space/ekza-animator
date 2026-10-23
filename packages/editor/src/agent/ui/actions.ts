@@ -28,14 +28,46 @@ export async function revertSteps(runtime: AgentRuntime, run: RunOperator, steps
 
 /** The steps Revert all would take back now. */
 export function revertAllTargets(runtime: AgentRuntime, audit: readonly AgentAuditRow[]): number[] {
-  return revertAllSteps(audit, runtime.app.history.entries(), runtime.store.getState().revertedBy);
+  const state = runtime.store.getState();
+  const actor = state.session?.store.getState().actor?.id ?? null;
+  return revertAllSteps(audit, runtime.app.history.entries(), state.revertedBy, actor);
 }
 
-/** Revert all AI changes since pairing (§5.11): one `edit.revertSteps` over every AI step still in the undo stack. */
+/**
+ * The agent's steps when they are the whole top of the undo stack (nothing of the user's above the first of them),
+ * oldest first; null otherwise.
+ */
+function agentSuffix(runtime: AgentRuntime): readonly { readonly id: number; readonly revertable: boolean }[] | null {
+  const actor = runtime.store.getState().session?.store.getState().actor?.id ?? null;
+  if (actor === null) return null;
+  const undo = runtime.app.history.entries().undo;
+  const first = undo.findIndex((entry) => entry.actor?.id === actor);
+  if (first < 0) return null;
+  const suffix = undo.slice(first);
+  if (suffix.some((entry) => entry.actor?.id !== actor)) return null;
+  return suffix.map((entry) => ({ id: entry.id, revertable: entry.changes !== undefined && entry.changes !== null }));
+}
+
+/**
+ * Revert all AI changes since pairing (§5.11): one `edit.revertSteps` over every AI step still in the undo stack. When
+ * the agent's steps are the top of the undo stack and one of them carries no change record (a model import, a rig:
+ * the journal keeps no changes for them) or the revert fails, they are undone one by one instead (INT): the user's
+ * own steps are below them and stay, and Redo brings the agent's work back.
+ */
 export async function revertAll(
   runtime: AgentRuntime,
   run: RunOperator,
   audit: readonly AgentAuditRow[],
 ): Promise<boolean> {
-  return revertSteps(runtime, run, revertAllTargets(runtime, audit));
+  const suffix = agentSuffix(runtime);
+  const undoAll = async (steps: readonly { readonly id: number }[]): Promise<boolean> => {
+    for (let i = steps.length - 1; i >= 0; i--) {
+      const result = await run('edit.undo', undefined, AGENT_PANEL_CTX);
+      if (result.status !== 'finished') return false;
+    }
+    return true;
+  };
+  if (suffix !== null && suffix.some((step) => !step.revertable)) return undoAll(suffix);
+  if (await revertSteps(runtime, run, revertAllTargets(runtime, audit))) return true;
+  return suffix === null ? false : undoAll(suffix);
 }

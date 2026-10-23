@@ -122,11 +122,21 @@ export function revertAllSteps(
   audit: readonly AgentAuditRow[],
   history: HistoryView,
   revertedBy: ReadonlyMap<number, number>,
+  /** The paired agent's actor id: its inner steps (rig_create, imports, library clips) count too (INT). */
+  actorId: string | null = null,
 ): number[] {
   const out: number[] = [];
   for (const row of audit) {
     const action = rowAction(row, history, revertedBy);
     if ((action.kind === 'undo' || action.kind === 'revert') && !out.includes(action.step)) out.push(action.step);
+  }
+  if (actorId !== null) {
+    // one tool call can make several steps (a composition's inner runs); the audit row names only the last one
+    for (const entry of history.undo) {
+      if (entry.actor?.id !== actorId || revertedBy.has(entry.id) || out.includes(entry.id)) continue;
+      if (entry.changes === undefined || entry.changes === null) continue;
+      out.push(entry.id);
+    }
   }
   return out.sort((a, b) => a - b);
 }

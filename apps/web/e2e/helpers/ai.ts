@@ -106,6 +106,38 @@ export async function callTool(
   return first?.type === 'text' && first.text !== undefined ? (JSON.parse(first.text) as unknown) : result;
 }
 
+/** A tool envelope as the server answers it (structuredContent or the error text). */
+export interface ToolEnvelope<T = Record<string, unknown>> {
+  readonly ok: boolean;
+  readonly data?: T;
+  readonly error?: { readonly code: string; readonly message: string; readonly hint?: string };
+  readonly undo?: { readonly step: number; readonly label: string };
+  readonly warnings?: readonly string[];
+  readonly next?: string;
+}
+
+/** A tool call with its image blocks (base64) next to the envelope (INT: view_capture over the bridge). */
+export async function callToolRaw(
+  server: AgentServer,
+  name: string,
+  args: Record<string, unknown> = {},
+): Promise<{ envelope: ToolEnvelope; images: { mimeType: string; data: string }[] }> {
+  const result = await server.client.callTool({ name, arguments: args });
+  const content = (result.content ?? []) as readonly {
+    type: string;
+    text?: string;
+    data?: string;
+    mimeType?: string;
+  }[];
+  const images = content
+    .filter((block) => block.type === 'image')
+    .map((block) => ({ mimeType: block.mimeType ?? '', data: block.data ?? '' }));
+  const first = content.find((block) => block.type === 'text');
+  const envelope = (result.structuredContent ??
+    (first?.text === undefined ? { ok: false } : JSON.parse(first.text))) as ToolEnvelope;
+  return { envelope, images };
+}
+
 export type GrantName = 'read' | 'edit' | 'files' | 'workspace' | 'view';
 
 /**
@@ -156,4 +188,16 @@ export async function pairViaTestApi(
   await expect.poll(async () => (await agentState(page))?.status).toBe('claimed');
   await page.evaluate(async (g) => window.__EKZA_STUDIO_TEST__?.agentAct('accept', g), grants);
   return claimed;
+}
+
+/** The clips of the active character, or null when the scene has no character (`clips()` fails then). */
+export async function clipsOrNone(page: Page): Promise<unknown> {
+  return page.evaluate(() => {
+    try {
+      const value = window.__EKZA_STUDIO_TEST__?.clips() as unknown;
+      return typeof value === 'object' && value !== null && '__failure' in value ? null : (value ?? null);
+    } catch {
+      return null;
+    }
+  });
 }

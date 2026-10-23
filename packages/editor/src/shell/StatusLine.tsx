@@ -52,13 +52,25 @@ import { shortcutFor } from './menus';
 let agentPortHandled = false;
 
 /** M-AI (§7.5): the muted "AI" pill until the lazy agent module puts its live pill in the slot. */
-function AgentPillSlot({ open }: { readonly open: () => void }): JSX.Element {
+function AgentPillSlot({
+  open,
+  ready,
+}: {
+  readonly open: () => Promise<unknown>;
+  readonly ready: () => boolean;
+}): JSX.Element {
   const live = useSyncExternalStore(subscribeAgentPill, agentPill, agentPill);
   useEffect(() => {
     if (agentPortHandled || typeof location === 'undefined' || !/[?&]agentPort=/.test(location.search)) return;
     agentPortHandled = true;
-    open();
-  }, [open]);
+    // the workspace mounts after the status line: open the panel once dockview is bound (≤ 10 s)
+    let tries = 0;
+    const attempt = (): void => {
+      if (ready() || ++tries >= 40) void open();
+      else setTimeout(attempt, 250);
+    };
+    attempt();
+  }, [open, ready]);
   if (live !== null) return live;
   return (
     <Tip text="AI agent (Windows › Agent)">
@@ -66,7 +78,7 @@ function AgentPillSlot({ open }: { readonly open: () => void }): JSX.Element {
         type="button"
         className="rounded px-1.5 text-ui text-fg-3 hover:bg-hover hover:text-fg"
         data-testid="status-agent"
-        onClick={open}
+        onClick={() => void open()}
       >
         AI
       </button>
@@ -368,10 +380,11 @@ export function StatusLine(): JSX.Element {
     }
   };
 
-  const openAgentPanel = useCallback(() => void shell.runFromUi('workspace.showPanel', { panel: 'agent' }), [shell]);
+  const workspaceReady = useCallback(() => shell.workspace.dockview !== null, [shell]);
+  const openAgentPanel = useCallback(() => shell.runFromUi('workspace.showPanel', { panel: 'agent' }), [shell]);
   const agentGroup = (
     <Group key="agent" label="AI agent">
-      <AgentPillSlot open={openAgentPanel} />
+      <AgentPillSlot open={openAgentPanel} ready={workspaceReady} />
     </Group>
   );
 
