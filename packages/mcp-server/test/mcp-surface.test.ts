@@ -108,7 +108,7 @@ describe.each<Era>(['legacy', 'modern'])('the %s era', (era) => {
         );
       });
     };
-    const progress: { progress: number; total?: number; message?: string }[] = [];
+    const progress: { progress: number; total?: number | undefined; message?: string | undefined }[] = [];
     const controller = new AbortController();
     const pending = session.client.callTool({ name: 'scene_summary', arguments: {} }, {
       signal: controller.signal,
