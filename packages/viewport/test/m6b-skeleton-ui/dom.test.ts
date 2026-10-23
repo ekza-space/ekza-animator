@@ -220,6 +220,32 @@ describe('Skeleton mode display (§5.24)', () => {
     rig.app.session.setState({ rig: { ...rig.app.session.getState().rig, mode: 'skeleton' } });
     expect(display()).toMatchObject({ xray: true, controls: false });
   });
+
+  it('gives each flag back on its own: controls shown again meanwhile still end the x-ray (AR-D9-3)', async () => {
+    const rig = await scene();
+    const display = () => rig.vm.paneState('pane-front')?.display;
+    const set = (patch: { xray?: boolean; controls?: boolean }) => {
+      const now = display();
+      if (now !== undefined) rig.vm.updatePane('pane-front', { display: { ...now, ...patch } });
+    };
+    const mode = (next: 'object' | 'skeleton') =>
+      rig.app.session.setState({ rig: { ...rig.app.session.getState().rig, mode: next } });
+    // Object mode with x-ray off and the controls on; then another owner (Auto-Rig's ②) hides the controls,
+    // Skeleton mode x-rays the mesh, the owner gives the controls back while the mode is on, and the mode ends
+    mode('object');
+    expect(display()).toMatchObject({ xray: false, controls: true });
+    set({ controls: false });
+    mode('skeleton');
+    expect(display()).toMatchObject({ xray: true, controls: false });
+    set({ controls: true });
+    mode('object');
+    expect(display()).toMatchObject({ xray: false, controls: true });
+    // a flag the user changed meanwhile stays theirs: x-ray switched off in Skeleton mode keeps the controls' return
+    mode('skeleton');
+    set({ xray: false });
+    mode('object');
+    expect(display()).toMatchObject({ xray: false, controls: true });
+  });
 });
 
 describe('§5.7 state table through the DOM', () => {

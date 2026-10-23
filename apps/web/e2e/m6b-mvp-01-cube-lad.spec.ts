@@ -186,15 +186,19 @@ test('E2E-MVP-01: AS-MVP-1 — the Cube Lad comes alive (model → markers → s
     const knee = before.get('rightLowerLeg');
     await runOk(page, 'select.joints', { ids: [knee?.id], mode: 'replace' });
     // Zoom the side pane in around the knee (wheel): at the whole-body framing 0.01 m is under a pixel.
+    // The wheel zooms about the pointer: between the knee and the ankle, so both stay on screen whatever the framing
+    // (since AR-D8-4 the frame holds the whole mesh, head top included, which puts the knee lower in the pane).
     const kneeAt = await jointAt(page, knee?.id ?? '', RIG_SIDE_PANE);
-    await page.mouse.move(kneeAt.x, kneeAt.y);
+    const ankleAt = await jointAt(page, before.get('rightFoot')?.id ?? '', RIG_SIDE_PANE);
+    await page.mouse.move((kneeAt.x + ankleAt.x) / 2, (kneeAt.y + ankleAt.y) / 2);
     // Wheel in until 0.01 m is a few pixels (Rig & Skin frames the side pane tightly since the acceptance fix, so
     // fewer notches are needed and too many would push the ankle off screen).
     const span = Math.abs((knee?.restPosition[1] ?? 0) - (before.get('rightFoot')?.restPosition[1] ?? 0));
     for (let i = 0; i < 8; i++) {
       const k = await call(page, 'screenOfJoint', knee?.id ?? '', RIG_SIDE_PANE);
       const a = await call(page, 'screenOfJoint', before.get('rightFoot')?.id ?? '', RIG_SIDE_PANE);
-      if (k !== null && a !== null && Math.abs(k.y - a.y) / span > 450) break;
+      // stop at the zoom the step needs (the 400 px/m checked below): one notch more can push the ankle off screen
+      if (k !== null && a !== null && Math.abs(k.y - a.y) / span > 410) break;
       await page.mouse.wheel(0, -240);
       await page.waitForTimeout(50);
     }

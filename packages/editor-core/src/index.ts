@@ -232,6 +232,8 @@ export {
   type PaneDisplayPort,
   paneDisplayPort,
   providePaneDisplay,
+  hostNavigation,
+  provideNavigation,
   provideShellOverlays,
   REVIEW_WORKSPACE,
   RIG_WORKSPACE,
@@ -428,12 +430,16 @@ export {
   type ChecklistGlyph,
   type ChecklistStep,
   checklistSummary,
+  crossLimbParts,
   DEFAULT_PROFILE,
+  type LimbRegion,
+  type PartReach,
   profileKind,
   RIG_PROFILES,
   type RigValidation,
   type RowSelection,
   rigChecklist,
+  rigidPartBinds,
   rigValidation,
   selectValidationRow,
 } from './rig/validation';
@@ -476,6 +482,8 @@ export {
   markerPoint,
   nextMissingMarker,
   PRESET_LOCKED,
+  ARMS_NOT_FOUND,
+  autoRigBlock,
   pickQuickRigMarker,
   QUICK_RIG_CLOSED,
   QUICK_RIG_LABELS,
@@ -487,6 +495,10 @@ export {
   setQuickRigMarker,
 } from './operators/builtin/rig/quickRigSession';
 export { CHECK_REASONS, REBIND_CONFIRM } from './operators/builtin/rig/quickRig';
+// AR-D10-8: a modelling tool's default mesh name (Auto-Rig's header names such a model after its project)
+export { isGenericMeshName } from './workflows/names';
+// Auto-Rig D4: what `autorig.rig` binds, read by the wizard's lazy runner and ③ view (§4.5, §5.4).
+export { autoRigBindMeshes, autoRigRefitBound } from './operators/builtin/rig/wizard/targets';
 export { ASSET_CHARACTER_REFUSAL, POSED_REFUSAL, rigGeometry } from './operators/builtin/rig/skeleton';
 // C6 (skin UI): the weight helpers the lazy Paint Skin Weights tool, the Paint Weights panel, the Toolkit Skin section
 // and the test API read (rig-workspace code; nothing eager imports them).

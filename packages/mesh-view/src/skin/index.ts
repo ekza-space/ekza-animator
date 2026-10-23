@@ -87,9 +87,14 @@ export class SkinnedSurface extends ViewBase {
     for (let e = 0; e < t.edges; e++) state[e] = ((t.ef[e] as number) & EDGE_HARD) !== 0 ? STATE.hard : 0;
     uploadAll(this.edges.state);
     this.writeSkinAttributes(t, 'all');
+    this.writeMap();
     this.normalsDirty = true;
     this.diagonalsDirty = true;
     if (this.matrices !== null) this.skinPoints('all');
+  }
+
+  protected override mapData(): MeshData | null {
+    return this.data;
   }
 
   /**

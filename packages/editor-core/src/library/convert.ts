@@ -3,20 +3,38 @@
 // io's readers or glTF Transform itself), so preview and Use Clip read the same bytes with the same options into the
 // same keys. The preview keeps the plan in memory: its curves are compiled with the app's curve engine and nothing is
 // written (the plan's clip partition, opened by the import path, is closed again; it holds no records).
+//
+// AUTORIG-SPEC §5.5.3 (D5): clip parameters reach both through the bytes — `deriveLibraryBytes` (io's
+// `deriveHumanoidVrma`, through the import chunk) before this point — so preview and Use Clip still read the same
+// bytes; identity parameters keep the library bytes themselves.
 import type { AnimCurve } from '@ekza-studio/anim-core';
 import type { CharacterId } from '@ekza-studio/doc';
 import type { StarterPackClip } from '@ekza-studio/io';
 import { internalsOf } from '../app/internals';
 import type { PreviewChannel, PreviewClip } from '../evaluation/previewSource';
-import type { EditorApp } from '../types';
+import type { ClipParams, EditorApp } from '../types';
 import type { ClipImportPlan } from '../workflows/importAnimation';
 import { loadImportPath } from '../workflows/importLoader';
+import { isIdentityParams } from './params';
+
+/** What the conversion needs of a clip: its id (the preview's), its file name (the asset's) and its loop flag. */
+export type ConvertedClip = Pick<StarterPackClip, 'id' | 'file' | 'loop'>;
+
+/**
+ * The VRMA bytes a parametrized preview or Use Clip reads (§5.5.3): `bytes` itself for identity parameters (and for a
+ * trim over the whole clip), else io's `deriveHumanoidVrma` loaded with the import chunk.
+ */
+export async function deriveLibraryBytes(bytes: Uint8Array, params: ClipParams | undefined): Promise<Uint8Array> {
+  if (params === undefined || isIdentityParams(params)) return bytes;
+  const pipelines = await loadImportPath();
+  return pipelines.deriveHumanoidVrma(bytes, params);
+}
 
 /** `prepareVrmaImport` of a library clip's verified bytes onto a character (the Use Clip plan). */
 export async function prepareLibraryImport(
   app: EditorApp,
   character: CharacterId,
-  clip: StarterPackClip,
+  clip: ConvertedClip,
   bytes: Uint8Array,
 ): Promise<ClipImportPlan> {
   const pipelines = await loadImportPath();
@@ -27,7 +45,7 @@ export async function prepareLibraryImport(
 export async function previewClipOf(
   app: EditorApp,
   character: CharacterId,
-  clip: StarterPackClip,
+  clip: ConvertedClip,
   bytes: Uint8Array,
 ): Promise<PreviewClip> {
   const plan = await prepareLibraryImport(app, character, clip, bytes);

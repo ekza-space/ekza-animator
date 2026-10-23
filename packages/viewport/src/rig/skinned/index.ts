@@ -14,6 +14,7 @@ import type { MeshViewLayers, MeshViewThemeInput, SkinnedSurface } from '@ekza-s
 import type { SkeletonDesc } from '@ekza-studio/rig';
 import type { MeshLayerHost } from '../../manager/meshLayers';
 import { MESH_LAYERS } from '../../mesh/layers';
+import { surfaceMaps } from '../../mesh/maps';
 
 /** The part of the viewport the display needs (B9's `addMeshLayer` and a redraw request). */
 export interface SkinnedDisplayTarget {
@@ -174,6 +175,15 @@ export class SkinnedCharacterDisplay {
           skin,
           paintOf(this.app, record.palette),
           paletteToBoneOf(this.app, runtime.skeleton, skin.palette),
+        );
+        const shown = entry;
+        // An imported model's base colour image (AR-D8-1): set once it is loaded.
+        shown.surface.setMap(
+          surfaceMaps(this.app).mapOf(record, () => {
+            if (this.entries.get(shown.id) !== shown) return;
+            shown.surface.setMap(surfaceMaps(this.app).mapOf(shown.record, () => {}));
+            this.target.invalidate();
+          }),
         );
         entry.version = mesh.version;
         entry.record = record;

@@ -16,7 +16,7 @@ import {
   type SessionState,
   type ViewportBadgeProvider,
 } from '@ekza-studio/editor-core';
-import { type ComponentType, type JSX, useRef, useSyncExternalStore } from 'react';
+import { type ComponentType, type JSX, useRef, useState, useSyncExternalStore } from 'react';
 import { useDocQuery, useRunOperator, useSession } from '../../../hooks';
 import { scopeChain } from '../../../input/keyboard';
 import { type PaneOverlayProps, type PaneOverlaySlot, paneOverlay, registerPaneOverlay } from '../../../overlays/slots';
@@ -119,14 +119,23 @@ export function RigEmptyState(props: PaneOverlayProps): JSX.Element | null {
   useOwnPointer(card);
   if (host !== props.paneId || !empty || quickRig) return null;
   const ctx = { panel: PANEL.viewport, paneId: props.paneId, source: 'menu' as const };
+  const hint = 'Select a mesh to turn into a character, or a character';
+  // With meshes in the scene (a model handed over from Auto-Rig's ①) the card is a strip in the bottom left corner,
+  // clear of the model's head (AR-R4-7); an empty scene keeps the card at the top
   return (
     <div
       ref={card}
-      className="pointer-events-auto mt-10 flex self-start max-w-[28rem] flex-col items-center gap-2 rounded-lg border border-line bg-[color-mix(in_srgb,var(--bg-panel,#232428)_92%,transparent)] px-5 py-4 text-center text-[12px] text-fg-2 shadow-lg"
+      className={
+        meshes
+          ? 'pointer-events-auto m-3 mb-10 flex max-w-[28rem] flex-wrap items-center gap-2 self-end justify-self-start rounded-lg border border-line bg-[color-mix(in_srgb,var(--bg-panel,#232428)_92%,transparent)] px-3 py-2 text-[12px] text-fg-2 shadow-lg'
+          : 'pointer-events-auto mt-10 flex self-start max-w-[28rem] flex-col items-center gap-2 rounded-lg border border-line bg-[color-mix(in_srgb,var(--bg-panel,#232428)_92%,transparent)] px-5 py-4 text-center text-[12px] text-fg-2 shadow-lg'
+      }
+      title={meshes ? hint : undefined}
       data-testid="rig-empty"
+      data-compact={meshes}
     >
-      <h2 className="text-[14px] font-semibold text-fg">Rig & Skin</h2>
-      <p>Select a mesh to turn into a character, or a character</p>
+      <h2 className={meshes ? 'text-[12px] font-semibold text-fg' : 'text-[14px] font-semibold text-fg'}>Rig & Skin</h2>
+      {meshes ? <p className="sr-only">{hint}</p> : <p>{hint}</p>}
       <div className="flex flex-wrap justify-center gap-1.5">
         {meshes ? (
           <button
@@ -211,6 +220,11 @@ function RigGettingStarted(props: PaneOverlayProps): JSX.Element | null {
     rigGettingStartedDismissed,
     rigGettingStartedDismissed,
   );
+  // While the empty state shows (no character yet) the card folds to its title: both sit at the pane's top and the
+  // card covered the empty state's actions (AR-D9-12); a click on the title unfolds it, a character unfolds it.
+  const empty = useDocQuery(noCharacter, ['characters']);
+  const [open, setOpen] = useState<boolean | null>(null);
+  const expanded = open ?? !empty;
   const card = useRef<HTMLDivElement>(null);
   useOwnPointer(card);
   if (host !== props.paneId || dismissed || quickRig) return null;
@@ -219,9 +233,18 @@ function RigGettingStarted(props: PaneOverlayProps): JSX.Element | null {
       ref={card}
       className="pointer-events-auto w-64 rounded-md border border-line bg-[color-mix(in_srgb,var(--bg-panel,#232428)_92%,transparent)] p-2 text-[11px] text-fg-2 shadow"
       data-testid="rig-getting-started"
+      data-expanded={expanded}
     >
-      <div className="mb-1 flex items-center justify-between">
-        <span className="font-semibold text-fg">Getting started</span>
+      <div className={`${expanded ? 'mb-1 ' : ''}flex items-center justify-between`}>
+        <button
+          type="button"
+          className="pointer-events-auto font-semibold text-fg hover:underline"
+          aria-expanded={expanded}
+          data-testid="rig-getting-started-toggle"
+          onClick={() => setOpen(!expanded)}
+        >
+          Getting started {expanded ? '▾' : '▸'}
+        </button>
         <button
           type="button"
           className="pointer-events-auto px-1 text-fg-3 hover:text-fg"
@@ -232,11 +255,13 @@ function RigGettingStarted(props: PaneOverlayProps): JSX.Element | null {
           ✕
         </button>
       </div>
-      <ol className="list-decimal space-y-0.5 pl-4">
-        {gettingStartedSteps(props.app, props.paneId).map((step) => (
-          <li key={step}>{step}</li>
-        ))}
-      </ol>
+      {expanded ? (
+        <ol className="list-decimal space-y-0.5 pl-4">
+          {gettingStartedSteps(props.app, props.paneId).map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+      ) : null}
     </div>
   );
 }

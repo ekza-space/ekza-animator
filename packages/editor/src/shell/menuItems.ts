@@ -1,7 +1,20 @@
 // Menu items contributed by the shell for its own operators (dialogs, panels, workspace, help). Built-in editing
 // commands come from WP-7b's BUILTIN_MENU_ITEMS; items with the same operator and arguments are shown once.
+// Auto-Rig (AUTORIG-SPEC §3.4, D2): File › Auto-Rig This Model… and Help › Switch to Auto-Rig run `shell.autoRig`, a
+// small eager operator of the Studio shell that calls the host's navigation port directly (never through the Rig & Skin
+// chunk; `autorig.navigate` is that chunk's palette/script wrapper of the same port). Its subject rule is the small
+// lazy `./autoRigSwitch`, prefetched when the menu opens.
 import type { Disposer } from '@ekza-studio/anim-core';
-import type { EditorApp, MenuItemDef, PanelKind, ViewportLayout, WorkspaceId } from '@ekza-studio/editor-core';
+import {
+  type EditorApp,
+  hostNavigation,
+  type MenuItemDef,
+  type OperatorDef,
+  type PanelKind,
+  type ViewportLayout,
+  type WorkspaceId,
+} from '@ekza-studio/editor-core';
+import type * as AutoRigSwitch from './autoRigSwitch';
 import { ANIMATE_SLOTS, type ChromePart, MODEL_SLOTS } from './layout';
 import { BUILTIN_PRESETS, type LayoutPresetStore } from './presets';
 import { RIG_LAYOUTS } from './rig/layouts';
@@ -27,6 +40,41 @@ const MODEL_LAYOUTS: readonly { readonly layout: ViewportLayout; readonly label:
   { layout: 'quad', label: 'Four View' },
   { layout: 'split', label: 'Front | Persp (Side)' },
 ];
+
+/** The lazy half of the switch (`./autoRigSwitch`: the subject rule, the remembered-choice write); null when it cannot
+ *  load (the switch then happens without them). */
+const loadAutoRigSwitch = (): Promise<typeof AutoRigSwitch | null> => import('./autoRigSwitch').catch(() => null);
+
+/**
+ * `shell.autoRig {subject?, remember?}`: switches to Auto-Rig on the same page through the host's navigation port, the
+ * document kept, handing the subject over when there is one (`autoRigSubject`, §3.4). `subject: true` (File › Auto-Rig
+ * This Model…) is enabled when the scene has meshes or a character (§3.4); Help › Switch to Auto-Rig and the first-run
+ * dialog are always enabled. `remember: true` (the first-run dialog's "Open this mode next time") first writes the
+ * landing's remembered choice. The subject rule and the write are the small `./autoRigSwitch` chunk (AR-D2-11): the
+ * poll — run when a menu showing the item opens — prefetches it (intent, M2A-SPEC §5.21.2), so a menu click does not
+ * wait for it. It never loads the Rig & Skin chunk. Not undoable; hidden from the palette (`autorig.navigate` is listed
+ * there). Without a port (a harness) it does nothing.
+ */
+const AUTO_RIG_OPERATOR: OperatorDef<{ readonly subject?: boolean; readonly remember?: boolean } | undefined> = {
+  id: 'shell.autoRig',
+  label: 'Switch to Auto-Rig',
+  category: 'ui',
+  scope: 'global',
+  flags: { internal: true },
+  poll({ app }, args) {
+    void loadAutoRigSwitch();
+    return args?.subject && app.store.list('meshes').length === 0 && app.session.getState().activeCharacter === null
+      ? { ok: false, reason: 'Nothing to auto-rig' }
+      : true;
+  },
+  async prepare({ app }, args) {
+    const lazy = await loadAutoRigSwitch();
+    if (args?.remember) lazy?.writeEntryChoice('autorig');
+    const subject = lazy?.autoRigSubject(app);
+    await hostNavigation(app)?.go({ to: 'autorig', from: 'studio', ...(subject && { subject }) });
+  },
+  apply() {},
+};
 
 export function shellMenuItems(
   extraPanels: readonly { readonly kind: PanelKind; readonly title: string }[],
@@ -60,6 +108,15 @@ export function shellMenuItems(
       group: 'recovery',
       order: 70,
       label: 'Recover…',
+    },
+    {
+      id: 'shell.file.autoRig',
+      menu: 'file',
+      op: 'shell.autoRig',
+      args: { subject: true },
+      group: 'export',
+      order: 80,
+      label: 'Auto-Rig This Model…',
     },
     {
       id: 'shell.file.export',
@@ -96,6 +153,14 @@ export function shellMenuItems(
       group: 'help',
       order: 20,
       label: 'Getting Started',
+    },
+    {
+      id: 'shell.help.autoRig',
+      menu: 'help',
+      op: 'shell.autoRig',
+      group: 'help',
+      order: 30,
+      // label: the operator's, "Switch to Auto-Rig"
     },
     {
       id: 'shell.help.about',
@@ -311,7 +376,7 @@ export function registerShellMenuItems(
   extraPanels: readonly { readonly kind: PanelKind; readonly title: string }[],
   state?: ShellMenuState,
 ): Disposer {
-  const disposers: Disposer[] = [];
+  const disposers: Disposer[] = [app.contribute({ kind: 'operator', def: AUTO_RIG_OPERATOR })];
   for (const def of shellMenuItems(extraPanels, state)) {
     if (app.menus.get(def.id) !== undefined) continue;
     disposers.push(app.contribute({ kind: 'menu', def }));

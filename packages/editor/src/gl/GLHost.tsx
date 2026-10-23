@@ -8,8 +8,8 @@ import { EkzaError } from '@ekza-studio/anim-core';
 import { registerViewportContributions, ViewportManager, viewportTestApi } from '@ekza-studio/viewport';
 import { addAfterEffect, addEffect, Canvas, type RootState, useFrame } from '@react-three/fiber';
 import { Component, type ErrorInfo, type JSX, type ReactNode, useEffect, useRef, useState } from 'react';
-import { useShell } from '../shell/context';
-import type { Shell } from '../shell/types';
+import { useHost } from '../host/context';
+import type { HostShell } from '../host/types';
 import { createFrameGate, type FrameGate } from './frameGate';
 import { probeWebGl, rendererName } from './webgl';
 
@@ -23,7 +23,7 @@ function isNotImplemented(error: unknown): boolean {
 }
 
 /** Renders every demanded frame: the ViewportManager's dirty panes, or the empty R3F scene without one. */
-function FrameDriver(props: { readonly shell: Shell; readonly gate: FrameGate }): null {
+function FrameDriver(props: { readonly shell: HostShell; readonly gate: FrameGate }): null {
   useFrame((state) => {
     props.gate.enter('render');
     props.shell.countFrame();
@@ -60,7 +60,7 @@ class CanvasBoundary extends Component<BoundaryProps, { readonly failed: boolean
 }
 
 /** Sets up the viewport for a created GL root; returns its teardown. */
-function attachRenderer(shell: Shell, state: RootState, gate: FrameGate): () => void {
+function attachRenderer(shell: HostShell, state: RootState, gate: FrameGate): () => void {
   const { app, ui } = shell;
   const gl = state.gl;
   gl.setClearColor(CLEAR_COLOR, 1);
@@ -138,7 +138,7 @@ function attachRenderer(shell: Shell, state: RootState, gate: FrameGate): () => 
 }
 
 export function GLHost(): JSX.Element | null {
-  const shell = useShell();
+  const shell = useHost();
   const [webgl] = useState(probeWebGl);
   const [failed, setFailed] = useState(false);
   const teardown = useRef<(() => void) | null>(null);

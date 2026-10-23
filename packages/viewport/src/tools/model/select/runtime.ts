@@ -438,6 +438,26 @@ export class ModelSelectRuntime {
 
   private frameBounds(what: 'selection' | 'all'): SpatialBounds | null {
     const state = this.app.session.getState();
+    if (
+      state.workspace === 'rig' &&
+      what === 'all' &&
+      !this.app.store.list('characters').some((c) => c.deleted === null)
+    ) {
+      // Rig & Skin before any character (Quick Rig's markers on scene meshes): `A` frames the scene meshes, arms and
+      // fingertips included; else the shipped bounds held only a default box (AR-D9-11). Hidden meshes are not framed
+      // (Auto-Rig's left-out parts, AR-D10-1)
+      const hidden = state.model.hiddenObjects;
+      const scene = this.app.store
+        .list('meshes')
+        .filter((mesh) => mesh.deleted === null && 'scene' in mesh.owner && !hidden.has(mesh.id));
+      // Quick Rig's markers and their mirrors count too: on an arms-down model the guess puts the arm markers out to
+      // the side, beyond the body, where FRONT cut the wrist off (AR-R4-6)
+      const quick = state.rig.quickRig;
+      const markers: number[] = [];
+      for (const point of Object.values(quick?.markers ?? {})) markers.push(...point, -point[0], point[1], point[2]);
+      for (const joint of quick?.preview ?? []) markers.push(...joint.position);
+      return bounds([...this.meshPoints(scene.map((mesh) => mesh.id)), Float32Array.from(markers)]);
+    }
     if (state.workspace !== 'model') return null;
     if (what === 'selection') {
       const components = bounds(this.selectionPoints());

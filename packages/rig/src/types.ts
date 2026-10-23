@@ -373,7 +373,7 @@ export interface MirrorJointArgs {
   readonly update: boolean;
 }
 export type RigProblemCode = 'skel.required-bones' | 'skel.unique-names' | 'skel.unique-human-bone' | 'skel.parent-map'
-  | 'skel.multiple-roots' | 'skel.tpose' | 'skel.hinge-bend' | 'skel.symmetry' | 'skel.grounded' | 'skel.facing'
+  | 'skel.multiple-roots' | 'skel.tpose' | 'skel.hinge-bend' | 'skel.symmetry' | 'skel.grounded' | 'skel.facing' | 'skel.height'
   | 'skel.orientation-mixed' | 'xform.scale' | 'xform.not-frozen' | 'pose.bind-mismatch' | 'rig.constraint-cycle'
   | 'rig.constraint-dangling' | 'rig.constraint-conflict' | 'rig.constraint-invalid' | 'rig.out-of-sync';
 export interface RigProblem { readonly code: RigProblemCode; readonly ids: readonly string[]; readonly message: string }

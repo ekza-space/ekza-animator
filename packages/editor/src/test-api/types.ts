@@ -1,4 +1,4 @@
-// Contract file: MVP-SPEC §4.8 with the M2A-SPEC §4.8, M6A-SPEC §4.8 and M6B-SPEC §4.8/§0.5 additions, copied verbatim (shapes are normative; change the spec first).
+// Contract file: MVP-SPEC §4.8 with the M2A-SPEC §4.8, M6A-SPEC §4.8, M6B-SPEC §4.8/§0.5 and AUTORIG-SPEC §10 D0 additions, copied verbatim (shapes are normative; change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
 import type { ChannelId } from '@ekza-studio/doc';
 import type { ManipHandle } from '@ekza-studio/editor-core';
@@ -17,6 +17,7 @@ export interface EkzaStudioTestApi {
     keyTarget: string; ripple: boolean; dirty: boolean; recovery: string[];   // M2a (additive)
     workspace: string; mode: string; hilite: string[]; capture: { armed: string | null;
       field: string | null; text: string | null }; extrudeSession: boolean;      // M6a, changed (additive)
+    storeVersion: number;                                    // AUTORIG D1 (§10 D1 DoD), changed (additive): app.store.version
   };
   counts(): Record<string, number>;                          // records per table (non-deleted)
   characters(): { id: string; name: string; format: string; source: 'asset' | 'model'; skeleton: string | null; rig: string;
@@ -152,6 +153,8 @@ export interface EkzaStudioTestApi {
   skeletonDesc(character: string): { fingerprint: string; height: number; humanoid: Record<string, number>;
     radii: (number | null)[]; names: string[] } | null;
   containerVersion(character: string): number;                                     // bumps on every synthesized rebuild
+  /** D8 (additive, AR-D8-1): the display container's adopted images (`image N`) and the materials that sample them. */
+  displayTextures(character: string): { images: number; textured: number } | null;
   /** C3 (`m6b/skeleton-ui.ts`) */
   screenOfJoint(joint: string, paneId: string): { x: number; y: number } | null;   // sphere centre, null when off-screen
   screenOfBone(joint: string, child: string, paneId: string, t: number): { x: number; y: number } | null;
@@ -191,4 +194,7 @@ export interface EkzaStudioTestApi {
   screenOfMarker(marker: string, side: 'R' | 'L', paneId: string): { x: number; y: number } | null; // C3
   library(): { clips: { id: string; label: string; slot: string | null; ok: boolean }[];
     preview: { character: string; clip: string; seconds: number } | null } | null;                 // C12
+
+  // ---------- Auto-Rig (AUTORIG-SPEC §10 D0; `test-api/autorig.ts`, fed by the shell's provider; null without it) ----------
+  autorig(): { step: string; reachable: Record<string, boolean>; done: Record<string, boolean>; subject: { character: string | null; meshes: readonly string[] }; intake: unknown; startPose: { armAngle: number; kind: 't' | 'a' } | null; busy: { stage: string; fraction: number | null } | null; slices: Record<string, unknown> } | null;
 }

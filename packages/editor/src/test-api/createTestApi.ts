@@ -34,6 +34,7 @@ import {
 } from '@ekza-studio/editor-core';
 import { applyOverrides, controlWorld, footPivotWorlds, type LimbId } from '@ekza-studio/rig';
 import { asArtifacts } from '../shell/exports';
+import type { HostShell } from '../host/types';
 import { type Shell, type TweenPanel, tweenProbeKey } from '../shell/types';
 // M6a (M6A-SPEC §4.8): one file per owner, spread into the API below; each owner fills only its own file.
 import { integrationTestApi } from './m6a/integration';
@@ -58,6 +59,7 @@ import { skeletonKernelTestApi } from './m6b/skeleton-kernel';
 import { skeletonUiTestApi } from './m6b/skeleton-ui';
 import { skinUiTestApi } from './m6b/skin-ui';
 import { weightsKernelTestApi } from './m6b/weights-kernel';
+import { autorigTestApi } from './autorig';
 import type { EkzaStudioTestApi } from './types';
 
 export interface TestApiHandle {
@@ -135,8 +137,23 @@ function resultOf(result: OperatorResult<unknown>): Awaited<ReturnType<EkzaStudi
   }
 }
 
-export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngine } = {}): TestApiHandle {
-  const { app, ui } = shell;
+/**
+ * The Studio shell's view of a HostShell for the owner groups (AUTORIG-SPEC §4.4, D1): the mounted Studio shell's
+ * members while one is mounted (marking menus, the dockview workspace, presets), else the host's — so one test API,
+ * installed by the host, serves `/editor`, `/autorig` and the switches between them.
+ */
+export function studioView(host: HostShell): Shell {
+  return new Proxy(host, {
+    get(target, key) {
+      const mounted = target.mounted.getState();
+      return Reflect.get(mounted?.kind === 'studio' && key in mounted ? mounted : target, key) as unknown;
+    },
+  }) as Shell;
+}
+
+export function createTestApi(host: HostShell, opts: { readonly engine?: CurveEngine } = {}): TestApiHandle {
+  const shell = studioView(host);
+  const { app, ui } = host;
   const engine = opts.engine ?? curveEngine;
   const store = app.store;
 
@@ -301,6 +318,7 @@ export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngin
     ...characterWriterTestApi(m6a),
     ...clipLibraryTestApi(m6a),
     ...m6bIntegrationTestApi(m6a),
+    ...autorigTestApi(m6a),
     ready,
     get webgl() {
       const gl = ui.getState().gl;
@@ -372,6 +390,8 @@ export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngin
         hilite: [...session.model.hilite],
         capture: { ...app.capture.state },
         extrudeSession: app.extrude.state !== null,
+        // AUTORIG-SPEC §10 D1: the store version, so a shell switch can prove no batch was emitted across it.
+        storeVersion: store.version,
       };
     },
     counts() {

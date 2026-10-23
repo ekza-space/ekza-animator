@@ -47,8 +47,10 @@ import {
   ruleSeverity,
   SPACE_PROFILE_ID,
   type StaticSwatch,
+  type ThumbnailImage,
 } from '@ekza-studio/io';
 import { computeStepSchedule, type TrackKey } from '@ekza-studio/rig';
+import { adoptedMaterials } from '../characters/assetMaterials';
 import { loadCharacterRuntime } from '../characters/runtimeChunk';
 import { loadMeshKernel } from '../mesh';
 import type { EditorApp } from '../types';
@@ -276,14 +278,17 @@ export async function characterWriteInput(
   const parts = chunk.modelParts(app, plan.character);
   if (parts === null) throw new EkzaError('unsupported', 'Create the skeleton first (Rig & Skin › Quick Rig)');
   if (parts === 'loading') throw new EkzaError('mesh-not-ready', 'The meshes of the character are still loading');
-  const meshes: CharacterMeshIn[] = chunk.characterMeshes(app.store, kernel, parts).map((mesh) =>
-    plan.material === null
+  const adopted = await adoptedMaterials(app, write, parts.meshes);
+  const meshes: CharacterMeshIn[] = chunk.characterMeshes(app.store, kernel, parts).map((own, i) => {
+    const assetMaterials = adopted[i];
+    const mesh = assetMaterials === undefined ? own : { ...own, assetMaterials };
+    return plan.material === null
       ? mesh
       : {
           ...mesh,
           materials: mesh.materials.map((material) => ({ ...material, preset: plan.material as 'unlit' | 'lit' })),
-        },
-  );
+        };
+  });
   const palettes = new Map<string, readonly StaticSwatch[]>();
   for (const mesh of meshes) {
     if (mesh.paletteId !== null && !palettes.has(mesh.paletteId)) {
@@ -455,6 +460,78 @@ export async function runExportCharacter(app: EditorApp, raw: unknown): Promise<
 }
 
 /** The thumbnail of a model character (§5.22): rendered by io, stored as a thumbnail asset. */
+/**
+ * The decoded base colour images of the meshes' adopted materials, by image key (the browser's decoder:
+ * `createImageBitmap` onto a 2D canvas). Without a decoder (Node) or for an image it cannot read: none (the
+ * thumbnail then draws the material's base colour factor).
+ */
+/** The browser's image decoding surface (editor-core has no DOM lib: the shapes it uses). */
+interface ImageDecoding {
+  createImageBitmap(
+    blob: unknown,
+    options: Readonly<Record<string, string>>,
+  ): Promise<{
+    readonly width: number;
+    readonly height: number;
+    close(): void;
+  }>;
+  readonly Blob: new (parts: readonly unknown[], options: { readonly type: string }) => unknown;
+  readonly OffscreenCanvas: new (
+    width: number,
+    height: number,
+  ) => {
+    getContext(kind: '2d'): {
+      drawImage(image: unknown, x: number, y: number): void;
+      getImageData(
+        x: number,
+        y: number,
+        w: number,
+        h: number,
+      ): {
+        readonly width: number;
+        readonly height: number;
+        readonly data: Uint8ClampedArray;
+      };
+    } | null;
+  };
+}
+
+async function decodeThumbnailImages(meshes: readonly CharacterMeshIn[]): Promise<Map<string, ThumbnailImage>> {
+  const out = new Map<string, ThumbnailImage>();
+  const host = globalThis as unknown as Partial<ImageDecoding>;
+  if (
+    typeof host.createImageBitmap !== 'function' ||
+    typeof host.OffscreenCanvas !== 'function' ||
+    typeof host.Blob !== 'function'
+  ) {
+    return out;
+  }
+  const { OffscreenCanvas, Blob } = host;
+  for (const mesh of meshes) {
+    for (const material of mesh.assetMaterials ?? []) {
+      const texture = material?.baseColorTexture ?? null;
+      if (texture === null || out.has(texture.key)) continue;
+      try {
+        const bitmap = await host.createImageBitmap(new Blob([texture.image], { type: texture.mimeType }), {
+          imageOrientation: 'none',
+          premultiplyAlpha: 'none',
+          colorSpaceConversion: 'none',
+        });
+        const context = new OffscreenCanvas(bitmap.width, bitmap.height).getContext('2d');
+        if (context !== null) {
+          context.drawImage(bitmap, 0, 0);
+          const pixels = context.getImageData(0, 0, bitmap.width, bitmap.height);
+          out.set(texture.key, { width: pixels.width, height: pixels.height, rgba: pixels.data });
+        }
+        bitmap.close();
+      } catch {
+        // Not decodable here: the factor draws.
+      }
+    }
+  }
+  return out;
+}
+
 export async function renderThumbnailAsset(app: EditorApp, character: CharacterId): Promise<AssetRecord> {
   const record = app.store.get('characters', character);
   if (record === undefined || !isModelCharacter(record)) {
@@ -465,10 +542,16 @@ export async function renderThumbnailAsset(app: EditorApp, character: CharacterI
   const parts = chunk.modelParts(app, character);
   if (parts === null) throw new EkzaError('unsupported', 'Create the skeleton first (Rig & Skin › Quick Rig)');
   if (parts === 'loading') throw new EkzaError('mesh-not-ready', 'The meshes of the character are still loading');
-  const meshes = chunk.characterMeshes(app.store, kernel, parts);
+  // An imported textured model's thumbnail shows its texture (AR-D8-1): the adopted materials and their images.
+  const adopted = await adoptedMaterials(app, write, parts.meshes);
+  const meshes = chunk.characterMeshes(app.store, kernel, parts).map((own, i) => {
+    const assetMaterials = adopted[i];
+    return assetMaterials === undefined ? own : { ...own, assetMaterials };
+  });
   const palettes = chunk.characterPalettes(app.store, meshes);
+  const images = await decodeThumbnailImages(meshes);
   await yieldToHost();
-  const png = write.renderCharacterThumbnail(meshes, palettes);
+  const png = write.renderCharacterThumbnail(meshes, palettes, undefined, images);
   const name = `${exportFileName(record.name, { character: record.name, clip: '', fps: 30 }, 'png').replace(/\.png$/, '')}-thumbnail.png`;
   return app.services.assets.put(png, { name, ext: 'png', role: 'thumbnail' });
 }

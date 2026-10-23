@@ -33,6 +33,12 @@ attribute vec3 paint;
 attribute vec4 shade;
 attribute float state;
 attribute float soft;
+attribute vec2 mapUv;
+attribute float mapped;
+attribute vec3 mapTint;
+varying vec2 vMapUv;
+varying float vMapped;
+varying vec3 vMapTint;
 varying vec3 vNormal;
 varying vec3 vViewPosition;
 varying vec3 vPaint;
@@ -44,6 +50,9 @@ void main() {
   vec4 view = modelViewMatrix * vec4(position, 1.0);
   vViewPosition = view.xyz;
   vPaint = paint;
+  vMapUv = mapUv;
+  vMapped = mapped;
+  vMapTint = mapTint;
   vShade = shade;
   vState = state;
   vSoft = soft;
@@ -56,6 +65,11 @@ ${BITS}
 ${SOFT_RAMP}
 uniform bool uPaint;
 uniform vec3 uClay;
+uniform bool uMapOn;
+uniform sampler2D uMap;
+varying vec2 vMapUv;
+varying float vMapped;
+varying vec3 vMapTint;
 uniform bool uFlat;
 uniform bool uFaceOrientation;
 uniform vec3 uFront;
@@ -105,7 +119,12 @@ void main() {
   float key = max(dot(n, keyDir), 0.0);
   float fill = max(dot(n, normalize(${v3(LIGHT_RIG.fillDir)})), 0.0);
   float light = ${f(LIGHT_RIG.ambient)} + ${f(LIGHT_RIG.key)} * key + ${f(LIGHT_RIG.fill)} * fill;
-  vec3 base = uPaint ? srgbToLinear(vPaint) : uClay;
+  // An imported model's materials (AR-D8-1, AR-D9-1): on the faces of its textured material slot the base colour
+  // image (sRGB texture: the sample is linear) times the material's base colour factor ("mapped" 1); on the faces of
+  // a flat-colour slot that factor alone ("mapped" 0.5). "mapTint" is the face's factor (linear RGB).
+  vec3 base = uMapOn && vMapped > 0.25
+    ? (vMapped > 0.75 ? texture2D(uMap, vMapUv).rgb : vec3(1.0)) * vMapTint
+    : uPaint ? srgbToLinear(vPaint) : uClay;
   vec3 col = base * light;
   // Blinn swatches add the key light's highlight (gloss byte > 0); Lambert swatches and clay have none.
   if (uPaint && vShade.a > 0.0) col += blinnHighlight(n, keyDir, vShade);

@@ -1,6 +1,6 @@
 # Ekza Studio — Requirements
 
-Status: v0.6 (2026-10-22: the M6b MVP integrated — FR-JNT and FR-SKIN rows marked ✓ (MVP) or partial with what follows
+Status: v0.7 (2026-10-22: the Auto-Rig mode integrated — FR-AR-01…13 added and marked ✓, FR-JNT-02 and FR-JNT-08's A-pose path and Apply Pose as Rest ✓ by AUTORIG A0, [AUTORIG-SPEC](AUTORIG-SPEC.md)); v0.6 (2026-10-22: the M6b MVP integrated — FR-JNT and FR-SKIN rows marked ✓ (MVP) or partial with what follows
 after the MVP, [M6B-SPEC §0.3](M6B-SPEC.md#03-scope-in-and-deferred)); v0.5 (2026-10-19: M6b expanded into the Rig & Skin workspace with [M6B-SPEC](M6B-SPEC.md) — FR-RIG-10 and
 FR-RIG-13 moved from M2c to M6b, FR-MOD-31…34 split into FR-JNT-01…10 and FR-SKIN-01…09, rows aligned with M6B-SPEC v1.1 after its design review; v0.4 2026-10-19: FR-MOD
 rewritten for the modeling iteration M6a–M8 with [M6A-SPEC](M6A-SPEC.md); FR-SHELL-08, -09, -11 moved to M6a; v0.3 2026-10-18, M2a integrated: the shipped M2a items are marked ✓). Functional requirements are numbered `FR-<AREA>-NN`, non-functional `NFR-NN`.
@@ -357,13 +357,13 @@ Added 2026-10-19 with [M6B-SPEC](M6B-SPEC.md) (research [17](research/17-maya-ri
 | ID | Requirement | Pri | M | Acceptance criterion |
 |---|---|---|---|---|
 | FR-JNT-01 | Rig & Skin workspace: four modes (Object, Skeleton, Skin, Shapes), pose view Bind/Test/Clip, Maya's Skeleton/Skin/Constrain/Control menus and marking menus, Rig Toolkit with a setup checklist, Validation panel as the export gate, selection undo; nothing in it creates a key. | V1 | M6b (partial: MVP — Object/Skeleton/Skin modes, Bind/Test views, the Skeleton and Skin menus, the `rig.modes` marking menu, Toolkit checklist, Validation gate, selection undo; Shapes mode, Clip view, Constrain/Control menus and the other marking menus after the MVP) | E2E-RIG-01, -02, -05, -08; `S` never keys in any Rig scope. |
-| FR-JNT-02 | VRM humanoid templates Lite 17 / Core 21 / Standard 33 / Full 52 with rest flexion and a non-deforming `root`, pre-fitted on the generated body; Quick Rig (markers, One-Click guess, guides, projected centre) on T- and A-posed meshes. | V1 | M6b (partial: MVP — four templates, Quick Rig v2 with the One-Click guess on T-posed meshes; the A-pose path after the MVP) | Fitter within 0.03 H on Seed-san and T- and A-posed Polybot; the A-pose path ends `skel.tpose`-clean; E2E-SKIN-01. |
+| FR-JNT-02 | VRM humanoid templates Lite 17 / Core 21 / Standard 33 / Full 52 with rest flexion and a non-deforming `root`, pre-fitted on the generated body; Quick Rig (markers, One-Click guess, guides, projected centre) on T- and A-posed meshes. | V1 | M6b ✓ (MVP — four templates, Quick Rig v2 with the One-Click guess; the A-pose path — fit and bind in the A-pose, *Straighten to T-Pose* — built by AUTORIG A0, E2E-AR-A0 and AS-AR-2) | Fitter within 0.03 H on Seed-san and T- and A-posed Polybot; the A-pose path ends `skel.tpose`-clean; E2E-SKIN-01. |
 | FR-JNT-03 | Joint tool (Snap to Projected Center, X symmetry, automatic parent, MMB/`Insert` reposition, `Backspace`, `Enter`/RMB one undo step, `Esc` no step), Insert Joint, Split Bone, Add Chain, Duplicate Joints; user-authored chains get visible controls. | V1 | M6b (after the MVP) | E2E-RIG-03, E2E-SKIN-09. |
 | FR-JNT-04 | Hierarchy editing: Remove Joints (splice), Delete (subtree), Parent/Unparent, rename with mirror rename (control ids kept), Map Humanoid Bone, Set Side, joint roles (deforming, helper, prop) and sockets; required-bone refusals; weights fold into the nearest surviving deforming ancestor; edits never move unselected joints. | V1 | M6b (partial: MVP — rename with control ids kept, Map Humanoid Bone; Remove/Delete/Parent/Unparent/Set Side, roles and sockets after the MVP) | Properties P-J1, P-J6; E2E-SKIN-09, E2E-CNS-01. |
 | FR-JNT-05 | Orient Joint (World / Maya / Blender presets, Maya's options, children, symmetry), with key conversion on bone-aligned controls; deformation and humanoid animation unchanged. | V1 | M6b ✓ (MVP) | Property P-J2 (1e-9); E2E-SKIN-09. |
 | FR-JNT-06 | Mirror Joint across YZ (Orientation / Behavior, name swap, update existing counterparts in place). | V1 | M6b ✓ (MVP) | Involution P-J3; E2E-SKIN-09. |
 | FR-JNT-07 | Joint display: X-ray joints, joint size, side colours, local axes, humanoid labels, missing-bone ghosts. | V1 | M6b ✓ (MVP) | E2E-RIG-03; joint overlay bench. |
-| FR-JNT-08 | Rest edits with Move Skinned Joints semantics; rotating a bound joint or a control is a session test pose (never a key; IK limbs bend in FK for the test); Go to Bind Pose (the constraint-free rest); ROM test clip; Apply Pose as Rest keeping oriented chains' axes. | V1 | M6b (partial: MVP — Move Skinned Joints, test poses incl. IK → FK, Go to Bind Pose; ROM clip and Apply Pose as Rest after the MVP) | E2E-SKIN-04, -10, -14, E2E-RIG-01, -05; property P-J5. |
+| FR-JNT-08 | Rest edits with Move Skinned Joints semantics; rotating a bound joint or a control is a session test pose (never a key; IK limbs bend in FK for the test); Go to Bind Pose (the constraint-free rest); ROM test clip; Apply Pose as Rest keeping oriented chains' axes. | V1 | M6b (partial: MVP — Move Skinned Joints, test poses incl. IK → FK, Go to Bind Pose; Apply Pose as Rest ✓ by AUTORIG A0 (T-Stance, Skeleton › Apply Pose as Rest / Straighten to T-Pose); the ROM test clip after the MVP — Auto-Rig ④ previews a range-of-motion clip) | E2E-SKIN-04, -10, -14, E2E-RIG-01, -05; property P-J5. |
 | FR-JNT-09 | Characters from own meshes (adoption of scene meshes, Import Static Model); the control rig regenerated inside every skeleton edit keeping control IDs, curves and user shape edits. | V1 | M6b ✓ (MVP) | E2E-SKIN-04; `skeletonFromDoc` ≡ `skeletonFromGltf` of the writer's output. |
 | FR-JNT-10 | Attach Prop: prop joint, rigid bind, prop control and a parent constraint whose weights can be keyed. | V1 | M6b (after the MVP) | E2E-CNS-01; AS-LP-T part C2. |
 
@@ -383,6 +383,27 @@ Added 2026-10-19 with [M6B-SPEC](M6B-SPEC.md) (research [14](research/14-skinnin
 | FR-SKIN-07 | VRM 1.0 and plain GLB character writer: VRM meta with licence presets, thumbnail, palette materials, `ekza_model_v1`, slot clips, props policy; OMOBA five-clip GLB; deterministic. | V1 | M6b (partial: MVP — VRM 1.0 for Space and OMOBA and a plain GLB through `local/generic`; props after the MVP; the OMOBA five-clip GLB is not offered for model characters, §0.4.6) | E2E-SKIN-05, -06; 0 glTF-Validator and `vrm-validator` errors; byte-identical re-export. |
 | FR-SKIN-08 | Imported characters: weight edits exported through the surgeon (everything else byte-preserved); Make Character Editable with rebind at rest and the licence gate. | V1 | M6b (after the MVP) | E2E-SKIN-07, -13. |
 | FR-SKIN-09 | Validation lints `skel.*`, `skin.*`, `rig.*`, `vrm.*` with severities per export profile; exporter-agnostic `ekza/space-avatar-v1`. | V1 | M6b ✓ (MVP) | E2E-RIG-08; the Export dialog blocks on profile errors. |
+
+### FR-AR — Auto-Rig mode
+
+Added 2026-10-22 with [AUTORIG-SPEC](AUTORIG-SPEC.md) §1.1 and [ADR 0021](adr/0021-autorig-mode.md); built in the
+Auto-Rig milestone (A0, D0…D7). Acceptance: the AS-AR scripts (`apps/web/e2e/ar-as-*.spec.ts`).
+
+| ID | Requirement | Pri | M | Acceptance criterion |
+|---|---|---|---|---|
+| FR-AR-01 | Choose on opening: the landing page offers Auto-Rig and Studio; the choice can be remembered and switched at any time. | V1 | AR ✓ | AS-AR-8 (E2E-AR-02). |
+| FR-AR-02 | Mixamo-simple flow: model → markers → rig → animations → export, five steps, one primary button per step. | V1 | AR ✓ | AS-AR-1 (E2E-AR-08). |
+| FR-AR-03 | Rig a static humanoid, T- or A-posed (GLB, or a model from Studio), with the M6b Quick Rig markers, One-Click guess, X symmetry and the front/side axis rule; skeleton detail on the markers step. | V1 | AR ✓ | AS-AR-1 steps 3–5, AS-AR-2 steps 1–3. |
+| FR-AR-04 | Auto-rig in one click (Create Skeleton + Bind Skin, + Straighten for an A-posed input) with a progress display; the character moves at once. | V1 | AR ✓ | AS-AR-1 step 5 (`PREVIEW Walk` ≤ 300 ms after Checking), AS-AR-2 step 3. |
+| FR-AR-05 | Fix when needed: adjust joints and paint weights with the M6b tools inside the wizard. | V1 | AR ✓ | E2E-AR-05, AS-AR-1 step 12 (moving the elbow back clears `skel.tpose`: the hands follow their forearms on *Done*, AR-D7-16). |
+| FR-AR-06 | Animations grid: search, preview on the character, speed, trim, mirror, in place, arm space; several clips. | V1 | AR ✓ | AS-AR-1 steps 7–8, E2E-AR-06. |
+| FR-AR-07 | Export an OMOBA- and Space-ready VRM 1.0 behind an in-browser checklist, a GLB with the clips, the clips as VRMA, an OMOBA local test kit. | V1 | AR ✓ | AS-AR-1 step 9, AS-AR-4, E2E-AR-07; OMOBA's validator admits the exports (admission only). |
+| FR-AR-08 | One document: Open in Studio continues with the full document and, on the same page, its undo history; Studio can send its model to Auto-Rig. | V1 | AR ✓ | AS-AR-3, E2E-AR-01. |
+| FR-AR-09 | An already rigged VRM goes straight to animations. | V1 | AR ✓ | AS-AR-4. |
+| FR-AR-10 | `/autorig` loads less code than `/editor` (gated). | V1 | AR ✓ | `check:size`: `/autorig` 658,122 B ≤ 660,000 B (enforced), dockview never fetched (bench). |
+| FR-AR-11 | Private: nothing leaves the browser; no telemetry. | V1 | AR ✓ | AS-AR-11 (every request same-origin, no POST). |
+| FR-AR-12 | Same bytes as Studio: an Auto-Rig export equals Studio's export of the same document. | V1 | AR ✓ | AS-AR-1 step 10, AS-AR-2 step 6, AS-AR-4 (SHA-256). |
+| FR-AR-13 | A-posed models become T-pose VRMs: fitted and bound in their pose, the rest converted to the VRM T-pose, the `vrm.*` lints clean, admitted by OMOBA's validator. | V1 | AR ✓ | AS-AR-2 (E2E-AR-13): no `skel.tpose`, read-back directions within 5°, OMOBA exit 0. |
 
 ---
 

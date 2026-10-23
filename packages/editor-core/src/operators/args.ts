@@ -1,4 +1,4 @@
-// Contract file: MVP-SPEC §4.5 with the M2A-SPEC §4.5 additions, the M6A-SPEC §6 rows (B0a) and the M6B-SPEC §6/§0.6 rows (C0), copied verbatim (shapes are normative; change the spec first).
+// Contract file: MVP-SPEC §4.5 with the M2A-SPEC §4.5 additions, the M6A-SPEC §6 rows (B0a), the M6B-SPEC §6/§0.6 rows (C0) and the AUTORIG-SPEC §4.5/§10 rows (D0), copied verbatim (shapes are normative; change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
 import type { Fps, Frame, InfinityMode, ParamValues, ReadonlyVec3, ReadonlyXf, RotateOrder, TangentType } from '@ekza-studio/anim-core';
 import type { CameraId, ChannelId, CharacterId, CharacterVrmMeta, ClipId, ConstraintId, ControlId, CurveId, DerivedFrom,
@@ -14,6 +14,8 @@ import type { BodyPart, ChannelEditResult, ChannelRef, DisplayFlags, GraphViewMo
 import type { ComponentMode, MeshOpArgs, MeshOpOutcome, MeshSetCommitResult, SceneObjectId, SelectionConstraint,
   SelectionStyle, Shading, SoftSelectSettings, SymmetryMode, WorkspaceId } from '../types';
 import type { BrushSettings, PaintMode, PoseView, RigMode } from '../types';
+import type { AutoRigExportResult, AutoRigExportTarget, AutoRigFix, AutoRigRigResult, AutoRigSampleId, ClipParams,
+  IntakeReport, ShellRoute } from '../types';
 
 export type SampleId = 'seed-san' | 'polybot' | 'quaternius-ual';
 export interface FileArgs { readonly name: string; readonly bytes: Uint8Array }
@@ -367,7 +369,9 @@ export interface OperatorMap {
 
   // ===================== M6b (M6B-SPEC §6, §0.6; C0 registers every id from its owner's stub file) =====================
   // ---------- §6.1 characters and skeletons ----------
-  'mesh.importStatic': { args: { readonly bytes: Uint8Array; readonly name: string }; result: { readonly meshes: readonly MeshId[] } };
+  'mesh.importStatic': { args: { readonly bytes: Uint8Array; readonly name: string;
+    readonly dropSkin?: boolean };                                // AUTORIG D0 (CR-AR-6, typed): import a skinned GLB's meshes at the bind pose
+    result: { readonly meshes: readonly MeshId[] } };
   'char.fromModel': { args: { readonly objects?: readonly SceneObjectId[]; readonly name?: string | null } | void;
     result: { readonly character: CharacterId; readonly skeleton: SkeletonId } };
   'char.adopt': { args: { readonly character: CharacterId; readonly objects?: readonly SceneObjectId[] }; result: { readonly meshes: readonly MeshId[] } };
@@ -381,14 +385,17 @@ export interface OperatorMap {
     result: { readonly character: CharacterId; readonly skeleton: SkeletonId } };
   'skel.template.addMissing': { args: { readonly skeleton: SkeletonId }; result: { readonly added: readonly JointId[]; readonly mapped: readonly JointId[] } };
   'skel.quickRig.start': { args: { readonly meshes?: readonly MeshId[] } | void; result: void };
-  'skel.quickRig.setMarker': { args: { readonly name: QuickRigMarker; readonly point: readonly [number, number, number] }; result: void };
+  'skel.quickRig.setMarker': { args: { readonly name: QuickRigMarker; readonly point: readonly [number, number, number];
+    /** AR-D8-3 (additive): the marker's moved flag after the move (default true: a user move); Auto-Rig's ② undo
+     *  restores a guessed marker with false. */
+    readonly moved?: boolean }; result: void };
   'skel.quickRig.guess': { args: void; result: void };
   'skel.quickRig.clear': { args: void; result: void };                                            // §0.6 (new)
   'skel.quickRig.setPreset': { args: { readonly preset: SkeletonPreset }; result: void };         // §0.6 (new)
   'skel.quickRig.cancel': { args: void; result: void };                                           // §0.6 (new)
   'skel.quickRig.pick': { args: { readonly marker: QuickRigMarker | null }; result: void };       // §0.6 (new)
-  'skel.quickRig.center': { args: { readonly meshes?: readonly MeshId[] } | void; result: void }; // §0.6 (new): Center and ground
-  'skel.quickRig.faceForward': { args: { readonly meshes?: readonly MeshId[] } | void; result: void };   // §0.6 (new): Rotate to face +Z
+  'skel.quickRig.center': { args: { readonly meshes?: readonly MeshId[]; readonly with?: readonly MeshId[] } | void; result: void }; // §0.6 (new): Center and ground; `with` AR-D10-2
+  'skel.quickRig.faceForward': { args: { readonly meshes?: readonly MeshId[]; readonly with?: readonly MeshId[] } | void; result: void };   // §0.6 (new): Rotate to face +Z; `with` AR-D10-2
   'skel.quickRig.commit': { args: { readonly preset: SkeletonPreset; readonly markers: QuickRigMarkers;
     readonly meshes: readonly MeshId[]; readonly flexion: number };                               // §0.4.2 args
     result: { readonly character: CharacterId; readonly skeleton: SkeletonId } };
@@ -419,8 +426,9 @@ export interface OperatorMap {
   'skel.joint.mirror': { args: ParamValues & { readonly root?: JointId } | void; result: { readonly joints: readonly JointId[] } };
   'skel.joint.flex': { args: { readonly angle?: number; readonly joints?: readonly JointId[] } | void; result: void };
   'skel.symmetry.set': { args: { readonly skeleton: SkeletonId; readonly on: boolean }; result: void };
-  'skel.pose.tStance': { args: void; result: void };
-  'skel.pose.applyAsRest': { args: void; result: void };
+  'skel.pose.tStance': { args: { readonly character?: CharacterId } | void; result: void };            // AUTORIG D0 (A0): + character
+  'skel.pose.applyAsRest': { args: { readonly character?: CharacterId; readonly pose?: 'test' | 'tStance' } | void;
+    result: void };                                                                                    // AUTORIG D0 (A0): 'tStance' = Straighten to T-Pose
   // ---------- §6.2 skin and weights (`holds` is the internal recorded arg of every undoable weight operator) ----------
   'skin.bind': { args: { readonly method?: BindMethod; readonly hierarchy?: boolean; readonly dropoff?: number; readonly stiffness?: number;
     readonly pruneBelow?: number; readonly rigidifyAbove?: number | null; readonly symmetrize?: boolean | null;
@@ -509,7 +517,34 @@ export interface OperatorMap {
   'file.exportCharacter': { args: CharacterExportRequest; result: readonly ExportArtifact[] };
   // ---------- §0.6 the clip library (C12) ----------
   'library.open': { args: void; result: void };
-  'library.preview': { args: { readonly character: CharacterId; readonly clip: string }; result: void };
+  'library.preview': { args: { readonly character: CharacterId; readonly clip: string;
+    readonly params?: ClipParams;                                  // AUTORIG D0 (CR-AR-2a, D5): derived bytes (§5.5.3)
+    readonly bytes?: Uint8Array;                                   // AUTORIG D0 (CR-AR-2c, D5): a VRMA that is no manifest entry (the ROM clip)
+    readonly label?: string };                                     //   its PREVIEW badge label (default: `clip`)
+    result: void };
   'library.stop': { args: void; result: void };
-  'library.useClip': { args: { readonly character: CharacterId; readonly clip: string }; result: { readonly clip: ClipId } };
+  'library.useClip': { args: { readonly character: CharacterId; readonly clip: string;
+    readonly params?: ClipParams;                                  // AUTORIG D0 (CR-AR-2a, D5): the derived asset, library clip first in derivedFrom
+    readonly replace?: ClipId };                                   // AUTORIG D0 (D5): one step deletes it and adds the new clip (name and slot kept)
+    result: { readonly clip: ClipId } };
+
+  // ===================== Auto-Rig (AUTORIG-SPEC §4.5; D0 registers every id from its owner's stub file) =====================
+  // Compositions: no undo of their own; they run the listed operators from `prepare` (rig-workspace chunk, `wizard/`).
+  'autorig.sample': { args: { readonly sample: AutoRigSampleId }; result: IntakeReport };                          // D3
+  'autorig.intake': { args: { readonly bytes: Uint8Array; readonly name: string; readonly dropSkin?: boolean };
+    result: IntakeReport };                                                                                        // D3
+  'autorig.inspect': { args: { readonly meshes: readonly MeshId[] }; result: IntakeReport };                       // D3 (U)
+  'autorig.fix': { args: { readonly fix: AutoRigFix; readonly meshes: readonly MeshId[]; readonly height?: number;
+    readonly with?: readonly MeshId[] }; result: void };                                                           // D3; `with` AR-D10-2
+  'autorig.rig': { args: { readonly straighten?: boolean; readonly rigidParts?: boolean } | void;
+    result: AutoRigRigResult };                                                                                    // D4; `rigidParts` AR-R4-5
+  'autorig.cancel': { args: void; result: void };                                                                  // D4 (U)
+  'autorig.clip.add': { args: { readonly character: CharacterId; readonly clip: string; readonly params: ClipParams;
+    readonly replace?: ClipId }; result: { readonly clip: ClipId } };                                              // D5
+  'autorig.export': { args: { readonly character: CharacterId; readonly target: AutoRigExportTarget; readonly fileName: string };
+    result: AutoRigExportResult };                                                                                 // D6
+  'autorig.navigate': { args: { readonly to: ShellRoute; readonly workspace?: WorkspaceId; readonly from?: 'studio' | 'autorig';
+    readonly newTab?: boolean }; result: void };                                                                   // D1 (U)
+  'autorig.controls': { args: { readonly hidden: boolean }; result: void };                                        // D9 (U, AR-D9-8)
+  'autorig.parts': { args: { readonly hidden: readonly MeshId[] }; result: void };                                 // D10 (U, AR-D10-1)
 }

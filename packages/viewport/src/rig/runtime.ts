@@ -180,7 +180,8 @@ export function createRigRuntime(app: EditorApp, vm: ViewportManager): ViewportR
     dispose: () => {},
   };
   // §5.24 Skeleton mode display (a pane option): the mesh in x-ray and the controls hidden while the mode is on; the
-  // flags a pane had come back when the mode is left (unless the user changed them meanwhile).
+  // flags a pane had come back when the mode is left, each unless it was changed meanwhile (AR-D9-3: Auto-Rig's ②
+  // gave the controls back while the mode was still on, and the joint test left the mesh in x-ray for good).
   const skeletonDisplay = new Map<string, { readonly xray: boolean; readonly controls: boolean }>();
   const applySkeletonDisplay = (on: boolean): void => {
     if (on) {
@@ -195,9 +196,14 @@ export function createRigRuntime(app: EditorApp, vm: ViewportManager): ViewportR
     }
     for (const [paneId, before] of skeletonDisplay) {
       const display = vm.paneState(paneId)?.display;
-      if (display !== undefined && display.xray && !display.controls) {
-        vm.updatePane(paneId, { display: { ...display, xray: before.xray, controls: before.controls } });
-      }
+      if (display === undefined || (!display.xray && display.controls)) continue;
+      vm.updatePane(paneId, {
+        display: {
+          ...display,
+          xray: display.xray ? before.xray : display.xray,
+          controls: display.controls ? display.controls : before.controls,
+        },
+      });
     }
     skeletonDisplay.clear();
   };

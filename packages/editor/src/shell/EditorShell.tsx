@@ -1,47 +1,42 @@
-// The Animate workspace chrome (research 09 §2): menu bar, status line, docks, fixed time slider, help line, plus
-// the overlays (dialogs, toasts, drop target). Sits above the GL host's canvas.
-import type { JSX } from 'react';
-import { DialogHost } from '../dialogs/DialogHost';
-import { CommandPaletteHost } from '../overlays/CommandPalette';
+// The Studio shell (research 09 §2; AUTORIG-SPEC §4.4, D1): menu bar, status line, docks, fixed time slider, help
+// line, plus Studio's overlays (marking menus, the shell slots). It renders inside `StudioHost`, which owns the GL
+// canvas, the dialogs, the command palette, the toasts and the drop target on every route. `StudioShell` is the
+// `/editor` route's shell: it creates the Studio shell core over the page's host when it mounts and disposes it when
+// it unmounts (a switch to Auto-Rig), and it alone opens the first-run dialog.
+import { switchWorkspace } from '@ekza-studio/editor-core';
+import { TooltipProvider } from '@ekza-studio/ui';
+import { type JSX, useEffect } from 'react';
+import { useHost } from '../host/context';
+import { shellShown } from '../host/StudioHost';
+import type { HostShell } from '../host/types';
 import { MarkingMenuHost } from '../overlays/MarkingMenu';
 import { ShellOverlays } from '../overlays/slots';
-import type { ToastNotifier } from '../services/notify';
-import { useShell, useShellUi } from './context';
+import type { PanelRegistry } from '../panels/types';
+import { ShellProvider, useShell } from './context';
+import { createShell } from './createShell';
 import { HelpLine } from './HelpLine';
 import { MenuBar } from './MenuBar';
 import { StatusLine } from './StatusLine';
 import { TimelineRegion, useChromeShown } from './TimelineRegion';
-import { Toaster } from './Toaster';
+import type { Shell } from './types';
+import { useConstant } from './useConstant';
 import { WorkspaceHost } from './WorkspaceHost';
 
-function DropOverlay(): JSX.Element | null {
-  const dragOver = useShellUi((s) => s.dragOver);
-  if (!dragOver) return null;
-  return (
-    <div
-      className="pointer-events-none fixed inset-1 z-(--z-ghost) grid place-items-center rounded-dialog border-2 border-dashed border-accent bg-drop-overlay"
-      data-testid="drop-overlay"
-    >
-      <span className="rounded-popover bg-popover px-4 py-2 text-dialog font-semibold text-fg shadow-popover">
-        Drop to import
-      </span>
-    </div>
-  );
-}
+/** `check-size` marker of the Studio shell's entry (AUTORIG-SPEC §7.2): a boundary `/autorig` must never load. */
+export const STUDIO_SHELL_MARKER = 'ekza-studio-shell' as const;
 
-/** M6a overlays (§4.8, §5.18): the marking menu, the command palette and the shell slots (B11's option box). */
+/** M6a overlays (§4.8, §5.18): the marking menu and the shell slots (B11's option box). */
 function ShellOverlaysHost(): JSX.Element {
   const shell = useShell();
   return (
     <>
       <MarkingMenuHost menus={shell.markingMenus} />
-      <CommandPaletteHost palette={shell.commandPalette} />
       <ShellOverlays app={shell.app} />
     </>
   );
 }
 
-export function EditorShell(props: { readonly toasts: ToastNotifier | null }): JSX.Element {
+export function EditorShell(): JSX.Element {
   // Layout presets (docs/LAYOUT-PRESETS.md): the tool strip and the help line can be hidden per workspace.
   const toolbar = useChromeShown('toolbar');
   const helpLine = useChromeShown('helpLine');
@@ -56,10 +51,87 @@ export function EditorShell(props: { readonly toasts: ToastNotifier | null }): J
         <TimelineRegion />
         {helpLine ? <HelpLine /> : null}
       </div>
-      <DialogHost />
       <ShellOverlaysHost />
-      {props.toasts === null ? null : <Toaster notifier={props.toasts} />}
-      <DropOverlay />
     </>
+  );
+}
+
+/**
+ * The workspace a Studio shell starts in (M6A-SPEC §4.8, §5.17; AUTORIG-SPEC §3.4): the one a switch from Auto-Rig
+ * asked for; else, when Studio is the page's first shell, `ws=<id>` or the workspace the user left
+ * (`prefs.lastWorkspace`); else the current one. Applied through `workspace.set`'s switching rules before the shell builds its layout.
+ */
+function startStudio(host: HostShell, panels: PanelRegistry | undefined): Shell {
+  const { app } = host;
+  // The page's first shell applies `ws=` or the remembered workspace; a shell arriving by a switch keeps the session's.
+  const first = !shellShown.has(host);
+  const startIn =
+    host.navigation.takeWorkspace() ?? (first ? (host.params.ws ?? app.prefs.getState().lastWorkspace) : null);
+  if (
+    startIn !== null &&
+    app.workspaces.get(startIn)?.enabled === true &&
+    startIn !== app.session.getState().workspace
+  ) {
+    switchWorkspace(app, startIn);
+  }
+  return createShell({ host, ...(panels === undefined ? {} : { panels }) });
+}
+
+const disposals = new Map<Shell, ReturnType<typeof setTimeout>>();
+
+export interface StudioShellProps {
+  /** Panels to show; default: the built-in panels. */
+  readonly panels?: PanelRegistry;
+  /** Called once the shell is mounted, with its handle (harnesses expose it to specs). */
+  readonly onShell?: ((shell: Shell) => (() => void) | undefined) | undefined;
+}
+
+export function StudioShell(props: StudioShellProps): JSX.Element {
+  const host = useHost();
+  // Arriving from Auto-Rig (a switch on this page, or `from=autorig`): no first-run dialog over the hand-over (AR-D8-6).
+  const [shell, arrived] = useConstant(
+    () => [startStudio(host, props.panels), shellShown.has(host) || host.params.from === 'autorig'] as const,
+  );
+  const { onShell } = props;
+
+  // Dispose on a real unmount only: StrictMode's effect replay re-runs the setup immediately and cancels it.
+  useEffect(() => {
+    const pending = disposals.get(shell);
+    if (pending !== undefined) {
+      clearTimeout(pending);
+      disposals.delete(shell);
+    }
+    const unmount = host.mount(shell);
+    return () => {
+      unmount();
+      disposals.set(
+        shell,
+        setTimeout(() => {
+          disposals.delete(shell);
+          shell.dispose();
+        }, 0),
+      );
+    };
+  }, [host, shell]);
+
+  useEffect(() => onShell?.(shell), [shell, onShell]);
+
+  // The first-run dialog is Studio's (AUTORIG-SPEC §4.4): Auto-Rig never shows it, nor a hand-over from it.
+  useEffect(() => {
+    if (!arrived && !shell.app.prefs.getState().firstRunDone && shell.app.session.getState().dialog === null) {
+      void shell.runFromUi('ui.open', { dialog: 'firstRun' });
+    }
+  }, [shell, arrived]);
+
+  return (
+    // The tooltip provider is Studio's (AR-D3-G): Auto-Rig's chrome uses `title`, so `/autorig` never loads Radix's
+    // tooltip layer at first visit; a tooltip outside a provider (a host dialog) creates its own.
+    <TooltipProvider>
+      <ShellProvider shell={shell}>
+        <div className="contents" data-shell={STUDIO_SHELL_MARKER}>
+          <EditorShell />
+        </div>
+      </ShellProvider>
+    </TooltipProvider>
   );
 }

@@ -1,0 +1,30 @@
+{
+  "name": "@ekza-studio/autorig",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Auto-Rig mode: the simplified five-step wizard shell (model, markers, rig, animations, export) over the same EditorApp as Studio.",
+  "license": "MIT",
+  "sideEffects": ["./src/steps/*/strings.ts"],
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@ekza-studio/anim-core": "workspace:*",
+    "@ekza-studio/doc": "workspace:*",
+    "@ekza-studio/editor": "workspace:*",
+    "@ekza-studio/editor-core": "workspace:*",
+    "@ekza-studio/ui": "workspace:*",
+    "@ekza-studio/viewport": "workspace:*",
+    "react": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "vitest": "catalog:"
+  }
+}

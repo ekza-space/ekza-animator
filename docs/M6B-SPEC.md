@@ -140,8 +140,8 @@ the ground (min y = 0), facing +Z, **T-posed**, X-symmetric (M6a's symmetry; the
 |---|---|---|---|
 | **C0** contracts | **in** | §4 contracts verbatim (complete, so post-MVP work adds no schema change), schema v4 (§4.1) compatible with swatches table v2 (§0.4.8), stubs, the §0.5 additions (incl. the `preview` priority, the pre-run hook, the badge slot, every MVP panel registration), lazy chunks incl. `clip-library`, fixtures incl. the Cube Lad (§0.7), test-API stubs, e2e helpers | — |
 | **C1** character runtime | **in** | §5.1 (`char.fromModel`, `char.adopt`, `mesh.importStatic`, `skeletonFromDoc`, `jointsFingerprint`, `measureSkinned`, container, registry hook, `character-runtime` chunk), `SkinnedSurface`, §5.16 `rig.autoRig.update` (humanoid + generic rules; prop and socket controls are written but unused), minimal writer, CR-7 (§0.4.1) | — (props and sockets arrive with C2's deferred operators) |
-| **C2** templates + Quick Rig | **in** | §5.2 templates (four presets, Standard 33 default, root helper, flexion, CR-2 pre-fit), **Quick Rig v2** (§0.4.2) with `guessMarkers` and `fitTemplate`, `projectedCenter`, the BVH, joint edits for the flow: `skel.joint.move`, `skel.joint.rotateRest`, `skel.joint.setRest`, `skel.joint.orient` (§5.5, key conversion included), `skel.joint.mirror` (§5.6.1), `skel.joint.setHumanBone`, `skel.joint.rename` (optional: implement if time remains), `skel.symmetry.set`, `skel.template.create`, `skel.template.addMissing`, `skel.joint.flex`, `checkSkeleton` (`skel.*`, `xform.*`) | Joint tool chains (`skel.joint.create`), Insert/Split, Remove/Delete, reparent/unparent, Duplicate, Set Side/Role, sockets, Attach Prop, `skel.pose.applyAsRest` and the A-pose path (§0.4.2) |
-| **C3** skeleton UI | **in** (subset) | Quick Rig panel, markers tool and the front/side axis rule, live preview, layout R-Markers; joint overlay and picking (§8.3 joints, bones, x-ray, axes on selection, labels on hover, missing-bone rings); §5.7 state table (`W`, `D`+`W`, `E`, `D`+`E`; test pose on bound joints incl. IK → FK); Orient / Mirror option boxes; the Rig Toolkit Skeleton section with the selected joint's fields | Joint, Insert Joint and Socket tools, Add Chain, Duplicate, Attach Prop dialog, T-Stance, Apply Pose as Rest dialog, Outliner joint rows (need CR-5), Channel Box rest rows, `rig.tools.skeleton` marking menu |
+| **C2** templates + Quick Rig | **in** | §5.2 templates (four presets, Standard 33 default, root helper, flexion, CR-2 pre-fit), **Quick Rig v2** (§0.4.2) with `guessMarkers` and `fitTemplate`, `projectedCenter`, the BVH, joint edits for the flow: `skel.joint.move`, `skel.joint.rotateRest`, `skel.joint.setRest`, `skel.joint.orient` (§5.5, key conversion included), `skel.joint.mirror` (§5.6.1), `skel.joint.setHumanBone`, `skel.joint.rename` (optional: implement if time remains), `skel.symmetry.set`, `skel.template.create`, `skel.template.addMissing`, `skel.joint.flex`, `checkSkeleton` (`skel.*`, `xform.*`) | Joint tool chains (`skel.joint.create`), Insert/Split, Remove/Delete, reparent/unparent, Duplicate, Set Side/Role, sockets, Attach Prop, ~~`skel.pose.applyAsRest` and the A-pose path (§0.4.2)~~ — *built by AUTORIG-SPEC A0* |
+| **C3** skeleton UI | **in** (subset) | Quick Rig panel, markers tool and the front/side axis rule, live preview, layout R-Markers; joint overlay and picking (§8.3 joints, bones, x-ray, axes on selection, labels on hover, missing-bone rings); §5.7 state table (`W`, `D`+`W`, `E`, `D`+`E`; test pose on bound joints incl. IK → FK); Orient / Mirror option boxes; the Rig Toolkit Skeleton section with the selected joint's fields | Joint, Insert Joint and Socket tools, Add Chain, Duplicate, Attach Prop dialog, ~~T-Stance, Apply Pose as Rest dialog~~ (*built by AUTORIG-SPEC A0*), Outliner joint rows (need CR-5), Channel Box rest rows, `rig.tools.skeleton` marking menu |
 | **C4** auto-skin | **in** | §5.9: `auto-lowpoly` (default), `heat` (Jacobi PCG), `rigid-islands`, `closest`; visibility; post-processing with symmetrize and rigidify; palette rules; point and joint masks (one joint = rigid attach); the skin worker; `skin.bind` (incl. the `rebindSkin` confirm), `skin.unbind`; first-bind control rig; the CSR / PSD Laplacian / lumped-mass / PCG kit | `skin.weights.autoForJoints` (no Joint tool in the MVP), sparse LDLᵀ (only inpainting needs it) |
 | **C5** weights kernel | **merged into C6** for the MVP (the MVP's ≤ 10 packages) | the MVP subset lives in C6 (below) | inpainting, `transferWeights`, `fillMissingWeights`, `foldJoints`, Hammer, Move Weights, copy/paste vertex weights, Rigid Islands utility, review layer flow |
 | **C6** skin UI | **in** (+ C5 subset) | kernel: §5.10 normalization with holds, `editWeights` kinds `set`, `stroke`, `flood`, `smooth`, `prune`, `normalize`, `compact`; `beginStroke` (P-S2); `mirrorWeights` (P-S3); `checkSkin`; `skinDirty`; UI: Paint Skin Weights (Replace, Add, Scale, Smooth, Flood, value, opacity, radius, falloff, surface/volume, front faces, X-mirror stroke, `B`/`M`/`N`/`I`/`Shift+I`, posed picking, Skin-mode `E` test rotate), weight display greyscale / ramp / influence colours (the 0-byte influence switch), Paint Weights panel (§8.7, influence list with holds), the Rig Toolkit Skin section (Bind Skin button and `⋯`, Unbind, Mirror Skin Weights, Prune, Normalize), Attributes › Skin inside the Toolkit | Component Editor (optional: implement if time remains, tests as `test.fixme('c6-ce')`), numbers overlay, Lock-Relative, Paint Select mode, the `rig.tools.skin`/`skin.joint`/`paint.ops` marking menus |
@@ -215,7 +215,10 @@ the palette and the keymap list only the MVP operators (§0.6).
   shifted back and knees forward by the hinge bias. Deterministic, ≤ 50 ms at 10k triangles (C2 bench, report-only).
   Thresholds are defaults calibrated by C2's spike on the fixtures (recorded in its wp-notes; a change is a contract PR
   to this paragraph).
-- **T-pose required in the MVP.** The guess still measures the arm angle; when it exceeds 15° (`aPose: true`) the panel
+- **T-pose required in the MVP.** *Built by AUTORIG-SPEC A0: the A-pose path below is superseded — the
+  notice now reads "A-posed arms: the skeleton follows them; after Bind Skin, Straighten to T-Pose makes the rest a VRM
+  T-pose", and T-Stance and Apply Pose as Rest exist (docs/wp-notes/ar-a-pose.md).* The guess still measures the arm
+  angle; when it exceeds 15° (`aPose: true`) the panel
   shows "A-posed arms: the skeleton follows them, but VRM export needs a T-pose — straighten the arms in Model (the
   A-pose fix arrives after the MVP)" and Validation reports `skel.tpose` (an error for the Ekza profile, a warning for
   `local/generic`). T-Stance and Apply Pose as Rest are deferred.
@@ -232,7 +235,7 @@ the palette and the keymap list only the MVP operators (§0.6).
   bounds: **centred** `|centre x| ≤ 0.01 H`, **grounded** `|min y| ≤ 0.01 H` and **facing +Z** (the toes' front extent
   — the mean z of the inside samples of the lowest 0.05 H band — lies in front of the band's slab midpoint). A failed
   check shows a notice in the Quick Rig panel with its fix: *Center and ground* (translates the meshes' placements so
-  that centre x = 0 and min y = 0) or *Rotate to face +Z* (180° about Y around the centre), each one undo step, run
+  that centre x = 0, centre z = 0 and min y = 0; z added by AUTORIG D7's fix round, AR-D7-14) or *Rotate to face +Z* (180° about Y around the centre), each one undo step, run
   before any marker is guessed (the guess re-runs after the fix). Create Skeleton is disabled with the reason until
   every check passes. Validation keeps `skel.grounded` and `skel.facing` (§5.21) for later edits.
 - **Re-run** (C2 operator, C3 panel): `skel.quickRig.start` on a character that already has a template skeleton seeds
@@ -749,7 +752,7 @@ One review of §0/§9.0 raised 18 issues (9 major, 9 minor). Every major and eve
 ### 0.10 Auto-Rig reuse requirements (CR-AR-1…6, owner request 2026-10-22)
 
 The owner asked for a Mixamo-style **Auto-Rig** mode (a second, minimal shell over the same document and operators;
-spec `docs/AUTORIG-SPEC.md` on branch `autorig/spec`, built after this MVP). It reuses the M6b operators, services and
+spec `docs/AUTORIG-SPEC.md`, built after this MVP). It reuses the M6b operators, services and
 panels, so the packages below **SHOULD** satisfy these requests now (cheap while building; each has a fallback owned
 by an Auto-Rig package later, so none is a blocker for the M6b DoD):
 
@@ -761,6 +764,12 @@ by an Auto-Rig package later, so none is a blocker for the M6b DoD):
 | CR-AR-4 | C7 | export the checklist evaluation `rigChecklist(app, character)` and keep the Validation service usable without the Rig Toolkit panel mounted | D3 adds the export in C7's files |
 | CR-AR-5 | C3, C6 | the markers tool, joint tools and Paint Skin Weights work in any registered `PaneView` (no dockview assumptions); the R-Markers pane ids are exported constants; one browser test mounts them in a plain grid | D4 fixes what fails |
 | CR-AR-6 | C1 | `mesh.importStatic {bytes, name, dropSkin?: boolean}`: with `dropSkin` a skinned file imports its meshes at the bind pose (skin and skeleton ignored) instead of refusing | D3 adds the argument in C1's operator file |
+
+**Status after the MVP merge** (AUTORIG-SPEC v0.2 §9, checked against `dev`): CR-AR-3 and CR-AR-4 landed; CR-AR-1
+landed except `PaintWeightsControls`; CR-AR-5 landed the pane ids but not the plain-grid test; CR-AR-6 landed as an
+untyped, untested argument; CR-AR-2 (a)(c) were not built and (b) partly (per-mesh progress, `cancel()` off the
+contract type). The remainder is Auto-Rig D-package work. The A-pose path this MVP defers (§0.3 C2/C3 rows, §0.4.2,
+Q-MVP-5) is built by AUTORIG-SPEC work package **A0** (owner decision Q-AR-4, 2026-10-22).
 
 ### 0.11 MVP integration record (INT, 2026-10-22)
 
@@ -1399,7 +1408,7 @@ export function chainParent(joints: readonly JointRecord[], point: readonly numb
 export function socketPlacement(joints: readonly JointRecord[], preset: 'back' | 'hipL' | 'hipR' | 'handL' | 'handR',
   bvh: TriangleBvh, height: number): { readonly parent: JointId; readonly position: readonly [number, number, number] } | null;
 export type RigProblemCode = 'skel.required-bones' | 'skel.unique-names' | 'skel.unique-human-bone' | 'skel.parent-map'
-  | 'skel.multiple-roots' | 'skel.tpose' | 'skel.hinge-bend' | 'skel.symmetry' | 'skel.grounded' | 'skel.facing'
+  | 'skel.multiple-roots' | 'skel.tpose' | 'skel.hinge-bend' | 'skel.symmetry' | 'skel.grounded' | 'skel.facing' | 'skel.height'
   | 'skel.orientation-mixed' | 'xform.scale' | 'xform.not-frozen' | 'pose.bind-mismatch' | 'rig.constraint-cycle'
   | 'rig.constraint-dangling' | 'rig.constraint-conflict' | 'rig.constraint-invalid' | 'rig.out-of-sync';
 export interface RigProblem { readonly code: RigProblemCode; readonly ids: readonly string[]; readonly message: string }

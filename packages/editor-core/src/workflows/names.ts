@@ -98,6 +98,18 @@ export function tagsProblem(tags: unknown): string | null {
   return null;
 }
 
+/**
+ * A modelling tool's default object name — Maya's `pCube12`, `polySurface3`, Blender's `Cube.001`, `Mesh.003`, 3ds
+ * Max's `Box001`, glTF's unnamed `Mesh 0` — after a Maya namespace (`Tema_lowpoly_v0_14:pCube10`). A model named by
+ * one says nothing about itself; its file name does (AR-D10-8).
+ */
+const GENERIC_NAME =
+  /^(?:p(?:cube|sphere|cylinder|cone|plane|torus|pipe|prism|pyramid|helix|disc|platonic)|polysurface|mesh|cube|sphere|uvsphere|icosphere|cylinder|cone|plane|circle|torus|box|object|geometry|geo|shape|node|primitive|default|untitled)(?:[\s._-]*\d+)*$/i;
+export function isGenericMeshName(name: string): boolean {
+  const leaf = (name.split(':').pop() ?? '').trim();
+  return leaf === '' || GENERIC_NAME.test(leaf);
+}
+
 /** File name without directories and the given extensions (`seed-san.vrm` → `seed-san`). */
 export function baseName(fileName: string): string {
   const leaf = fileName.split(/[\\/]/).pop() ?? fileName;

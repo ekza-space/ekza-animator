@@ -1,6 +1,7 @@
-// Operators owned by the shell (MVP-SPEC §4.9 owner 8): `view.toggleMaximize`, `ui.open`, `ui.close`, plus the
-// shell's own commands for preferences, the workspace and the selection mask. Registered through
-// `app.contribute` like every other operator (ADR 0008); none of them writes the document.
+// Operators owned by the Studio shell (MVP-SPEC §4.9 owner 8): `view.toggleMaximize`, the workspace, layout preset,
+// selection mask and full-screen commands. Registered through `app.contribute` like every other operator (ADR 0008);
+// none of them writes the document. `ui.open`, `ui.close` and `prefs.set` are the page host's (AUTORIG-SPEC §4.4,
+// `host/operators.ts`): they exist on every route.
 import { type Disposer, EkzaError } from '@ekza-studio/anim-core';
 import {
   type Contribution,
@@ -9,9 +10,7 @@ import {
   PANEL,
   type PanelKind,
   type PollResult,
-  type Prefs,
   type SelectionMask,
-  type UiDialog,
 } from '@ekza-studio/editor-core';
 import type { StoreApi } from 'zustand/vanilla';
 import { CHROME_PARTS, type ChromePart } from './layout';
@@ -19,54 +18,6 @@ import type {} from './operator-map';
 import type * as PresetOps from './presetOps';
 import { builtinPreset, type LayoutPresetStore, presetNameProblem } from './presets';
 import type { ShellUiState, WorkspaceApi } from './types';
-
-export const UI_DIALOGS: readonly UiDialog[] = [
-  'open',
-  'import',
-  'export',
-  'shortcuts',
-  'about',
-  'firstRun',
-  'preferences',
-  'recovery',
-  // M6a (B13): the Make editable report and the reference image import (M6A-SPEC §4.6 UiDialog).
-  'makeEditableReport',
-  'imagePlaneImport',
-  // Layout presets (docs/LAYOUT-PRESETS.md): save, rename and delete the user's presets.
-  'layoutPresets',
-  // M6b (C10, §5.22): VRM Meta… of a character made from a model.
-  'vrmMeta',
-];
-
-/** Dialogs whose implementation has not landed yet (none since M2a's Recovery dialog). */
-const PENDING_DIALOGS: ReadonlySet<UiDialog> = new Set();
-
-const PREF_KEYS: ReadonlySet<string> = new Set([
-  'firstRunDone',
-  'navProfile',
-  'spaceBehaviour',
-  'keymapOverrides',
-  'defaultTangents',
-  'autoKey',
-  'autoKeyMode',
-  'graphHandles',
-  'moveSpace',
-  'rotateSpace',
-  'reduceOnImport',
-  'uiScale',
-  // M2a (M2A-SPEC §4.5)
-  'autoRigIk',
-  'ikFkVisibility',
-  'ikFkSwitchKey',
-  'tweenOvershoot',
-  'arrowKeys',
-  'virtualSlider',
-  'exportReduce',
-  'autosave',
-  // M6a (M6A-SPEC §4.6; B13): the first-run start workspace and the modeling preferences (palette recents).
-  'lastWorkspace',
-  'modeling',
-]);
 
 export interface ShellOperatorDeps {
   readonly workspace: WorkspaceApi;
@@ -76,8 +27,6 @@ export interface ShellOperatorDeps {
   readonly presets: LayoutPresetStore;
   /** The document whose Fullscreen API `view.toggleFullscreen` uses (default: the global document; null: none). */
   readonly document?: Document | null;
-  /** Called when the import dialog closes without importing (drops the pending file). */
-  readonly onImportClosed: () => void;
 }
 
 type PresetOpsModule = typeof PresetOps;
@@ -98,25 +47,6 @@ function loadPresetOps(): Promise<PresetOpsModule> {
 
 const ok: PollResult = true;
 const fail = (reason: string): PollResult => ({ ok: false, reason });
-
-/** The `ui.open` poll: dialogs that need a character fail politely in an empty document. */
-function pollDialog(app: EditorApp, dialog: UiDialog): PollResult {
-  if (!UI_DIALOGS.includes(dialog)) return fail(`Unknown dialog '${String(dialog)}'`);
-  if (PENDING_DIALOGS.has(dialog)) return fail('not available yet');
-  // M6a (B13): the Export dialog's Static model section exports scene meshes without a character (§8.8).
-  if (dialog === 'export' && app.store.list('characters').length === 0 && app.store.list('meshes').length === 0) {
-    return fail('Load a character to export');
-  }
-  // M2A-SPEC §5.20: File › Recover… needs the autosave store (the dialog lists its orphaned slots).
-  if (
-    dialog === 'recovery' &&
-    !app.session.getState().autosave.enabled &&
-    app.session.getState().recovery.length === 0
-  ) {
-    return fail('Autosave is off in this editor');
-  }
-  return ok;
-}
 
 export function shellOperatorDefs(app: EditorApp, deps: ShellOperatorDeps): Contribution[] {
   const toggleMaximize: OperatorDef<{ readonly paneId?: string; readonly panel?: PanelKind } | void> = {
@@ -143,50 +73,6 @@ export function shellOperatorDefs(app: EditorApp, deps: ShellOperatorDeps): Cont
         return;
       }
       if (deps.workspace.hasMaximized()) deps.workspace.toggleMaximize({});
-    },
-  };
-
-  const open: OperatorDef<{ readonly dialog: UiDialog }> = {
-    id: 'ui.open',
-    label: 'Open Dialog',
-    category: 'ui',
-    scope: 'global',
-    flags: { internal: true },
-    poll: (_ctx, args) => pollDialog(app, args.dialog),
-    apply(_ctx, args) {
-      app.session.setState({ dialog: args.dialog });
-    },
-  };
-
-  const close: OperatorDef = {
-    id: 'ui.close',
-    label: 'Close Dialog',
-    category: 'ui',
-    scope: 'global',
-    flags: { internal: true },
-    apply() {
-      const dialog = app.session.getState().dialog;
-      if (dialog === null) return;
-      app.session.setState({ dialog: null });
-      if (dialog === 'import') deps.onImportClosed();
-    },
-  };
-
-  const setPrefs: OperatorDef<{ readonly patch: Partial<Omit<Prefs, 'version'>> }> = {
-    id: 'prefs.set',
-    label: 'Set Preferences',
-    category: 'ui',
-    scope: 'global',
-    flags: { internal: true },
-    poll(_ctx, args) {
-      const unknown = Object.keys(args.patch).filter((key) => !PREF_KEYS.has(key));
-      if (unknown.length > 0) return fail(`Unknown preference ${unknown.join(', ')}`);
-      // M2A-SPEC §1.2: the 'ghost' IK/FK display is M2a-stretch.
-      if (args.patch.ikFkVisibility === 'ghost') return fail('not available yet');
-      return ok;
-    },
-    apply(_ctx, args) {
-      app.prefs.setState({ ...args.patch });
     },
   };
 
@@ -379,9 +265,6 @@ export function shellOperatorDefs(app: EditorApp, deps: ShellOperatorDeps): Cont
 
   return [
     toggleMaximize,
-    open,
-    close,
-    setPrefs,
     resetWorkspace,
     showPanel,
     selectionMask,

@@ -10,7 +10,10 @@
 import { makeVrmMeta } from '@ekza-studio/doc';
 import { makeTestSkeleton } from '@ekza-studio/doc/testing';
 import { humanoidBody } from '@ekza-studio/mesh-core';
+import { inflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
+import { Document, WebIO } from '@gltf-transform/core';
+import { assetMaterialCarriesColour, characterAssetMaterials } from '../../../src/write';
 import {
   CC0_DEED_URL,
   CC_BY_DEED_URL,
@@ -176,6 +179,160 @@ describe('plain GLB (format glb) and the profiles', () => {
     expect(
       (await lintExport('bake-into-model', bytes, SPACE)).filter((l) => l.code.startsWith('vrm.')).map((l) => l.code),
     ).toEqual(['vrm.spec-version']);
+  });
+});
+
+describe('adopted asset materials (AUTORIG-SPEC §6.1, AS-AR-6; AR-D7-15)', () => {
+  const polybot = async () => {
+    const file = fixture('polybot-unskinned-tpose.glb');
+    const assetMaterials = characterAssetMaterials(file, [0, 7], 'ast_polybot');
+    const { write } = await character(
+      [{ name: 'Polybot', data: await meshOf('polybot-unskinned-tpose.glb'), bound: true }],
+      {
+        joints: polybotJoints(),
+        paletteId: null,
+        assetMaterials,
+        thumbnailPng: THUMB,
+      },
+    );
+    return { write, assetMaterials, file };
+  };
+
+  it('reads the material of the asset GLB: name, factor, the embedded PNG and its sampler; an unknown index is null', async () => {
+    const { assetMaterials, file } = await polybot();
+    expect(assetMaterials[1]).toBeNull();
+    const material = assetMaterials[0];
+    expect(material).toMatchObject({
+      name: 'mat_51',
+      baseColorFactor: [1, 1, 1, 1],
+      alphaMode: 'OPAQUE',
+      alphaCutoff: null,
+      doubleSided: false,
+    });
+    expect(material?.baseColorTexture).toMatchObject({
+      key: 'ast_polybot#image0',
+      mimeType: 'image/png',
+      texCoord: 0,
+      sampler: { magFilter: 9729, minFilter: 9729, wrapS: 10497, wrapT: 10497 },
+    });
+    const png = material?.baseColorTexture?.image as Uint8Array;
+    expect(pngSize(png)).not.toBeNull();
+    const source = (await parseGlb(file)).json as unknown as {
+      images: { bufferView: number }[];
+      bufferViews: { byteLength: number }[];
+    };
+    expect(png.byteLength).toBe(source.bufferViews[source.images[0]?.bufferView ?? 0]?.byteLength);
+  });
+
+  it('a mesh without a palette writes its image texture into the VRM (TEXCOORD_0, sampler); validators and vrm.* clean; deterministic', async () => {
+    const { write, assetMaterials } = await polybot();
+    const bytes = await writeCharacter(write, { generator: 'Ekza Studio test', format: 'vrm' });
+    const json = await jsonOf(bytes);
+    const images = json['images'] as Json[];
+    expect(images.map((image) => image['name'])).toEqual(['image 0', 'thumbnail']);
+    expect(images[0]).toMatchObject({ mimeType: 'image/png' });
+    const materials = json['materials'] as Json[];
+    expect(materials).toHaveLength(1);
+    expect(materials[0]?.['name']).toBe('mat_51');
+    const pbr = materials[0]?.['pbrMetallicRoughness'] as Json;
+    expect(pbr['baseColorTexture']).toEqual({ index: 0 });
+    const textures = json['textures'] as Json[];
+    const samplers = json['samplers'] as Json[];
+    expect(textures[0]).toMatchObject({ source: 0 });
+    expect(samplers[textures[0]?.['sampler'] as number]).toEqual({
+      magFilter: 9729,
+      minFilter: 9729,
+      wrapS: 10497,
+      wrapT: 10497,
+    });
+    const mesh = (json['meshes'] as Json[])[0] as Json;
+    const primitive = (mesh['primitives'] as Json[])[0] as Json;
+    expect(Object.keys(primitive['attributes'] as Json)).toContain('TEXCOORD_0');
+    // the written image is the asset's PNG, byte for byte
+    const container = await parseGlb(bytes);
+    const views = json['bufferViews'] as Json[];
+    const view = views[images[0]?.['bufferView'] as number] as Json;
+    const offset = (view['byteOffset'] as number | undefined) ?? 0;
+    const length = view['byteLength'] as number;
+    const written = container.bin === null ? null : container.bin.subarray(offset, offset + length);
+    expect(written).toEqual(assetMaterials[0]?.baseColorTexture?.image);
+    expect(await gltfErrors(bytes)).toEqual([]);
+    expect(await vrmErrors(bytes)).toEqual([]);
+    const lints = await lintExport('bake-into-model', bytes, SPACE);
+    expect(lints.filter((lint) => lint.code.startsWith('vrm.'))).toEqual([]);
+    expect(lints.filter((lint) => lint.severity === 'error')).toEqual([]);
+    expect(await writeCharacter(write, { generator: 'Ekza Studio test', format: 'vrm' })).toEqual(bytes);
+  });
+
+  it('a mesh with a palette keeps the palette texture (the asset image is not written)', async () => {
+    const { write } = await polybot();
+    const painted = { ...write, meshes: write.meshes.map((mesh) => ({ ...mesh, paletteId: 'pal_A' })) };
+    const json = await jsonOf(await writeCharacter(painted, { generator: 't', format: 'vrm' }));
+    expect((json['images'] as Json[]).map((image) => image['name'])).toEqual(['palette 0', 'thumbnail']);
+  });
+});
+
+describe('flat-colour asset materials (AUTORIG-SPEC §6.1; AR-D9-1)', () => {
+  // A low-poly asset's factor-only materials (Quaternius, Kenney): an orange body, a dark joint material and glTF's
+  // default white, no textures.
+  const flatAsset = async (): Promise<Uint8Array> => {
+    const doc = new Document();
+    doc.createBuffer();
+    doc.createMaterial('M_Main').setBaseColorFactor([0.8, 0.4, 0.04, 1]);
+    doc.createMaterial('M_Joints').setBaseColorFactor([0.2, 0.08, 0.01, 1]).setDoubleSided(true);
+    doc.createMaterial('M_White');
+    return new WebIO().writeBinary(doc);
+  };
+
+  it('reads a factor-only material (no image); only a non-white factor or an image carries a colour', async () => {
+    const materials = characterAssetMaterials(await flatAsset(), [0, 1, 2], 'ast_flat');
+    expect(materials[0]).toMatchObject({ name: 'M_Main', baseColorTexture: null, alphaMode: 'OPAQUE' });
+    expect(materials[0]?.baseColorFactor.map((c) => Number(c.toFixed(6)))).toEqual([0.8, 0.4, 0.04, 1]);
+    expect(materials[1]?.doubleSided).toBe(true);
+    expect(materials.map(assetMaterialCarriesColour)).toEqual([true, true, false]);
+    expect(assetMaterialCarriesColour(null)).toBe(false);
+  });
+
+  it('a mesh without a palette writes its flat base colour into the VRM (no image); validators and vrm.* clean', async () => {
+    const assetMaterials = characterAssetMaterials(await flatAsset(), [0], 'ast_flat');
+    const { write } = await character(
+      [{ name: 'Mannequin', data: await meshOf('polybot-unskinned-tpose.glb'), bound: true }],
+      { joints: polybotJoints(), paletteId: null, colourOutput: 'vertex-colour', assetMaterials, thumbnailPng: THUMB },
+    );
+    const bytes = await writeCharacter(write, { generator: 'Ekza Studio test', format: 'vrm' });
+    const json = await jsonOf(bytes);
+    const materials = json['materials'] as Json[];
+    expect(materials).toHaveLength(1);
+    expect(materials[0]?.['name']).toBe('M_Main');
+    const pbr = materials[0]?.['pbrMetallicRoughness'] as Json;
+    expect((pbr['baseColorFactor'] as number[]).map((c) => Number(c.toFixed(6)))).toEqual([0.8, 0.4, 0.04, 1]);
+    expect(pbr['baseColorTexture']).toBeUndefined();
+    expect((json['images'] as Json[]).map((image) => image['name'])).toEqual(['thumbnail']);
+    expect(await gltfErrors(bytes)).toEqual([]);
+    expect(await vrmErrors(bytes)).toEqual([]);
+    const lints = await lintExport('bake-into-model', bytes, SPACE);
+    expect(lints.filter((lint) => lint.code.startsWith('vrm.'))).toEqual([]);
+    // glTF's default white carries no colour of its own: the preset material stays
+    const white = characterAssetMaterials(await flatAsset(), [2], 'ast_flat');
+    const plain = await character(
+      [{ name: 'Mannequin', data: await meshOf('polybot-unskinned-tpose.glb'), bound: true }],
+      { joints: polybotJoints(), paletteId: null, colourOutput: 'vertex-colour', assetMaterials: white },
+    );
+    const plainJson = await jsonOf(await writeCharacter(plain.write, { generator: 't', format: 'glb' }));
+    expect((plainJson['materials'] as Json[]).map((material) => material['name'])).toEqual(['Palette']);
+  });
+
+  it('the thumbnail draws the flat colour', async () => {
+    const assetMaterials = characterAssetMaterials(await flatAsset(), [0], 'ast_flat');
+    const { write } = await character(
+      [{ name: 'Mannequin', data: await meshOf('polybot-unskinned-tpose.glb'), bound: true }],
+      { joints: polybotJoints(), paletteId: null, colourOutput: 'vertex-colour', assetMaterials },
+    );
+    const pixels = pngPixels(renderCharacterThumbnail(write.meshes, write.palettes, 64));
+    // the body's centre: red over green over blue (orange), not the grey of no material
+    const [r, g, b] = pixels.rgb(32, 32);
+    expect(r).toBeGreaterThan(g + 30);
+    expect(g).toBeGreaterThan(b + 10);
   });
 });
 
@@ -346,6 +503,68 @@ describe('P-W2 determinism', () => {
       const b = await writeCharacter(await make(), { generator: 't', format });
       expect(b).toEqual(a);
     }
+  });
+});
+
+/** The pixels of an io PNG (filter type 0 on every row, RGB). */
+function pngPixels(png: Uint8Array): { readonly width: number; rgb(x: number, y: number): [number, number, number] } {
+  const data = Buffer.from(png);
+  let offset = 8;
+  let width = 0;
+  const idat: Buffer[] = [];
+  while (offset < data.length) {
+    const length = data.readUInt32BE(offset);
+    const type = data.toString('latin1', offset + 4, offset + 8);
+    const body = data.subarray(offset + 8, offset + 8 + length);
+    if (type === 'IHDR') width = body.readUInt32BE(0);
+    else if (type === 'IDAT') idat.push(body);
+    offset += 12 + length;
+  }
+  const raw = inflateSync(Buffer.concat(idat));
+  const row = width * 3 + 1;
+  return {
+    width,
+    rgb: (x, y) => {
+      const at = y * row + 1 + x * 3;
+      return [raw[at] as number, raw[at + 1] as number, raw[at + 2] as number];
+    },
+  };
+}
+
+describe('the thumbnail of an imported textured model (AR-D8-1)', () => {
+  it('draws the adopted material: the decoded image times its factor, else the factor; never the palette grey', async () => {
+    const file = fixture('polybot-unskinned-tpose.glb');
+    const assetMaterials = characterAssetMaterials(file, [0], 'ast_polybot');
+    const { write } = await character(
+      [{ name: 'Polybot', data: await meshOf('polybot-unskinned-tpose.glb'), bound: true }],
+      { joints: polybotJoints(), paletteId: null, assetMaterials, thumbnailPng: THUMB },
+    );
+    const key = assetMaterials[0]?.baseColorTexture?.key as string;
+    // A 1 × 1 pure green image: every textured pixel is green (the key light only scales it).
+    const green = { width: 1, height: 1, rgba: new Uint8Array([0, 255, 0, 255]) };
+    const textured = pngPixels(renderCharacterThumbnail(write.meshes, write.palettes, 64, new Map([[key, green]])));
+    const centre = textured.rgb(32, 32);
+    expect(centre[1]).toBeGreaterThan(60);
+    expect(centre[0]).toBeLessThan(5);
+    expect(centre[2]).toBeLessThan(5);
+    // Deterministic.
+    expect(renderCharacterThumbnail(write.meshes, write.palettes, 64, new Map([[key, green]]))).toEqual(
+      renderCharacterThumbnail(write.meshes, write.palettes, 64, new Map([[key, green]])),
+    );
+    // Without the decoded image the factor (white) draws, not the no-palette grey; the background stays.
+    const plain = pngPixels(renderCharacterThumbnail(write.meshes, write.palettes, 64));
+    const [r, g, b] = plain.rgb(32, 32);
+    expect(r).toBe(g);
+    expect(g).toBe(b);
+    const greyOnly = pngPixels(
+      renderCharacterThumbnail(
+        write.meshes.map(({ assetMaterials: _dropped, ...mesh }) => mesh),
+        write.palettes,
+        64,
+      ),
+    );
+    expect(r).toBeGreaterThan(greyOnly.rgb(32, 32)[0]);
+    expect(plain.rgb(0, 0)).toEqual([46, 51, 59]);
   });
 });
 

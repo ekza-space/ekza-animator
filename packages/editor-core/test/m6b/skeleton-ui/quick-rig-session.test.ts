@@ -133,6 +133,24 @@ describe('markers and the live preview (§0.2 steps 3–5)', () => {
     expect(t.app.session.getState().rig).toMatchObject({ mode: 'skeleton', quickRig: null });
   });
 
+  it('setMarker {moved: false} restores a guessed marker (Auto-Rig ② undo, AR-D8-3); moved must be a boolean', async () => {
+    const t = await rigTestApp();
+    await openQuickRig(t);
+    const guessed = quickRigOf(t.app);
+    const elbow = guessed?.markers.elbow ?? [0, 0, 0];
+    setQuickRigMarker(t.app, 'elbow', [elbow[0], elbow[1] - 0.05, elbow[2]]);
+    expect([...(quickRigOf(t.app)?.moved ?? [])]).toEqual(['elbow']);
+    const run = await t.app.runUntyped('skel.quickRig.setMarker', { name: 'elbow', point: [...elbow], moved: false });
+    expect(run.status).toBe('finished');
+    const state = quickRigOf(t.app);
+    expect([...(state?.moved ?? [])]).toEqual([]);
+    expect(state?.markers.elbow).toEqual(elbow);
+    expect(state?.preview).toEqual(guessed?.preview);
+    expect(
+      await t.app.runUntyped('skel.quickRig.setMarker', { name: 'elbow', point: [...elbow], moved: 'no' }),
+    ).toMatchObject({ status: 'cancelled' });
+  });
+
   it('centre markers keep x = 0 whatever the point', async () => {
     const t = await rigTestApp();
     await openQuickRig(t);

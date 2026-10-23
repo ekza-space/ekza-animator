@@ -7,13 +7,14 @@
 // Severity follows the export profile ("VRM / Ekza" or "plain"); a rule that has not landed yet (its stub throws
 // `not-implemented`) gives no rows. One row per code (and per mesh for skin rows).
 import { EkzaError } from '@ekza-studio/anim-core';
-import type { AssetId, CharacterId, MeshId } from '@ekza-studio/doc';
+import type { AssetId, CharacterId, JointRecord, MeshId } from '@ekza-studio/doc';
 import { skeletonFromDoc } from '@ekza-studio/io';
 import type { SkinProblem } from '@ekza-studio/mesh-core';
 import { checkSkeleton, type RigProblem } from '@ekza-studio/rig';
 import { meshKernel } from '../../mesh/kernel';
 import type { EditorApp, OperatorId, RigValidationRow, RigValidationSeverity } from '../../types';
 import { characterMeshes, characterSkeleton, docSkeletonInput, meshData, skinOf, skinSkeletonOf } from './inputs';
+import { bodyMeshOf, crossesLimbs, limbRegions, partName, reachOf, regionList } from './limbs';
 
 /** The profile the panel starts with (§0.4.6: the Ekza avatar profile is the default). */
 export const DEFAULT_PROFILE = 'ekza/space-avatar-v1';
@@ -42,6 +43,7 @@ export const SEVERITY: Readonly<Record<string, readonly [Sev, Sev]>> = {
   'skel.symmetry': ['warning', 'warning'],
   'skel.grounded': ['warning', 'warning'],
   'skel.facing': ['warning', 'warning'],
+  'skel.height': ['warning', 'warning'],
   'skel.orientation-mixed': ['info', 'info'],
   'xform.scale': ['error', 'error'],
   'xform.not-frozen': ['error', 'error'],
@@ -53,6 +55,8 @@ export const SEVERITY: Readonly<Record<string, readonly [Sev, Sev]>> = {
   'skin.cross-side': ['warning', 'warning'],
   'skin.joint-without-weights': ['info', 'info'],
   'skin.non-deforming-weighted': ['warning', 'warning'],
+  'skin.limb-unweighted': ['error', 'warning'],
+  'skin.cross-limb': ['warning', 'warning'],
   'rig.out-of-sync': ['warning', 'warning'],
   'vrm.meta-required': ['error', null],
   'vrm.licence-unset': ['error', null],
@@ -80,6 +84,9 @@ function fixOf(row: RawRow, owner: { readonly character: CharacterId; readonly s
       return owner.skeleton === null
         ? null
         : fix('Add from template', 'skel.template.addMissing', { skeleton: owner.skeleton });
+    case 'skel.tpose':
+      // AUTORIG-SPEC A0: Straighten to T-Pose = T-Stance applied as the rest (the bound meshes baked, one step).
+      return fix('Straighten to T-Pose', 'skel.pose.applyAsRest', { character: owner.character, pose: 'tStance' });
     case 'skel.hinge-bend':
       return fix('Restore template flexion', 'skel.joint.flex');
     case 'skel.symmetry':
@@ -192,20 +199,62 @@ export function rawRows(app: Pick<EditorApp, 'store' | 'meshes'>, character: Cha
   const kernel = meshKernel();
   if (skeleton !== null && kernel !== null) {
     const skinSkeleton = skinSkeletonOf(skeleton.joints);
+    // AR-D10-3: the limb joints no bound mesh carries weight on (every skin read, at least one)
+    let unweighted = null as Set<string> | null;
+    let allRead = true;
+    // AR-R4-5: the separate parts (every mesh but the body) whose weights reach two limbs that do not meet
+    const regions = meshes.length > 1 ? limbRegions(skeleton.joints) : null;
+    const body = regions === null ? null : bodyMeshOf(app, meshes, skeleton.joints);
     for (const mesh of meshes) {
       const skin = skinOf(app, mesh);
-      if (skin === null) continue;
+      if (skin === null) {
+        if (mesh.skin !== null) allRead = false;
+        continue;
+      }
       const problems = landed(() =>
         kernel.checkSkin(skin, { skeleton: skinSkeleton, review: null, unreachable: null }),
       );
+      const without = new Set(problems.find((problem) => problem.code === 'skin.joint-without-weights')?.joints ?? []);
+      const before: Set<string> | null = unweighted;
+      unweighted = before === null ? without : new Set([...before].filter((joint: string) => without.has(joint)));
+      const data = body === null || mesh.id === body ? null : meshData(app, mesh);
+      if (data !== null && regions !== null) {
+        const reach = reachOf(mesh.id, skin, data.position, skeleton.joints, regions);
+        if (crossesLimbs(reach)) {
+          rows.push({
+            code: 'skin.cross-limb',
+            message: `${partName(mesh.name)} moves with ${regionList(reach.regions)}: it stretches between them`,
+            ids: [mesh.id],
+          });
+        }
+      }
       for (const problem of problems) {
+        // AR-R4-4: a joint that moves no point of one part may move another: a multi-part character gets one row for
+        // the joints no part carries weight on (below), named after the character
+        if (problem.code === 'skin.joint-without-weights' && meshes.length > 1) continue;
         rows.push({
           code: problem.code,
-          message: skinMessage(problem, mesh.name),
+          message: skinMessage(problem, problem.code === 'skin.joint-without-weights' ? record.name : mesh.name),
           ids: problem.joints.length > 0 && problem.points.length === 0 ? [mesh.id, ...problem.joints] : [mesh.id],
           points: { [mesh.id]: problem.points },
         });
       }
+    }
+    if (meshes.length > 1 && allRead && unweighted !== null && unweighted.size > 0) {
+      const joints = skeleton.joints.filter((joint) => unweighted?.has(joint.id) === true).map((joint) => joint.id);
+      rows.push({
+        code: 'skin.joint-without-weights',
+        message: `${plural(joints.length, 'joint')} of ${record.name} influence nothing`,
+        ids: joints,
+      });
+    }
+    const limbs = allRead && unweighted !== null ? limbsWithoutWeights(skeleton.joints, unweighted) : [];
+    if (limbs.length > 0) {
+      rows.push({
+        code: 'skin.limb-unweighted',
+        message: `${limbs.map((joint) => joint.name).join(', ')} ${limbs.length === 1 ? 'moves' : 'move'} no part of the model: the skeleton is not inside the body`,
+        ids: limbs.map((joint) => joint.id),
+      });
     }
   }
   const vrm = record.vrm;
@@ -227,6 +276,29 @@ export function rawRows(app: Pick<EditorApp, 'store' | 'meshes'>, character: Cha
     });
   }
   return rows;
+}
+
+/** The upper and lower arm and leg bones: each must move part of a humanoid's body (the hands, feet may be tiny). */
+const LIMB_BONES: ReadonlySet<string> = new Set([
+  'leftUpperArm',
+  'leftLowerArm',
+  'rightUpperArm',
+  'rightLowerArm',
+  'leftUpperLeg',
+  'leftLowerLeg',
+  'rightUpperLeg',
+  'rightLowerLeg',
+]);
+
+/**
+ * `skin.limb-unweighted` (AR-D10-3): the limb joints no bound mesh carries weight on. A skeleton placed beside the
+ * body — an arms-down model rigged on the template's guess, its arm bones through the head — binds the hanging arms to
+ * the spine and leaves these bones moving nothing, which every other row passes.
+ */
+function limbsWithoutWeights(joints: readonly JointRecord[], unweighted: ReadonlySet<string>): JointRecord[] {
+  return joints.filter(
+    (joint) => joint.humanBone !== null && LIMB_BONES.has(joint.humanBone) && unweighted.has(joint.id),
+  );
 }
 
 /**

@@ -53,6 +53,10 @@ export function rigChecklist(
             (clip.source.kind === 'new' && app.store.list('curves').some((curve) => curve.clip === clip.id))),
       );
   const exportErrors = rows.filter((row) => row.severity === 'error');
+  // AUTORIG-SPEC A0 (M6B-SPEC §5.21 ③a folded into ②): an A-posed fit is a valid rest for binding; its only skeleton
+  // error is the T-pose rule, fixed after Bind Skin by Straighten to T-Pose.
+  const skelErrors = rows.filter((row) => row.severity === 'error' && row.code.startsWith('skel.'));
+  const aPosed = skelErrors.length > 0 && skelErrors.every((row) => row.code === 'skel.tpose');
   const step = (
     n: ChecklistStep['step'],
     label: string,
@@ -69,7 +73,7 @@ export function rigChecklist(
       2,
       'Fit joints',
       !rigged ? 'todo' : hasError(rows, 'skel.') || hasError(rows, 'xform.') ? 'attention' : 'done',
-      'D + drag moves one joint',
+      rigged && aPosed ? 'A-posed: Bind Skin, then Straighten to T-Pose' : 'D + drag moves one joint',
       { label: 'Skeleton mode', op: 'rig.mode', args: { mode: 'skeleton' } },
     ),
     step(

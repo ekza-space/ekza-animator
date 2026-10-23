@@ -37,14 +37,17 @@ function applyMorphTargets(mesh: Mesh, index: number, position: Vector3, base: V
 /**
  * Measures the geometry three actually renders (skinning and morph targets applied), not the static accessor
  * bounds. CPU work per vertex: use on demand (framing), never per frame. World matrices must be current.
+ * `hidden`: hidden meshes under a visible root count too (Rig & Skin hides the display's bound meshes while mesh-view
+ * draws them; AR-D8-4).
  */
-export function measureSpatialBounds(roots: Iterable<Object3D>): SpatialBounds | null {
+export function measureSpatialBounds(roots: Iterable<Object3D>, hidden = false): SpatialBounds | null {
   const bounds = new Box3().makeEmpty();
   const position = new Vector3();
   const base = new Vector3();
   const morph = new Vector3();
   for (const root of roots) {
-    root.traverseVisible((object) => {
+    if (!root.visible) continue;
+    root[hidden ? 'traverse' : 'traverseVisible']((object) => {
       const mesh = object as Mesh;
       if (mesh.isMesh !== true) return;
       const attribute = mesh.geometry.getAttribute('position') as PositionAttribute | undefined;

@@ -14,7 +14,16 @@ import {
   triangulate,
 } from '@ekza-studio/mesh-core';
 import { cubeData } from '@ekza-studio/mesh-core/testing';
-import { type BufferAttribute, type BufferGeometry, type Camera, Matrix4, type Points, Vector3 } from 'three';
+import {
+  type BufferAttribute,
+  type BufferGeometry,
+  type Camera,
+  DataTexture,
+  Matrix4,
+  type Points,
+  SRGBColorSpace,
+  Vector3,
+} from 'three';
 import { afterEach, describe, expect, it } from 'vitest';
 import { EditMeshView, MeshSurface } from '../src';
 import { LIGHT_RIG, MESH_VIEW_STYLE } from '../src/style';
@@ -814,6 +823,97 @@ describe('MeshSurface', () => {
     canvasRef = render(surface, camera, { wireOnShaded: true });
     expect(colourError(at(canvasRef, edge), hexBytes(THEME.wire), 1)).toBe('');
     expect(surface.current).toBe(d.data);
+  });
+
+  it('draws an imported model’s base colour image on its mapped slots where palette colours draw (AR-D8-1)', () => {
+    const d = cube();
+    const camera = orthoFront(4);
+    const surface = new MeshSurface({ theme: THEME, layers: LAYERS });
+    disposables.push(surface);
+    surface.setData(d.data, d.tri, d.normals, null);
+    const centre = px(camera, [0.1, 0.15, 0.5]);
+    const clay = bytes(lit(THEME.clay, camera, [0, 0, 1]));
+    expect(colourError(at(render(surface, camera, { shading: 'lit' }), centre), clay, 2)).toBe('');
+    // A 2 × 2 pure green sRGB image times a factor of (1, 1, 1): the face reads lit green in `lit` and `colours`.
+    const texture = new DataTexture(
+      new Uint8Array(16).fill(255).map((v, i) => (i % 4 === 1 || i % 4 === 3 ? v : 0)),
+      2,
+      2,
+    );
+    texture.colorSpace = SRGBColorSpace;
+    texture.needsUpdate = true;
+    disposables.push(texture);
+    surface.setMap({ texture, slots: new Set([0]), factor: [1, 1, 1], texCoord: 0 });
+    const green = bytes(lit(0x00ff00, camera, [0, 0, 1]));
+    expect(colourError(at(render(surface, camera, { shading: 'lit' }), centre), green, 3)).toBe('');
+    expect(surface.mapDrawn).toBe(true);
+    expect(colourError(at(render(surface, camera, { shading: 'colours' }), centre), green, 3)).toBe('');
+    // `shaded` stays clay; the factor scales the image; another slot is not mapped; a new revision keeps the map
+    expect(colourError(at(render(surface, camera, { shading: 'shaded' }), centre), clay, 2)).toBe('');
+    surface.setMap({ texture, slots: new Set([0]), factor: [0, 1, 0], texCoord: 0 });
+    expect(colourError(at(render(surface, camera, { shading: 'lit' }), centre), green, 3)).toBe('');
+    surface.setMap({ texture, slots: new Set([5]), factor: [1, 1, 1], texCoord: 0 });
+    expect(colourError(at(render(surface, camera, { shading: 'lit' }), centre), clay, 2)).toBe('');
+    surface.setMap({ texture, slots: new Set([0]), factor: [1, 1, 1], texCoord: 0 });
+    surface.setData(d.data, d.tri, d.normals, null);
+    expect(colourError(at(render(surface, camera, { shading: 'lit' }), centre), green, 3)).toBe('');
+    // no UV layer for the texCoord (uv1): nothing mapped; null removes the image
+    surface.setMap({ texture, slots: new Set([0]), factor: [1, 1, 1], texCoord: 1 });
+    expect(colourError(at(render(surface, camera, { shading: 'lit' }), centre), clay, 2)).toBe('');
+    surface.setMap(null);
+    expect(colourError(at(render(surface, camera, { shading: 'lit' }), centre), clay, 2)).toBe('');
+    expect(surface.mapDrawn).toBe(false);
+  });
+
+  it('draws an imported model’s flat-colour materials (no image) on their slots, beside the image (AR-D9-1)', () => {
+    const d = cube();
+    const camera = orthoFront(4);
+    const surface = new MeshSurface({ theme: THEME, layers: LAYERS });
+    disposables.push(surface);
+    surface.setData(d.data, d.tri, d.normals, null);
+    const centre = px(camera, [0.1, 0.15, 0.5]);
+    const clay = bytes(lit(THEME.clay, camera, [0, 0, 1]));
+    const blue = bytes(lit(0x0000ff, camera, [0, 0, 1]));
+    const green = bytes(lit(0x00ff00, camera, [0, 0, 1]));
+    // a flat base colour of (0, 0, 1) linear on slot 0, no image: lit blue in `lit` and `colours`, clay when `shaded`
+    const flat = new Map([[0, [0, 0, 1] as const]]);
+    surface.setMap({ texture: null, slots: new Set(), factor: [1, 1, 1], texCoord: 1, flat });
+    expect(colourError(at(render(surface, camera, { shading: 'lit' }), centre), blue, 3)).toBe('');
+    expect(surface.mapDrawn).toBe(true);
+    expect(colourError(at(render(surface, camera, { shading: 'colours' }), centre), blue, 3)).toBe('');
+    expect(colourError(at(render(surface, camera, { shading: 'shaded' }), centre), clay, 2)).toBe('');
+    // another slot's flat colour leaves these faces clay
+    surface.setMap({
+      texture: null,
+      slots: new Set(),
+      factor: [1, 1, 1],
+      texCoord: 0,
+      flat: new Map([[3, [0, 0, 1]]]),
+    });
+    expect(colourError(at(render(surface, camera, { shading: 'lit' }), centre), clay, 2)).toBe('');
+    // an image on slot 0 and a flat colour on slot 1: each face draws its own slot's material
+    const texture = new DataTexture(
+      new Uint8Array(16).fill(255).map((v, i) => (i % 4 === 1 || i % 4 === 3 ? v : 0)),
+      2,
+      2,
+    );
+    texture.colorSpace = SRGBColorSpace;
+    texture.needsUpdate = true;
+    disposables.push(texture);
+    const mixed = {
+      texture,
+      slots: new Set([0]),
+      factor: [1, 1, 1] as const,
+      texCoord: 0,
+      flat: new Map([[1, [0, 0, 1] as const]]),
+    };
+    surface.setMap(mixed);
+    expect(colourError(at(render(surface, camera, { shading: 'lit' }), centre), green, 3)).toBe('');
+    const second = { ...d.data, faceMaterial: new Uint16Array(d.data.faceMaterial.length).fill(1) };
+    surface.setData(second, d.tri, d.normals, null);
+    expect(colourError(at(render(surface, camera, { shading: 'lit' }), centre), blue, 3)).toBe('');
+    surface.setMap(null);
+    expect(colourError(at(render(surface, camera, { shading: 'lit' }), centre), clay, 2)).toBe('');
   });
 
   it('applies per-pane display before each render (one scene, two panes)', () => {

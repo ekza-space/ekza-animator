@@ -127,6 +127,18 @@ export const RIG_MENU_ITEMS: readonly MenuItemDef[] = [
     'templates',
     PRESETS.map(([preset, label]): Row => [preset, 'skel.template.create', { preset }, label]),
   ),
+  // AUTORIG-SPEC §10 A0: the A-pose path — T-Stance (a test pose), Apply Pose as Rest (bakes the test pose) and
+  // Straighten to T-Pose (both in one step, the `skel.tpose` Fix).
+  ...rig(
+    'skeleton',
+    'pose',
+    [
+      ['tStance', 'skel.pose.tStance', undefined, 'T-Stance'],
+      ['applyPoseAsRest', 'skel.pose.applyAsRest', { pose: 'test' }, 'Apply Pose as Rest'],
+      ['straighten', 'skel.pose.applyAsRest', { pose: 'tStance' }, 'Straighten to T-Pose'],
+    ],
+    200,
+  ),
   ...rig('skeleton', 'rig', [['updateControlRig', 'rig.autoRig.update', undefined, 'Update Control Rig']], 300),
   ...rig(
     'skeleton',

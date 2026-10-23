@@ -1,5 +1,6 @@
 // The editor root (MVP-SPEC §7 WP-8): creates the browser services and the EditorApp, registers the built-in panels
-// and mounts the shell (dockview workspace, menus, status line, dialogs) over one R3F canvas.
+// and mounts the shell (dockview workspace, menus, status line, dialogs) over one R3F canvas — `StudioHost` with the
+// `StudioShell` in one tree (AUTORIG-SPEC §4.4). The app's routes mount the two through the `(studio)` layout.
 import { createEditorApp } from '@ekza-studio/editor-core';
 import type { JSX } from 'react';
 import { type CreateAppArgs, EditorRoot } from './shell/EditorRoot';

@@ -109,10 +109,28 @@ front and side views, get the VRM skeleton, adjust it, press a button to skin, l
    gate; the file passes glTF-Validator, vrm-validator and OMOBA's own runtime rules. OMOBA plays its own motion
    library on your VRM; your clips play in Space. How to take it there: [docs/guides/characters-to-ekza.md](docs/guides/characters-to-ekza.md).
 
-Known gaps, said plainly: the model must be **T-posed** for export (an A-posed model is fitted and flagged; the A-pose
-fix arrives later), Rig and skin edits on imported avatars arrive after the MVP (clips play on them), and
+Known gaps, said plainly: an **A-posed** model is fitted and bound in its own pose, then *Skeleton › Straighten to
+T-Pose* (or the Validation row's Fix) makes its rest the VRM T-pose; Rig and skin edits on imported avatars arrive after the MVP (clips play on them), and
 constraints, control-shape editing, the Joint tool, the Component Editor weight table and weight transfer/inpainting
 follow after the MVP ([docs/M6B-SPEC.md](docs/M6B-SPEC.md) §0.3).
+
+## Auto-Rig: from a GLB to an OMOBA-ready VRM in minutes
+
+On opening, Ekza Studio asks what you want to do: the full **Studio**, or **Auto-Rig** — a Mixamo-style five-step
+wizard built from the same tools (a second shell over the same document and undo history, [ADR 0021](docs/adr/0021-autorig-mode.md)):
+
+1. **Model**: drop a static humanoid GLB (T- or A-posed) or a VRM; the checks (centred, grounded, facing, upright,
+   size, pose) each have a one-click fix.
+2. **Markers**: nine markers guessed from the silhouette, dragged in the front and side views; finger detail.
+3. **Rig**: **Auto-rig** creates the VRM skeleton, binds the skin and, for an A-posed model, straightens it to the VRM
+   T-pose — then the character moves at once. Adjust joints and paint weights without leaving the wizard.
+4. **Animations**: the CC0 clip library with search, preview on your character, speed / trim / mirror / in place /
+   arm space, several clips per character.
+5. **Export**: an OMOBA- and Space-ready VRM 1.0 behind a checklist that includes OMOBA's runtime rules (its own
+   validator admits the files), a GLB with the clips, the clips as VRMA, or an OMOBA local test kit.
+
+*Open in Studio ▸* continues with the same document and its undo history; nothing leaves your browser. Guide:
+[docs/guides/autorig.md](docs/guides/autorig.md); spec: [docs/AUTORIG-SPEC.md](docs/AUTORIG-SPEC.md).
 
 ## Focused layouts
 
@@ -128,7 +146,7 @@ Hide what you do not need, per workspace (details: [docs/LAYOUT-PRESETS.md](docs
 
 ## Features
 
-| Area | Built (M1 alpha, M2a, **M6a**) | Planned |
+| Area | Built (M1 alpha, M2a, M6a, M6b, **Auto-Rig**) | Planned |
 |---|---|---|
 | Open | `.glb`, `.vrm` (VRM 0.x and 1.0), drag-and-drop, bundled samples, `.vrma` as a clip, Draco/meshopt/KTX2 display; embedded clips imported at their own frame rate with key reduction | FBX/BVH/Mixamo with humanoid retarget, `.gltf` multi-file, humanoid mapping for generic rigs (M2b); animation-only GLB onto a character |
 | Control rig | Auto FK rig with circle controls sized from the mesh, offset groups (zero = rest), side colours, `root`/`cog`/hips controls; 1:1 FK rig for any skinned GLB; Pin/Plant Feet; VRM node constraints in the preview; pose-preserving rotate-order change; **two-bone leg and arm IK with knee/elbow poles, soft IK, twist, IK/FK blend, match and seamless switch, a simple foot roll with pivots from the foot mesh, custom keyable attributes, imports written to IK feet, Add Limb IK for M1 rigs** | Constraints (M2c); space switching and "pole follows foot" (M5); stretch IK |
@@ -143,7 +161,8 @@ Hide what you do not need, per workspace (details: [docs/LAYOUT-PRESETS.md](docs
 | Collaboration | Data model, store boundary and conformance suite — verified in CI against a test-only Yjs store | Live sessions with presence and claims (M3), accounts and permissions (M4b) |
 | Ekza | Space-compatible exports, slot vocabulary, provenance, registry-aligned lints, interop warnings | Upload as `ekza:animation` asset, one-click publish, open from Ekza (M4a) |
 | Modeling | **M6a: Model workspace, component modes, the box-modeling tool set with symmetry, soft selection, snapping, the extrude session, Last-op card and Toolkit, palette colour, templates, reference planes, HUD and Mesh Check, static GLB export, Make editable for imported characters**; Lambert/Blinn swatch shaders (v0.3.1); control shapes use the shared spline type | UV editor (M6c), AI generation (M7), splines and generators (M8) |
-| Rig & Skin | **M6b MVP: Quick Rig (guessed markers, front/side axis rule, live VRM skeleton preview), Create Skeleton with an auto control rig, joint fitting with symmetry, Orient and Mirror Joints, one-click Bind Skin in a worker, Paint Skin Weights with mirror strokes and holds, test poses, Validation as the export gate, the CC0 Clip Library with preview and Use Clip, VRM 1.0 export with OMOBA's runtime lints** | Constraints and control-shape editing, the Joint tool, the Component Editor, weight transfer and inpainting, rig edits on imported avatars, the A-pose path (full M6b) |
+| Rig & Skin | **M6b MVP: Quick Rig (guessed markers, front/side axis rule, live VRM skeleton preview), Create Skeleton with an auto control rig, joint fitting with symmetry, Orient and Mirror Joints, one-click Bind Skin in a worker, Paint Skin Weights with mirror strokes and holds, test poses, Validation as the export gate, the CC0 Clip Library with preview and Use Clip, VRM 1.0 export with OMOBA's runtime lints**; **the A-pose path: Quick Rig and Create Skeleton on A-posed meshes, *Straighten to T-Pose* (Apply Pose as Rest) so the exported VRM is a T-pose VRM 1.0** | Constraints and control-shape editing, the Joint tool, the Component Editor, weight transfer and inpainting, rig edits on imported avatars (full M6b) |
+| Auto-Rig mode | **Mode chooser on `/` (remembered), a Mixamo-style five-step wizard at `/autorig` over the same document and undo history: model checks with one-click fixes (T- or A-posed GLB, VRM), guessed markers in front/side views, one-click *Auto-rig* (skeleton + skin + T-pose straighten) with Adjust joints and weight painting, the CC0 clip library with speed/trim/mirror/in-place/arm space, export to OMOBA/Space VRM 1.0, GLB, VRMA or an OMOBA local test kit; *Open in Studio* and back** | *Publish to Hub* (Ekza Hub upload, hidden until the Hub path exists), rig and weight edits on imported avatars, decimation over 200k triangles, an OMOBA-side motion smoke test, `ru`/`zh` strings |
 
 Full numbered list: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
 
@@ -191,6 +210,8 @@ docs/                    research, ADRs, requirements, roadmap, MVP spec, glossa
   that was built, with its acceptance scenario AS-MVP-1 ("Cube Lad comes alive").
 - [docs/guides/characters-to-ekza.md](docs/guides/characters-to-ekza.md) — export a VRM, upload it to Ekza Hub as an
   avatar, and what Ekza Space and OMOBA do with it.
+- [docs/AUTORIG-SPEC.md](docs/AUTORIG-SPEC.md) — the Auto-Rig mode (chooser, wizard, A-pose path, budgets, acceptance
+  AS-AR-1…12); user guide [docs/guides/autorig.md](docs/guides/autorig.md).
 - [docs/M2A-SPEC.md](docs/M2A-SPEC.md) — build spec of milestone M2a (integrated): limb IK, Dope Sheet, tween and
   breakdowns, Graph Editor tools, autosave, and the fixes for the M1 budget misses, as contract deltas and work
   packages; with the owner demo script (§10.3).

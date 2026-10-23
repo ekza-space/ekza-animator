@@ -11,7 +11,7 @@
 //   Toolkit. While Quick Rig is open a watcher re-runs the checks after document edits (the Center and Ground / Rotate
 //   to Face +Z fixes, their undo) and guesses once they pass; it closes Quick Rig when the workspace changes or the
 //   meshes go away.
-// - `.setMarker {name, point}` (the markers tool calls `setQuickRigMarker` directly on every pointer frame), `.guess`,
+// - `.setMarker {name, point, moved?}` (the markers tool calls `setQuickRigMarker` directly on every pointer frame), `.guess`,
 //   `.clear`, `.setPreset {preset}`, `.cancel`, `.pick {marker}`.
 import { type Disposer, EkzaError } from '@ekza-studio/anim-core';
 import type { MeshId, ReadView } from '@ekza-studio/doc';
@@ -51,10 +51,9 @@ export const QUICK_RIG_LABELS: Readonly<Record<QuickRigMarker, string>> = {
   toe: 'Toe',
 };
 
-/** §0.4.2 T-pose notice (the guess measured an arm angle above 15°). */
+/** §0.4.2 T-pose notice (the guess measured an arm angle above 15°), rewritten by AUTORIG-SPEC A0 (§5.3). */
 export const A_POSE_NOTICE =
-  'A-posed arms: the skeleton follows them, but VRM export needs a T-pose — straighten the arms in Model (the A-pose ' +
-  'fix arrives after the MVP)';
+  'A-posed arms: the skeleton follows them; after Bind Skin, Straighten to T-Pose makes the rest a VRM T-pose';
 export const QUICK_RIG_CLOSED = 'Quick Rig is not open';
 export const PRESET_LOCKED = 'The template of an existing skeleton is fixed: a new template needs a new skeleton';
 
@@ -88,6 +87,28 @@ export function quickRigCommitArgs(state: QuickRigState): {
 export function quickRigCommitBlock(state: QuickRigState): string | null {
   for (const key of ['centred', 'grounded', 'facing'] as const) if (!state.checks[key]) return CHECK_REASONS[key];
   if (state.preview === null) return 'The meshes are loading';
+  return null;
+}
+
+/** AR-D10-3: why Auto-rig waits when the guess found no arms (an arms-down model), or null. */
+export const ARMS_NOT_FOUND =
+  'Auto-Rig could not find the arms: drag the Shoulder, Elbow and Wrist markers onto the arm, or load the model ' +
+  'in a T-pose or A-pose';
+const ARM_MARKERS = ['shoulder', 'elbow', 'wrist'] as const;
+
+/**
+ * Why `autorig.rig` refuses the open Quick Rig session, or null: Quick Rig's own block (start checks, preview), then
+ * AR-D10-3 — a new character whose One-Click guess failed (no arm run: arms hanging down, or not a person) rigs only
+ * once the arm markers were placed by hand; the template's guess put them on a line through the head, and the rig
+ * bound the body to arm bones in the air.
+ */
+export function autoRigBlock(state: QuickRigState): string | null {
+  const block = quickRigCommitBlock(state);
+  if (block !== null) return block;
+  const guessFailed = state.guess !== null && state.guess.failed !== null;
+  if (state.refit === null && guessFailed && !ARM_MARKERS.every((name) => state.moved.has(name))) {
+    return ARMS_NOT_FOUND;
+  }
   return null;
 }
 
@@ -142,12 +163,13 @@ export function setQuickRigMarker(
   app: EditorApp,
   name: QuickRigMarker,
   point: readonly [number, number, number],
-  opts?: { readonly select?: boolean },
+  opts?: { readonly select?: boolean; readonly moved?: boolean },
 ): void {
   const state = quickRigOf(app);
   if (state === null) return;
   const moved = new Set(state.moved);
-  moved.add(name);
+  if (opts?.moved === false) moved.delete(name);
+  else moved.add(name);
   const markers: QuickRigMarkers = { ...state.markers, [name]: markerPoint(name, point) };
   writeQuickRig(
     app,
@@ -377,7 +399,7 @@ const setMarker = defineOperator({
   scope: 'rig',
   workspaces: ['rig'],
   flags: { internal: true },
-  extraArgs: ['name', 'point'],
+  extraArgs: ['name', 'point', 'moved'],
   poll(ctx, args): PollResult {
     const open = pollOpen(ctx.app);
     if (open !== true) return open;
@@ -386,11 +408,17 @@ const setMarker = defineOperator({
     if (!Array.isArray(point) || point.length !== 3 || !point.every((v) => Number.isFinite(v))) {
       return fail('point: [x, y, z]');
     }
+    if (args['moved'] !== undefined && typeof args['moved'] !== 'boolean') return fail('moved: a boolean');
     return OK;
   },
   apply(ctx, args) {
     const point = args.point;
-    setQuickRigMarker(ctx.app, args.name, [point[0], point[1], point[2]]);
+    setQuickRigMarker(
+      ctx.app,
+      args.name,
+      [point[0], point[1], point[2]],
+      args.moved === undefined ? undefined : { moved: args.moved },
+    );
   },
 });
 

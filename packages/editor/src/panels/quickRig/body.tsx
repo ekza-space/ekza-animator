@@ -50,6 +50,13 @@ export interface QuickRigPanelBodyProps {
   readonly app: EditorApp;
   /** Denser layout (the Rig Toolkit section, other shells). */
   readonly compact?: boolean;
+  /** Hides the body's own commit row — Create Skeleton (with its rebind question) and Cancel — for a host whose own
+   *  primary button commits (Auto-Rig's *Auto-rig ▸*, AUTORIG-SPEC §5.3; additive, D4). */
+  readonly hideCommit?: boolean;
+  /** Plain wording for a simple host (Auto-Rig's ②, AR-D8-8; additive): no Studio jargon — the A-pose notice, the
+   *  re-run line and the template select (the host's own notices and fingers choice say it) are hidden, and a re-run's
+   *  markers read "placed" (the seed from the skeleton is not a user move). */
+  readonly simple?: boolean;
 }
 
 export function QuickRigPanelBody(props: QuickRigPanelBodyProps): JSX.Element {
@@ -129,12 +136,12 @@ export function QuickRigPanelBody(props: QuickRigPanelBodyProps): JSX.Element {
           </span>
         </div>
       ) : null}
-      {state.refit !== null ? (
+      {state.refit !== null && props.simple !== true ? (
         <p className="text-[11px] text-fg-3" data-testid="quickrig-refit">
           Refits the {PRESET_LABELS[state.preset]} skeleton in place (same joints).
         </p>
       ) : null}
-      {state.guess?.aPose === true ? (
+      {state.guess?.aPose === true && props.simple !== true ? (
         <p className="text-[11px] text-warn" role="note" data-testid="quickrig-apose">
           {A_POSE_NOTICE}
         </p>
@@ -161,7 +168,9 @@ export function QuickRigPanelBody(props: QuickRigPanelBodyProps): JSX.Element {
                 onClick={() => void run('skel.quickRig.pick', { marker: selected ? null : name }, CTX)}
               >
                 <span>{QUICK_RIG_LABELS[name]}</span>
-                <span className={status === 'missing' ? 'text-warn' : 'text-fg-3'}>{status}</span>
+                <span className={status === 'missing' ? 'text-warn' : 'text-fg-3'}>
+                  {props.simple === true && state.refit !== null && status === 'moved' ? 'placed' : status}
+                </span>
               </button>
             </li>
           );
@@ -176,23 +185,25 @@ export function QuickRigPanelBody(props: QuickRigPanelBodyProps): JSX.Element {
           Front view moves X/Y, side view Z/Y. Select a marker here to drag it where markers overlap.
         </p>
       )}
-      <label className="flex items-center justify-between gap-2">
-        <span>Template</span>
-        <select
-          className="h-6 rounded-[4px] border border-line bg-[var(--bg-field,#17181b)] px-1 text-[11px] text-fg"
-          value={state.preset}
-          disabled={state.refit !== null}
-          title={state.refit !== null ? PRESET_LOCKED : undefined}
-          data-testid="quickrig-preset"
-          onChange={(event) => void run('skel.quickRig.setPreset', { preset: event.target.value }, CTX)}
-        >
-          {(Object.keys(PRESET_LABELS) as SkeletonPreset[]).map((preset) => (
-            <option key={preset} value={preset}>
-              {PRESET_LABELS[preset]}
-            </option>
-          ))}
-        </select>
-      </label>
+      {props.simple === true ? null : (
+        <label className="flex items-center justify-between gap-2">
+          <span>Template</span>
+          <select
+            className="h-6 rounded-[4px] border border-line bg-[var(--bg-field,#17181b)] px-1 text-[11px] text-fg"
+            value={state.preset}
+            disabled={state.refit !== null}
+            title={state.refit !== null ? PRESET_LOCKED : undefined}
+            data-testid="quickrig-preset"
+            onChange={(event) => void run('skel.quickRig.setPreset', { preset: event.target.value }, CTX)}
+          >
+            {(Object.keys(PRESET_LABELS) as SkeletonPreset[]).map((preset) => (
+              <option key={preset} value={preset}>
+                {PRESET_LABELS[preset]}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <div className="flex flex-wrap gap-1">
         <button
           type="button"
@@ -212,26 +223,30 @@ export function QuickRigPanelBody(props: QuickRigPanelBodyProps): JSX.Element {
         >
           Clear
         </button>
-        <button
-          type="button"
-          className={QUICK_RIG_BUTTON}
-          data-testid="quickrig-cancel"
-          onClick={() => void run('skel.quickRig.cancel', undefined, CTX)}
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          className={PRIMARY}
-          disabled={block !== null || busy || confirm}
-          title={block ?? undefined}
-          data-testid="quickrig-commit"
-          onClick={() => void commit(false)}
-        >
-          Create Skeleton
-        </button>
+        {props.hideCommit === true ? null : (
+          <>
+            <button
+              type="button"
+              className={QUICK_RIG_BUTTON}
+              data-testid="quickrig-cancel"
+              onClick={() => void run('skel.quickRig.cancel', undefined, CTX)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={PRIMARY}
+              disabled={block !== null || busy || confirm}
+              title={block ?? undefined}
+              data-testid="quickrig-commit"
+              onClick={() => void commit(false)}
+            >
+              Create Skeleton
+            </button>
+          </>
+        )}
       </div>
-      {confirm ? (
+      {confirm && props.hideCommit !== true ? (
         <div
           className="flex flex-col gap-1 rounded-[4px] border border-[var(--warn,#e8b04a)] p-1.5"
           role="alertdialog"

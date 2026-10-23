@@ -91,6 +91,10 @@ export interface CharacterOptions {
   readonly vrm?: CharacterVrmMeta | null;
   readonly thumbnailPng?: Uint8Array | null;
   readonly clips?: CharacterWriteInput['clips'];
+  /** The meshes' palette (default 'pal_A'); null = none (an imported model's asset materials). */
+  readonly paletteId?: string | null;
+  /** The meshes' adopted asset materials (AR-D7-15). */
+  readonly assetMaterials?: CharacterMeshIn['assetMaterials'];
 }
 
 /** A bound character over the given meshes (weights: the two nearest bones; static meshes stay unbound). */
@@ -111,8 +115,9 @@ export async function character(
     skin: mesh.skin,
     materials: [{ preset: opts.preset ?? 'unlit', name: 'Palette' }],
     colourOutput: opts.colourOutput ?? 'palette-texture',
-    paletteId: 'pal_A',
+    paletteId: opts.paletteId === undefined ? 'pal_A' : opts.paletteId,
     prop: false,
+    ...(opts.assetMaterials === undefined ? {} : { assetMaterials: opts.assetMaterials }),
   }));
   const palettes = new Map<string, readonly StaticSwatch[]>([
     ['pal_A', opts.swatches ?? [{ slot: 0, srgb: [200, 120, 80] }]],

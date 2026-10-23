@@ -1,0 +1,106 @@
+// English strings of the ⑤ Export step (AUTORIG-SPEC §5.6, §8.4; D6 owns the table): the targets, the checklist's
+// plain sentences (the rule-label table of `steps/export/labels.ts` takes its labels from here), the measured rows of
+// a written file, the metadata section, the OMOBA notes and the footer.
+import type { MessageTable } from '../index';
+
+export const exportStep = {
+  // targets (§5.6.1)
+  targetsTitle: 'Get your character',
+  targetsLabel: 'Export target',
+  targetVrm: 'Ekza avatar · VRM 1.0',
+  targetVrmRecommended: '(recommended)',
+  targetVrmHint: 'One file for OMOBA and Ekza Space',
+  targetVrm0: 'Ekza avatar · VRM 0.x, kept as it is',
+  targetVrm0Hint:
+    'Your avatar is a VRM 0.x: its animations are baked in and the version stays 0.x, which OMOBA accepts',
+  targetGlb: 'GLB with animations',
+  targetGlbRigged: 'GLB (rigged, no animations)',
+  targetGlbHint: 'For Unity, Godot, Blender, three.js',
+  targetVrma: 'Animations only (.vrma)',
+  targetVrmaHint: (clips: number, file: string) => `${clips === 1 ? '1 clip' : `${clips} clips`} → ${file}`,
+  targetKit: 'OMOBA local test kit (.zip)',
+  targetKitHint: 'The VRM, its thumbnail when it has one, a manifest entry and the validator steps',
+  developers: 'For developers',
+  noTargets: 'Nothing to export yet: an imported avatar exports with its animations baked in. Add an animation first.',
+  noTargetsBecause: (reason: string) => `Nothing to export: ${reason}.`,
+  unavailable: (target: string, reason: string) => `${target} is not available: ${reason}.`,
+  leftOutTitle: (clips: number) =>
+    clips === 1
+      ? 'Not in the VRM: 1 animation has no OMOBA slot'
+      : `Not in the VRM: ${clips} animations have no OMOBA slot`,
+  leftOutHint:
+    'The VRM keeps one animation per slot (idle, walk, attack…). Give one a free slot to add it; the GLB and the .vrma files keep every animation.',
+  leftOutHintNoGlb:
+    'The VRM keeps one animation per slot (idle, walk, attack…). Give one a free slot to add it; the .vrma files keep every animation.',
+  leftOutAs: (slot: string) => `Add as ${slot}`,
+  leftOutPick: 'Slot…',
+  leftOutPickLabel: (clip: string) => `OMOBA slot for ${clip}`,
+  leftOutNoFree: 'Every slot is taken',
+  continueStudio: 'Want to keyframe your own motion?',
+  continueStudioLink: 'Continue in Studio',
+  // metadata (§5.6.3)
+  aboutTitle: 'About this avatar (saved in the file)',
+  thumbnail: 'Thumbnail',
+  // checklist (§5.6.2)
+  checksVrm: 'Ready for OMOBA and Ekza Space',
+  checksGlb: 'Checks for the GLB',
+  checksVrma: 'Animations',
+  checksAsset: 'Checked when you download',
+  stateOk: 'passed',
+  statePending: 'checked when you download',
+  stateError: 'error, blocks the download',
+  stateWarning: 'warning',
+  stateInfo: 'note',
+  fixAuthor: 'Add author',
+  fixLicence: 'Choose licence',
+  fixThumbnail: 'Render thumbnail',
+  resultBlocked: (file: string) => `${file} was not saved`,
+  resultSaved: (file: string, size: string | null) => (size === null ? `Saved ${file}` : `Saved ${file} · ${size}`),
+  checkHumanoid: 'VRM 1.0 humanoid',
+  checkHumanoidVrm0: 'VRM 0.x humanoid (kept as it is)',
+  checkRequiredBones: 'All 15 required bones',
+  checkParents: 'Standard bone parents',
+  checkTpose: 'T-pose rest',
+  checkSkinned: 'Every part skinned',
+  checkTransforms: 'Plain transforms, even scale',
+  checkMeta: 'Name and author set',
+  checkLicence: 'Licence chosen',
+  checkThumbnail: 'Thumbnail',
+  checkSize: 'File size',
+  checkNodes: 'Node count',
+  checkBones: 'Humanoid bone count',
+  checkExtensions: 'Allowed extensions only',
+  checkReadBack: 'The file reads back the same',
+  checkSkeleton: 'Skeleton',
+  checkHeight: 'Human size (0.3–3 m tall)',
+  vrmaClips: (clips: number) => (clips === 1 ? '1 clip, one .vrma file' : `${clips} clips, one .vrma file each`),
+  // measured rows of a written file (§5.6.2)
+  measuredSize: (file: string, json: string) => `File ${file} / 50 MiB · JSON ${json}`,
+  measuredNodes: (nodes: string) => `${nodes} / 4,096 nodes`,
+  measuredBones: (bones: number) => `${bones} of 64 humanoid bones`,
+  // rule labels of the rows no check covers (§5.6.2; a covered rule reads as its check; unknown ids show their message)
+  ruleHinge: 'Elbows and knees bend one way',
+  ruleSymmetry: 'Left and right match',
+  ruleFacing: 'Faces forward',
+  ruleGrounded: 'Stands on the ground',
+  ruleOrientation: 'Joint axes agree',
+  ruleCrossSide: 'No left/right weight mix-ups',
+  ruleDangling: 'No weights on missing joints',
+  ruleJointWithoutWeights: 'Some joints move no points',
+  ruleNonDeforming: 'Helper joints carry no weights',
+  ruleIsland: 'Every mesh part follows a bone',
+  ruleReview: 'Weights reviewed',
+  ruleRigSync: 'Controls match the skeleton',
+  ruleCrossLimb: 'Each part follows one limb',
+  ruleRigMode: 'Rig mode',
+  // notes
+  omobaNote: 'OMOBA plays its own motion library on your VRM; your clips play in Space.',
+  hubNote: 'Upload this file to Ekza Hub to use it in OMOBA online.',
+  kitNote: 'Runtime compatibility is not approval: the kit is for testing in a local OMOBA build.',
+  // footer
+  download: 'Download',
+  hintFix: (label: string) => `Fix first: ${label}`,
+  hintReady: (file: string) => `${file} · ready`,
+  hintSaved: (file: string, size: string | null) => (size === null ? `${file} · saved` : `${file} · ${size}`),
+  hintNoCharacter: 'Rig a character first.',
+} as const satisfies MessageTable;

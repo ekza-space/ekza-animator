@@ -16,6 +16,7 @@ import {
   type Object3D,
   ShaderMaterial,
   type Side,
+  type Texture,
 } from 'three';
 import { MESH_VIEW_STYLE, ORDER } from '../style';
 import type { MeshViewThemeInput } from '../theme';
@@ -54,6 +55,12 @@ export class SurfaceLayer {
   private shadeEmpty = true;
   private state = new BufferAttribute(new Uint8Array(0), 1);
   private soft = new BufferAttribute(new Uint8Array(0), 1, true);
+  /** The base colour image's UVs per corner and how the corner's face draws its material (AR-D8-1, AR-D9-1): 255 the
+   *  image, 128 the flat base colour, 0 none; `mapTint` the face's base colour factor (linear RGB). */
+  private mapUv = new BufferAttribute(new Float32Array(0), 2);
+  private mapped = new BufferAttribute(new Uint8Array(0), 1, true);
+  private mapTint = new BufferAttribute(new Float32Array(0), 3);
+  private hasMap = false;
   private index = new BufferAttribute(new Uint32Array(0), 1);
   private readonly corners = new Touched(0);
   private readonly clayBytes: readonly [number, number, number];
@@ -65,6 +72,8 @@ export class SurfaceLayer {
     this.uniforms = {
       uPaint: { value: false },
       uClay: { value: new Color(clay) },
+      uMapOn: { value: false },
+      uMap: { value: null },
       uFlat: { value: false },
       uFaceOrientation: { value: false },
       uFront: { value: new Color(theme.faceFront) },
@@ -139,6 +148,11 @@ export class SurfaceLayer {
     this.shadeEmpty = true;
     this.state = tracked(new BufferAttribute(new Uint8Array(C), 1));
     this.soft = tracked(new BufferAttribute(new Uint8Array(C), 1, true));
+    this.mapUv = tracked(new BufferAttribute(new Float32Array(2 * C), 2));
+    this.mapped = tracked(new BufferAttribute(new Uint8Array(C), 1, true));
+    this.mapTint = tracked(new BufferAttribute(new Float32Array(3 * C), 3));
+    this.hasMap = false;
+    (this.uniforms['uMap'] as IUniform<Texture | null>).value = null;
     this.index = tracked(new BufferAttribute(new Uint32Array(tri.tris.length), 1));
     geometry.setAttribute('position', this.position);
     geometry.setAttribute('normal', this.normal);
@@ -146,6 +160,9 @@ export class SurfaceLayer {
     geometry.setAttribute('shade', this.shade);
     geometry.setAttribute('state', this.state);
     geometry.setAttribute('soft', this.soft);
+    geometry.setAttribute('mapUv', this.mapUv);
+    geometry.setAttribute('mapped', this.mapped);
+    geometry.setAttribute('mapTint', this.mapTint);
     geometry.setIndex(this.index);
     this.geometry = geometry;
     this.mesh.geometry = geometry;
@@ -337,6 +354,56 @@ export class SurfaceLayer {
     uploadAll(this.shade);
   }
 
+  /**
+   * An imported model's materials (AR-D8-1, AR-D9-1), drawn where the palette colours would be (`colours` and `lit`):
+   * `faceMapped` per face (2: the face's material slot samples the image through `uvs`, 2 per corner; 1: its flat base
+   * colour; 0: none), `faceTint` the face's base colour factor (linear RGB, 3 per face). A null `texture` maps no image
+   * (flat slots only); null draws none.
+   */
+  writeMap(
+    t: Topo,
+    map: {
+      readonly texture: Texture | null;
+      readonly uvs: ArrayLike<number> | null;
+      readonly faceMapped: Uint8Array;
+      readonly faceTint: Float32Array;
+    } | null,
+  ): void {
+    const uv = this.mapUv.array as Float32Array;
+    const mapped = this.mapped.array as Uint8Array;
+    const tint = this.mapTint.array as Float32Array;
+    mapped.fill(0);
+    if (map !== null) {
+      if (map.uvs !== null) {
+        const n = Math.min(uv.length, map.uvs.length);
+        for (let i = 0; i < n; i++) uv[i] = map.uvs[i] as number;
+      }
+      for (let f = 0; f < t.faces; f++) {
+        const kind = map.faceMapped[f] ?? 0;
+        if (kind === 0) continue;
+        const value = kind === 2 && map.texture !== null && map.uvs !== null ? 255 : 128;
+        for (let i = t.fstart[f] as number; i < (t.fstart[f + 1] as number); i++) {
+          const c = t.fcorners[i] as number;
+          mapped[c] = value;
+          tint[3 * c] = map.faceTint[3 * f] as number;
+          tint[3 * c + 1] = map.faceTint[3 * f + 1] as number;
+          tint[3 * c + 2] = map.faceTint[3 * f + 2] as number;
+        }
+      }
+    }
+    this.hasMap = map !== null;
+    (this.uniforms['uMap'] as IUniform<Texture | null>).value = map?.texture ?? null;
+    uploadAll(this.mapUv);
+    uploadAll(this.mapped);
+    uploadAll(this.mapTint);
+    this.touch();
+  }
+
+  /** Whether an image is drawn (tests). */
+  get mapDrawn(): boolean {
+    return this.hasMap && (this.uniforms['uMapOn'] as IUniform<boolean>).value;
+  }
+
   /** The `shade` bytes (tests: 4 per corner). */
   get shadeBytes(): Uint8Array {
     return this.shade.array as Uint8Array;
@@ -362,6 +429,7 @@ export class SurfaceLayer {
   apply(opts: Readonly<SurfaceDisplay>): void {
     const u = this.uniforms;
     (u['uPaint'] as IUniform<boolean>).value = this.hasPaint && opts.shading !== 'shaded';
+    (u['uMapOn'] as IUniform<boolean>).value = this.hasMap && opts.shading !== 'shaded';
     (u['uFlat'] as IUniform<boolean>).value = opts.flat;
     (u['uFaceOrientation'] as IUniform<boolean>).value = opts.faceOrientation;
     (u['uOpacity'] as IUniform<number>).value = opts.opacity;

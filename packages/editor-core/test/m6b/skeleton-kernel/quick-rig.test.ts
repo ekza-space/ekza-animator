@@ -9,6 +9,7 @@ import { humanoidBodyRig } from '@ekza-studio/mesh-core';
 import { DEFAULT_FLEXION, type QuickRigMarkers } from '@ekza-studio/rig';
 import { describe, expect, it } from 'vitest';
 import { quickRigFit, quickRigStartInfo } from '../../../src/operators/builtin/rig/quickRig';
+import { rigGeometry } from '../../../src/operators/builtin/rig/skeleton';
 import { charactersOf, cubeLadTruth, ladMeshes, rigTestApp, truthMarkers } from './support';
 
 const commitArgs = (meshes: readonly MeshId[], markers: QuickRigMarkers = truthMarkers()) => ({
@@ -171,7 +172,7 @@ describe('skel.quickRig.commit (Create Skeleton)', () => {
 
 describe('start checks and their fixes (§0.4.2)', () => {
   it('an off-centre Cube Lad is refused until Center and Ground (one undo step) centres and grounds it', async () => {
-    const t = await rigTestApp({ placement: { t: [0.1, 0.05, 0], q: [0, 0, 0, 1], s: [1, 1, 1] } });
+    const t = await rigTestApp({ placement: { t: [0.1, 0.05, 72.9], q: [0, 0, 0, 1], s: [1, 1, 1] } });
     const info = quickRigStartInfo(t.app, t.app.store, [t.lad]);
     expect(typeof info !== 'string' && info.checks).toEqual({ centred: false, grounded: false, facing: true });
     const refused = await t.app.runUntyped('skel.quickRig.commit', commitArgs([t.lad]));
@@ -185,6 +186,9 @@ describe('start checks and their fixes (§0.4.2)', () => {
     const fixed = quickRigStartInfo(t.app, t.app.store, [t.lad]);
     expect(typeof fixed !== 'string' && fixed.checks).toEqual({ centred: true, grounded: true, facing: true });
     expect(typeof fixed !== 'string' && fixed.guess?.failed).toBeNull();
+    // AR-D7-14: the bounds are centred in z too (a model far along z does not stay there)
+    const { bounds } = rigGeometry(t.app, t.app.store, [t.lad]);
+    expect((bounds[0][2] + bounds[1][2]) / 2).toBeCloseTo(0, 12);
     expect((await t.app.runUntyped('skel.quickRig.commit', commitArgs([t.lad]))).status).toBe('finished');
     t.app.history.undo();
     t.app.history.undo();

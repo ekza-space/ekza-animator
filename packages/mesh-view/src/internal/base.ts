@@ -1,8 +1,8 @@
 // What `EditMeshView` and `MeshSurface` share (M6A-SPEC §4.4): the surface, the wire/hard edges, normals and
 // triangulation lines (skipping hidden and isolated faces, `faceVisibility`), the world matrix and the per-pane display
 // rules.
-import type { Normals, Triangulation } from '@ekza-studio/mesh-core';
-import { Group } from 'three';
+import type { MeshData, Normals, Triangulation } from '@ekza-studio/mesh-core';
+import { Group, type Texture } from 'three';
 import { MESH_VIEW_STYLE, ORDER, STATE } from '../style';
 import type { MeshViewThemeInput } from '../theme';
 import type { MeshPaneDisplay, MeshViewLayers } from '../types';
@@ -10,6 +10,20 @@ import { LineBatch } from './lines';
 import { uploadAll } from './ranges';
 import { type SurfaceDisplay, SurfaceLayer } from './surface';
 import { faceCentroids, meanEdgeLength, type Topo, triangulationDiagonals } from './topo';
+
+/** An imported model's materials as a mesh view draws them: its base colour image (AR-D8-1) and flat colours (AR-D9-1). */
+export interface SurfaceMap {
+  /** The base colour image (null: none, the flat colours only). */
+  readonly texture: Texture | null;
+  /** The material slots (`faceMaterial`) that sample it. */
+  readonly slots: ReadonlySet<number>;
+  /** The image's base colour factor (linear RGB). */
+  readonly factor: readonly [number, number, number];
+  /** The UV layer: 0 = `uv0`, 1 = `uv1`. */
+  readonly texCoord: number;
+  /** The base colour factor (linear RGB) of each material slot that samples no image (a flat-colour material). */
+  readonly flat?: ReadonlyMap<number, readonly [number, number, number]>;
+}
 
 export class ViewBase {
   readonly root = new Group();
@@ -109,6 +123,67 @@ export class ViewBase {
     this.faceNormals.addTo(this.root);
     this.vertexNormals.addTo(this.root);
     for (const batch of [this.edges, this.faceNormals, this.vertexNormals, this.diagonals]) batch.show(false, false);
+  }
+
+  /** The displayed base colour image (AR-D8-1), or null. */
+  private map: SurfaceMap | null = null;
+
+  /**
+   * An imported model's materials (AR-D8-1, AR-D9-1), drawn where the palette colours would be (`colours`, `lit`): the
+   * base colour image on the faces whose material slot is in `slots`, through the `texCoord` layer's UVs (`uv0` /
+   * `uv1`), times `factor` (a mesh without that UV layer draws no image); the flat colour of `flat` on the faces of
+   * those slots. null removes them. Kept across `setData` (the same mesh's next revision).
+   */
+  setMap(map: SurfaceMap | null): void {
+    if (map === this.map) return;
+    this.map = map;
+    this.writeMap();
+  }
+
+  /** The stored form the image maps onto (the subclass's displayed data). */
+  protected mapData(): MeshData | null {
+    return null;
+  }
+
+  /** Writes the materials' attributes for the current topology (after a rebuild, or a new map). */
+  protected writeMap(): void {
+    const t = this.topo;
+    const data = this.mapData();
+    if (t === null || data === null) return;
+    const map = this.map;
+    if (map === null) {
+      this.surface.writeMap(t, null);
+      return;
+    }
+    const uvs = map.texture === null ? undefined : data.layers.get(map.texCoord === 1 ? 'uv1' : 'uv0')?.data;
+    const flat = map.flat;
+    if (uvs === undefined && (flat === undefined || flat.size === 0)) {
+      this.surface.writeMap(t, null);
+      return;
+    }
+    const faceMapped = new Uint8Array(t.faces);
+    const faceTint = new Float32Array(3 * t.faces);
+    for (let f = 0; f < t.faces; f++) {
+      const slot = data.faceMaterial[f] as number;
+      const image = uvs !== undefined && map.slots.has(slot);
+      const colour = image ? map.factor : flat?.get(slot);
+      if (colour === undefined) continue;
+      faceMapped[f] = image ? 2 : 1;
+      faceTint[3 * f] = colour[0];
+      faceTint[3 * f + 1] = colour[1];
+      faceTint[3 * f + 2] = colour[2];
+    }
+    this.surface.writeMap(t, {
+      texture: uvs === undefined ? null : map.texture,
+      uvs: uvs ?? null,
+      faceMapped,
+      faceTint,
+    });
+  }
+
+  /** Whether an image is drawn in the last pane applied (tests). */
+  get mapDrawn(): boolean {
+    return this.surface.mapDrawn;
   }
 
   /** Column-major world-from-local matrix (`ReadonlyXf` composed by the caller). */
