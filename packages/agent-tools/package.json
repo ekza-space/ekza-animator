@@ -12,7 +12,8 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc -b",
-    "manifest": "UPDATE_MANIFEST=1 vitest run test/manifest.test.ts"
+    "manifest": "UPDATE_MANIFEST=1 vitest run test/manifest.test.ts",
+    "docs": "UPDATE_REFERENCE=1 vitest run test/reference.test.ts"
   },
   "dependencies": {
     "@ekza-studio/anim-core": "workspace:*",

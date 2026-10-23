@@ -166,6 +166,24 @@ Hide what you do not need, per workspace (details: [docs/LAYOUT-PRESETS.md](docs
 
 Full numbered list: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
 
+## AI agents over MCP
+
+An AI agent — Claude Code, Claude Desktop, Cursor, VS Code — can work in Studio through the bundled MCP server
+`ekza-studio-mcp`: live in your open editor tab after you pair it with a one-time code from the **Agent panel** (the
+**AI** pill in the status line), or headless on files in a workspace folder. It keys poses, makes and retimes clips,
+looks at the viewport (`view_capture` contact sheets), rigs a static model and adds a library walk, and exports VRMA
+or VRM. Every change is one undo step labelled `AI: …`; the Agent panel lists every call with Show, Undo and
+**Revert all AI changes**; rigging, downloads and overwrites ask you first. Loopback only, no network, no telemetry.
+
+```bash
+pnpm mcp:build
+claude mcp add ekza-studio -- node "$PWD/packages/mcp-server/dist/cli.mjs"
+# then in the editor: AI pill › Connect, and tell Claude "connect to the editor with code ABC-123"
+```
+
+Setup for every client, pairing, grants and limits: [docs/agents.md](docs/agents.md); tool list:
+[docs/agent-tools-reference.md](docs/agent-tools-reference.md). The npm package is not published yet.
+
 ## Quickstart
 
 Requirements: Node.js 24 LTS (Node 25 works with engine warnings), pnpm 10.32.1, Chrome for end-to-end tests.
@@ -215,6 +233,8 @@ docs/                    research, ADRs, requirements, roadmap, MVP spec, glossa
 - [docs/M2A-SPEC.md](docs/M2A-SPEC.md) — build spec of milestone M2a (integrated): limb IK, Dope Sheet, tween and
   breakdowns, Graph Editor tools, autosave, and the fixes for the M1 budget misses, as contract deltas and work
   packages; with the owner demo script (§10.3).
+- [docs/agents.md](docs/agents.md) — AI agents over MCP: setup for Claude Code, Claude Desktop, Cursor and VS Code,
+  pairing with the editor, grants, limits; build spec [docs/MCP-SPEC.md](docs/MCP-SPEC.md).
 - [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) — numbered functional and non-functional requirements.
 - [docs/ROADMAP.md](docs/ROADMAP.md) — milestones M0–M6 and status.
 - [docs/adr/](docs/adr/README.md) — architecture decision records.
