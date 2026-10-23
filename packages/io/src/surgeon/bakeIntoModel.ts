@@ -16,7 +16,7 @@ import { align4, assembleGlb } from '../glb/write';
 import { GltfReader } from '../gltf/accessor';
 import { animationsOf, isIndex, isRecord, listField, textOf, unknownList } from '../gltf/schema';
 import { sha256Hex, sha256HexSync } from '../hash/sha256';
-import { ruleSeverity } from '../lint/rules';
+import { ruleSeverity } from '../lint/severities';
 import type {
   BakedClip,
   BakedTrack,

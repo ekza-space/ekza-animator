@@ -1,0 +1,440 @@
+// Posing tools (MCP-SPEC §6.2 pose_read and §6.3, tools 8–13; P2) and the stretch pose_plant_feet (S1, not built).
+import { z } from 'zod';
+import {
+  bodyPartName,
+  boundedRecord,
+  boneRef,
+  clipRef,
+  controlRef,
+  DEG_MAX,
+  direction,
+  exactlyOne,
+  FACTOR_MAX,
+  frame,
+  frameList,
+  limbName,
+  M_MAX,
+  optionalExtendRange,
+  rangeFrames,
+  scoped,
+  tangentName,
+  targets,
+  valueXYZ,
+  vec3M,
+  vec3Out,
+  writes,
+} from '../../schemas/common';
+import { BUDGETS, defineTool } from '../define';
+import { poseRead as poseReadRun } from './read';
+import {
+  ikTargetConfirm,
+  poseAim as poseAimRun,
+  poseIkTarget as poseIkTargetRun,
+  poseReset as poseResetRun,
+  poseSet as poseSetRun,
+  poseTransfer as poseTransferRun,
+} from './write';
+
+export const ROTATE_ORDERS = ['xyz', 'yzx', 'zxy', 'xzy', 'yxz', 'zyx'] as const;
+const xyzOut = z.object({ x: z.number().optional(), y: z.number().optional(), z: z.number().optional() });
+/** Attribute values: degrees for angle attributes, metres for distances, plain numbers otherwise. */
+const ATTR_MAX = 100_000;
+/** Custom attributes per control of one pose_set item. */
+const ATTRS_MAX = 64;
+
+export const poseRead = defineTool({
+  name: 'pose_read',
+  title: 'Read the pose',
+  description:
+    'Read the pose at frames or sampled over a range, as Channel Box values (in pose_set’s shape) or as bone positions and orientations in character space. ' +
+    'channels (default): per control rotateDeg, translateM, scaleFactor and attrs as {x, y, z} with its rotateOrder ' +
+    '— change values and pass the item to pose_set as it is. world: per bone positionM, direction (unit vector along ' +
+    'the bone) and orientDeg {pitchDeg (tip up +), yawDeg (toward the character’s left +), rollDeg} relative to rest, ' +
+    'in character space (+Y up, +Z forward, +X the character’s left). frames ≤ 8, or rangeFrames with stepFrames ' +
+    '(≤ 64 samples); default: the user’s frame of this clip, else its first frame. Default targets: the controls ' +
+    'rig_describe lists concisely (name finger, secondary or mode-hidden controls to read them). It reads the keyed ' +
+    'animation; withUserOverrides: true reads ' +
+    'what the user sees (their unkeyed edits at their current frame).',
+  group: 'pose',
+  input: z
+    .strictObject({
+      ...scoped,
+      frames: frameList('Clip frames to read (≤ 8); exclusive with rangeFrames.', 8).optional(),
+      rangeFrames: rangeFrames('Sample [start, end] clip frames (≤ 64 samples).').optional(),
+      stepFrames: z.number().min(0.001).max(100_000).optional().describe('Sampling step in frames over rangeFrames.'),
+      space: z
+        .enum(['channels', 'world', 'both'])
+        .default('channels')
+        .describe('channels: Channel Box values; world: bone positions and orientations in character space.'),
+      targets: targets.optional().describe('Default: every control (channels) / the humanoid bones (world).'),
+      bones: z.array(boneRef).min(1).max(64).optional().describe('world: which bones (default: the targets’ bones).'),
+      withUserOverrides: z
+        .boolean()
+        .default(false)
+        .describe('Read what the user sees (their unkeyed edits) instead of the keyed animation.'),
+    })
+    .refine(
+      (value) => value.frames === undefined || value.rangeFrames === undefined,
+      'pass frames or rangeFrames, not both',
+    ),
+  output: z.object({
+    frames: z.array(
+      z.object({
+        frame: z.number(),
+        controls: z
+          .array(
+            z.object({
+              control: z.string(),
+              rotateDeg: xyzOut.optional(),
+              translateM: xyzOut.optional(),
+              scaleFactor: xyzOut.optional(),
+              attrs: z.record(z.string(), z.number()).optional(),
+              rotateOrder: z.string(),
+            }),
+          )
+          .optional(),
+        bones: z
+          .record(
+            z.string(),
+            z.object({
+              positionM: vec3Out,
+              direction: vec3Out,
+              orientDeg: z.object({ pitchDeg: z.number(), yawDeg: z.number(), rollDeg: z.number() }),
+            }),
+          )
+          .optional(),
+      }),
+    ),
+    userOverrides: z.number(),
+    truncated: z.boolean().optional(),
+  }),
+  annotations: { readOnly: true, destructive: false, idempotent: true },
+  access: 'read',
+  hosts: ['live', 'headless'],
+  alwaysLoad: true,
+  stretch: false,
+  kind: 'read',
+  budget: BUDGETS.read,
+  example: { clip: 'walk', frames: [0], targets: { bodyParts: ['arm.L'] } },
+  ready: true,
+  run: (ctx, args) => poseReadRun(ctx, args) as never,
+});
+
+const poseSetItem = z.strictObject({
+  control: controlRef,
+  rotateDeg: valueXYZ('degrees', -DEG_MAX, DEG_MAX).optional(),
+  translateM: valueXYZ('metres', -M_MAX, M_MAX).optional(),
+  scaleFactor: valueXYZ('factor', -FACTOR_MAX, FACTOR_MAX).optional(),
+  attrs: boundedRecord(
+    z.string().regex(/^[A-Za-z_][A-Za-z0-9_]{0,63}$/),
+    z.number().min(-ATTR_MAX).max(ATTR_MAX),
+    ATTRS_MAX,
+  )
+    .optional()
+    .describe('Custom attributes by name without @ (≤ 64; angle attributes in degrees).'),
+  rotateOrder: z
+    .enum(ROTATE_ORDERS)
+    .optional()
+    .describe("Optional echo of pose_read: must match the control's rotate order."),
+});
+
+export const poseSet = defineTool({
+  name: 'pose_set',
+  title: 'Set a pose',
+  description:
+    'Set Channel Box values (degrees, metres) of one or more controls at one clip frame and key them ' +
+    '(pose-to-pose blocking). set: [{control, rotateDeg {x,y,z}, translateM, scaleFactor, attrs}] in ' +
+    "pose_read's shape (≤ 100 controls); rotations are the control's Channel Box rotations in its rotate " +
+    'order, zero = rest. key: key (default) always keys every edited channel, and syncRotation (default ' +
+    "true) keys all rotation axes of a control, like Maya's S; static sets clip-wide values on channels " +
+    "without keys; pose_only proposes an unkeyed pose at the user's current frame (needs the View " +
+    'grant). mode relative adds to the keyed values. Prefer pose_aim and pose_ik_target for limbs.',
+  group: 'pose',
+  input: z.strictObject({
+    ...scoped,
+    ...writes,
+    frame: frame('Clip frame to key.'),
+    set: z.array(poseSetItem).min(1).max(100).describe('Controls and their values (1…100), in pose_read’s shape.'),
+    mode: z
+      .enum(['absolute', 'relative'])
+      .default('absolute')
+      .describe('absolute (default) sets the values; relative adds them to the keyed values at that frame.'),
+    key: z
+      .enum(['key', 'static', 'pose_only'])
+      .default('key')
+      .describe(
+        "key (default) always keys; static sets clip-wide values on unkeyed channels; pose_only proposes at the user's frame (View).",
+      ),
+    syncRotation: z
+      .boolean()
+      .default(true)
+      .describe('Also key the other rotation axes of each control, like Maya’s S.'),
+    tangent: tangentName.optional(),
+    extendRange: optionalExtendRange,
+  }),
+  output: z.object({
+    frame: z.number(),
+    changed: z.array(
+      z.object({
+        control: z.string(),
+        channel: z.string(),
+        before: z.number(),
+        after: z.number(),
+        unit: z.enum(['deg', 'm', 'factor']),
+      }),
+    ),
+    changedCount: z.number(),
+    keyed: z.number(),
+    synced: z.number(),
+    statics: z.number(),
+    skipped: z.array(
+      z.object({ control: z.string(), channel: z.string(), reason: z.enum(['locked', 'not_keyable', 'animated']) }),
+    ),
+  }),
+  annotations: { readOnly: false, destructive: true, idempotent: false },
+  access: (args: { readonly key?: string | undefined }) => (args.key === 'pose_only' ? 'view' : 'edit'),
+  hosts: ['live', 'headless'],
+  alwaysLoad: true,
+  stretch: false,
+  kind: 'edit',
+  budget: BUDGETS.write,
+  example: { clip: 'wave', frame: 10, set: [{ control: 'fk.lowerArm.L', rotateDeg: { z: 45 } }] },
+  ready: true,
+  run: (ctx, args) => poseSetRun(ctx, args) as never,
+});
+
+const aimItem = z
+  .strictObject({
+    bone: boneRef,
+    direction: direction('Aim the bone along this character-space direction.').optional(),
+    towardBone: boneRef.optional().describe('Aim the bone toward this bone’s position at that frame.'),
+    towardPointM: vec3M('Aim the bone toward this point, character space, metres.').optional(),
+    keepTwist: z.boolean().default(true).describe('Keep the bone’s twist (default true).'),
+    weight: z.number().min(0).max(1).default(1).describe('Blend between the current (0) and the aimed (1) direction.'),
+    split: z
+      .strictObject({
+        neck: z.number().min(0).max(1).describe('Share of a head aim the neck takes (0…1).'),
+        head: z.number().min(0).max(1).describe('Share of a head aim the head takes (0…1).'),
+      })
+      .optional()
+      .describe('Head aims only: distribute over neck and head (default neck 0.4, head 0.6).'),
+  })
+  .refine(
+    (value) => exactlyOne(['direction', 'towardBone', 'towardPointM'], value),
+    'pass exactly one of direction, towardBone or towardPointM',
+  );
+
+export const poseAim = defineTool({
+  name: 'pose_aim',
+  title: 'Aim bones',
+  description:
+    'Point bones of FK chains in a character-space direction or toward a point or bone, keyed at one ' +
+    'frame. aims: [{bone, direction | towardBone | towardPointM}] (≤ 12, parents first) turn each bone so its ' +
+    'own axis, from the joint toward its child, points there (a head’s axis runs up from the neck: turn a head ' +
+    'with pose_set); directions are ' +
+    "the character's: up, down, forward, back, left, right, sums such as up+left, or [x, y, z] with +X " +
+    "the character's left, +Y up, +Z forward. keepTwist (default true) keeps the bone's twist; weight " +
+    'blends; a head aim splits over neck and head. Keys the driving FK controls; reports the achieved ' +
+    'direction and the error in degrees. A bone of an IK limb answers limb_mode: use pose_ik_target.',
+  group: 'pose',
+  input: z.strictObject({
+    ...scoped,
+    ...writes,
+    frame: frame('Clip frame to key.'),
+    aims: z.array(aimItem).min(1).max(12).describe('Bones and their targets (≤ 12), processed parents first.'),
+    extendRange: optionalExtendRange,
+  }),
+  output: z.object({
+    frame: z.number(),
+    aims: z.array(
+      z.object({ bone: z.string(), control: z.string(), achievedDirection: vec3Out, errorDeg: z.number() }),
+    ),
+    keyed: z.number(),
+  }),
+  annotations: { readOnly: false, destructive: true, idempotent: false },
+  access: 'edit',
+  hosts: ['live', 'headless'],
+  alwaysLoad: true,
+  stretch: false,
+  kind: 'edit',
+  budget: BUDGETS.write,
+  example: { clip: 'wave', frame: 0, aims: [{ bone: 'leftUpperArm', direction: [0.8, 0.6, 0] }] },
+  ready: true,
+  run: (ctx, args) => poseAimRun(ctx, args) as never,
+});
+
+export const poseIkTarget = defineTool({
+  name: 'pose_ik_target',
+  title: 'Place an IK hand or foot',
+  description:
+    'Place an IK hand or foot at a position in character space, keyed at one frame (an FK limb switches ' +
+    "to IK only over a range you give). Exactly one of positionM (absolute, metres: +X the character's " +
+    'left, +Y up, +Z forward), offsetM (from where the hand or foot is at that frame) or nearBone {bone, ' +
+    'offsetM}. orientDeg is relative to rest: toes up 20° is {pitchDeg: 20}; yawDeg turns toward the ' +
+    "character's left; rollDeg lifts the left side. poleDirection points the knee or elbow. Legs are IK " +
+    "by default; on a limb that is FK at that frame pass ensureIk: 'auto' with switchRangeFrames [start, " +
+    'end] (FK keys outside keep playing). Reports whether it reached and the error.',
+  group: 'pose',
+  input: z
+    .strictObject({
+      ...scoped,
+      ...writes,
+      frame: frame('Clip frame to key.'),
+      limb: limbName,
+      positionM: vec3M('Absolute effector position, character space, metres.').optional(),
+      offsetM: vec3M('Move the effector by this offset from its position at that frame, metres.').optional(),
+      nearBone: z
+        .strictObject({
+          bone: boneRef,
+          offsetM: vec3M('Offset from that bone, character space, metres.').optional(),
+        })
+        .optional()
+        .describe('Place the effector at a bone’s position (plus an offset).'),
+      orientDeg: z
+        .strictObject({
+          pitchDeg: z.number().min(-360).max(360).optional().describe('Toes, fingers or palm up (+) in degrees.'),
+          yawDeg: z
+            .number()
+            .min(-360)
+            .max(360)
+            .optional()
+            .describe('Turned toward the character’s left (+) in degrees.'),
+          rollDeg: z.number().min(-360).max(360).optional().describe('The character’s-left side up (+) in degrees.'),
+        })
+        .optional()
+        .describe('Effector orientation relative to rest (toes up 20°: {pitchDeg: 20}).'),
+      poleDirection: direction('Where the knee or elbow points.').optional(),
+      ensureIk: z
+        .enum(['never', 'auto'])
+        .default('never')
+        .describe('never (default): an FK limb answers limb_mode; auto switches to IK over switchRangeFrames only.'),
+      switchRangeFrames: rangeFrames('With ensureIk auto: the frames to switch to IK (contains frame).').optional(),
+      extendRange: optionalExtendRange,
+    })
+    .refine(
+      (value) => exactlyOne(['positionM', 'offsetM', 'nearBone'], value),
+      'pass exactly one of positionM, offsetM or nearBone',
+    )
+    .refine((value) => value.ensureIk !== 'auto' || value.switchRangeFrames !== undefined, {
+      message: 'ensureIk auto needs switchRangeFrames',
+      path: ['switchRangeFrames'],
+    }),
+  output: z.object({
+    limb: z.string(),
+    reached: z.boolean(),
+    errorM: z.number(),
+    switchedToIk: z.object({ rangeFrames: z.tuple([z.number(), z.number()]) }).nullable(),
+    keyed: z.number(),
+  }),
+  annotations: { readOnly: false, destructive: true, idempotent: false },
+  access: 'edit',
+  hosts: ['live', 'headless'],
+  alwaysLoad: true,
+  stretch: false,
+  kind: 'edit',
+  budget: BUDGETS.write,
+  example: { clip: 'walk', frame: 0, limb: 'leg.L', offsetM: [0, 0.1, 0] },
+  ready: true,
+  confirm: (ctx, args) => ikTargetConfirm(ctx, args),
+  run: (ctx, args) => poseIkTargetRun(ctx, args) as never,
+});
+
+export const poseTransfer = defineTool({
+  name: 'pose_transfer',
+  title: 'Copy or mirror a pose',
+  description:
+    'Copy or mirror a pose from one frame or clip to other frames (holds, mirrored poses) without the ' +
+    'clipboard. Reads the keyed pose at fromFrame of fromClip (default: clip) and keys it at every ' +
+    'toFrames frame (≤ 64) on the controls or body parts (default: all). mirror: flip swaps both sides, ' +
+    "left_to_right / right_to_left copy one side onto the other (humanoid rigs). The user's clipboard is " +
+    'untouched.',
+  group: 'pose',
+  input: z.strictObject({
+    ...scoped,
+    ...writes,
+    fromFrame: frame('Clip frame to copy the pose from.'),
+    fromClip: clipRef.optional().describe('Copy from this clip of the same character (default: clip).'),
+    toFrames: frameList('Clip frames to key the pose at (1…64).', 64),
+    controls: z.array(controlRef).min(1).max(100).optional().describe('Controls to copy (default: all).'),
+    bodyParts: z.array(bodyPartName).min(1).max(10).optional().describe('Body parts to copy (default: all).'),
+    mirror: z
+      .enum(['none', 'flip', 'left_to_right', 'right_to_left'])
+      .default('none')
+      .describe('Mirror the pose: flip both sides, or copy one side onto the other.'),
+    extendRange: optionalExtendRange,
+  }),
+  output: z.object({ keyed: z.number(), frames: z.array(z.number()) }),
+  annotations: { readOnly: false, destructive: true, idempotent: false },
+  access: 'edit',
+  hosts: ['live', 'headless'],
+  alwaysLoad: false,
+  stretch: false,
+  kind: 'edit',
+  budget: BUDGETS.write,
+  example: { clip: 'walk', fromFrame: 0, toFrames: [30] },
+  ready: true,
+  run: (ctx, args) => poseTransferRun(ctx, args) as never,
+});
+
+export const poseReset = defineTool({
+  name: 'pose_reset',
+  title: 'Reset to rest',
+  description:
+    'Key controls back to their rest pose at frames. Keys every keyable, unlocked channel of the ' +
+    "controls or body parts (default: all) at its rest value (0°, 0 m, factor 1, the attribute's " +
+    'default) at each frame (≤ 64). Locked channels and mode attributes such as ikFk stay as they are.',
+  group: 'pose',
+  input: z.strictObject({
+    ...scoped,
+    ...writes,
+    frames: frameList('Clip frames to key the rest pose at (1…64).', 64),
+    controls: z.array(controlRef).min(1).max(100).optional().describe('Controls to reset (default: all).'),
+    bodyParts: z.array(bodyPartName).min(1).max(10).optional().describe('Body parts to reset (default: all).'),
+  }),
+  output: z.object({ keyed: z.number(), frames: z.array(z.number()) }),
+  annotations: { readOnly: false, destructive: true, idempotent: true },
+  access: 'edit',
+  hosts: ['live', 'headless'],
+  alwaysLoad: false,
+  stretch: false,
+  kind: 'edit',
+  budget: BUDGETS.write,
+  example: { clip: 'wave', frames: [0], bodyParts: ['arm.L'] },
+  ready: true,
+  run: (ctx, args) => poseResetRun(ctx, args) as never,
+});
+
+export const posePlantFeet = defineTool({
+  name: 'pose_plant_feet',
+  title: 'Plant feet',
+  description: 'Remove foot sliding by locking feet over their contacts.',
+  group: 'pose',
+  input: z.strictObject({
+    ...scoped,
+    ...writes,
+    feet: z
+      .array(z.enum(['L', 'R']))
+      .min(1)
+      .max(2)
+      .optional()
+      .describe('Feet to plant (default both).'),
+    contacts: z
+      .array(
+        z.strictObject({ foot: z.enum(['L', 'R']).describe('Foot.'), rangeFrames: rangeFrames('Contact frames.') }),
+      )
+      .min(1)
+      .max(64)
+      .optional()
+      .describe('Contact intervals (default: detected by analyze_contacts).'),
+    blendFrames: z.number().min(0).max(100).optional().describe('Blend in and out over this many frames.'),
+  }),
+  output: z.object({ contacts: z.number(), keyed: z.number(), maxSlideAfterCm: z.number() }),
+  annotations: { readOnly: false, destructive: true, idempotent: false },
+  access: 'edit',
+  hosts: ['live', 'headless'],
+  alwaysLoad: false,
+  stretch: true,
+  kind: 'edit',
+  budget: BUDGETS.write,
+  example: { clip: 'walk' },
+});

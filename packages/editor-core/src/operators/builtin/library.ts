@@ -204,11 +204,14 @@ const useClip = defineOperator<'library.useClip', UseClipPlan>({
     const plan = await prepareLibraryImport(app, args.character, entry, bytes);
     return { entry, plan, derivedFrom: bytes === source ? null : entry.sha256 };
   },
-  apply({ app, tx }, args, { entry, plan, derivedFrom }) {
+  apply({ app, tx, actor, access }, args, { entry, plan, derivedFrom }) {
     if (tx === null) throw new EkzaError('internal', 'library.useClip runs in a transaction');
     const replaced = args.replace === undefined ? undefined : tx.get('clips', args.replace);
     if (replaced !== undefined) tx.softDelete('clips', replaced.id);
-    const result = importPathLoaded().applyClipImport(app, tx, plan);
+    // M-AI (MCP-SPEC §0.4.4, MAI-B4-2): an agent's Use Clip leaves the user's active clip and playhead alone unless the
+    // run may change what the user sees (`access: 'view'`).
+    const quiet = actor !== undefined && actor !== null && access !== 'view';
+    const result = importPathLoaded().applyClipImport(app, tx, plan, quiet ? { activate: false } : undefined);
     const id = result.clips[0];
     const clip = id === undefined ? undefined : tx.get('clips', id);
     if (id === undefined || clip === undefined) throw new EkzaError('internal', 'Use Clip wrote no clip');

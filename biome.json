@@ -16,9 +16,11 @@
       "!apps/web/public",
       "!apps/web/next-env.d.ts",
       "!pnpm-lock.yaml",
+      "!packages/agent-tools/tools.manifest.json",
       "!docs/research",
       "!fixtures/synthetic",
-      "!fixtures/models/*-truth.json"
+      "!fixtures/models/*-truth.json",
+      "!docs/evidence"
     ]
   },
   "formatter": {

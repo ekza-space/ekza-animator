@@ -1,0 +1,22 @@
+[
+  {
+    "at": "2026-10-23T16:47:37.765Z",
+    "action": "closed the welcome dialog (Esc)"
+  },
+  {
+    "at": "2026-10-23T16:47:40.222Z",
+    "action": "Claude Code permission: Allow mcp__ekza-studio__editor_connect"
+  },
+  {
+    "at": "2026-10-23T16:47:40.718Z",
+    "action": "grants: Allow (Edit, Files, Workspace, View)"
+  },
+  {
+    "at": "2026-10-23T16:48:21.266Z",
+    "action": "confirm: Allow — AI wants to add a sample model to your scene94 sAdds the model as one undo step.DenyAllow"
+  },
+  {
+    "at": "2026-10-23T16:48:23.444Z",
+    "action": "confirm: Allow — AI wants to rig Cube Lad96 sCreates a skeleton and binds the skin: 2–3 undo steps.DenyAllow"
+  }
+]

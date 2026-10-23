@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "ekza-studio": {
+      "command": "node",
+      "args": [
+        "<repo>/packages/mcp-server/dist/cli.mjs",
+        "--workspace",
+        "<workspace>",
+        "--bridge-port",
+        "47829",
+        "--allow-origin",
+        "http://localhost:3156"
+      ]
+    }
+  }
+}

@@ -60,6 +60,7 @@ import { skeletonUiTestApi } from './m6b/skeleton-ui';
 import { skinUiTestApi } from './m6b/skin-ui';
 import { weightsKernelTestApi } from './m6b/weights-kernel';
 import { autorigTestApi } from './autorig';
+import { maiTestApi } from './mai';
 import type { EkzaStudioTestApi } from './types';
 
 export interface TestApiHandle {
@@ -695,6 +696,8 @@ export function createTestApi(host: HostShell, opts: { readonly engine?: CurveEn
       if (result.status === 'failed') throw new EkzaError(result.error.code, result.error.message);
       if (result.status === 'cancelled') throw new EkzaError('unsupported', `flushAutosave: ${result.reason}`);
     },
+    // M-AI (MCP-SPEC §4.9, §8.1): the slices of test-api/mai/*.ts.
+    ...maiTestApi(app, host),
   };
 
   // Every probe-backed read sees the pending once-per-frame updates too (the kernel-level reads call `sync` above).

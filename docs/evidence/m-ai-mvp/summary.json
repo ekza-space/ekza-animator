@@ -1,0 +1,15 @@
+{
+  "at": "2026-10-23T16:49:08.311Z",
+  "editor": "http://localhost:3156",
+  "claudeExit": 0,
+  "result": {
+    "subtype": "success",
+    "turns": 24
+  },
+  "userActions": 5,
+  "contactSheets": 3,
+  "workspaceFiles": [
+    "exports",
+    "exports/cube-lad.vrm"
+  ]
+}

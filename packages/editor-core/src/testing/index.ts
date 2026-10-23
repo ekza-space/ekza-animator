@@ -24,3 +24,5 @@ export {
   fixtureLimbs,
   withLimbIkRecords,
 } from './limbs';
+// M-AI B5: the operators' lazy apply bodies, loaded up front by tests whose runs must settle within a frame.
+export { loadOperatorBodies } from '../operators/builtin/lazyBodies';

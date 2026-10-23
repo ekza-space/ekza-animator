@@ -1,0 +1,34 @@
+{
+  "name": "@ekza-studio/agent-tools",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The agent tool layer: tool contracts and runtime, resolver, envelopes, errors, budgets, operator policy and wire schemas, bridge protocol, tool manifest (MCP-SPEC §4.4, §4.5).",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -b",
+    "manifest": "UPDATE_MANIFEST=1 vitest run test/manifest.test.ts",
+    "docs": "UPDATE_REFERENCE=1 vitest run test/reference.test.ts"
+  },
+  "dependencies": {
+    "@ekza-studio/anim-core": "workspace:*",
+    "@ekza-studio/doc": "workspace:*",
+    "@ekza-studio/editor-core": "workspace:*",
+    "@ekza-studio/io": "workspace:*",
+    "@ekza-studio/motion-analysis": "workspace:*",
+    "@ekza-studio/rig": "workspace:*",
+    "@ekza-studio/schematic-render": "workspace:*",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "ajv": "8.20.0",
+    "fast-check": "4.10.2",
+    "vitest": "catalog:"
+  }
+}

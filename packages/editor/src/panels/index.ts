@@ -1,4 +1,5 @@
 import type { Disposer } from '@ekza-studio/anim-core';
+import { registerAgentPanel } from './agent';
 import { registerAttributesPanel } from './attributes';
 import { registerChannelBoxPanel } from './channel-box';
 import { registerClipsPanel } from './clips';
@@ -49,6 +50,8 @@ export function registerBuiltinPanels(registry: PanelRegistry): Disposer {
     registry.register(lazyPanelDef(PANEL.paintWeights, 'Paint Weights', loadRigPanels)),
     // The Component Editor is not built in the MVP (M6B-INT-2; §0.3 C6 row, §0.4.5 "if built"): it is not registered,
     // so Windows never lists a panel that can show nothing (Q-MVP-15). Its stub body stays in ./componentEditor.
+    // M-AI (MCP-SPEC §7.1): the Agent panel, a lazy chunk opened from Windows › Agent or the status pill
+    registerAgentPanel(registry),
   ];
   return () => {
     for (const dispose of [...disposers].reverse()) dispose();

@@ -95,3 +95,7 @@ export function detectPlatform(): 'mac' | 'other' {
   const name = data?.platform ?? navigator.platform ?? '';
   return /mac|iphone|ipad|ipod/i.test(name) ? 'mac' : 'other';
 }
+
+// ---------- M-AI (MCP-SPEC §4.9) ----------
+// The agent URL parameters live in `agentParams.ts` (B2, M-AI-B2-13): only lazy chunks read them, and an export of this
+// eager module that a lazy chunk imports stays in the first-visit bundle.

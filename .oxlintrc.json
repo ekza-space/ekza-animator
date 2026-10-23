@@ -1013,6 +1013,385 @@
       }
     },
     {
+      "files": ["packages/motion-analysis/src/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**", "!./**", "!../**", "!@ekza-studio/anim-core"],
+                "message": "@ekza-studio/motion-analysis may import only: @ekza-studio/anim-core (MCP-SPEC \u00a72, ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-studio/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ],
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "window",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "document",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "navigator",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "process",
+            "message": "Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          },
+          {
+            "name": "Buffer",
+            "message": "Use Uint8Array; Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          },
+          {
+            "name": "require",
+            "message": "ES modules only; Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/motion-analysis/test/**", "packages/motion-analysis/vitest.config.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-studio/anim-core",
+                  "!fast-check",
+                  "!vitest",
+                  "!vitest/**",
+                  "!node:*"
+                ],
+                "message": "@ekza-studio/motion-analysis tests may import only: @ekza-studio/anim-core, fast-check, vitest, vitest/**, node:* (MCP-SPEC \u00a72, ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-studio/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/schematic-render/src/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**", "!./**", "!../**", "!@ekza-studio/anim-core", "!fflate"],
+                "message": "@ekza-studio/schematic-render may import only: @ekza-studio/anim-core, fflate (MCP-SPEC \u00a72, ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-studio/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ],
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "window",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "document",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "navigator",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "process",
+            "message": "Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          },
+          {
+            "name": "Buffer",
+            "message": "Use Uint8Array; Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          },
+          {
+            "name": "require",
+            "message": "ES modules only; Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/schematic-render/test/**", "packages/schematic-render/vitest.config.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-studio/anim-core",
+                  "!fflate",
+                  "!vitest",
+                  "!vitest/**",
+                  "!node:*"
+                ],
+                "message": "@ekza-studio/schematic-render tests may import only: @ekza-studio/anim-core, fflate, vitest, vitest/**, node:* (MCP-SPEC \u00a72, ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-studio/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/agent-tools/src/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-studio/anim-core",
+                  "!@ekza-studio/doc",
+                  "!@ekza-studio/rig",
+                  "!@ekza-studio/io",
+                  "!@ekza-studio/editor-core",
+                  "!@ekza-studio/motion-analysis",
+                  "!@ekza-studio/schematic-render",
+                  "!zod"
+                ],
+                "message": "@ekza-studio/agent-tools may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/rig, @ekza-studio/io, @ekza-studio/editor-core, @ekza-studio/motion-analysis, @ekza-studio/schematic-render, zod (MCP-SPEC \u00a72, ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-studio/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ],
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "window",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "document",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "navigator",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "process",
+            "message": "Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          },
+          {
+            "name": "Buffer",
+            "message": "Use Uint8Array; Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          },
+          {
+            "name": "require",
+            "message": "ES modules only; Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/agent-tools/test/**", "packages/agent-tools/vitest.config.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-studio/anim-core",
+                  "!@ekza-studio/doc",
+                  "!@ekza-studio/doc/testing",
+                  "!@ekza-studio/rig",
+                  "!@ekza-studio/io",
+                  "!@ekza-studio/editor-core",
+                  "!@ekza-studio/editor-core/testing",
+                  "!@ekza-studio/motion-analysis",
+                  "!@ekza-studio/schematic-render",
+                  "!zod",
+                  "!ajv",
+                  "!ajv/**",
+                  "!fast-check",
+                  "!vitest",
+                  "!vitest/**",
+                  "!node:*"
+                ],
+                "message": "@ekza-studio/agent-tools tests may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/doc/testing, @ekza-studio/rig, @ekza-studio/io, @ekza-studio/editor-core, @ekza-studio/editor-core/testing, @ekza-studio/motion-analysis, @ekza-studio/schematic-render, zod, ajv, ajv/**, fast-check, vitest, vitest/**, node:* (MCP-SPEC \u00a72, ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-studio/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/mcp-server/src/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-studio/agent-tools",
+                  "!@ekza-studio/editor-core",
+                  "!@ekza-studio/io",
+                  "!@ekza-studio/io/write",
+                  "!@ekza-studio/doc",
+                  "!@ekza-studio/rig",
+                  "!@ekza-studio/anim-core",
+                  "!@ekza-studio/schematic-render",
+                  "!@modelcontextprotocol/server",
+                  "!@modelcontextprotocol/server/**",
+                  "!@modelcontextprotocol/node",
+                  "!ws",
+                  "!zod",
+                  "!gltf-validator",
+                  "!node:*"
+                ],
+                "message": "ekza-studio-mcp may import only: @ekza-studio/agent-tools, @ekza-studio/editor-core, @ekza-studio/io, @ekza-studio/io/write, @ekza-studio/doc, @ekza-studio/rig, @ekza-studio/anim-core, @ekza-studio/schematic-render, @modelcontextprotocol/server, @modelcontextprotocol/server/**, @modelcontextprotocol/node, ws, zod, gltf-validator, node:* (MCP-SPEC \u00a72, ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-studio/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "packages/mcp-server/test/**",
+        "packages/mcp-server/scripts/**",
+        "packages/mcp-server/vitest.config.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-studio/agent-tools",
+                  "!@ekza-studio/editor-core",
+                  "!@ekza-studio/io",
+                  "!@ekza-studio/doc",
+                  "!@ekza-studio/doc/testing",
+                  "!@ekza-studio/rig",
+                  "!@ekza-studio/anim-core",
+                  "!@modelcontextprotocol/server",
+                  "!@modelcontextprotocol/server/**",
+                  "!@modelcontextprotocol/client",
+                  "!@modelcontextprotocol/client/**",
+                  "!rolldown",
+                  "!ws",
+                  "!zod",
+                  "!gltf-validator",
+                  "!vitest",
+                  "!vitest/**",
+                  "!node:*"
+                ],
+                "message": "ekza-studio-mcp tests and build scripts may import only: @ekza-studio/agent-tools, @ekza-studio/editor-core, @ekza-studio/io, @ekza-studio/doc, @ekza-studio/doc/testing, @ekza-studio/rig, @ekza-studio/anim-core, @modelcontextprotocol/server, @modelcontextprotocol/server/**, @modelcontextprotocol/client, @modelcontextprotocol/client/**, rolldown, ws, zod, gltf-validator, vitest, vitest/**, node:* (MCP-SPEC \u00a72, ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-studio/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/agent-evals/src/**", "packages/agent-evals/test/**", "packages/agent-evals/vitest.config.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-studio/agent-tools",
+                  "!ekza-studio-mcp",
+                  "!@ekza-studio/motion-analysis",
+                  "!@ekza-studio/editor-core",
+                  "!@ekza-studio/doc",
+                  "!@ekza-studio/doc/testing",
+                  "!@ekza-studio/rig",
+                  "!@ekza-studio/io",
+                  "!@ekza-studio/anim-core",
+                  "!@modelcontextprotocol/client",
+                  "!@modelcontextprotocol/client/**",
+                  "!@anthropic-ai/sdk",
+                  "!ajv",
+                  "!ajv/**",
+                  "!fast-check",
+                  "!gltf-validator",
+                  "!vitest",
+                  "!vitest/**",
+                  "!node:*"
+                ],
+                "message": "@ekza-studio/agent-evals may import only: @ekza-studio/agent-tools, ekza-studio-mcp, @ekza-studio/motion-analysis, @ekza-studio/editor-core, @ekza-studio/doc, @ekza-studio/doc/testing, @ekza-studio/rig, @ekza-studio/io, @ekza-studio/anim-core, @modelcontextprotocol/client, @modelcontextprotocol/client/**, @anthropic-ai/sdk, ajv, ajv/**, fast-check, gltf-validator, vitest, vitest/**, node:* (MCP-SPEC \u00a72, ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-studio/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "files": ["packages/viewport/src/**"],
       "rules": {
         "no-restricted-imports": [
@@ -1248,6 +1627,8 @@
                   "!@ekza-studio/viewport",
                   "!@ekza-studio/curve-editor",
                   "!@ekza-studio/ui",
+                  "!@ekza-studio/agent-tools",
+                  "!@ekza-studio/schematic-render",
                   "!@react-three/fiber",
                   "!dockview-react",
                   "!react-resizable-panels",
@@ -1263,7 +1644,7 @@
                   "!@ekza-studio/mesh-core",
                   "!@ekza-studio/mesh-core/descriptors"
                 ],
-                "message": "@ekza-studio/editor may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/rig, @ekza-studio/io, @ekza-studio/io/write, @ekza-studio/io/project, @ekza-studio/io/three, @ekza-studio/editor-core, @ekza-studio/viewport, @ekza-studio/curve-editor, @ekza-studio/ui, @react-three/fiber, dockview-react, react-resizable-panels, @tanstack/react-virtual, zustand, zustand/**, react, react/**, react-dom, react-dom/**, three, three/**, @ekza-studio/mesh-core, @ekza-studio/mesh-core/descriptors (ARCHITECTURE \u00a73)."
+                "message": "@ekza-studio/editor may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/rig, @ekza-studio/io, @ekza-studio/io/write, @ekza-studio/io/project, @ekza-studio/io/three, @ekza-studio/editor-core, @ekza-studio/viewport, @ekza-studio/curve-editor, @ekza-studio/ui, @ekza-studio/agent-tools, @ekza-studio/schematic-render, @react-three/fiber, dockview-react, react-resizable-panels, @tanstack/react-virtual, zustand, zustand/**, react, react/**, react-dom, react-dom/**, three, three/** (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-studio/[^/]+/[^/]+/",
@@ -1651,11 +2032,16 @@
                   "!@ekza-studio/editor",
                   "!@ekza-studio/io",
                   "!@ekza-studio/doc",
+                  "!ekza-studio-mcp",
+                  "!@ekza-studio/agent-evals",
+                  "!@ekza-studio/agent-evals/**",
+                  "!@modelcontextprotocol/client",
+                  "!@modelcontextprotocol/client/**",
                   "!gltf-validator",
                   "!vrm-validator",
                   "!node:*"
                 ],
-                "message": "apps/web e2e specs may import only: @playwright/test, @ekza-studio/editor, @ekza-studio/io, @ekza-studio/doc, gltf-validator, vrm-validator, node:* (ARCHITECTURE \u00a73)."
+                "message": "apps/web e2e specs may import only: @playwright/test, @ekza-studio/editor, @ekza-studio/io, @ekza-studio/doc, ekza-studio-mcp, @ekza-studio/agent-evals, @modelcontextprotocol/client, gltf-validator, node:* (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-studio/[^/]+/[^/]+/",

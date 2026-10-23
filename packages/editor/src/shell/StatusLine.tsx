@@ -30,13 +30,61 @@ import {
   ToggleGroupItem,
   Tooltip,
 } from '@ekza-studio/ui';
-import { Fragment, type JSX, lazy, type ReactNode, Suspense } from 'react';
+import {
+  Fragment,
+  type JSX,
+  lazy,
+  type ReactNode,
+  Suspense,
+  useCallback,
+  useEffect,
+  useSyncExternalStore,
+} from 'react';
+import { agentPill, subscribeAgentPill } from '../agent/ui/slot';
 import { usePrefs, useSession } from '../hooks';
 import { useRegistryList } from '../hooks/useRegistry';
 import { TweenBar } from '../panels/shared/TweenBar';
 import { useShell, useShellUi } from './context';
 import { RIG_LAYOUTS } from './rig/layouts';
 import { shortcutFor } from './menus';
+
+/** M-AI (§7.1): `?agentPort=` opens the Agent panel once per page (the panel applies the port rules). */
+let agentPortHandled = false;
+
+/** M-AI (§7.5): the muted "AI" pill until the lazy agent module puts its live pill in the slot. */
+function AgentPillSlot({
+  open,
+  ready,
+}: {
+  readonly open: () => Promise<unknown>;
+  readonly ready: () => boolean;
+}): JSX.Element {
+  const live = useSyncExternalStore(subscribeAgentPill, agentPill, agentPill);
+  useEffect(() => {
+    if (agentPortHandled || typeof location === 'undefined' || !/[?&]agentPort=/.test(location.search)) return;
+    agentPortHandled = true;
+    // the workspace mounts after the status line: open the panel once dockview is bound (≤ 10 s)
+    let tries = 0;
+    const attempt = (): void => {
+      if (ready() || ++tries >= 40) void open();
+      else setTimeout(attempt, 250);
+    };
+    attempt();
+  }, [open, ready]);
+  if (live !== null) return live;
+  return (
+    <Tip text="AI agent (Windows › Agent)">
+      <button
+        type="button"
+        className="rounded px-1.5 text-ui text-fg-3 hover:bg-hover hover:text-fg"
+        data-testid="status-agent"
+        onClick={() => void open()}
+      >
+        AI
+      </button>
+    </Tip>
+  );
+}
 
 /** Model's groups (mode, symmetry, soft selection, snapping, pivot): a lazy chunk, drawn only in Model. */
 const ModelStatusGroup = lazy(() => import('./statusGroups').then((module) => ({ default: module.ModelStatusGroup })));
@@ -332,6 +380,14 @@ export function StatusLine(): JSX.Element {
     }
   };
 
+  const workspaceReady = useCallback(() => shell.workspace.dockview !== null, [shell]);
+  const openAgentPanel = useCallback(() => shell.runFromUi('workspace.showPanel', { panel: 'agent' }), [shell]);
+  const agentGroup = (
+    <Group key="agent" label="AI agent">
+      <AgentPillSlot open={openAgentPanel} ready={workspaceReady} />
+    </Group>
+  );
+
   return (
     <div
       className="flex h-[var(--size-statusline)] shrink-0 items-center gap-2 overflow-x-auto border-b border-line bg-header px-2"
@@ -339,7 +395,11 @@ export function StatusLine(): JSX.Element {
       aria-label="Status line"
       data-testid="statusline"
     >
-      {groups.map((id) => render(id))}
+      {/* M-AI (MCP-SPEC §7.1, §7.5): the agent pill sits before the layout buttons in every workspace (not a
+          workspace status group, so the workspaces' group lists stay as shipped). "AI" (muted) opens the Agent panel
+          until the lazy agent module puts its live pill in the slot (B3). */}
+      {groups.flatMap((id) => (id === 'layout' ? [agentGroup, render(id)] : [render(id)]))}
+      {groups.includes('layout') ? null : agentGroup}
     </div>
   );
 }

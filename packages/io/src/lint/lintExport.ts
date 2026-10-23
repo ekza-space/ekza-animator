@@ -26,7 +26,7 @@ import {
 } from '../gltf/schema';
 import type { ExportKind, ExportProfileDef, GlbContainer, GltfJson, LintIssue } from '../types';
 import { clipNameKey } from '../writers/names';
-import { ruleSeverity } from './rules';
+import { ruleSeverity } from './severities';
 import { checkStatic } from './static';
 import { checkVrmMeta, checkVrmRuntime, profileWantsVrm } from './vrm';
 

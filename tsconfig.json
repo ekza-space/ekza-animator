@@ -27,6 +27,21 @@
       "path": "./packages/mesh-view"
     },
     {
+      "path": "./packages/motion-analysis"
+    },
+    {
+      "path": "./packages/schematic-render"
+    },
+    {
+      "path": "./packages/agent-tools"
+    },
+    {
+      "path": "./packages/mcp-server"
+    },
+    {
+      "path": "./packages/agent-evals"
+    },
+    {
       "path": "./packages/viewport"
     },
     {

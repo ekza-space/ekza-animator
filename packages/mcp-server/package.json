@@ -1,0 +1,69 @@
+{
+  "name": "ekza-studio-mcp",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "MCP server for Ekza Studio: lets an AI agent (Claude Code, Claude Desktop, Cursor, VS Code, Codex) read and edit animation in your open editor tab or in project files.",
+  "license": "MIT",
+  "keywords": ["mcp", "model-context-protocol", "animation", "vrm", "gltf", "ekza-studio"],
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "ekza-studio-mcp": "dist/cli.mjs"
+  },
+  "files": [
+    "dist/cli.mjs",
+    "dist/cli.mjs.map",
+    "dist/http.mjs",
+    "dist/http.mjs.map",
+    "samples/polybot.vrm",
+    "samples/LICENSES.md",
+    "samples/polybot-unskinned.glb",
+    "samples/polybot-unskinned-tpose.glb",
+    "samples/cube-lad.glb",
+    "library/animations/",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "README.md"
+  ],
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      "./package.json": "./package.json"
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "peerDependencies": {
+    "gltf-validator": "2.0.0-dev.3.10"
+  },
+  "peerDependenciesMeta": {
+    "gltf-validator": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@ekza-studio/agent-tools": "workspace:*",
+    "@ekza-studio/anim-core": "workspace:*",
+    "@ekza-studio/doc": "workspace:*",
+    "@ekza-studio/editor-core": "workspace:*",
+    "@ekza-studio/io": "workspace:*",
+    "@ekza-studio/rig": "workspace:*",
+    "@ekza-studio/schematic-render": "workspace:*",
+    "@modelcontextprotocol/client": "2.3.1",
+    "@modelcontextprotocol/node": "2.1.1",
+    "@modelcontextprotocol/server": "2.3.1",
+    "@types/node": "catalog:",
+    "@types/ws": "8.18.2",
+    "gltf-validator": "2.0.0-dev.3.10",
+    "rolldown": "1.2.12",
+    "vitest": "catalog:",
+    "ws": "8.22.0",
+    "zod": "4.6.5"
+  }
+}

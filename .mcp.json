@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "ekza-studio": {
+      "command": "node",
+      "args": ["packages/mcp-server/dist/cli.mjs"]
+    }
+  }
+}

@@ -74,6 +74,10 @@ export const ALL_SLOTS: typeof ANIMATE_SLOTS = [
   ),
 ];
 
+/** Extra panels outside every workspace layout and where they open (M-AI INT: the Agent panel docks right, beside
+ *  the Channel Box, so the viewport stays visible while the agent works). */
+const EXTRA_PANEL_SLOTS: Readonly<Record<string, 'left' | 'right' | 'bottom'>> = { agent: 'right' };
+
 /** Panel kinds rendered outside dockview (fixed regions). */
 export const FIXED_KINDS: ReadonlySet<PanelKind> = new Set([PANEL.timeline]);
 
@@ -297,6 +301,7 @@ export function addPanelToDefaultDock(
   const slot =
     slots.find((candidate) => candidate.kind === entry.kind)?.slot ??
     ALL_SLOTS.find((candidate) => candidate.kind === entry.kind)?.slot ??
+    EXTRA_PANEL_SLOTS[entry.kind] ??
     'center';
   const siblings = slots.filter((candidate) => candidate.slot === slot).map((candidate) => candidate.kind);
   const sibling = api.panels.find((panel) => {

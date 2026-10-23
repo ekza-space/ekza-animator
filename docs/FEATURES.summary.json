@@ -1,0 +1,380 @@
+{
+  "product": "Ekza Studio",
+  "url": "https://studio.ekza.io",
+  "release": "v0.5.1",
+  "updated": "2026-10-24",
+  "source": "docs/FEATURES.md",
+  "statusLegend": {
+    "shipped": "in the current release",
+    "experimental": "in the code, acceptance pending",
+    "next": "in integration, coming next release",
+    "planned": "on the roadmap, not built"
+  },
+  "categories": [
+    {
+      "category": "Two modes",
+      "features": [
+        {
+          "name": "Start chooser",
+          "description": "Pick the full Studio or the Auto-Rig wizard; the choice can be remembered.",
+          "status": "shipped"
+        },
+        {
+          "name": "One document, two shells",
+          "description": "Switch between Studio and Auto-Rig with the same document and undo history.",
+          "status": "shipped"
+        }
+      ]
+    },
+    {
+      "category": "Workspaces and UI",
+      "features": [
+        {
+          "name": "Model, Animate, Rig & Skin workspaces",
+          "description": "Task-focused tabs with docked, rearrangeable panels.",
+          "status": "shipped"
+        },
+        {
+          "name": "Layout presets and focus mode",
+          "description": "Animate, Blocking, Polish and Review layouts on Alt+1-4, user presets, viewport-only focus, full screen.",
+          "status": "shipped"
+        },
+        {
+          "name": "Maya-style keys and marking menus",
+          "description": "Maya hotkeys, radial marking menus and three navigation profiles (mouse, trackpad, one-button).",
+          "status": "shipped"
+        },
+        {
+          "name": "Command palette",
+          "description": "Find and run any command by name (Mod+K).",
+          "status": "shipped"
+        },
+        {
+          "name": "Split and quad viewports",
+          "description": "Single, shot + free camera split, or four views with W/E/R manipulators in object, world or gimbal space.",
+          "status": "shipped"
+        },
+        {
+          "name": "Review workspace",
+          "description": "Dedicated review tab.",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "category": "Modeling",
+      "features": [
+        {
+          "name": "Primitives and templates",
+          "description": "Cube, sphere, cylinder, cone, plane, torus; prop, handheld and humanoid templates; reference image planes.",
+          "status": "shipped"
+        },
+        {
+          "name": "Component editing",
+          "description": "Vertex, edge and face modes with loop and ring selection, grow/shrink, convert and soft selection.",
+          "status": "shipped"
+        },
+        {
+          "name": "Box-modeling tools",
+          "description": "Adjustable extrude session, inset, bevel, bridge, insert/offset edge loop, multi-cut, slide, merge and target weld.",
+          "status": "shipped"
+        },
+        {
+          "name": "Symmetry, snapping, pivots",
+          "description": "Per-mesh symmetry for every tool, grid/vertex/increment snapping, pivot editing.",
+          "status": "shipped"
+        },
+        {
+          "name": "Palette colour",
+          "description": "Colour per face from a palette, exported as a palette texture, vertex colours or one material per colour.",
+          "status": "shipped"
+        },
+        {
+          "name": "Poly Count HUD and Mesh Check",
+          "description": "Triangle budgets per asset type and game-readiness checks.",
+          "status": "shipped"
+        },
+        {
+          "name": "Make editable",
+          "description": "Edit an imported character's mesh and bake it back with skin weights and expressions.",
+          "status": "shipped"
+        },
+        {
+          "name": "UV editor, subdivision, booleans, sculpting",
+          "description": "Advanced modeling and texturing tools.",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "category": "Rig & Skin",
+      "features": [
+        {
+          "name": "Quick Rig markers",
+          "description": "Nine markers guessed from the silhouette, dragged in front and side views, with a live VRM skeleton preview.",
+          "status": "shipped"
+        },
+        {
+          "name": "VRM skeleton templates",
+          "description": "Lite 17, Core 21, Standard 33 and Full 52 humanoid skeletons with an automatic control rig.",
+          "status": "shipped"
+        },
+        {
+          "name": "Joint fitting",
+          "description": "Move, rotate, orient, mirror and map joints with symmetry.",
+          "status": "shipped"
+        },
+        {
+          "name": "One-click Bind Skin",
+          "description": "Automatic low-poly skin weights computed in a worker.",
+          "status": "shipped"
+        },
+        {
+          "name": "Weight painting",
+          "description": "Replace, Add, Scale, Smooth and Flood with mirrored strokes, holds and test poses.",
+          "status": "shipped"
+        },
+        {
+          "name": "Straighten to T-Pose",
+          "description": "An A-posed model becomes a T-pose VRM rest in one step.",
+          "status": "shipped"
+        },
+        {
+          "name": "Validation gate",
+          "description": "Checks with one-click fixes that gate the VRM export.",
+          "status": "shipped"
+        },
+        {
+          "name": "Constraints and control-shape editing",
+          "description": "Parent/point/orient/aim constraints, props, sockets and custom control shapes.",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "category": "Auto-Rig",
+      "features": [
+        {
+          "name": "Five-step wizard",
+          "description": "Model, Markers, Rig, Animations, Export: from a static humanoid GLB to an animated VRM in minutes.",
+          "status": "shipped"
+        },
+        {
+          "name": "Model checks with fixes",
+          "description": "Centred, grounded, facing, upright, human size and pose, each with a one-click fix.",
+          "status": "shipped"
+        },
+        {
+          "name": "Multi-part characters",
+          "description": "Detects which parts belong to the body; separate parts can move rigidly.",
+          "status": "shipped"
+        },
+        {
+          "name": "One-click Auto-rig",
+          "description": "Skeleton, skin and T-pose straightening in one press, then adjust joints or paint weights.",
+          "status": "shipped"
+        },
+        {
+          "name": "Animation library",
+          "description": "14 CC0 clips with preview, speed, trim, mirror, in place and arm space; your own VRMA too.",
+          "status": "shipped"
+        },
+        {
+          "name": "Ready-for-OMOBA export",
+          "description": "VRM 1.0 behind a checklist with OMOBA's runtime rules, plus GLB, VRMA and an OMOBA local test kit.",
+          "status": "shipped"
+        },
+        {
+          "name": "Phone and tablet layouts",
+          "description": "Works on tablets; on phones everything except weight painting.",
+          "status": "shipped"
+        }
+      ]
+    },
+    {
+      "category": "Animation",
+      "features": [
+        {
+          "name": "Automatic control rig",
+          "description": "Circle controls on any skinned GLB or VRM, sized from the mesh.",
+          "status": "shipped"
+        },
+        {
+          "name": "Leg and arm IK",
+          "description": "Two-bone IK with poles, soft IK, foot roll, IK/FK blend, match and seamless switch.",
+          "status": "shipped"
+        },
+        {
+          "name": "Keying, breakdowns and tweens",
+          "description": "Maya keying, auto-key, breakdown keys and the tween family with overshoot.",
+          "status": "shipped"
+        },
+        {
+          "name": "Dope Sheet and time slider",
+          "description": "Retime with ripple edit, copy, scale, insert/remove time and key nudge.",
+          "status": "shipped"
+        },
+        {
+          "name": "Graph Editor",
+          "description": "Maya tangent model, weighted handles, buffer curves, normalized/stacked views, Euler filter, Simplify.",
+          "status": "shipped"
+        },
+        {
+          "name": "Clips and poses",
+          "description": "Several clips per character with slots and tags; copy, paste and mirror poses; mirror animation by half a cycle.",
+          "status": "shipped"
+        },
+        {
+          "name": "Onion skin and motion trails",
+          "description": "Visual arc and spacing aids.",
+          "status": "planned"
+        },
+        {
+          "name": "Animation layers",
+          "description": "Layered animation editing.",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "category": "Shading",
+      "features": [
+        {
+          "name": "Lambert and Blinn shaders",
+          "description": "Every palette swatch is a shader, assigned to faces or objects, exported as glTF PBR.",
+          "status": "shipped"
+        }
+      ]
+    },
+    {
+      "category": "Import and export",
+      "features": [
+        {
+          "name": "glTF and VRM import",
+          "description": "GLB, VRM 0.x and 1.0, VRMA clips and Ekza projects, by drag and drop.",
+          "status": "shipped"
+        },
+        {
+          "name": "Lossless bake into the original file",
+          "description": "Clips written back into the GLB/VRM with every original value and byte preserved.",
+          "status": "shipped"
+        },
+        {
+          "name": "VRMA and animation GLB export",
+          "description": "One clip per VRMA file or animation-only GLB, with error-bounded key reduction.",
+          "status": "shipped"
+        },
+        {
+          "name": "VRM 1.0 character export",
+          "description": "Avatar with meta, licence and thumbnail, checked against OMOBA's runtime rules.",
+          "status": "shipped"
+        },
+        {
+          "name": "Export profiles and lints",
+          "description": "Ekza, OMOBA, Bevy and generic profiles with read-back checks.",
+          "status": "shipped"
+        },
+        {
+          "name": "Animation-only GLB import",
+          "description": "Add clips from an animation-only GLB by node name.",
+          "status": "experimental"
+        },
+        {
+          "name": "FBX, BVH and Mixamo import",
+          "description": "Import and retarget from common animation formats.",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "category": "Project and data",
+      "features": [
+        {
+          "name": "Projects",
+          "description": "Ekza project files that embed the source models.",
+          "status": "shipped"
+        },
+        {
+          "name": "Autosave and recovery",
+          "description": "Autosave in the browser with crash recovery.",
+          "status": "shipped"
+        },
+        {
+          "name": "Gesture-level undo",
+          "description": "One gesture is one undo step everywhere.",
+          "status": "shipped"
+        },
+        {
+          "name": "Real-time collaboration",
+          "description": "Live sessions with presence; the document model is already collaboration-ready.",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "category": "Ekza ecosystem",
+      "features": [
+        {
+          "name": "Ekza Space and OMOBA ready",
+          "description": "One VRM 1.0 file works as an avatar in Ekza Space and OMOBA.",
+          "status": "shipped"
+        },
+        {
+          "name": "Publish to Ekza Hub",
+          "description": "One-click avatar publishing to Ekza Hub.",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "category": "AI control via MCP",
+      "features": [
+        {
+          "name": "MCP server and live bridge",
+          "description": "AI agents such as Claude Code connect to the open editor with a pairing code and granted permissions.",
+          "status": "next"
+        },
+        {
+          "name": "Undoable AI edits",
+          "description": "Every agent action is one labelled undo step; revert all AI changes in one click.",
+          "status": "next"
+        },
+        {
+          "name": "Rig and animate by prompt",
+          "description": "An agent can inspect, fix, rig, add library clips and export a character.",
+          "status": "next"
+        },
+        {
+          "name": "Agent sees the scene",
+          "description": "View captures and contact sheets from the user's or preset cameras.",
+          "status": "next"
+        }
+      ]
+    },
+    {
+      "category": "Platform",
+      "features": [
+        {
+          "name": "Runs in the browser",
+          "description": "Chrome and Edge; no install.",
+          "status": "shipped"
+        },
+        {
+          "name": "Private by design",
+          "description": "Files never leave the browser; no telemetry.",
+          "status": "shipped"
+        },
+        {
+          "name": "Open source",
+          "description": "MIT licence.",
+          "status": "shipped"
+        },
+        {
+          "name": "Firefox and Safari",
+          "description": "Support for more browsers.",
+          "status": "planned"
+        }
+      ]
+    }
+  ]
+}

@@ -11,6 +11,7 @@ import { blockingLints, requestProblem, withReadBackLint } from '../../workflows
 import type { Progress } from '../../workflows/host';
 import { animationTargetProblem, importTarget } from '../../workflows/importChecks';
 import { importPathLoaded, loadImportPath } from '../../workflows/importLoader';
+import { preloadOperatorBodies } from './lazyBodies';
 import type { ClipImportPlan, ModelImportPlan } from '../../workflows/importPath';
 import { extensionOf } from '../../workflows/names';
 import {
@@ -21,9 +22,9 @@ import {
   prepareProjectOpen,
   type SaveArtifact,
 } from '../../workflows/project';
-import { fetchSample, isSampleId, SAMPLES } from '../../workflows/samples';
+import { fetchSample, isSampleId, SAMPLES, type SampleDef } from '../../workflows/samples';
 import { resetDocumentSession } from '../../workflows/session';
-import { type AnyOperator, all, defineOperator, fail, forward, isRecord, OK, optionalArgs } from './define';
+import { type AnyOperator, all, defineOperator, fail, forward, isActorRun, isRecord, OK, optionalArgs } from './define';
 import { resolveImporter } from './importers';
 import { pollEditable } from './polls';
 
@@ -40,8 +41,23 @@ function pollFile(args: unknown) {
   return problem === null ? OK : fail(problem);
 }
 
-/** Runs `prepare` work with a busy indicator in the session (the shell shows it); `work` may report progress. */
-async function busy<T>(app: EditorApp, label: string, work: (progress: Progress) => Promise<T>): Promise<T> {
+/**
+ * The import pipelines, and (intent prefetch, M-AI B5) the operators' apply bodies (`lazyBodies.ts`): a character or
+ * a clip is about to arrive, so its first edit does not wait for those chunks.
+ */
+function loadImport(): ReturnType<typeof loadImportPath> {
+  preloadOperatorBodies();
+  return loadImportPath();
+}
+
+/**
+ * Runs `prepare` work with a busy indicator in the session (the shell shows it); `work` may report progress. Agent runs
+ * (MCP-SPEC §4.1 runner rule 6) never write the user's session from `prepare`: their progress shows in the agent's
+ * status pill instead, so for them this only runs `work`.
+ */
+async function busy<T>(ctx: OperatorContext, label: string, work: (progress: Progress) => Promise<T>): Promise<T> {
+  if (isActorRun(ctx)) return work(() => {});
+  const app = ctx.app;
   app.session.setState({ busy: { label, progress: null } });
   const progress: Progress = (fraction) => {
     if (app.session.getState().busy?.label === label) app.session.setState({ busy: { label, progress: fraction } });
@@ -103,7 +119,11 @@ const fileOpenProject = defineOperator<'file.openProject', OpenedProject>({
   category: 'file',
   scope: GLOBAL_SCOPE,
   poll: (_ctx, args) => pollFile(args),
-  prepare: ({ app }, args) => busy(app, `Opening ${args.name}…`, () => prepareProjectOpen(app, args.bytes)),
+  prepare: (ctx, args) =>
+    busy(ctx, `Opening ${args.name}…`, () => {
+      preloadOperatorBodies();
+      return prepareProjectOpen(ctx.app, args.bytes);
+    }),
   apply({ app }, _args, opened) {
     loadProject(app, opened);
     toastWarnings(app, 'Project opened', opened.warnings);
@@ -120,18 +140,18 @@ const fileImportModel = defineOperator<'file.importModel', ModelImportPlan>({
   flags: { undo: true },
   undoLabel: (args) => `Import ${args.name}`,
   poll: ({ app }, args) => all(pollFile(args), pollEditable(app)),
-  prepare: ({ app }, args) =>
-    busy(app, `Importing ${args.name}…`, async (progress) =>
-      (await loadImportPath()).prepareModelImport(app, {
+  prepare: (ctx, args) =>
+    busy(ctx, `Importing ${args.name}…`, async (progress) =>
+      (await loadImport()).prepareModelImport(ctx.app, {
         fileName: args.name,
         bytes: args.bytes,
         options: args.options,
         progress,
       }),
     ),
-  apply({ app, tx }, _args, plan) {
+  apply({ app, tx }, args, plan) {
     if (tx === null) throw new EkzaError('internal', 'file.importModel runs in a transaction');
-    const result = importPathLoaded().applyModelImport(app, tx, plan);
+    const result = importPathLoaded().applyModelImport(app, tx, plan, { activate: args.activate !== false });
     toastWarnings(app, `Imported ${plan.fileName}`, plan.warnings);
     return result;
   },
@@ -160,12 +180,13 @@ const fileImportAnimation = defineOperator<'file.importAnimation', ClipImportPla
     const targetProblem = animationTargetProblem(app, target, kind === 'vrma');
     return all(pollEditable(app), targetProblem === null ? OK : fail(targetProblem));
   },
-  prepare({ app }, args) {
+  prepare(ctx, args) {
+    const app = ctx.app;
     const target = importTarget(app.store, args.character, app.session.getState().activeCharacter);
     if (target === null) throw new EkzaError('unsupported', 'Load a character first');
     const input = { fileName: args.name, bytes: args.bytes, character: target, options: args.options };
-    return busy(app, `Importing ${args.name}…`, async () => {
-      const pipelines = await loadImportPath();
+    return busy(ctx, `Importing ${args.name}…`, async () => {
+      const pipelines = await loadImport();
       return animationKind(args.name) === 'vrma'
         ? pipelines.prepareVrmaImport(app, input)
         : pipelines.prepareGlbAnimationImport(app, input);
@@ -173,11 +194,32 @@ const fileImportAnimation = defineOperator<'file.importAnimation', ClipImportPla
   },
   apply({ app, tx }, args, plan) {
     if (tx === null) throw new EkzaError('internal', 'file.importAnimation runs in a transaction');
-    const result = importPathLoaded().applyClipImport(app, tx, plan);
+    const result = importPathLoaded().applyClipImport(app, tx, plan, { activate: args.activate !== false });
     toastWarnings(app, `Imported ${args.name}`, result.warnings);
     return result;
   },
 });
+
+/**
+ * A sample's bytes (MCP-SPEC §4.1): `services.readSample` when a host provides it (Node), else `fetch` from
+ * `samplesPath`. A rejected read is `asset-missing` naming only the sample's file: the host's error text (a Node fs
+ * error carries the absolute path) never reaches the message (§5.4); its code (`ENOENT`) goes to `details.cause`.
+ */
+async function sampleBytes(app: EditorApp, sample: SampleDef): Promise<Uint8Array> {
+  const read = app.services.readSample;
+  if (read === undefined || read === null) return fetchSample(sample, app.services.samplesPath);
+  try {
+    return await read(sample);
+  } catch (error) {
+    if (error instanceof EkzaError && error.code === 'asset-missing') throw error;
+    const code = isRecord(error) && typeof error['code'] === 'string' ? error['code'] : null;
+    throw new EkzaError(
+      'asset-missing',
+      `The sample ${sample.file} could not be read`,
+      code !== null && /^[A-Z][A-Z0-9_]{0,31}$/.test(code) ? { cause: code } : undefined,
+    );
+  }
+}
 
 const fileLoadSample = defineOperator<'file.loadSample', ModelImportPlan>({
   id: 'file.loadSample',
@@ -191,14 +233,16 @@ const fileLoadSample = defineOperator<'file.loadSample', ModelImportPlan>({
     if (!isRecord(args) || !isSampleId(args['sample']))
       return fail(`expects { sample: ${Object.keys(SAMPLES).join(' | ')} }`);
     if (args['options'] !== undefined && !isRecord(args['options'])) return fail('options must be an object');
+    if (app.services.readSample === null) return fail('samples are not available');
     return pollEditable(app);
   },
-  prepare({ app }, args) {
+  prepare(ctx, args) {
+    const app = ctx.app;
     const sample = SAMPLES[args.sample];
-    return busy(app, `Loading ${sample.file}…`, async (progress) =>
-      (await loadImportPath()).prepareModelImport(app, {
+    return busy(ctx, `Loading ${sample.file}…`, async (progress) =>
+      (await loadImport()).prepareModelImport(app, {
         fileName: sample.file,
-        bytes: await fetchSample(sample, app.services.samplesPath),
+        bytes: await sampleBytes(app, sample),
         options: args.options,
         known: sample.license,
         defaultClip: sample.defaultClip,
@@ -206,9 +250,9 @@ const fileLoadSample = defineOperator<'file.loadSample', ModelImportPlan>({
       }),
     );
   },
-  apply({ app, tx }, _args, plan) {
+  apply({ app, tx }, args, plan) {
     if (tx === null) throw new EkzaError('internal', 'file.loadSample runs in a transaction');
-    const result = importPathLoaded().applyModelImport(app, tx, plan);
+    const result = importPathLoaded().applyModelImport(app, tx, plan, { activate: args.activate !== false });
     toastWarnings(app, `Loaded ${plan.fileName}`, plan.warnings);
     return result;
   },
@@ -241,7 +285,7 @@ function saveOperator(id: 'file.save' | 'file.saveAs', label: string): AnyOperat
     category: 'file',
     scope: GLOBAL_SCOPE,
     poll: (_ctx, args) => pollSaveArgs(args),
-    prepare: ({ app }, args) => busy(app, 'Saving…', () => prepareProjectArchive(app, saveName(app, args))),
+    prepare: (ctx, args) => busy(ctx, 'Saving…', () => prepareProjectArchive(ctx.app, saveName(ctx.app, args))),
     apply({ app }, _args, artifact) {
       const result = download(app, artifact);
       toastWarnings(app, `Saved ${artifact.fileName}`, artifact.warnings);
@@ -289,11 +333,12 @@ const fileExport = defineOperator<'file.export', readonly ExportArtifact[]>({
     const exporter = app.exporters.get(args.kind);
     return exporter === undefined ? fail(`Unknown export kind '${args.kind}'`) : exporter.poll(app, args);
   },
-  prepare({ app }, args: ExportRequest) {
+  prepare(ctx, args: ExportRequest) {
+    const app = ctx.app;
     const exporter = app.exporters.get(args.kind);
     if (exporter === undefined) throw new EkzaError('unsupported', `Unknown export kind '${args.kind}'`);
     // Custom exporters get the same read-back rule as the built-in ones.
-    return busy(app, `Exporting ${exporter.label}…`, async () => (await exporter.run(app, args)).map(withReadBackLint));
+    return busy(ctx, `Exporting ${exporter.label}…`, async () => (await exporter.run(app, args)).map(withReadBackLint));
   },
   apply({ app }, _args, artifacts) {
     let blocked = 0;

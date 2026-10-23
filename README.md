@@ -164,7 +164,25 @@ Hide what you do not need, per workspace (details: [docs/LAYOUT-PRESETS.md](docs
 | Rig & Skin | **M6b MVP: Quick Rig (guessed markers, front/side axis rule, live VRM skeleton preview), Create Skeleton with an auto control rig, joint fitting with symmetry, Orient and Mirror Joints, one-click Bind Skin in a worker, Paint Skin Weights with mirror strokes and holds, test poses, Validation as the export gate, the CC0 Clip Library with preview and Use Clip, VRM 1.0 export with OMOBA's runtime lints**; **the A-pose path: Quick Rig and Create Skeleton on A-posed meshes, *Straighten to T-Pose* (Apply Pose as Rest) so the exported VRM is a T-pose VRM 1.0** | Constraints and control-shape editing, the Joint tool, the Component Editor, weight transfer and inpainting, rig edits on imported avatars (full M6b) |
 | Auto-Rig mode | **Mode chooser on `/` (remembered), a Mixamo-style five-step wizard at `/autorig` over the same document and undo history: model checks with one-click fixes (T- or A-posed GLB, VRM), guessed markers in front/side views, one-click *Auto-rig* (skeleton + skin + T-pose straighten) with Adjust joints and weight painting, the CC0 clip library with speed/trim/mirror/in-place/arm space, export to OMOBA/Space VRM 1.0, GLB, VRMA or an OMOBA local test kit; *Open in Studio* and back** | *Publish to Hub* (Ekza Hub upload, hidden until the Hub path exists), rig and weight edits on imported avatars, decimation over 200k triangles, an OMOBA-side motion smoke test, `ru`/`zh` strings |
 
-Full numbered list: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
+Feature catalogue by category, with UI locations and releases: [docs/FEATURES.md](docs/FEATURES.md). Full numbered list: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
+
+## AI agents over MCP
+
+An AI agent — Claude Code, Claude Desktop, Cursor, VS Code — can work in Studio through the bundled MCP server
+`ekza-studio-mcp`: live in your open editor tab after you pair it with a one-time code from the **Agent panel** (the
+**AI** pill in the status line), or headless on files in a workspace folder. It keys poses, makes and retimes clips,
+looks at the viewport (`view_capture` contact sheets), rigs a static model and adds a library walk, and exports VRMA
+or VRM. Every change is one undo step labelled `AI: …`; the Agent panel lists every call with Show, Undo and
+**Revert all AI changes**; rigging, downloads and overwrites ask you first. Loopback only, no network, no telemetry.
+
+```bash
+pnpm mcp:build
+claude mcp add ekza-studio -- node "$PWD/packages/mcp-server/dist/cli.mjs"
+# then in the editor: AI pill › Connect, and tell Claude "connect to the editor with code ABC-123"
+```
+
+Setup for every client, pairing, grants and limits: [docs/agents.md](docs/agents.md); tool list:
+[docs/agent-tools-reference.md](docs/agent-tools-reference.md). The npm package is not published yet.
 
 ## Quickstart
 
@@ -201,6 +219,8 @@ docs/                    research, ADRs, requirements, roadmap, MVP spec, glossa
 
 ## Documentation
 
+- [docs/FEATURES.md](docs/FEATURES.md) — feature catalogue by category: what the product has, where it is in the UI
+  and since which release (machine-readable: [docs/FEATURES.summary.json](docs/FEATURES.summary.json)).
 - [ARCHITECTURE.md](ARCHITECTURE.md) — layers, packages and dependency rules, data model, evaluation, rig, IO,
   viewport, Graph Editor, shell, collaboration boundary, extensibility, budgets, testing, and how research
   conflicts were resolved.
@@ -215,6 +235,8 @@ docs/                    research, ADRs, requirements, roadmap, MVP spec, glossa
 - [docs/M2A-SPEC.md](docs/M2A-SPEC.md) — build spec of milestone M2a (integrated): limb IK, Dope Sheet, tween and
   breakdowns, Graph Editor tools, autosave, and the fixes for the M1 budget misses, as contract deltas and work
   packages; with the owner demo script (§10.3).
+- [docs/agents.md](docs/agents.md) — AI agents over MCP: setup for Claude Code, Claude Desktop, Cursor and VS Code,
+  pairing with the editor, grants, limits; build spec [docs/MCP-SPEC.md](docs/MCP-SPEC.md).
 - [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) — numbered functional and non-functional requirements.
 - [docs/ROADMAP.md](docs/ROADMAP.md) — milestones M0–M6 and status.
 - [docs/adr/](docs/adr/README.md) — architecture decision records.

@@ -28,7 +28,7 @@
 | D2 | **Agents never touch the user's session state.** Tools take explicit targets (clip, controls, keys) and explicit frames, write through explicit-target operators built on the edit kernel (`writeKeyAt`, `ensureCurve`, `moveKeys` …; note 22 §6.3), read poses with `evaluation.evaluateAt` into side buffers, and never change the user's selection, time, overrides, tools, clipboards or preferences. Only tools covered by a separate `view` grant may (playhead, selection, an unkeyed "pose only" proposal). | `applyChannelEdits` writes at the *current* frame and merges *session overrides*; any change of `sceneFrame` drops the user's unkeyed overrides (`session/keeper.ts`); the runner stores the session selection in every undo entry and undo restores it (`runner.ts`, `history.ts`). An agent that moved the playhead to "key frame 24" would silently destroy the user's unkeyed pose. |
 | D3 | **Every agent tool call that edits is one operator run = one transaction = one history step**, labelled `AI: …`. The runner learns an additive `RunContext.actor` (`{kind: 'agent', id, name}`) that prefixes the label and is stored on the `HistoryStep`; steps of different actors never coalesce. `Mod+Z` undoes AI steps like any other step. | ADR 0008/0013 already guarantee one step per operator run; the actor tag is the only missing piece. The owner asked that "any action rolls back with Mod+Z". |
 | D4 | **Agent undo without touching user steps.** Note 22's `history_revert` undoes when only this agent's steps lie above the target; otherwise it runs a **selective revert**: a new forward transaction that applies the inverse of the recorded agent batches with the store's compare-before-restore per merge unit (doc's `PatchUndoManager` logic extracted as a pure helper). The Agent panel offers the same ("Revert AI step N", "Revert all AI changes since pairing"). A revert is itself an undoable step. | The doc undo stack is top-only; agent and user steps interleave. Compare-before-restore is exactly the per-user undo rule of research 06 §9, so a revert never destroys later user edits, and the agent never undoes the user's own steps. |
-| D5 | **Live transport: stdio MCP server + loopback WebSocket to the tab.** `ekza-animator-mcp` speaks stdio to Claude Code/Desktop (optional Streamable HTTP on `127.0.0.1`), and listens on a WebSocket in a small fixed port range on `127.0.0.1` only. The tab connects out; it never listens. | A browser tab cannot be an MCP server. The PlayCanvas Editor MCP server, the closest analogue (a browser editor, research 20 F7), uses exactly this shape; Blender MCP (add-on socket + stdio server) is the desktop variant. |
+| D5 | **Live transport: stdio MCP server + loopback WebSocket to the tab.** `ekza-studio-mcp` speaks stdio to Claude Code/Desktop (optional Streamable HTTP on `127.0.0.1`), and listens on a WebSocket in a small fixed port range on `127.0.0.1` only. The tab connects out; it never listens. | A browser tab cannot be an MCP server. The PlayCanvas Editor MCP server, the closest analogue (a browser editor, research 20 F7), uses exactly this shape; Blender MCP (add-on socket + stdio server) is the desktop variant. |
 | D6 | **Pairing: one-time code shown in the editor, given to the agent, approved in the editor.** The WebSocket server checks `Origin` (allow-list; a missing `Origin` is refused) and `Host` (loopback literal) on upgrade; a tab is paired only when the agent calls `editor_connect {code}` with the code the tab displays; the user then picks grants. A 256-bit session token, held **in memory only** on both sides, resumes dropped connections. | Defeats cross-site WebSocket hijacking and DNS rebinding (WebSockets are not covered by CORS), stops a local non-browser process from posing as the editor (PlayCanvas accepts those, research 20 §2.6) and makes the user name the tab explicitly. |
 | D7 | **Permission levels as per-session grants**: `read` (always, once paired), `edit` (document changes, all undoable), `files` (anything that reaches the disk: a browser download after the editor's confirm, or a transfer to and from the agent's workspace folder), `view` (may move the user's playhead, selection or camera, or show an unkeyed pose proposal). Consequential calls (deleting a clip, structural fps change, replacing the open project, more than a threshold of deleted keys, every download) ask for confirmation in the editor. Pause and Disconnect are always one click. | MCP's tool guidance asks for a human in the loop and clear indicators of tool use; MCP clients treat annotations as untrusted hints, so enforcement must live in the editor. |
 | D8 | **Presence uses one `PresenceRegistry` in editor-core** that the agent fills now and collaboration (M3) fills later: the agent's focus controls are outlined in an AI colour, an AI time marker sits on the time slider, a status-line pill says "AI is editing: …", and an Agent panel holds grants, the audit log and Revert. | Research 06 §6.7/§8.3 already specifies remote presence (outlines, time markers, curve-space chips). Building it once for the agent pays for M3. |
@@ -36,8 +36,8 @@
 | D10 | **Images** (note 22 D7, §8): live mode renders real viewport captures (offscreen render target, any camera, any frame, without moving the user's playhead). Headless mode uses note 22's **schematic renderer** (`packages/schematic-render`: bones, joints, floor, trails rasterised in plain TypeScript, PNG through `fflate`, already an `io` dependency). A headless-Chrome render worker is not planned (the repository's CPU rules keep browsers out of CI). | The model needs to see results to correct itself (VRMA Lab's review renders, Blender MCP's `look`), but Node has no WebGL; a schematic is deterministic, dependency-free and good enough for silhouettes, arcs and contacts. |
 | D11 | **Tool API is versioned** (`ekza-agent-tools` semver + a manifest hash of names and schemas, committed as a contract file). The bridge handshake carries both sides' toolset versions; same major is required; the tab validates arguments with its own schemas and refuses tools it does not know. | The hosted editor and a cached `npx` package update independently. MCP's 2026-07-28 revision forbids per-connection tool lists, so skew is resolved at call time. |
 | D12 | **SDK: `@modelcontextprotocol/server` 2.x** (TypeScript SDK v2, Apache-2.0, implements the stateless 2026-07-28 revision and the initialize-era versions back to 2024-11-05). Fallback: `@modelcontextprotocol/sdk` 1.32.1 (MIT), supported until at least 2027-01-27. WebSocket server: `ws` 8.22.0 (MIT, already in the lockfile). | Both licences are on `ALLOWED_LICENSES`; v2 is the stable line and handles both protocol eras for us. |
-| D13 | **Packaging**: `packages/agent-tools` (private, headless), `packages/mcp-server` (Node only; published to npm as the `ekza-animator-mcp` bin, bundled with rolldown), bridge client and Agent panel in `packages/editor/src/agent/` as a **lazy chunk** (the first-visit route gate is 900,000 B). Note 22 adds the headless `motion-analysis` and `schematic-render` packages. | Keeps the dependency graph acyclic and the editor route size unchanged. |
-| D14 | **In-app Assistant (C) runs its tool loop in the tab** and reaches the Claude Messages API through an `AssistantTransport`: a server-side proxy route (server builds; off by default, auth required, same rules as ADR 0017's gateway) **or** the paired local companion (`ekza-animator-mcp` holding the key from its environment). The key is never in the browser bundle; direct browser calls with a key are rejected as a default. | Static exports have no server, and ADR 0017 already rejected provider keys in the browser. The companion makes the Assistant work with hosted and static builds. |
+| D13 | **Packaging**: `packages/agent-tools` (private, headless), `packages/mcp-server` (Node only; published to npm as the `ekza-studio-mcp` bin, bundled with rolldown), bridge client and Agent panel in `packages/editor/src/agent/` as a **lazy chunk** (the first-visit route gate is 900,000 B). Note 22 adds the headless `motion-analysis` and `schematic-render` packages. | Keeps the dependency graph acyclic and the editor route size unchanged. |
+| D14 | **In-app Assistant (C) runs its tool loop in the tab** and reaches the Claude Messages API through an `AssistantTransport`: a server-side proxy route (server builds; off by default, auth required, same rules as ADR 0017's gateway) **or** the paired local companion (`ekza-studio-mcp` holding the key from its environment). The key is never in the browser bundle; direct browser calls with a key are rejected as a default. | Static exports have no server, and ADR 0017 already rejected provider keys in the browser. The companion makes the Assistant work with hosted and static builds. |
 | D15 | **No code-execution tool, and no borrowed selection.** `operator_run` reaches only operators classified in note 22's policy table, with argument schemas; `ui.*`, `prefs.*`, `workspace.*`, clipboards, `file.open*` and the like are never agent-callable. Selection-driven operators run with explicit-target arguments or a runner-level scoped selection (§4.4), never by setting the user's selection, running and restoring it. | Blender MCP's `execute_blender_code` runs arbitrary Python inside the host; we bound what a prompt-injected agent can do to undoable document edits and exports the user can see. Set-run-restore leaks the agent's selection into the user's undo history (§4.4). |
 | D16 | **Later convergence: the agent as a collaboration peer.** After M3, the headless runtime can join a shared document as a replicating peer with its own presence and per-user undo; the tool layer is unchanged. | Same tool code over a different store; the live bridge stays for local, single-user use. |
 
@@ -147,7 +147,7 @@ flowchart LR
   subgraph Client["MCP client (Claude Code / Claude Desktop / other)"]
     LLM["model + agent loop"]
   end
-  subgraph Server["ekza-animator-mcp (Node, one process per client session)"]
+  subgraph Server["ekza-studio-mcp (Node, one process per client session)"]
     MCP["MCP endpoint<br/>stdio (default) · Streamable HTTP on 127.0.0.1 (opt-in)"]
     REG["tool registry<br/>(agent-tools manifest)"]
     ROUTE["router: project handle → live tab | headless project"]
@@ -179,7 +179,7 @@ Layering (additions to ARCHITECTURE §3, enforced by `tooling/check-deps.mjs`):
 |---|---|---|
 | `@ekza-studio/motion-analysis`, `@ekza-studio/schematic-render` (note 22 §6.1; private, headless) | anim-core, rig; `fflate` (schematic PNG) | editor-core, React, DOM, WebGL, `node:*` |
 | `@ekza-studio/agent-tools` (private, headless) | anim-core, doc, rig, io (main entry), editor-core, motion-analysis, schematic-render, `zod` (note 22 D9) | React, DOM, WebGL, `three`, `node:*`, `ws`, MCP SDK, `@anthropic-ai/sdk` |
-| `@ekza-studio/mcp-server` (Node app, published as `ekza-animator-mcp`) | agent-tools, editor-core, io, doc, rig, anim-core, `@modelcontextprotocol/server`, `ws`, `node:*`; optional `gltf-validator` | React, DOM, `three`, viewport, editor |
+| `@ekza-studio/mcp-server` (Node app, published as `ekza-studio-mcp`) | agent-tools, editor-core, io, doc, rig, anim-core, `@modelcontextprotocol/server`, `ws`, `node:*`; optional `gltf-validator` | React, DOM, `three`, viewport, editor |
 | `@ekza-studio/editor` (adds `src/agent/`) | everything it imports today + agent-tools | the MCP SDK, `ws` (the browser `WebSocket` is enough) |
 
 Nothing depends on `mcp-server`. `agent-tools` sits between editor-core and editor in the graph. `zod` is not in
@@ -334,7 +334,7 @@ descriptions, consolidated tools and high-signal results
   annotations, schemas, sorted by name) are contract files; CI regenerates the manifest and fails when it differs
   without a version bump. The manifest hash is sent in the bridge handshake.
 - **Compatibility**: the MCP server lists its own toolset (deterministic order). A paired tab with a different
-  **major** is refused at pairing with an upgrade hint (`npx ekza-animator-mcp@latest` or reload the editor). Within
+  **major** is refused at pairing with an upgrade hint (`npx ekza-studio-mcp@latest` or reload the editor). Within
   a major, the tab validates arguments with its own schemas and answers an unknown tool with `isError`
   "this editor (v0.x) does not have `tool`; update the editor".
 - **Evolution**: additive arguments and result fields are minor changes; renames keep the old name as a deprecated
@@ -349,9 +349,9 @@ descriptions, consolidated tools and high-signal results
 
 ### 5.1 Processes and transports
 
-- **stdio (default)**: Claude Code and Claude Desktop start one `ekza-animator-mcp` process per client session. The
+- **stdio (default)**: Claude Code and Claude Desktop start one `ekza-studio-mcp` process per client session. The
   process writes only MCP messages to stdout and logs to stderr.
-- **Streamable HTTP (opt-in)**: `ekza-animator-mcp --http 127.0.0.1:<port>` for clients that prefer HTTP or for one
+- **Streamable HTTP (opt-in)**: `ekza-studio-mcp --http 127.0.0.1:<port>` for clients that prefer HTTP or for one
   long-lived server shared by several clients. It binds `127.0.0.1` only (refuses other addresses), validates `Origin`
   (403) and `Host`, requires a bearer token printed at start (or read from `EKZA_MCP_TOKEN`), and treats a closed
   response stream as cancellation, as the transport spec requires.
@@ -375,7 +375,7 @@ refused.
 sequenceDiagram
   participant U as User
   participant T as Editor tab
-  participant S as ekza-animator-mcp
+  participant S as ekza-studio-mcp
   participant A as Agent (MCP client)
   T->>S: WebSocket upgrade (Origin, Host checked; 403 otherwise)
   T->>S: hello {bridge: 1, toolset, app version, tab title, project}
@@ -598,7 +598,7 @@ requests leave the tab, through an `AssistantTransport`:
 | Transport | When | Key |
 |---|---|---|
 | **Server proxy route** `/api/assist` (`ekza-assist/v1`) | server builds (`next start`) with `ASSISTANT_PROXY_ENABLED=1` and an auth (bearer token, or a session once accounts exist) or a loopback-only bind; 404 otherwise; mounted with the same page-extension technique ADR 0017 uses for the gateway | server env (self-hosted) or BYO key sent per request in a header, never persisted, redacted |
-| **Paired companion** (`assist.request` / `assist.event` over the bridge WebSocket) | any build, including static and hosted ones, when `ekza-animator-mcp` runs with `ANTHROPIC_API_KEY` (or an `ant auth login` profile) | stays in the local process |
+| **Paired companion** (`assist.request` / `assist.event` over the bridge WebSocket) | any build, including static and hosted ones, when `ekza-studio-mcp` runs with `ANTHROPIC_API_KEY` (or an `ant auth login` profile) | stays in the local process |
 | Direct browser call with `anthropic-dangerous-direct-browser-access` | rejected as a default | the header enables CORS for browser calls, which exposes the key to every script on the page ([Simon Willison](https://simonwillison.net/2024/Aug/23/anthropic-dangerous-direct-browser-access/)); ADR 0017 rejected provider keys in the browser |
 
 The proxy is thin and stateless: it adds the key, enforces a model allow-list, caps `max_tokens`, request size and
@@ -688,10 +688,10 @@ layer has no code execution).
 | Item | Proposal |
 |---|---|
 | `packages/agent-tools` | private workspace package, TypeScript sources like the others, Vitest Node environment |
-| `packages/mcp-server` | `bin: { "ekza-animator-mcp": "dist/cli.mjs" }`; published to npm as **`ekza-animator-mcp`** (name free on 2026-10-19; Q-AI-5); bundled with **rolldown** 1.2.12 (already in the lockfile through Vitest/Vite) so the private workspace packages are inlined; externals `@modelcontextprotocol/server`, `ws`, `zod`; `engines.node >= 22`; `gltf-validator` optional. Default command = the stdio MCP server; later subcommands for headless batch jobs and printing client snippets (research 20 F3, F9) |
+| `packages/mcp-server` | `bin: { "ekza-studio-mcp": "dist/cli.mjs" }`; published to npm as **`ekza-studio-mcp`** (name free on 2026-10-19; Q-AI-5); bundled with **rolldown** 1.2.12 (already in the lockfile through Vitest/Vite) so the private workspace packages are inlined; externals `@modelcontextprotocol/server`, `ws`, `zod`; `engines.node >= 22`; `gltf-validator` optional. Default command = the stdio MCP server; later subcommands for headless batch jobs and printing client snippets (research 20 F3, F9) |
 | Dependencies | `@modelcontextprotocol/server` 2.x (2.3.1: Apache-2.0, Node ≥ 20, depends on `zod ^4.2.0` and `@modelcontextprotocol/core`; stdio from the `/stdio` subpath; `InMemoryTransport` exported), `ws` 8.22.0 (MIT, in the lockfile), `zod` 4 (new to the lockfile); chosen versions respect `minimumReleaseAge` (14 days); `package.json` and the lockfile change only through the integration agent (ARCHITECTURE §3 rule 6) |
 | Editor | `packages/editor/src/agent/` (bridge client, pairing and grants dialogs, Agent panel, presence UI) as a lazy chunk loaded on first Connect; `check:size` unchanged for the first visit |
-| Claude Code | `claude mcp add --transport stdio ekza -- npx -y ekza-animator-mcp@<version>` (a short server name keeps `mcp__ekza__<tool>` well under 128 characters); a project `.mcp.json` entry for contributors; a plugin with an animation skill later (research 20 F3) |
+| Claude Code | `claude mcp add --transport stdio ekza -- npx -y ekza-studio-mcp@<version>` (a short server name keeps `mcp__ekza__<tool>` well under 128 characters); a project `.mcp.json` entry for contributors; a plugin with an animation skill later (research 20 F3) |
 | Other clients | Claude Desktop (`claude_desktop_config.json`, an `.mcpb` bundle later), Cursor, VS Code, Codex: the same `command` + `args` (research 20 F3) |
 | Docs | `docs/agents.md` (setup, grants, safety, troubleshooting the Chrome prompt), tool reference generated from the manifest |
 
@@ -776,7 +776,7 @@ M-AI does not hold once both halves are counted. M-AI does not depend on M6a or 
 | Q-AI-2 | Pairing direction | code shown in the editor, given to the agent; reverse flow as fallback |
 | Q-AI-3 | Grants at pairing | Read on; Edit, Files, View off until the user ticks them |
 | Q-AI-4 | Which calls always confirm | clip delete, fps change, project replace, > 500 deleted keys (note 22 uses > 200 with `confirm: true`; one number in the spec), every live download, file overwrite |
-| Q-AI-5 | npm name and first public publish | unscoped `ekza-animator-mcp`, published by the owner with provenance |
+| Q-AI-5 | npm name and first public publish | unscoped `ekza-studio-mcp`, published by the owner with provenance |
 | Q-AI-6 | MCP SDK line | v2 (`@modelcontextprotocol/server`, Apache-2.0); v1 only if a client breaks |
 | Q-AI-7 | Agent runs and M6a Repeat Last / Last-op card | as M6a records them: an agent run with `params` becomes `lastRun` (`source: 'api'`, card labelled AI, adjustable); any agent step closes the user's card; `G` does not repeat `'api'` runs |
 | Q-AI-8 | Agent edit while the user's redo stack is non-empty | allowed (standard), toast "Redo cleared by AI edit" |

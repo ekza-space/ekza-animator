@@ -14,6 +14,7 @@ import { rigRunRefusal } from '../evaluation/rigSource';
 
 export type AnyOperatorDef = OperatorDef<unknown, unknown, unknown>;
 
+/** The operator context of a run; the M-AI fields are always set, null when the run context lacks them (rule 7). */
 export function operatorContext(app: EditorApp, ctx: RunContext | undefined): OperatorContext {
   return {
     app,
@@ -22,6 +23,11 @@ export function operatorContext(app: EditorApp, ctx: RunContext | undefined): Op
     // M6a (B0a addition): the run's source and auto-repeat flag reach poll/prepare/apply.
     ...(ctx?.source === undefined ? {} : { source: ctx.source }),
     ...(ctx?.repeat === undefined ? {} : { repeat: ctx.repeat }),
+    // M-AI (MCP-SPEC §4.1, rule 7): always set, null when the run context lacks them.
+    actor: ctx?.actor ?? null,
+    runScope: ctx?.actor === undefined ? null : (ctx.runScope ?? null),
+    signal: ctx?.signal ?? null,
+    access: ctx?.access ?? null,
   };
 }
 

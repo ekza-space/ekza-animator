@@ -1,0 +1,7 @@
+# build output (MCP-SPEC §5.22.1) and the bundled samples copied from fixtures/ by the build (ADR 0012)
+dist/
+samples/polybot.vrm
+samples/polybot-unskinned.glb
+samples/polybot-unskinned-tpose.glb
+samples/cube-lad.glb
+library/
