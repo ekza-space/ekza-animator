@@ -176,8 +176,8 @@ test('Simple navigation: a plain drag orbits on ①; after a switch Studio navig
   expect(await pageMark(page)).toBe('kept');
   const persp = (await call(page, 'panes')).find((pane) => pane.camera === 'persp');
   if (persp === undefined) throw new Error('no persp pane in Studio');
-  // low in the pane: Studio's empty-state and Getting started cards sit over its top
-  const studioAt = { x: persp.rect.x + persp.rect.w * 0.15, y: persp.rect.y + persp.rect.h * 0.85 };
+  // low right in the pane: Studio's Getting started cards sit over its top, the Rig & Skin strip in its bottom left
+  const studioAt = { x: persp.rect.x + persp.rect.w * 0.85, y: persp.rect.y + persp.rect.h * 0.85 };
   const before = await call(page, 'cameraOf', persp.id);
   await drag(page, studioAt, 120);
   expect(moved(await call(page, 'cameraOf', persp.id), before)).toBe(false);

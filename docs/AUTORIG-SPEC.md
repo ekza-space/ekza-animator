@@ -1880,3 +1880,20 @@ decisions AR-D10-1…10 in [DECISIONS-OPEN §M](DECISIONS-OPEN.md#m-auto-rig-202
 - **§5.6.4 OMOBA kit**: the README names the avatar file's VRM version (an imported VRM 0.x keeps 0.x); ⑤ promises
   the thumbnail only "when it has one", and the left-out note names no GLB for an imported VRM (AR-D10-9).
 - Open for the owner: auto weights bind a wide hair mesh's side cubes to the upper arms (AR-D10-7).
+
+## 21. Acceptance fix round 4 (R4, 2026-10-23)
+
+Fixes of the fourth Auto-Rig acceptance run on `dev` (Wang, a 35-part low-poly character in centimetres, arms-down),
+decisions AR-R4-1…6 in [DECISIONS-OPEN §M](DECISIONS-OPEN.md#m-auto-rig-2026-10-22); unit tests in
+`editor-core/test/autorig/parts.test.ts`, `autorig/test/steps/{rig,export}`, `rig/test/m6b-skeleton/validate.test.ts`.
+Amendments to this spec:
+
+- **§5.2 ① start**: loading a file or a sample always starts at ① with fresh checks, also after a reload restored a later
+  step (AR-R4-1).
+- **§5.4 ③**: *Separate parts move rigidly* (default on for a multi-part character) — parts reaching two limbs bind
+  rigidly to their own region's main bone, parts spanning their own limb's hinge keep automatic weights over that limb
+  (AR-R4-3). After *Straighten to T-Pose* from arms-down, ③ warns instead of *All good* (AR-R4-4).
+- **§5.6.2 ⑤**: new rows `skel.height` (0.3–3 m) and `skin.cross-limb`; unweighted joints are one row per character
+  (AR-R4-2, AR-R4-6). ⑤ frames the character beside its card (AR-R4-5).
+- Deferred: a clip's label round-trip through the VRMA file (needs a `label` field in `EkzaClipMetaV1`, an ADR 0010
+  change).

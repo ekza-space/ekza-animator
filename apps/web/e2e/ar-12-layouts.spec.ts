@@ -31,8 +31,20 @@ async function expectFrame(page: Page, size: (typeof SIZES)[number]): Promise<vo
   // no horizontal page scroll; the frame fills the window
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
-  const panes = await page.getByTestId('ar-panes').boundingBox();
-  const panel = await page.getByTestId('ar-step-panel').boundingBox();
+  // the two boxes are read together once the layout settles (a lazy report grows the sheet a frame later)
+  const boxes = async () => ({
+    panes: await page.getByTestId('ar-panes').boundingBox(),
+    panel: await page.getByTestId('ar-step-panel').boundingBox(),
+  });
+  if (!size.side) {
+    await expect
+      .poll(async () => {
+        const { panes, panel } = await boxes();
+        return panes !== null && panel !== null && panel.y >= panes.y + panes.height - 1;
+      })
+      .toBe(true);
+  }
+  const { panes, panel } = await boxes();
   if (panes === null || panel === null) throw new Error('no panes or panel');
   if (size.side) {
     // the step panel beside the panes, at most 320 px wide

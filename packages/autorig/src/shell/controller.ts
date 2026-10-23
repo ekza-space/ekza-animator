@@ -385,7 +385,7 @@ export function createWizard(host: HostShell): Wizard {
       // `?sample=` loads once at ①
       if (first && sample !== null) {
         const id = sample;
-        void withFlow(wizard, messages().model.loadFailed, (flow) => flow.loadSample(wizard, id));
+        void withFlow(wizard, messages().model.loadFailed, (flow) => flow.loadSample(wizard, id, true));
       }
 
       return () => {

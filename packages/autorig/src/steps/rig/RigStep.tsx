@@ -342,16 +342,16 @@ function Validation(props: { readonly ctx: WizardContext; readonly character: Ch
       data-state={errors.length === 0 ? 'ok' : 'errors'}
     >
       {torn ? (
-        <p className="text-warn" role="status" data-testid="ar-rig-torn">
+        <output className="block text-warn" data-testid="ar-rig-torn">
           <span aria-hidden>! </span>
           {startPose?.kind === 'a' ? r.tornApose : r.torn}
-        </p>
+        </output>
       ) : null}
       {deform.map((row) => (
-        <p key={`${row.code}:${row.ids.join(',')}`} className="text-warn" role="status" data-row={row.code}>
+        <output key={`${row.code}:${row.ids.join(',')}`} className="block text-warn" data-row={row.code}>
           <span aria-hidden>! </span>
           {row.message}
-        </p>
+        </output>
       ))}
       {errors.length === 0 && !torn && deform.length === 0 ? (
         <p className="text-fg" data-testid="ar-rig-all-good">

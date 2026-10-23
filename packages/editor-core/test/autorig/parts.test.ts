@@ -81,7 +81,7 @@ function weightedBones(app: EditorApp, mesh: MeshId): string[] {
     if ((skin.weights[i] as number) > 0) used.add(skin.palette[skin.joints[i] as number]?.key ?? '?');
   }
   return [...used].map((key) => {
-    const joint = app.store.get('joints', key as never) as JointRecord | undefined;
+    const joint = app.store.get('joints', key as never);
     return joint?.humanBone ?? joint?.name ?? key;
   });
 }
@@ -181,7 +181,7 @@ describe('separate parts (AR-R4-5, the owner’s AR-D10-7 call)', () => {
     const parts = crossLimbParts(plain.app, plain.character);
     expect(parts.map((part) => part.mesh)).toEqual([plain.hair]);
     expect(parts[0]?.regions).toEqual(expect.arrayContaining(['head', 'leftArm', 'rightArm']));
-    const best = plain.app.store.get('joints', parts[0]?.best as never) as JointRecord | undefined;
+    const best = plain.app.store.get('joints', parts[0]?.best as never);
     expect(best?.humanBone).toBe('head');
     for (const profile of ['ekza/space-avatar-v1', 'local/generic']) {
       const row = rows(plain.app, plain.character, profile).find((r) => r.code === 'skin.cross-limb');
