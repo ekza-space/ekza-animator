@@ -26,7 +26,7 @@
 // 9. A run whose `apply` would start during a store preview (the user's drag) is `cancelled` 'gesture in progress';
 //    actor runs are never gesture-safe.
 import { coerceArgs, EkzaError } from '@ekza-studio/anim-core';
-import type { AnyChange, DocumentStore, Tx } from '@ekza-studio/doc';
+import type { AnyChange, DocumentStore } from '@ekza-studio/doc';
 import { bindCapture } from '../edit/capture';
 import { rigRunRefusal } from '../evaluation/rigSource';
 import type { CaptureOutcome, DocCapture } from '../history/capture';
@@ -52,6 +52,7 @@ import { adjustingOperator, attachLastRunTracker, recordLastRun as recordLastRun
 import { pendingModelOperator } from './builtin/modelOps';
 import { type AnyOperatorDef, beforeDocumentRun, operatorContext, unknownOperator } from './registry';
 import { lazyOperatorChunk } from '../workspaces/rig';
+import type * as ActorRunModule from './actorRun';
 
 /** Runner rule 1: the reason of a run its `signal` stopped. */
 export const CANCELLED_BY_AGENT = 'cancelled by the agent';
@@ -61,7 +62,7 @@ export const GESTURE_IN_PROGRESS = 'gesture in progress';
 export const AI_LABEL_PREFIX = 'AI: ';
 export const AI_LABEL_MAX = 80;
 
-type ActorKit = typeof import('./actorRun');
+type ActorKit = typeof ActorRunModule;
 let actorKit: Promise<ActorKit> | null = null;
 /** The actor-only helpers (labels, the session check, the annotate proxy): loaded once, retried after a failure. */
 function loadActorKit(): Promise<ActorKit> {

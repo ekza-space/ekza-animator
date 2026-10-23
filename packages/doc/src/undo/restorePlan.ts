@@ -17,7 +17,7 @@ import { referencesOf } from '../store/references';
 import { hasTombstone, makeChange, type Row, type RowChange, rowKey } from '../store/rows';
 import { BUILTIN_TABLES, type TableName } from '../records';
 import { mergeUnitOf } from '../tables/registry';
-import { type DocRow, type PlannedRestoreWrites, RESTORE_HOST, type RestoreHost } from './restoreHost';
+import { type DocRow, RESTORE_HOST, type RestoreHost } from './restoreHost';
 
 export { type DocRow, type PlannedRestoreWrites, RESTORE_HOST, type RestoreHost } from './restoreHost';
 
