@@ -7,6 +7,7 @@
 //   the server writes to the targets it derives from the call's own arguments (§5.10).
 // `project_open` loads into the runtime's own app: headless the server made a fresh project for the call (its handle
 // is the hub's, it patches `project`), live it replaces the user's project after the confirm card.
+import { sha256Hex } from '@ekza-studio/anim-core';
 import { type CharacterId, type ClipId, SCHEMA_VERSION } from '@ekza-studio/doc';
 import type { EditorApp, ImportResult } from '@ekza-studio/editor-core';
 import type { ExportArtifact } from '@ekza-studio/io';
@@ -125,12 +126,6 @@ export async function writeWorkspace(
     readonly backup?: string | null;
   };
   return { path: written.path, backup: written.backup ?? null };
-}
-
-/** sha256 hex of bytes (WebCrypto: the same in the tab and in Node). */
-export async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const digest = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', bytes));
-  return Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 /** A sample's bytes are not on this server: `unsupported` with the hint of §5.17.2. */
@@ -656,7 +651,7 @@ export async function projectExportRun(ctx: AgentToolContext, args: ProjectExpor
       fileName: baseName(written.path),
       path: written.path,
       bytes: file.bytes.byteLength,
-      sha256: artifact !== undefined && artifact.bytes === file.bytes ? artifact.sha256 : await sha256Hex(file.bytes),
+      sha256: artifact !== undefined && artifact.bytes === file.bytes ? artifact.sha256 : sha256Hex(file.bytes),
       backup: written.backup,
       lints: lintsOf(artifact),
       readBack: readBackOf(artifact),

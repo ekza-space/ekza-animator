@@ -1059,3 +1059,26 @@ section H on the `mcp/*` branches; `dev` had given H to the naming decision, so 
 | M-AI-MVP-18 | Headless pictures | Deferred: headless `view_capture` answers `unsupported` with a hint; the schematic renderer stays a skeleton package | Headless agents work blind (numbers only) | phase C |
 | M-AI-MVP-19 | Evals in the MVP | A smoke of 6 tasks (AE-01, -06, -13, -19, -24 and the new AE-R1 rig-and-walk) through an in-memory client ↔ server pair; the real-model gate is MVP-AC-5 (one recorded Claude Code session), not pass@1 over 25 tasks | Full P9 before release: ≈ 6 agent-days | release |
 | M-AI-MVP-20 | LastRun and agent steps | An agent step never becomes `lastRun` and closes the user's Last-op card (`LAST_RUN_CLOSED.another`), as M6A-SPEC §5.7 asks of "another undoable operator" | — | — |
+
+### N.9 Phase B — B1 server and headless (2026-10-23)
+
+Package B1 (`mai/b1-server`, MCP-SPEC §0.4.1 item 2 and 8): the hub's routing, headless projects, the workspace
+sandbox, the file and project tools, the MCP surface, the bundle, the evals smoke and MVP-AC-1. Notes and evidence:
+[`wp-notes/mai-b1.md`](wp-notes/mai-b1.md).
+
+| ID | Decision | Default chosen | Impact if changed | Decide by |
+|---|---|---|---|---|
+| M-AI-B1-1 | The hub ↔ bridge seam | B2's `TabLink` (`mcp-server/src/bridge/link.ts`, byte-identical to `mai/b2-bridge`); the hub takes it through `attachTabLink`/`tabLink()`: `claim` for `editor_connect`, `call` for `tab_…` routes, `unpair` for `project_close`, `tab()` for `projects_list`. Without `project` the hub routes to the only open project (the tab counts); several → `ambiguous` (§5.1) — B2's "the tab wins" (`bridge/route.ts`) is not used by this hub | — | INT |
+| M-AI-B1-2 | Starting the bridge | `start.ts` looks `startHubBridge` up in `./bridge/server` and passes `{files: createTabFileHooks(hub.sandbox)}`; INT replaces the lookup with B2's `startHubBridge` from `./bridge/attach` | — | INT |
+| M-AI-B1-3 | `project_open {project}` | v0.2's schema had no `project`, so the server could not tell "replace the tab's project" from "a new headless project": optional `project: tab_…` routes to the tab (it confirms); without it every call opens a new headless project | A separate live tool | INT |
+| M-AI-B1-4 | Tab rows of `projects_list` | `TabInfo` carries neither the character count nor the dirty flag: the row says `characters: 0`, `dirty: false` | B2 adds both to `TabInfo` | phase C |
+| M-AI-B1-5 | Extensions | Writes also allow `.zip` (the OMOBA kit of `project_export {kind: 'omoba_kit'}`); static models import as `.glb` only (Auto-Rig reads GLB; `.gltf`/`.obj` of §0.4.4 are not read) | — | — |
+| M-AI-B1-6 | Character setup kinds | `project_import` (static samples, a static `.glb`) and `project_export` (`vrm`, `glb`, `omoba_kit`) hand the call to hooks the setup module registers (`registerFileToolHooks({import: SETUP_IMPORT, export: SETUP_EXPORT})`, B4); without them those kinds answer `unsupported`. The schemas already carry B4's fields (`meta`, `model` = a copy of B4's `modelReportOut`, the export artifact with `delivered` and a read-back union, `character`) | One line at INT; the copied `modelOut` replaced by the import | INT |
+| M-AI-B1-7 | Bundled files | Besides Polybot and its two unskinned GLBs the package bundles the Cube Lad (MIT, 11 kB; §0.4.4 said `--samples-dir`) and the clip library's starter pack (CC0, 624 kB), which the server serves through its own `globalThis.fetch`: `/library/animations/<file>` from disk, every other request refused (the no-network rule of §5.19 T15, enforced). The original fetch comes back when the last hub closes | Cube Lad through `--samples-dir` only | publish |
+| M-AI-B1-8 | Confirmations of the file tools | Live only (replace the project, import a path or a static model into a non-empty scene, a download, an overwrite); headless calls need no `confirm: true` | — | — |
+| M-AI-B1-9 | Toolset version | `1.0.0-dev.b1.1` on this branch (two manifest changes); INT sets `1.0.0-mvp.1` | — | INT |
+| M-AI-B1-10 | Evals smoke | The six tasks run on Polybot (AE-01, -06, -19, -24) and Seed-san (AE-13) through the in-process pair, each with adversarial scripts that must fail; graders are copies of P2's test graders on raw bone worlds of the saved result. AE-R1 runs once B4's tools are listed; its script mirrors B4's `rigAndAnimateScript` (TODO INT: import it) | — | INT |
+| M-AI-B1-11 | `lastop-*.js` (M-AI-MVP-13) | Not reproduced with rolldown 1.2.12 on this branch; the build now fails when `dist/` holds anything but `cli.mjs` and its map, or when the bin imports a package at run time; target `node22` | — | — |
+| M-AI-B1-12 | Trash file names | `.ekza-trash/<yyyymmddThhmmss.mmmZ>-<name>`, `-2`, `-3`… on a collision | — | — |
+| M-AI-B1-13 | Live resources | `selection` and `time` of the tab are taken from the user part of its `scene_summary` (one bridge call, no separate read) | A bridge read per resource | phase C |
+| M-AI-B1-14 | Package contents | `THIRD_PARTY_NOTICES.md`, `README.md` and `LICENSE` listed in `files` are not generated yet (the npm publish is deferred, §0.4.2) | — | publish |

@@ -132,7 +132,14 @@ export {
   READ_EXTENSIONS,
   WRITE_EXTENSIONS,
 } from './tools/files/names';
-export { captureDownloads, type CapturedFile, isStaticSample, sha256Hex, STATIC_SAMPLES } from './tools/files/run';
+export {
+  captureDownloads,
+  type CapturedFile,
+  type FileToolHook,
+  isStaticSample,
+  registerFileToolHooks,
+  STATIC_SAMPLES,
+} from './tools/files/run';
 export { IMPORT_SAMPLE_IDS, SAMPLE_IDS } from './tools/files/defs';
 // operator policy and wire schemas
 export { agentPolicyOf, isClassified, OPERATOR_POLICY, tablePolicyOf, UNCLASSIFIED_REASON } from './policy';
