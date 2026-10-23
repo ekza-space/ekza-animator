@@ -26,6 +26,9 @@ async function main(): Promise<number> {
       }
       const server = await startMcpServer(parsed.config);
       await server.closed;
+      // §5.22.2: answers written just before stdin closed still reach the client (a pipe write is asynchronous and
+      // `process.exit` would drop what is still buffered, e.g. a 64 KiB tools/list).
+      await new Promise<void>((resolve) => process.stdout.write('', () => resolve()));
       return 0;
     }
   }

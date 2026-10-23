@@ -347,7 +347,7 @@ describe('runner rule 7: context forwarding', () => {
       app,
       panel: null,
       paneId: null,
-      source: null,
+      // M6a: `source` is left out when the run context has none (M6a code tests `source === undefined`).
       actor: null,
       runScope: null,
       signal: null,
