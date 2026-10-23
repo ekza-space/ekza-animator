@@ -36,7 +36,8 @@ import {
 } from '../../workflows/ik';
 import { editsFromValues } from '../../workflows/pose';
 import type { CountResult } from '../args';
-import { AGENT_SPAN_LIMIT, type AgentImpl, loadAgentImpl, loadedAgentImpl } from './agentBase';
+import { actorScope } from '../scope';
+import { type AgentImpl, loadAgentImpl, loadedAgentImpl } from './agentBase';
 import {
   type AnyOperator,
   defineOperator,
@@ -395,13 +396,7 @@ const matchRange = defineOperator<'rig.ikFk.matchRange', AgentImpl | undefined>(
         }
         if (options['clip'] !== undefined && typeof options['clip'] !== 'string') return 'clip must be a clip id';
         // MCP-SPEC §4.10: an agent run names its clip and range and never reads the session.
-        if (actor && (options['clip'] === undefined || range === null)) {
-          return 'An agent Match Range needs its clip and range';
-        }
-        if (actor && range !== null && range.end - range.start > AGENT_SPAN_LIMIT) {
-          return `The range spans more than ${AGENT_SPAN_LIMIT} frames`;
-        }
-        return null;
+        return actor ? actorScope().matchRangeProblem(options['clip'], range) : null;
       },
       // §5.5: an agent's match writes at most 50,000 keys (frames × the side's keyable channels). The check loads
       // with the agent operators' implementation (this run's `prepare` loads it; the runner polls again after it).

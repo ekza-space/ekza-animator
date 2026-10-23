@@ -15,18 +15,12 @@ import {
   TWEEN_MODES,
   type TweenPlan,
 } from '../../edit/tween';
-import { selectionOf } from '../scope';
+import { actorScope, selectionOf } from '../scope';
 import { type EditorApp, GLOBAL_SCOPE, type OperatorContext, type TweenMode } from '../../types';
 import type { CountResult } from '../args';
 import { framesProblem } from './agentBase';
 import { type AnyOperator, defineOperator, fail, isActorRun, isFiniteNumber, isRecord, OK } from './define';
-import {
-  pollScopedClipEdit,
-  pollScopeTargets,
-  scopedClipRecord,
-  scopedSelectedKeyIds,
-  scopedSelectedKeys,
-} from './scoped';
+import { pollScopedClipEdit, pollScopeTargets, scopedClipRecord, scopedSelectedKeys } from './scoped';
 
 /** Labels of the modes (menus, history steps). */
 export const TWEEN_MODE_LABELS: Readonly<Record<TweenMode, string>> = {
@@ -54,7 +48,7 @@ interface TweenArgs {
 }
 
 /** What one run tweens: its plans (one per frame with `frames`), or why there is nothing to plan. */
-interface RunPlan {
+export interface TweenRunPlan {
   readonly plans: readonly TweenPlan[];
   readonly empty: string;
 }
@@ -77,7 +71,7 @@ function frameControls(ctx: OperatorContext): readonly ControlId[] {
 }
 
 /** The plans of one run (reads the committed document and, for user runs without `frames`, the session). */
-function runPlan(ctx: OperatorContext, args: TweenArgs): RunPlan | string {
+function runPlan(ctx: OperatorContext, args: TweenArgs): TweenRunPlan | string {
   const { app } = ctx;
   if (args.frames !== undefined) {
     const selection = selectionOf(ctx);
@@ -96,11 +90,7 @@ function runPlan(ctx: OperatorContext, args: TweenArgs): RunPlan | string {
       empty: `Nothing to tween: no keyed channel has keys before and after ${frameList(frames)}`,
     };
   }
-  if (isActorRun(ctx)) {
-    if (args.target === 'frame') return 'An agent tween at a pose needs frames (the playhead is the user’s)';
-    const plan = planTween(app, { kind: 'keys', keys: scopedSelectedKeyIds(ctx) });
-    return { plans: [plan], empty: 'Nothing to tween: the selected keys need unselected keys before and after them' };
-  }
+  if (isActorRun(ctx)) return actorScope().tweenPlan(ctx, args.target);
   const resolved = resolveTweenTarget(app, args.target);
   return {
     plans: [planTween(app, resolved.target)],

@@ -80,7 +80,7 @@ import {
   selectScopedKeysOnly,
   snapOf,
 } from './scoped';
-import { AGENT_SPAN_LIMIT } from './agentBase';
+import { actorScope } from '../scope';
 
 const TANGENT_TYPES: readonly TangentType[] = [
   'auto',
@@ -823,16 +823,7 @@ function reduceSpecProblem(value: unknown): string | null {
  * a target curve spans more than 100,000 frames (a synchronous loop cannot be interrupted). User runs are unchanged.
  */
 function pollSimplifySpan(ctx: OperatorContext) {
-  if (!isActorRun(ctx)) return OK;
-  for (const curve of scopedTargetCurves(ctx)) {
-    const keys = ctx.app.store.query.keysOfCurve(curve.id);
-    const first = keys[0];
-    const last = keys.at(-1);
-    if (first !== undefined && last !== undefined && last.t - first.t > AGENT_SPAN_LIMIT) {
-      return fail(`A curve spans more than ${AGENT_SPAN_LIMIT} frames; simplify a shorter clip`);
-    }
-  }
-  return OK;
+  return isActorRun(ctx) ? actorScope().pollSimplifySpan(ctx) : OK;
 }
 
 function toleranceFor(channel: ChannelId, spec: ReduceSpec): number {

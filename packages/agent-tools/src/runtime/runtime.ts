@@ -547,7 +547,11 @@ export function createAgentToolRuntime(opts: AgentToolRuntimeOptions): AgentTool
         await waitForGesture();
         if (signal.aborted) throw cancelledFailure();
         const access: AgentAccess = runOpts?.access ?? 'edit';
-        if (runOpts?.runScope !== undefined) scopeGuard(tool, id, labelled, access);
+        if (runOpts?.runScope !== undefined) {
+          // The probe polls with the actor: the actor run helpers load with the agent operators (M-AI B5).
+          await loadAgentOperators(app);
+          scopeGuard(tool, id, labelled, access);
+        }
         const before = app.history.peekUndo()?.id ?? null;
         const ctx: RunContext = {
           source: 'api',

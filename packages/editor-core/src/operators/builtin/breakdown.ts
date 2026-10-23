@@ -11,7 +11,8 @@ import { keyTargetControls } from '../../workflows/targets';
 import type { CountResult } from '../args';
 import { type AnyOperator, defineOperator, fail, isActorRun, isRecord, OK } from './define';
 import { pollEditable } from './polls';
-import { pollScopeTargets, scopedSelectedKeyIds } from './scoped';
+import { actorScope } from '../scope';
+import { pollScopeTargets } from './scoped';
 
 /** Two keys this close (frames) share a frame (§4.11.1). */
 const SAME_FRAME = 1e-6;
@@ -54,13 +55,7 @@ export function convertTargets(app: EditorApp, view: ReadView = app.store): read
  * selected keys only — never the playhead, the key target or the user's selection.
  */
 function runTargets(ctx: OperatorContext, view: ReadView = ctx.app.store): readonly KeyRecord[] {
-  if (!isActorRun(ctx)) return convertTargets(ctx.app, view);
-  const out: KeyRecord[] = [];
-  for (const id of scopedSelectedKeyIds(ctx, view)) {
-    const key = view.get('keys', id);
-    if (key !== undefined && editableKey(view, key)) out.push(key);
-  }
-  return out;
+  return isActorRun(ctx) ? actorScope().convertTargets(ctx, view, editableKey) : convertTargets(ctx.app, view);
 }
 
 const keyConvert = defineOperator({
