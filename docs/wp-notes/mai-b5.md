@@ -104,4 +104,8 @@ user paths duplicated); agent runs are unchanged (the agent-tools suites, the `e
 
 ## Gate
 
-`EKZA_E2E_PORT=3155 pnpm run ci`: see the result recorded below.
+`EKZA_E2E_PORT=3155 pnpm run ci` **green** (format, lint, typecheck, deps, fixtures, licences, unit suites, build,
+check:size `/editor` 890,526 B and `/autorig` 651,721 B, e2e 362 passed / 24 skipped). Earlier runs: two Graph Editor
+tests over the real kernel (`curve-editor/test/real-app.test.ts` E2E-11, `editor/test/panels/m2a-graph-angle-units`)
+expected a first run to finish within a frame; their settle helpers now await `loadOperatorBodies` (testing entry).
+One run had `ar-12-layouts` phone ① fail under load (bottom-sheet position); it passed 3/3 alone and in the next full run.
