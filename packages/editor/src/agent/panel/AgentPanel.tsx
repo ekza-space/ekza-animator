@@ -62,8 +62,8 @@ function Connection(props: {
             key={entry.port}
             className="flex items-center gap-2 rounded border border-line px-2 py-1 text-left hover:enabled:bg-hover disabled:opacity-60"
             data-testid={`agent-server-${entry.port}`}
-            disabled={entry.busy || session?.choose === undefined}
-            onClick={() => session?.choose?.(entry.port)}
+            disabled={entry.busy || session?.select === undefined}
+            onClick={() => session?.select?.(entry.port)}
           >
             <span className="font-medium">{entry.client?.name ?? 'No agent yet'}</span>
             <span className="text-fg-3">
@@ -105,7 +105,11 @@ function Connection(props: {
           >
             {copied ? 'Copied' : 'Copy'}
           </Button>
-          <Button size="sm" data-testid="agent-cancel" onClick={() => session?.cancel?.() ?? session?.disconnect()}>
+          <Button
+            size="sm"
+            data-testid="agent-cancel"
+            onClick={() => (session?.cancel === undefined ? session?.disconnect() : session.cancel())}
+          >
             Cancel
           </Button>
         </div>
@@ -158,8 +162,8 @@ function Connection(props: {
           <Button
             size="sm"
             data-testid="agent-resume"
-            disabled={session?.resume === undefined}
-            onClick={() => session?.resume?.()}
+            disabled={session?.setPaused === undefined}
+            onClick={() => session?.setPaused?.(false)}
           >
             Resume
           </Button>
@@ -167,8 +171,8 @@ function Connection(props: {
           <Button
             size="sm"
             data-testid="agent-pause"
-            disabled={session?.pause === undefined}
-            onClick={() => session?.pause?.()}
+            disabled={session?.setPaused === undefined}
+            onClick={() => session?.setPaused?.(true)}
           >
             Pause
           </Button>
@@ -191,7 +195,7 @@ function Grants(props: { readonly state: AgentSessionState; readonly session: Ag
         dense
         value={value ?? DEFAULT_GRANTS}
         disabled={props.session.setGrants === undefined}
-        onChange={(next) => props.session.setGrants?.(next)}
+        onChange={(next) => props.session.setGrants?.({ ...next, read: true })}
       />
     </section>
   );

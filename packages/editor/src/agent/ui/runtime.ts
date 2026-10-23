@@ -1,6 +1,7 @@
 // The agent module's runtime in the tab (MCP-SPEC §4.9, §7; B3): one per EditorApp, created when the lazy agent
-// module loads (the Agent panel opens or `?agentPort=` is present). It holds the agent session (B2's
-// `createAgentSession`, or a session a test installs), attaches the live `view_capture` service, registers the
+// module loads (the Agent panel opens or `?agentPort=` is present). It follows the page's agent session (B2's slot:
+// `agentSessionOf` / `onAgentSession`, created through `loadAgentSession` when none exists yet; or a session a test
+// installs), attaches the live `view_capture` service, registers the
 // user-only `agent.show` operator, and keeps what the panel adds on top of the frozen D0 session state: which AI steps
 // the user reverted from the panel and which clips already raised the "AI is working on clip …" toast.
 import { attachViewCapture, type Grants } from '@ekza-studio/agent-tools';
@@ -8,31 +9,41 @@ import type { Disposer } from '@ekza-studio/anim-core';
 import type { EditorApp } from '@ekza-studio/editor-core';
 import { viewportManagerOf } from '@ekza-studio/viewport';
 import { createStore, type StoreApi } from 'zustand/vanilla';
-import { parseAgentParams } from '../../test-api/params';
+import { parseAgentParams } from '../../test-api/agentParams';
+import { agentSessionOf, loadAgentSession, onAgentSession } from '../bridge/slot';
 import { createLiveViewCapture } from '../capture/service';
-import { type AgentSession, type AgentSessionDeps, createAgentSession } from '../session';
+import type { AgentSession, AgentSessionDeps } from '../session';
 import { registerAgentShow } from './show';
 
+/** B2's `AgentSessionExtra` (M-AI-B2-2): the claim the grants dialog shows and the preselected ports. */
+export interface AgentSessionExtraView {
+  readonly claim: { readonly client: { readonly name: string } | null; readonly cwdName: string } | null;
+  readonly ports: readonly number[];
+}
+
 /**
- * What the panel asks of the session beyond the frozen D0 `AgentSession` (connect, disconnect, dispose). B2's session
- * implements these (DECISIONS-OPEN M-AI-B3-1); a control the session lacks is shown disabled.
+ * The actions the panel calls besides the D0 `AgentSession` (connect, disconnect, dispose) — B2's additions
+ * (M-AI-B2-2), optional here so the UI works with any session; a control the session lacks is drawn disabled.
  */
 export interface AgentSessionControls {
-  /** Grant toggles apply at once (`grants` message, §5.9). Read stays on. */
-  setGrants?(grants: Omit<Grants, 'read'>): void;
-  pause?(): void;
-  resume?(): void;
-  /** The grants dialog after `pair.claimed` (§7.3): Allow with the chosen grants, or Deny. */
-  answerPairing?(answer: 'allow' | 'deny', grants?: Omit<Grants, 'read'>): void;
+  readonly extra?: StoreApi<AgentSessionExtraView>;
+  /** `choosing`: pair with the server on `port`. */
+  select?(port: number): void;
+  /** Stop discovery or the offered code (back to `off`). */
+  cancel?(): void;
+  /** The grants dialog's [Allow] (§7.3). */
+  accept?(grants: Grants): void;
+  /** The grants dialog's [Deny] (also Esc). */
+  deny?(): void;
+  /** The panel's grant toggles, applied at once (§5.9). */
+  setGrants?(grants: Grants): void;
+  setPaused?(on: boolean): void;
   /** The confirm card (§7.4). */
   answerConfirm?(id: string, answer: 'allow' | 'deny'): void;
-  /** Cancel discovery or the offered code. */
-  cancel?(): void;
-  /** Pick a server in the chooser (status `choosing`). */
-  choose?(port: number): void;
 }
 export type AgentSessionHandle = AgentSession & AgentSessionControls;
 export type AgentSessionFactory = (app: EditorApp, deps: AgentSessionDeps) => AgentSessionHandle;
+const UNAVAILABLE = 'The agent bridge is not available in this build.';
 
 export interface AgentRuntimeState {
   /** The session, or null when this build cannot create one (`unavailable` says why). */
@@ -54,11 +65,11 @@ export interface AgentRuntime {
   dispose(): void;
 }
 
-let factory: AgentSessionFactory = (app, deps) => createAgentSession(app, deps);
+let factory: AgentSessionFactory | null = null;
 
-/** Tests replace B2's session factory (null restores it). */
+/** Tests create their own session instead of the page's (null restores the page's session). */
 export function setAgentSessionFactory(next: AgentSessionFactory | null): void {
-  factory = next ?? ((app, deps) => createAgentSession(app, deps));
+  factory = next;
 }
 
 const runtimes = new WeakMap<EditorApp, AgentRuntime>();
@@ -90,10 +101,14 @@ function createRuntime(app: EditorApp): AgentRuntime {
   };
   let session: AgentSessionHandle | null = null;
   let unavailable: string | null = null;
-  try {
-    session = factory(app, deps);
-  } catch {
-    unavailable = 'The agent bridge is not available in this build.';
+  if (factory !== null) {
+    try {
+      session = factory(app, deps);
+    } catch {
+      unavailable = UNAVAILABLE;
+    }
+  } else {
+    session = agentSessionOf(app);
   }
   const store = createStore<AgentRuntimeState>(() => ({
     session,
@@ -118,13 +133,30 @@ function createRuntime(app: EditorApp): AgentRuntime {
           });
   };
   watch(session);
-  if (session !== null && params.connectAtStart) void session.connect();
+  // A session installed by hand (tests, the e2e hook) stays until it is replaced by hand.
+  let pinned = factory !== null;
+  const adopt = (next: AgentSessionHandle | null): void => {
+    if (pinned || store.getState().session === next) return;
+    pairedActor = null;
+    watch(next);
+    store.setState({ session: next, unavailable: null, revertedBy: new Map(), toasted: new Set() });
+  };
+  if (factory === null) {
+    disposers.push(onAgentSession(app, adopt));
+    // The page's session (B2) is created on first use; the e2e test API connects it at start with `?agentPort=`.
+    if (session === null) {
+      loadAgentSession(app, deps).then(adopt, () => {
+        if (!pinned && store.getState().session === null) store.setState({ unavailable: UNAVAILABLE });
+      });
+    }
+  }
 
   const runtime: AgentRuntime = {
     app,
     store,
     install(next, why = null) {
       const previous = store.getState().session;
+      pinned = true;
       if (previous !== null && previous !== next) previous.dispose();
       pairedActor = null;
       watch(next);
@@ -148,7 +180,7 @@ function createRuntime(app: EditorApp): AgentRuntime {
     },
     dispose() {
       offSession?.();
-      store.getState().session?.dispose();
+      if (pinned) store.getState().session?.dispose();
       for (const dispose of disposers.splice(0)) dispose();
       runtimes.delete(app);
     },

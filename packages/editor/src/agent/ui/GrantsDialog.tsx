@@ -2,9 +2,9 @@
 // default, Files (with its Workspace folder sub-option) and View off. `Esc` = Deny; outside clicks do not close it;
 // the session times it out with the code (Deny).
 import { Button, Checkbox, Dialog, DialogContent, DialogFooter } from '@ekza-studio/ui';
-import { type JSX, useState } from 'react';
+import { type JSX, useState, useSyncExternalStore } from 'react';
 import type { AgentSessionState } from '../types';
-import type { AgentSessionHandle } from './runtime';
+import type { AgentSessionExtraView, AgentSessionHandle } from './runtime';
 
 export interface GrantChoice {
   readonly edit: boolean;
@@ -59,15 +59,27 @@ export function GrantList(props: {
   );
 }
 
+const noSubscribe = (): (() => void) => () => {};
+const noExtra = (): AgentSessionExtraView | null => null;
+
 export function GrantsDialog(props: {
   readonly state: AgentSessionState;
   readonly session: AgentSessionHandle;
 }): JSX.Element | null {
   const [choice, setChoice] = useState<GrantChoice>(DEFAULT_GRANTS);
+  const extra = props.session.extra;
+  const claim = useSyncExternalStore(
+    extra === undefined ? noSubscribe : extra.subscribe,
+    extra === undefined ? noExtra : extra.getState,
+    extra === undefined ? noExtra : extra.getState,
+  )?.claim;
   if (props.state.status !== 'claimed') return null;
-  const client = props.state.server?.client?.name ?? 'An agent';
+  const client = claim?.client?.name ?? props.state.server?.client?.name ?? 'An agent';
+  const folder = claim?.cwdName ?? null;
   const answer = (value: 'allow' | 'deny'): void => {
-    props.session.answerPairing?.(value, value === 'allow' ? choice : undefined);
+    if (value === 'allow')
+      props.session.accept?.({ ...choice, read: true, workspace: choice.files && choice.workspace });
+    else props.session.deny?.();
     setChoice(DEFAULT_GRANTS);
   };
   return (
@@ -81,7 +93,7 @@ export function GrantsDialog(props: {
         title={`${client} wants to work in this editor`}
         description={`Name reported by the agent; the editor cannot verify it.${
           props.state.code === null ? '' : ` Code ${props.state.code.text}.`
-        }`}
+        }${folder === null ? '' : ` Folder "${folder}".`}`}
         hideClose
         width="md"
         data-testid="agent-grants"
@@ -99,7 +111,7 @@ export function GrantsDialog(props: {
           <Button
             variant="primary"
             data-testid="agent-allow"
-            disabled={props.session.answerPairing === undefined}
+            disabled={props.session.accept === undefined}
             onClick={() => answer('allow')}
           >
             Allow

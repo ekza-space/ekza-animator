@@ -12,10 +12,10 @@ import {
 } from '@ekza-studio/agent-tools';
 import type { CharacterId, ClipId } from '@ekza-studio/doc';
 import type { EditorApp, RunActor } from '@ekza-studio/editor-core';
-import { createStore } from 'zustand/vanilla';
+import { createStore, type StoreApi } from 'zustand/vanilla';
 import type { AgentAuditRow, AgentSessionState, AgentStatus } from '../types';
 import type { AgentSession } from '../session';
-import type { AgentSessionControls } from './runtime';
+import type { AgentSessionControls, AgentSessionExtraView } from './runtime';
 
 export interface FakeSessionOptions {
   readonly status?: AgentStatus;
@@ -28,6 +28,7 @@ export interface FakeSessionOptions {
 }
 
 export interface FakeAgentSession extends AgentSession, Required<AgentSessionControls> {
+  readonly extra: StoreApi<AgentSessionExtraView>;
   /** Runs a tool as the paired agent (status must be `paired`). */
   call(tool: string, args: unknown): Promise<AgentToolResult<unknown>>;
   setState(patch: Partial<AgentSessionState>): void;
@@ -89,6 +90,10 @@ export function createFakeAgentSession(app: EditorApp, opts: FakeSessionOptions 
     error: null,
   }));
   const set = (patch: Partial<AgentSessionState>): void => store.setState(patch);
+  const extra = createStore<AgentSessionExtraView>(() => ({
+    claim: status === 'claimed' ? { client: { name: client }, cwdName: 'walk-project' } : null,
+    ports: [],
+  }));
   let pendingConfirm: { id: string; resolve: (answer: 'allow' | 'deny' | 'timeout') => void } | null = null;
   let confirmSeq = 0;
 
@@ -147,6 +152,7 @@ export function createFakeAgentSession(app: EditorApp, opts: FakeSessionOptions 
 
   return {
     store,
+    extra,
     setState: set,
     async connect() {
       set({
@@ -174,23 +180,18 @@ export function createFakeAgentSession(app: EditorApp, opts: FakeSessionOptions 
     setGrants(grants) {
       set({ grants: { ...grants, read: true, workspace: grants.files && grants.workspace } });
     },
-    pause() {
-      if (store.getState().status === 'paired') set({ status: 'paused' });
+    setPaused(on) {
+      const now = store.getState().status;
+      if (now === 'paired' || now === 'paused') set({ status: on ? 'paused' : 'paired' });
     },
-    resume() {
-      if (store.getState().status === 'paused') set({ status: 'paired' });
+    accept(grants) {
+      if (store.getState().status !== 'claimed') return;
+      extra.setState({ claim: null });
+      set({ status: 'paired', code: null, actor, grants: { ...grants, read: true } });
     },
-    answerPairing(answer, grants) {
-      if (answer === 'deny') {
-        set({ status: 'off', code: null, actor: null });
-        return;
-      }
-      set({
-        status: 'paired',
-        code: null,
-        actor,
-        ...(grants === undefined ? {} : { grants: { ...grants, read: true } }),
-      });
+    deny() {
+      extra.setState({ claim: null });
+      set({ status: 'off', code: null, actor: null });
     },
     answerConfirm(id, answer) {
       if (pendingConfirm?.id === id) pendingConfirm.resolve(answer);
@@ -198,7 +199,7 @@ export function createFakeAgentSession(app: EditorApp, opts: FakeSessionOptions 
     cancel() {
       set({ status: 'off', code: null });
     },
-    choose(port) {
+    select(port) {
       const entry = store.getState().servers.find((server) => server.port === port && !server.busy);
       if (entry !== undefined) {
         set({
