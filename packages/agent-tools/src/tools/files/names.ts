@@ -40,7 +40,7 @@ export function deriveFileName(name: string, extension: string): string {
   }
   stem = stem
     .normalize('NFC')
-    .replace(/[^A-Za-z0-9 _.-]/g, '_')
+    .replace(/[^A-Za-z0-9 _.-]/gu, '_')
     .replace(/^[.\s]+/, '')
     .slice(0, DERIVED_STEM_MAX)
     .replace(/[ .]+$/, '');

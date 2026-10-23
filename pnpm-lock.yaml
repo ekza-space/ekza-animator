@@ -623,6 +623,9 @@ importers:
       '@types/ws':
         specifier: 8.18.2
         version: 8.18.2
+      ajv:
+        specifier: 8.20.0
+        version: 8.20.0
       gltf-validator:
         specifier: 2.0.0-dev.3.10
         version: 2.0.0-dev.3.10
