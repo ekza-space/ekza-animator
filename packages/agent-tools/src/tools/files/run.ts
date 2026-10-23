@@ -7,7 +7,7 @@
 //   the server writes to the targets it derives from the call's own arguments (§5.10).
 // `project_open` loads into the runtime's own app: headless the server made a fresh project for the call (its handle
 // is the hub's, it patches `project`), live it replaces the user's project after the confirm card.
-import type { CharacterId, ClipId } from '@ekza-studio/doc';
+import { type CharacterId, type ClipId, SCHEMA_VERSION } from '@ekza-studio/doc';
 import { type EditorApp, type ImportResult, SAMPLES, type SampleDef } from '@ekza-studio/editor-core';
 import type { ExportArtifact } from '@ekza-studio/io';
 import { sanitizeText } from '../../sanitize/sanitize';
@@ -150,6 +150,38 @@ export function conciseSummary(ctx: AgentToolContext) {
   );
 }
 
+
+/** How long a load waits for the characters' runtimes (rig programs are built asynchronously). */
+export const RUNTIME_WAIT_MS = 30_000;
+
+/**
+ * Resolves once every character of the document has its runtime (rig program, skeleton), so the next call does not
+ * answer `busy` "still loading"; gives up after `RUNTIME_WAIT_MS` or when the call is cancelled.
+ */
+export function charactersReady(app: EditorApp, signal: AbortSignal, maxMs = RUNTIME_WAIT_MS): Promise<boolean> {
+  const missing = (): boolean =>
+    [...app.store.list('characters')].some((record) => app.characters.get(record.id) === undefined);
+  if (!missing()) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (ok: boolean): void => {
+      if (done) return;
+      done = true;
+      off();
+      clearTimeout(timer);
+      signal.removeEventListener('abort', onAbort);
+      resolve(ok);
+    };
+    const off = app.characters.subscribe(() => {
+      if (!missing()) finish(true);
+    });
+    const onAbort = (): void => finish(false);
+    signal.addEventListener('abort', onAbort, { once: true });
+    const timer = setTimeout(() => finish(!missing()), maxMs);
+    (timer as unknown as { unref?: () => void }).unref?.();
+  });
+}
+
 const characterName = (app: EditorApp, id: CharacterId): string => app.store.get('characters', id)?.name ?? id;
 const clipName = (app: EditorApp, id: ClipId): string => app.store.get('clips', id)?.name ?? id;
 
@@ -191,7 +223,7 @@ export async function projectOpenRun(ctx: AgentToolContext, args: ProjectOpenArg
         await run(ctx, 'file.openProject', { name: file.name, bytes: file.bytes }, 'view'),
       );
       readOnly = opened.readOnly;
-      migratedFrom = opened.migratedFrom > 0 ? opened.migratedFrom : null;
+      migratedFrom = opened.migratedFrom < SCHEMA_VERSION ? opened.migratedFrom : null;
     } else {
       if (live) valueOf('file.new', await run(ctx, 'file.new', undefined, 'view'));
       const imported = valueOf<ImportResult>(
@@ -214,6 +246,7 @@ export async function projectOpenRun(ctx: AgentToolContext, args: ProjectOpenArg
   } else if (live) {
     valueOf('file.new', await run(ctx, 'file.new', undefined, 'view'));
   }
+  if (!(await charactersReady(ctx.app, ctx.signal))) warnings.push('A character is still loading; retry its tools in a moment.');
   return {
     ok: true as const,
     data: { project: '', readOnly, migratedFrom, summary: conciseSummary(ctx), warnings },
@@ -377,6 +410,7 @@ export async function projectImportRun(ctx: AgentToolContext, args: ProjectImpor
       warnings.push(...result.warnings);
     }
   }
+  if (!(await charactersReady(ctx.app, ctx.signal))) warnings.push('A character is still loading; retry its tools in a moment.');
   const step = (last as OperatorRun | null)?.step ?? null;
   return {
     ok: true as const,

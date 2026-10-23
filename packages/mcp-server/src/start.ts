@@ -109,8 +109,11 @@ export async function createInProcessServer(
   };
   const hub = await createAgentHub(full, createLogger(full.logLevel, process.stderr), hubOptions);
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  const server = await createMcpServerFactory(hub)({} as never);
-  await server.connect(serverTransport);
+  // the same entry as stdio (both protocol eras: the opening exchange picks one), over the in-memory pair
+  const handle = serveStdio(createMcpServerFactory(hub), {
+    transport: serverTransport,
+    onerror: (error) => hub.log.debug(error.message),
+  });
   const user: SimulatedUser | null =
     policy === null
       ? null
@@ -130,7 +133,7 @@ export async function createInProcessServer(
     hub,
     user,
     close: async () => {
-      await server.close();
+      await handle.close();
       await hub.close();
     },
   };

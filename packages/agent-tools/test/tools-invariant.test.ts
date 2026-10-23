@@ -248,8 +248,10 @@ describe('the session-state invariant (§5.7, §9.2)', () => {
   });
 
   it('draws every ready tool of the catalogue', () => {
+    // B1: the hub's tools and the file tools are drawn by ekza-studio-mcp's invariant test (they need a server)
     expect([...DRAWN].sort()).toEqual(
       readyTools()
+        .filter((tool) => tool.group !== 'files' && !['projects_list', 'project_close'].includes(tool.name))
         .map((tool) => tool.name)
         .sort(),
     );

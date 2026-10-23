@@ -1,6 +1,383 @@
 {
-  "hash": "7654a3dfc457032a6b1b884298986141ab2659f39afba5aa31f5a687f30bd53f",
+  "hash": "6210a29542a6ae4875178f2a96cedf0a3b634275fb8aae2ab668c8f1a91b7dfb",
   "tools": [
+    {
+      "access": "read",
+      "alwaysLoad": false,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "List the open projects: the paired editor tab (with its origin) and headless project files, with their handles and grants. Pass a handle as project when several are open. Headless projects show unsaved changes (dirty) and how long they were idle; idle projects close after 30 minutes.",
+      "group": "connection",
+      "hosts": [
+        "live",
+        "headless"
+      ],
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "projects_list",
+      "outputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "clip": {
+            "additionalProperties": false,
+            "properties": {
+              "character": {
+                "type": "string"
+              },
+              "fps": {
+                "type": "number"
+              },
+              "loop": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "rangeFrames": {
+                "items": false,
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              "revision": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "character",
+              "name",
+              "fps",
+              "rangeFrames",
+              "loop",
+              "revision"
+            ],
+            "type": "object"
+          },
+          "data": {
+            "additionalProperties": false,
+            "properties": {
+              "bridge": {
+                "additionalProperties": false,
+                "properties": {
+                  "port": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "enum": [
+                      "off",
+                      "listening",
+                      "paired"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "port"
+                ],
+                "type": "object"
+              },
+              "projects": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "characters": {
+                      "type": "number"
+                    },
+                    "dirty": {
+                      "type": "boolean"
+                    },
+                    "grants": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "edit": {
+                          "type": "boolean"
+                        },
+                        "files": {
+                          "type": "boolean"
+                        },
+                        "read": {
+                          "const": true,
+                          "type": "boolean"
+                        },
+                        "view": {
+                          "type": "boolean"
+                        },
+                        "workspace": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "read",
+                        "edit",
+                        "files",
+                        "view",
+                        "workspace"
+                      ],
+                      "type": "object"
+                    },
+                    "idleMs": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "kind": {
+                      "enum": [
+                        "tab",
+                        "headless"
+                      ],
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "origin": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "project": {
+                      "type": "string"
+                    },
+                    "readOnly": {
+                      "type": "boolean"
+                    },
+                    "toolset": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "project",
+                    "kind",
+                    "name",
+                    "dirty",
+                    "readOnly",
+                    "characters",
+                    "grants",
+                    "toolset",
+                    "idleMs",
+                    "origin"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "truncated": {
+                "description": "true when the runtime cut lists to fit the hard token cap (§5.5); narrow the call or page.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "bridge",
+              "projects"
+            ],
+            "type": "object"
+          },
+          "next": {
+            "type": "string"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "undo": {
+            "additionalProperties": false,
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "step": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "step",
+              "label"
+            ],
+            "type": "object"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok",
+          "data"
+        ],
+        "type": "object"
+      },
+      "requiresUserInteraction": false,
+      "title": "List open projects"
+    },
+    {
+      "access": "read",
+      "alwaysLoad": false,
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Close a headless project, or end the pairing with the editor tab. A headless project with unsaved changes needs discardChanges: true (save it first with project_save). Closing the tab's handle ends the pairing; the user can pair again.",
+      "group": "connection",
+      "hosts": [
+        "live",
+        "headless"
+      ],
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "discardChanges": {
+            "default": false,
+            "description": "Close a headless project with unsaved changes (else confirm_required).",
+            "type": "boolean"
+          },
+          "project": {
+            "description": "The project to close (prj_… headless, tab_… ends the pairing).",
+            "pattern": "^(tab|prj)_[0-9A-Za-z]{12}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project"
+        ],
+        "type": "object"
+      },
+      "name": "project_close",
+      "outputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "clip": {
+            "additionalProperties": false,
+            "properties": {
+              "character": {
+                "type": "string"
+              },
+              "fps": {
+                "type": "number"
+              },
+              "loop": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "rangeFrames": {
+                "items": false,
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              "revision": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "character",
+              "name",
+              "fps",
+              "rangeFrames",
+              "loop",
+              "revision"
+            ],
+            "type": "object"
+          },
+          "data": {
+            "additionalProperties": false,
+            "properties": {
+              "closed": {
+                "type": "string"
+              },
+              "discarded": {
+                "type": "boolean"
+              },
+              "truncated": {
+                "description": "true when the runtime cut lists to fit the hard token cap (§5.5); narrow the call or page.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "closed",
+              "discarded"
+            ],
+            "type": "object"
+          },
+          "next": {
+            "type": "string"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "undo": {
+            "additionalProperties": false,
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "step": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "step",
+              "label"
+            ],
+            "type": "object"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok",
+          "data"
+        ],
+        "type": "object"
+      },
+      "requiresUserInteraction": false,
+      "title": "Close a project"
+    },
     {
       "access": "read",
       "alwaysLoad": true,
@@ -7172,7 +7549,1282 @@
       },
       "requiresUserInteraction": false,
       "title": "Revert your AI steps"
+    },
+    {
+      "access": "files",
+      "alwaysLoad": false,
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Open a project file, model or bundled sample: a new headless project, or (live, confirmed) the editor's project. Headless (default): path (an .ekzanim, .ekzanim.json, .vrm or .glb in the workspace folder), sample, or neither for an empty project; the result is a new project handle (prj_…) to pass as project. At most 4 headless projects stay open; one without calls for 30 minutes is closed and its unsaved changes are lost, so save with project_save. Pass project: tab_… to replace the paired editor’s project instead (the user confirms). A .vrma needs a character: project_import it.",
+      "group": "files",
+      "hosts": [
+        "live",
+        "headless"
+      ],
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "confirm": {
+            "description": "Headless: pass true for a consequential call (the editor asks the user instead).",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "Project name (default: the file name).",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "path": {
+            "description": "An .ekzanim, .ekzanim.json, .vrm or .glb file. Relative to the server's workspace folder.",
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          },
+          "project": {
+            "description": "tab_… replaces the paired editor’s project (confirmed); omit for a new headless project.",
+            "pattern": "^(tab|prj)_[0-9A-Za-z]{12}$",
+            "type": "string"
+          },
+          "sample": {
+            "description": "A bundled sample: seed-san, polybot or quaternius-ual.",
+            "enum": [
+              "seed-san",
+              "polybot",
+              "quaternius-ual"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "name": "project_open",
+      "outputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "clip": {
+            "additionalProperties": false,
+            "properties": {
+              "character": {
+                "type": "string"
+              },
+              "fps": {
+                "type": "number"
+              },
+              "loop": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "rangeFrames": {
+                "items": false,
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              "revision": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "character",
+              "name",
+              "fps",
+              "rangeFrames",
+              "loop",
+              "revision"
+            ],
+            "type": "object"
+          },
+          "data": {
+            "additionalProperties": false,
+            "properties": {
+              "migratedFrom": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "project": {
+                "type": "string"
+              },
+              "readOnly": {
+                "type": "boolean"
+              },
+              "summary": {
+                "additionalProperties": false,
+                "properties": {
+                  "characters": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "clips": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "active": {
+                                "type": "boolean"
+                              },
+                              "fps": {
+                                "type": "number"
+                              },
+                              "id": {
+                                "type": "string"
+                              },
+                              "keyCount": {
+                                "type": "number"
+                              },
+                              "loop": {
+                                "type": "boolean"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "rangeFrames": {
+                                "items": false,
+                                "maxItems": 2,
+                                "minItems": 2,
+                                "prefixItems": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "number"
+                                  }
+                                ],
+                                "type": "array"
+                              },
+                              "revision": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "id",
+                              "fps",
+                              "rangeFrames",
+                              "loop",
+                              "keyCount",
+                              "revision",
+                              "active"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "format": {
+                          "enum": [
+                            "vrm0",
+                            "vrm1",
+                            "glb"
+                          ],
+                          "type": "string"
+                        },
+                        "heightM": {
+                          "type": "number"
+                        },
+                        "humanoid": {
+                          "type": "boolean"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "limbs": {
+                          "additionalProperties": {
+                            "enum": [
+                              "ik",
+                              "fk",
+                              "blend"
+                            ],
+                            "type": "string"
+                          },
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "type": "object"
+                        },
+                        "meta": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "allowRedistribution": {
+                              "type": "string"
+                            },
+                            "author": {
+                              "type": "string"
+                            },
+                            "license": {
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "title",
+                            "author",
+                            "license",
+                            "allowRedistribution"
+                          ],
+                          "type": "object"
+                        },
+                        "name": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "id",
+                        "format",
+                        "humanoid",
+                        "heightM",
+                        "limbs",
+                        "clips"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "history": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "actor": {
+                          "enum": [
+                            "this_agent",
+                            "other_agent",
+                            "user"
+                          ],
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "step": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "step",
+                        "label",
+                        "actor"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "host": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "fidelity": {
+                        "items": {
+                          "enum": [
+                            "shaded",
+                            "schematic"
+                          ],
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "files": {
+                        "items": {
+                          "enum": [
+                            "download",
+                            "workspace"
+                          ],
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "grants": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "edit": {
+                            "type": "boolean"
+                          },
+                          "files": {
+                            "type": "boolean"
+                          },
+                          "read": {
+                            "const": true,
+                            "type": "boolean"
+                          },
+                          "view": {
+                            "type": "boolean"
+                          },
+                          "workspace": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "read",
+                          "edit",
+                          "files",
+                          "view",
+                          "workspace"
+                        ],
+                        "type": "object"
+                      },
+                      "mode": {
+                        "enum": [
+                          "live",
+                          "headless"
+                        ],
+                        "type": "string"
+                      },
+                      "paused": {
+                        "type": "boolean"
+                      },
+                      "previewActive": {
+                        "type": "boolean"
+                      },
+                      "toolset": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "mode",
+                      "fidelity",
+                      "files",
+                      "grants",
+                      "paused",
+                      "toolset",
+                      "previewActive"
+                    ],
+                    "type": "object"
+                  },
+                  "project": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "dirty": {
+                        "type": "boolean"
+                      },
+                      "docVersion": {
+                        "type": "number"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "readOnly": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "dirty",
+                      "readOnly",
+                      "docVersion"
+                    ],
+                    "type": "object"
+                  },
+                  "user": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "activeCharacter": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "activeClip": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "band": {
+                        "anyOf": [
+                          {
+                            "items": false,
+                            "maxItems": 2,
+                            "minItems": 2,
+                            "prefixItems": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "number"
+                              }
+                            ],
+                            "type": "array"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "frame": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "overrides": {
+                        "type": "number"
+                      },
+                      "playing": {
+                        "type": "boolean"
+                      },
+                      "selection": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "channels": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "controls": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "keyCount": {
+                            "type": "number"
+                          },
+                          "keys": {
+                            "items": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "channel": {
+                                  "type": "string"
+                                },
+                                "control": {
+                                  "type": "string"
+                                },
+                                "frames": {
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "type": "array"
+                                }
+                              },
+                              "required": [
+                                "control",
+                                "channel",
+                                "frames"
+                              ],
+                              "type": "object"
+                            },
+                            "type": "array"
+                          },
+                          "truncated": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "controls",
+                          "keys",
+                          "keyCount",
+                          "truncated",
+                          "channels"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "activeCharacter",
+                      "activeClip",
+                      "frame",
+                      "playing",
+                      "band",
+                      "selection",
+                      "overrides"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "host",
+                  "project",
+                  "characters",
+                  "history"
+                ],
+                "type": "object"
+              },
+              "truncated": {
+                "description": "true when the runtime cut lists to fit the hard token cap (§5.5); narrow the call or page.",
+                "type": "boolean"
+              },
+              "warnings": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "project",
+              "readOnly",
+              "migratedFrom",
+              "summary",
+              "warnings"
+            ],
+            "type": "object"
+          },
+          "next": {
+            "type": "string"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "undo": {
+            "additionalProperties": false,
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "step": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "step",
+              "label"
+            ],
+            "type": "object"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok",
+          "data"
+        ],
+        "type": "object"
+      },
+      "requiresUserInteraction": false,
+      "title": "Open a project"
+    },
+    {
+      "access": "by_argument",
+      "alwaysLoad": false,
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Add a character (VRM/GLB or a bundled sample) or a VRMA clip to the open project. path: a .vrm (character), .vrma (clip onto character, default the active one) or .glb (a VRM, a humanoid skinned model or a static model, by content) in the workspace folder; sample: seed-san, polybot or quaternius-ual (characters), or the static models cube_lad, polybot_tpose and polybot_apose to rig with rig_create. One undo step; a static model answers model (meshes, triangles, heightM and the start checks).",
+      "group": "files",
+      "hosts": [
+        "live",
+        "headless"
+      ],
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "character": {
+            "description": "Target character for a .vrma (default: the active character).",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "confirm": {
+            "description": "Headless: pass true for a consequential call (the editor asks the user instead).",
+            "type": "boolean"
+          },
+          "path": {
+            "description": "A .vrm, .glb or .vrma file. Relative to the server's workspace folder.",
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          },
+          "project": {
+            "description": "Project handle (tab_… for the paired editor tab, prj_… for a headless project); omit when one is open.",
+            "pattern": "^(tab|prj)_[0-9A-Za-z]{12}$",
+            "type": "string"
+          },
+          "sample": {
+            "description": "A bundled sample: seed-san, polybot, quaternius-ual, or a static model: cube_lad, polybot_tpose, polybot_apose.",
+            "enum": [
+              "seed-san",
+              "polybot",
+              "quaternius-ual",
+              "cube_lad",
+              "polybot_tpose",
+              "polybot_apose"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "name": "project_import",
+      "outputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "clip": {
+            "additionalProperties": false,
+            "properties": {
+              "character": {
+                "type": "string"
+              },
+              "fps": {
+                "type": "number"
+              },
+              "loop": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "rangeFrames": {
+                "items": false,
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              "revision": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "character",
+              "name",
+              "fps",
+              "rangeFrames",
+              "loop",
+              "revision"
+            ],
+            "type": "object"
+          },
+          "data": {
+            "additionalProperties": false,
+            "properties": {
+              "character": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "clips": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "model": {
+                "additionalProperties": false,
+                "properties": {
+                  "checks": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "centered": {
+                        "type": "boolean"
+                      },
+                      "facingForward": {
+                        "type": "boolean"
+                      },
+                      "grounded": {
+                        "type": "boolean"
+                      },
+                      "scaleOk": {
+                        "type": "boolean"
+                      },
+                      "upright": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "centered",
+                      "grounded",
+                      "facingForward",
+                      "upright",
+                      "scaleOk"
+                    ],
+                    "type": "object"
+                  },
+                  "heightM": {
+                    "type": "number"
+                  },
+                  "kind": {
+                    "enum": [
+                      "static",
+                      "vrm",
+                      "rigged-humanoid",
+                      "rigged-other",
+                      "project"
+                    ],
+                    "type": "string"
+                  },
+                  "meshes": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "textured": {
+                    "type": "boolean"
+                  },
+                  "triangles": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "meshes",
+                  "triangles",
+                  "heightM",
+                  "textured",
+                  "checks"
+                ],
+                "type": "object"
+              },
+              "truncated": {
+                "description": "true when the runtime cut lists to fit the hard token cap (§5.5); narrow the call or page.",
+                "type": "boolean"
+              },
+              "warnings": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "character",
+              "clips",
+              "warnings"
+            ],
+            "type": "object"
+          },
+          "next": {
+            "type": "string"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "undo": {
+            "additionalProperties": false,
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "step": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "step",
+              "label"
+            ],
+            "type": "object"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok",
+          "data"
+        ],
+        "type": "object"
+      },
+      "requiresUserInteraction": false,
+      "title": "Import a character or clip"
+    },
+    {
+      "access": "files",
+      "alwaysLoad": false,
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Save the project as .ekzanim (headless: into the workspace; live: download or workspace). path defaults to <project name>.ekzanim (.ekzanim.json saves the debug JSON without models). An existing file is replaced only with overwrite: true; the old one is kept in .ekza-trash/ and the result names it as backup.",
+      "group": "files",
+      "hosts": [
+        "live",
+        "headless"
+      ],
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "delivery": {
+            "description": "Live: download (default, the user confirms) or the agent's workspace folder; headless: always the workspace.",
+            "enum": [
+              "download",
+              "workspace"
+            ],
+            "type": "string"
+          },
+          "overwrite": {
+            "default": false,
+            "description": "Replace an existing file (the old one goes to .ekza-trash/).",
+            "type": "boolean"
+          },
+          "path": {
+            "description": "Where to save (an .ekzanim name). Relative to the server's workspace folder.",
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          },
+          "project": {
+            "description": "Project handle (tab_… for the paired editor tab, prj_… for a headless project); omit when one is open.",
+            "pattern": "^(tab|prj)_[0-9A-Za-z]{12}$",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "name": "project_save",
+      "outputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "clip": {
+            "additionalProperties": false,
+            "properties": {
+              "character": {
+                "type": "string"
+              },
+              "fps": {
+                "type": "number"
+              },
+              "loop": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "rangeFrames": {
+                "items": false,
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              "revision": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "character",
+              "name",
+              "fps",
+              "rangeFrames",
+              "loop",
+              "revision"
+            ],
+            "type": "object"
+          },
+          "data": {
+            "additionalProperties": false,
+            "properties": {
+              "backup": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "bytes": {
+                "type": "number"
+              },
+              "delivered": {
+                "enum": [
+                  "download",
+                  "workspace"
+                ],
+                "type": "string"
+              },
+              "fileName": {
+                "type": "string"
+              },
+              "path": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "truncated": {
+                "description": "true when the runtime cut lists to fit the hard token cap (§5.5); narrow the call or page.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "fileName",
+              "path",
+              "bytes",
+              "delivered",
+              "backup"
+            ],
+            "type": "object"
+          },
+          "next": {
+            "type": "string"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "undo": {
+            "additionalProperties": false,
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "step": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "step",
+              "label"
+            ],
+            "type": "object"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok",
+          "data"
+        ],
+        "type": "object"
+      },
+      "requiresUserInteraction": false,
+      "title": "Save the project"
+    },
+    {
+      "access": "files",
+      "alwaysLoad": false,
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Export clips as VRMA, animation-only GLB or baked into the model, with lints and a read-back check. kind: vrma (one file per clip), animation_glb, bake_into_model, or a whole character for games: vrm (VRM 1.0), glb, omoba_kit (a .zip test kit). clips default to the active clip. Headless files go to exports/ in the workspace (overwrite: true replaces, the old file kept in .ekza-trash/); each artifact reports bytes, sha256, lints and readBack (maxRotErrorRad, maxPosErrorM).",
+      "group": "files",
+      "hosts": [
+        "live",
+        "headless"
+      ],
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "acknowledgeLicense": {
+            "default": false,
+            "description": "Bake a model whose licence needs acknowledging.",
+            "type": "boolean"
+          },
+          "character": {
+            "description": "Character name (case-insensitive) or id; omit when the project has one character.",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "clips": {
+            "description": "Clips to export (default: the active clip).",
+            "items": {
+              "description": "Clip name (unique per character) or id; in the user's editor every edit must pass it.",
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "type": "array"
+          },
+          "delivery": {
+            "description": "Live: download (default, the user confirms) or the agent's workspace folder; headless: always the workspace.",
+            "enum": [
+              "download",
+              "workspace"
+            ],
+            "type": "string"
+          },
+          "fileName": {
+            "description": "File name without folders (default: from the character and clip names).",
+            "pattern": "^[^/\\\\:*?\"<>|\\p{Cc}]{1,128}$",
+            "type": "string"
+          },
+          "kind": {
+            "description": "vrma (one file per clip), animation_glb, bake_into_model, or a character: vrm, glb, omoba_kit.",
+            "enum": [
+              "vrma",
+              "animation_glb",
+              "bake_into_model",
+              "vrm",
+              "glb",
+              "omoba_kit"
+            ],
+            "type": "string"
+          },
+          "overwrite": {
+            "default": false,
+            "description": "Replace an existing file (the old one goes to .ekza-trash/).",
+            "type": "boolean"
+          },
+          "profile": {
+            "description": "Export profile id (e.g. ekza/space-avatar-v1).",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "project": {
+            "description": "Project handle (tab_… for the paired editor tab, prj_… for a headless project); omit when one is open.",
+            "pattern": "^(tab|prj)_[0-9A-Za-z]{12}$",
+            "type": "string"
+          },
+          "reduce": {
+            "default": true,
+            "description": "Reduce keys within the profile tolerance (default true).",
+            "type": "boolean"
+          },
+          "rootMotion": {
+            "description": "Root motion on export.",
+            "enum": [
+              "keep",
+              "in_place"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
+      "name": "project_export",
+      "outputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "clip": {
+            "additionalProperties": false,
+            "properties": {
+              "character": {
+                "type": "string"
+              },
+              "fps": {
+                "type": "number"
+              },
+              "loop": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "rangeFrames": {
+                "items": false,
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              "revision": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "character",
+              "name",
+              "fps",
+              "rangeFrames",
+              "loop",
+              "revision"
+            ],
+            "type": "object"
+          },
+          "data": {
+            "additionalProperties": false,
+            "properties": {
+              "artifacts": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "backup": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "bytes": {
+                      "type": "number"
+                    },
+                    "fileName": {
+                      "type": "string"
+                    },
+                    "lints": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "severity": {
+                            "enum": [
+                              "error",
+                              "warning",
+                              "info"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "severity",
+                          "message"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "path": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "readBack": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "maxPosErrorM": {
+                          "type": "number"
+                        },
+                        "maxRotErrorRad": {
+                          "type": "number"
+                        },
+                        "ok": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "maxRotErrorRad",
+                        "maxPosErrorM"
+                      ],
+                      "type": "object"
+                    },
+                    "sha256": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "fileName",
+                    "path",
+                    "bytes",
+                    "sha256",
+                    "backup",
+                    "lints",
+                    "readBack"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "truncated": {
+                "description": "true when the runtime cut lists to fit the hard token cap (§5.5); narrow the call or page.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "artifacts"
+            ],
+            "type": "object"
+          },
+          "next": {
+            "type": "string"
+          },
+          "ok": {
+            "const": true,
+            "type": "boolean"
+          },
+          "undo": {
+            "additionalProperties": false,
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "step": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "step",
+              "label"
+            ],
+            "type": "object"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok",
+          "data"
+        ],
+        "type": "object"
+      },
+      "requiresUserInteraction": false,
+      "title": "Export clips"
     }
   ],
-  "toolset": "1.0.0-dev.1"
+  "toolset": "1.0.0-dev.b1"
 }
