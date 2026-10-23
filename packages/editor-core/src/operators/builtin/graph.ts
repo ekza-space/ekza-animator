@@ -6,7 +6,6 @@ import type { InfinityMode, TangentType } from '@ekza-studio/anim-core';
 import type { CurveId } from '@ekza-studio/doc';
 import { type EditorApp, GLOBAL_SCOPE, type OperatorContext } from '../../types';
 import { selectedKeys, targetCurves } from '../../workflows/targets';
-import type * as GraphBodiesModule from './graphBodies';
 import {
   type AnyOperator,
   all,
@@ -18,38 +17,13 @@ import {
   OK,
   optionalArgs,
 } from './define';
+import { lazyBodies } from './lazyBodies';
 import { pollClipEdit, pollEditable } from './polls';
 import { pollScopedClipEdit, pollScopeTargets, scopedSelectedKeys, scopedTargetCurves } from './scoped';
 import { actorScope } from '../scope';
 
-type GraphBodies = typeof GraphBodiesModule;
-let bodies: GraphBodies | null = null;
-let loading: Promise<GraphBodies> | null = null;
-
-/**
- * The operators' apply bodies (`graph.ts` keeps definitions and polls; M-AI B5): every run's `prepare`. A plain value
- * once loaded, so later runs stay synchronous up to `apply`; a failed load is retried by the next run. The import
- * pipeline prefetches it (a character is about to arrive, `preloadGraphBodies`).
- */
-function graphBodies(): GraphBodies | Promise<GraphBodies> {
-  if (bodies !== null) return bodies;
-  if (loading === null) {
-    const attempt = import('./graphBodies').then((module) => {
-      bodies = module;
-      return module;
-    });
-    loading = attempt;
-    attempt.catch(() => {
-      if (loading === attempt) loading = null;
-    });
-  }
-  return loading;
-}
-
-/** Starts loading the Graph Editor operators' bodies (intent: a model or clip is about to arrive). */
-export function preloadGraphBodies(): Promise<unknown> {
-  return Promise.resolve(graphBodies());
-}
+/** The operators' apply bodies (this file keeps definitions and polls): every run's `prepare` (`lazyBodies`). */
+const graphBodies = lazyBodies(() => import('./graphBodies'));
 
 const TANGENT_TYPES: readonly TangentType[] = [
   'auto',

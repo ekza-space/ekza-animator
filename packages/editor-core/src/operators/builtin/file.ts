@@ -11,7 +11,7 @@ import { blockingLints, requestProblem, withReadBackLint } from '../../workflows
 import type { Progress } from '../../workflows/host';
 import { animationTargetProblem, importTarget } from '../../workflows/importChecks';
 import { importPathLoaded, loadImportPath } from '../../workflows/importLoader';
-import { preloadGraphBodies } from './graph';
+import { preloadOperatorBodies } from './lazyBodies';
 import type { ClipImportPlan, ModelImportPlan } from '../../workflows/importPath';
 import { extensionOf } from '../../workflows/names';
 import {
@@ -42,11 +42,11 @@ function pollFile(args: unknown) {
 }
 
 /**
- * The import pipelines, and (intent prefetch, M-AI B5) the Graph Editor operators' bodies: a character or a clip is
- * about to arrive, so its first key edit does not wait for that chunk.
+ * The import pipelines, and (intent prefetch, M-AI B5) the operators' apply bodies (`lazyBodies.ts`): a character or
+ * a clip is about to arrive, so its first edit does not wait for those chunks.
  */
 function loadImport(): ReturnType<typeof loadImportPath> {
-  preloadGraphBodies().catch(() => {});
+  preloadOperatorBodies();
   return loadImportPath();
 }
 
@@ -121,7 +121,7 @@ const fileOpenProject = defineOperator<'file.openProject', OpenedProject>({
   poll: (_ctx, args) => pollFile(args),
   prepare: (ctx, args) =>
     busy(ctx, `Opening ${args.name}…`, () => {
-      preloadGraphBodies().catch(() => {});
+      preloadOperatorBodies();
       return prepareProjectOpen(ctx.app, args.bytes);
     }),
   apply({ app }, _args, opened) {
