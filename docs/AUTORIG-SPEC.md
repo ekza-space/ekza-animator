@@ -1890,6 +1890,8 @@ Amendments to this spec:
 
 - **§5.2 ① start**: loading a file or a sample always starts at ① with fresh checks, also after a reload restored a later
   step (AR-R4-1).
+- **§5.3 ②** (AR-R5-1, after `v0.5.0`): *Auto-rig* also waits while the character is outside 0.3–3 m tall (the
+  head-top marker), with "press Set height on step 1" — ①'s *Size* no longer reaches the rig unfixed.
 - **§5.4 ③**: *Separate parts move rigidly* (default on for a multi-part character) — parts reaching two limbs bind
   rigidly to their own region's main bone, parts spanning their own limb's hinge keep automatic weights over that limb
   (AR-R4-3). After *Straighten to T-Pose* from arms-down, ③ warns instead of *All good* (AR-R4-4).

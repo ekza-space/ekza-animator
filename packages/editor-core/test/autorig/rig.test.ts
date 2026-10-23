@@ -195,6 +195,25 @@ describe('autorig.rig (§4.5)', () => {
     expect(app.operators.poll('autorig.rig')).toBe(true);
   });
 
+  it('AR-R5-1: a character outside 0.3–3 m waits for Set height (a centimetre export is not rigged as a giant)', async () => {
+    const { app } = await opened('cube-lad.glb');
+    const state = quickRigOf(app);
+    if (state === null) throw new Error('no Quick Rig');
+    const head = state.markers.headTop ?? [0, 1.7, 0];
+    app.session.setState({
+      rig: {
+        ...app.session.getState().rig,
+        quickRig: { ...state, markers: { ...state.markers, headTop: [head[0], 5.84, head[2]] } },
+      },
+    });
+    const refused = await refusal(app, 'autorig.rig');
+    expect(refused.code).toBe('poll');
+    expect(refused.message).toMatch(/5\.84 m tall: press Set height/);
+    expect(labels(app)).toEqual(['Import Static Model']);
+    app.session.setState({ rig: { ...app.session.getState().rig, quickRig: state } });
+    expect(app.operators.poll('autorig.rig')).toBe(true);
+  });
+
   it('AR-D10-3: arm bones beside the body move nothing — the error row skin.limb-unweighted', async () => {
     const { app } = await opened('cube-lad.glb');
     // the arm markers on a line above the head (the template's guess on an arms-down model put them through it)
