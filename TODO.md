@@ -1,7 +1,8 @@
 # TODO — next iterations
 
 Ordered queue of what to do next. The plans behind it: [ROADMAP](docs/ROADMAP.md#recommended-order) and
-[MODELING-PLAN](docs/MODELING-PLAN.md) (v0.2, revised after its design review, §12); owner decisions with defaults:
+[MODELING-PLAN](docs/MODELING-PLAN.md) (v0.2, revised after its design review, §12) and, for the agent bridge,
+[MCP-SPEC](docs/MCP-SPEC.md); owner decisions with defaults:
 [DECISIONS-OPEN](docs/DECISIONS-OPEN.md). Sizes are agent-days; "day N" counts working days from the start of B0a.
 Updated 2026-10-22 (Auto-Rig integrated; M6b MVP released as `v0.4.0`; M6a released as `v0.3.0`, basic shading as `v0.3.1`).
 
@@ -36,10 +37,15 @@ Focus is the modeling base (M6a) first. These tracks are fully specified and par
       joint/constraint selection undo (`SelectionSnapshot` contract change, M6B-INT-22), auto-skin occluders from the
       character's other meshes and holds on full binds (M6B-INT-23), V/J snaps on joint moves, CR-AR-2 (library
       preview from in-memory clips, fallback owner D5).
-- [ ] **M-AI — Agent bridge (MCP)**: headless tool layer, `ekza-animator-mcp` server, live bridge with pairing,
-      see-tools, analysis, evals: [MCP-SPEC](docs/MCP-SPEC.md) v0.2, [ADR 0018](docs/adr/0018-agent-bridge-mcp.md),
-      research 20–22. Spec branch `mcp/spec`; started code branches `mcp/contracts-foundation` (D0),
-      `mcp/operators-scope` (P1), `mcp/tools-core` (P2) — not verified, resume from them. ≈ 55 agent-days.
+- [ ] **M-AI — Agent bridge (MCP)**, MVP (owner request 2026-10-23: AI control of the editor through MCP, then
+      release): [MCP-SPEC §0.4](docs/MCP-SPEC.md#04-mvp-cut-2026-10-23) v0.3, [ADR 0022](docs/adr/0022-m-ai-mvp-cut.md),
+      [ADR 0018](docs/adr/0018-agent-bridge-mcp.md), research 20–22. D0, P1, P2 ported onto `dev` on `mai/port`
+      (2026-10-23). Phase B built and integrated on **`mai/int`** (2026-10-24: B5 eager diet, B1 server + headless,
+      B2 bridge, B3 agent UI + live capture, B4 rig tools; toolset `1.0.0-mvp.1`, 37 tools; gates unchanged and green):
+      MVP-AC-1/3 unit tests, AC-2 `ai-01-live`, AC-4 `ai-03-live-rig`, AC-5 recorded with a real Claude Code session
+      ([docs/evidence/m-ai-mvp/](docs/evidence/m-ai-mvp/), `tooling/m-ai-ac5.mjs`). Open for the owner: accept AC-5,
+      merge `mai/int` into `dev`, the npm publish of `ekza-studio-mcp` (name check, `THIRD_PARTY_NOTICES.md`/README/
+      LICENSE in the package, M-AI-B1-14), the hosted origin question M-AI-INT-9. Then P3–P5, full P9 (phase C).
 - [x] **Layout presets for focused work** (owner request, 2026-10-20; right after M6a, inside its workspace/layout
       system): Animate (default) Alt+1; Blocking — one big viewport + time slider only, Alt+2; Polish — viewport over a
       large Graph Editor + time slider, Alt+3; Review — viewport full window + playback only, Alt+4; Maya-style
@@ -59,10 +65,10 @@ Focus is the modeling base (M6a) first. These tracks are fully specified and par
 
 The editor grew from an animator into a full 3D package (modeling, rigging, animation, AI agent), so it takes the
 name **Ekza Studio**. The publishing site that is called "Ekza Studio" today (`studio.ekza.io`, in `ekza-registry`)
-becomes **Ekza Hub**: create in Studio, publish in Hub. Record: [DECISIONS-OPEN §H](docs/DECISIONS-OPEN.md#h-naming-ekza-studio-and-ekza-hub-2026-10-19).
+becomes **Ekza Hub**: create in Studio, publish in Hub. Record: [DECISIONS-OPEN §N](docs/DECISIONS-OPEN.md#h-naming-ekza-studio-and-ekza-hub-2026-10-19).
 
 - [x] GitHub repository renamed `ekza-space/ekza-animator` → `ekza-space/ekza-studio` (the old URL redirects).
-- [x] Code rename (branch `chore/rename-studio`, 2026-10-22): package scope `@ekza-animator/*` → `@ekza-studio/*`,
+- [x] Code rename (branch `chore/rename-studio`, 2026-10-22): package scope `@ekza-studio/*` → `@ekza-studio/*`,
       root package `ekza-studio`, app title, About/welcome dialogs, console prefixes, glTF `asset.generator` and the
       `.ekzanim` manifest `app.name` (Ekza Studio), e2e hook `window.__EKZA_STUDIO_TEST__`, `STUDIO_STATIC_EXPORT` /
       `STUDIO_SOURCE_MAPS` (the `ANIMATOR_*` names still work), README/ARCHITECTURE/specs/ADRs (registry site → Ekza
@@ -71,8 +77,8 @@ becomes **Ekza Hub**: create in Studio, publish in Hub. Record: [DECISIONS-OPEN 
       the autosave IndexedDB database ([GLOSSARY](docs/GLOSSARY.md)). Research notes, wp-notes and DECISIONS-OPEN keep
       the old names as history. Full local gate green.
 - [x] Local folder `ekza-animator` → `ekza-studio` with `git worktree repair` (2026-10-22; `ekza/ekza-animator` stays as a symlink for old paths).
-- [ ] MCP server name (`ekza-animator-mcp` bin, server info, MCP-SPEC/ADR 0018 snippets) → Ekza Studio on the `mcp/*`
-      branches when they land (not on `dev` yet); those branches also take the scope and e2e-hook rename.
+- [x] MCP server name (`ekza-animator-mcp` bin, server info, MCP-SPEC/ADR 0018 snippets) → `ekza-studio-mcp`,
+      `ekza-studio` / `Ekza Studio`, with the scope rename, done by the M-AI port (`mai/port`, 2026-10-23).
 - [ ] Ekza Hub (separate task, production — deploy only with the owner's OK): Hub branding in `ekza-registry/web`,
       `hub.ekza.io` with `studio.ekza.io` redirecting (keep old links working), public docs in `doc`, links from
       Space and OMOBA, typed-asset docs.

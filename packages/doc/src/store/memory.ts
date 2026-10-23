@@ -49,9 +49,10 @@ import {
   validateAny,
 } from '../tables/registry';
 import { DEFAULT_UNDO_LIMIT, PatchUndoManager, type UndoWrite } from '../undo/patchUndo';
+import { RESTORE_HOST, type RestoreHost } from '../undo/restoreHost';
 import { compareStrings, deepEqual } from './diff';
 import { Journal, type JournalOriginal, NOT_SHOWN, type Savepoint } from './journal';
-import { ReferenceIndex } from './references';
+import { type PlannedWrites, ReferenceIndex } from './references';
 import {
   dropUndefined,
   type Entry,
@@ -270,6 +271,22 @@ export class MemoryDocumentStore implements DocumentStore {
   /** The partition a record would be assigned now (rig-scoped records resolve through this store's rigs). */
   partitionFor(table: string, record: Row): Partition {
     return partitionOfAny(table, record, this.lookup);
+  }
+
+  /**
+   * @internal MCP-SPEC §4.2 (`restoreHostOf`): the reads of the undo manager's host (stored records of any visibility,
+   * partitions, dependants), with a running transaction's writes visible.
+   */
+  restoreHost(): RestoreHost {
+    return {
+      current: (table, id) => this.storage.get(table, id)?.record,
+      isOpen: (table, id, record) =>
+        this.openSet.has(this.storage.get(table, id)?.partition ?? this.partitionFor(table, record as Row)),
+      dependantOf: (table, id, planned) =>
+        this.references.dependantOf(table, id, (t, i) => this.storage.get(t, i)?.record, planned as PlannedWrites),
+      tables: () => [...new Set<string>([...BUILTIN_TABLES, ...this.storage.tableNames()])],
+      ids: (table) => Array.from(this.storage.entries(table), ([id]) => id),
+    };
   }
 
   /**
@@ -1108,6 +1125,11 @@ export class StoreTx implements Tx {
   restore<T extends SoftDeletableTable>(table: T, id: IdOf<T>): void {
     this.assertActive('restore');
     this.store.txSoftDelete(this.context, table, id, false);
+  }
+
+  /** @internal MCP-SPEC §4.2: `restoreHostOf(tx)` reads through the store with this transaction's writes visible. */
+  [RESTORE_HOST](): RestoreHost {
+    return this.store.restoreHost();
   }
 
   annotate(meta: Partial<Pick<TxMeta, 'label' | 'selectionAfter'>>): void {

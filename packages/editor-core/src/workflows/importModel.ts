@@ -297,7 +297,17 @@ export async function prepareModelImport(app: EditorApp, input: ModelImportInput
 }
 
 /** Writes the import plan (one transaction) and activates the new character's first clip at its start. */
-export function applyModelImport(app: EditorApp, tx: Tx, plan: ModelImportPlan): ImportResult {
+/**
+ * Writes an imported character (rig, camera, clips). With `activate` (default true, the shipped behaviour) the new
+ * character and its first clip become active; `activate: false` (MCP-SPEC §4.10, agent imports) leaves the session's
+ * active character and clip alone.
+ */
+export function applyModelImport(
+  app: EditorApp,
+  tx: Tx,
+  plan: ModelImportPlan,
+  opts?: { readonly activate?: boolean },
+): ImportResult {
   const existing = tx.list('characters');
   const firstCharacter = existing.length === 0;
   if (tx.get('assets', plan.asset.id) === undefined) tx.put('assets', plan.asset);
@@ -370,7 +380,9 @@ export function applyModelImport(app: EditorApp, tx: Tx, plan: ModelImportPlan):
   }
 
   const first = clipIds[0] === undefined ? undefined : tx.get('clips', clipIds[0]);
-  if (first !== undefined) activateClip(app, tx, first, { clearSelection: true });
+  if (opts?.activate === false) {
+    // The session is left alone; the keeper repairs `activeClip` of the new character after the commit.
+  } else if (first !== undefined) activateClip(app, tx, first, { clearSelection: true });
   else app.session.setState({ activeCharacter: plan.characterId, selection: EMPTY_SELECTION });
   const name = tx.get('project', 'project')?.name;
   if (name !== undefined && name !== app.session.getState().projectName) app.session.setState({ projectName: name });

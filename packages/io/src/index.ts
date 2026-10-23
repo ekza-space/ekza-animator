@@ -4,10 +4,13 @@ export { clipFramesToSeconds } from './bake/meta';
 export { reduceBakedClip, trackLeverArms } from './bake/reduce';
 export { checkInputBudget } from './budget/check';
 export { parseGlb, sha256Hex } from './glb/parse';
+// M-AI (MCP-SPEC §4.4): the synchronous pure-TypeScript digest for the tool manifest hash.
+export { sha256HexSync } from './hash/sha256';
 export { detectModelFormat, readVrmLicense } from './gltf/format';
 export { importProvenance } from './gltf/provenance';
 export { lintExport } from './lint/lintExport';
-export { LINT_RULES, type LintRuleDef, ruleSeverity } from './lint/rules';
+export { LINT_RULES, type LintRuleDef } from './lint/rules';
+export { ruleSeverity } from './lint/severities';
 export { ANY_EXPORT_KIND, BUILTIN_EXPORT_PROFILES, profilesForKind } from './profiles/builtin';
 export { PROFILE_OMOBA_HANDHELD } from './profiles/handheld';
 export { readProjectArchive, writeProjectArchive, writeProjectJson } from './project/archive';

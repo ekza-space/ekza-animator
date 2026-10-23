@@ -5,7 +5,7 @@
 import { DEG2RAD, RAD2DEG } from '@ekza-studio/anim-core';
 import type { ControlId, CurveId, KeyId } from '@ekza-studio/doc';
 import { ensureCurve, registerBuiltinOperators } from '@ekza-studio/editor-core';
-import type { FakeEditorApp } from '@ekza-studio/editor-core/testing';
+import { type FakeEditorApp, loadOperatorBodies } from '@ekza-studio/editor-core/testing';
 import { act } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
@@ -71,6 +71,8 @@ async function mountBoth(app: FakeEditorApp, controls: readonly ControlId[]): Pr
 }
 
 async function settle(): Promise<void> {
+  // The operators' apply bodies are lazy chunks (M-AI B5): a first run awaits its chunk.
+  await loadOperatorBodies();
   await act(async () => {
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   });

@@ -107,7 +107,22 @@ test(`E2E-RIG-01: the MVP checklist on the Cube Lad`, async ({ page }) => {
   // ② D + W drag of the left knee in the side pane (a small z nudge, as AS-MVP-1 step 5: a front-pane x drag would tilt
   // the shin past the 5° T-pose tolerance and ⑥ would rightly block on `skel.tpose`).
   const knee = (await call(page, 'skeleton', character))?.joints.find((j) => j.humanBone === 'leftLowerLeg');
-  const at = await pointOf(page, () => call(page, 'screenOfJoint', knee?.id ?? '', RIG_SIDE_PANE), 'left knee');
+  // the side pane may still be framing the new skeleton: drag once the knee stays where it is on screen (under load)
+  const kneeOnScreen = () => call(page, 'screenOfJoint', knee?.id ?? '', RIG_SIDE_PANE);
+  let seen = JSON.stringify(await kneeOnScreen());
+  await expect
+    .poll(
+      async () => {
+        await page.waitForTimeout(300);
+        const now = JSON.stringify(await kneeOnScreen());
+        const same = now === seen;
+        seen = now;
+        return same;
+      },
+      { timeout: 10_000 },
+    )
+    .toBe(true);
+  const at = await pointOf(page, kneeOnScreen, 'left knee');
   await toolKey(page, 'KeyW', RIG_SIDE_PANE);
   await page.keyboard.down('KeyD');
   // 4 px (≈ 1 cm at Rig & Skin's tighter side framing): a 2 px drag sat on the drag threshold under load.

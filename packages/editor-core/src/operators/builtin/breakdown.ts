@@ -6,11 +6,13 @@ import type { KeyId, KeyRecord, ReadView } from '@ekza-studio/doc';
 import { isLocked, isTrsChannel } from '../../edit/channelMeta';
 import { currentClipFrame } from '../../edit/context';
 import { activeClipOf } from '../../evaluation/time';
-import { type EditorApp, GLOBAL_SCOPE } from '../../types';
+import { type EditorApp, GLOBAL_SCOPE, type OperatorContext } from '../../types';
 import { keyTargetControls } from '../../workflows/targets';
 import type { CountResult } from '../args';
-import { type AnyOperator, defineOperator, fail, isRecord, OK } from './define';
+import { type AnyOperator, defineOperator, fail, isActorRun, isRecord, OK } from './define';
 import { pollEditable } from './polls';
+import { actorScope } from '../scope';
+import { pollScopeTargets } from './scoped';
 
 /** Two keys this close (frames) share a frame (§4.11.1). */
 const SAME_FRAME = 1e-6;
@@ -48,6 +50,14 @@ export function convertTargets(app: EditorApp, view: ReadView = app.store): read
   return out;
 }
 
+/**
+ * MCP-SPEC §4.10 (P1): the keys a run converts. User runs: `convertTargets` (unchanged). Agent runs: the run scope's
+ * selected keys only — never the playhead, the key target or the user's selection.
+ */
+function runTargets(ctx: OperatorContext, view: ReadView = ctx.app.store): readonly KeyRecord[] {
+  return isActorRun(ctx) ? actorScope().convertTargets(ctx, view, editableKey) : convertTargets(ctx.app, view);
+}
+
 const keyConvert = defineOperator({
   id: 'key.convert',
   label: 'Convert Keys',
@@ -56,20 +66,23 @@ const keyConvert = defineOperator({
   scope: GLOBAL_SCOPE,
   flags: { undo: true },
   undoLabel: (args) => (args.to === 'breakdown' ? 'Convert to Breakdown' : 'Convert to Key'),
-  poll({ app }, raw) {
+  poll(ctx, raw) {
     if (!isRecord(raw) || (raw['to'] !== 'breakdown' && raw['to'] !== 'key')) {
       return fail("expects { to: 'breakdown' | 'key' }");
     }
-    const editable = pollEditable(app);
+    const editable = pollEditable(ctx.app);
     if (editable !== true) return editable;
-    return convertTargets(app).length > 0 ? OK : fail('No keys are selected or at the current frame');
+    const scoped = pollScopeTargets(ctx);
+    if (scoped !== true) return scoped;
+    return runTargets(ctx).length > 0 ? OK : fail('No keys are selected or at the current frame');
   },
-  apply({ app, tx }, args) {
+  apply(ctx, args) {
+    const { tx } = ctx;
     if (tx === null) throw new EkzaError('internal', 'key.convert runs in a transaction');
     const breakdown = args.to === 'breakdown';
     const seen = new Set<KeyId>();
     let count = 0;
-    for (const key of convertTargets(app, tx)) {
+    for (const key of runTargets(ctx, tx)) {
       if (seen.has(key.id)) continue;
       seen.add(key.id);
       if ((key.breakdown === true) === breakdown) continue;

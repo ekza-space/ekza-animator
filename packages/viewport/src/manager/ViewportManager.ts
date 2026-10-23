@@ -209,6 +209,30 @@ interface WheelBurst extends ShotNav {
 
 /** A shot-camera wheel burst ends after this idle time (ms) and commits once (MVP-SPEC §4.11.16). */
 export const WHEEL_BURST_MS = 120;
+
+/** M-AI (MCP-SPEC §4.3): an overlay drawn into every pane after the control pass (P8's presence outline). */
+export interface AgentOverlayPass {
+  readonly id: string;
+  draw(target: { readonly camera: Camera; readonly scene: Scene }): void;
+}
+/**
+ * M-AI (MCP-SPEC §4.3): what capture (P5) and the presence outline (P8) need; never changes a pane, a pane camera,
+ * the session or the playhead.
+ */
+export interface ViewportAgentHost {
+  readonly renderer: WebGLRenderer; // the shared renderer (three.js types never leave viewport)
+  readonly scene: Scene;
+  /**
+   * The pane the user last interacted with (keyboard focus inside a pane, else the last pointer press or wheel), else
+   * the hovered one, else null.
+   */
+  activePaneId(): string | null;
+  paneCamera(paneId: string): CameraSnapshot; // world space, a copy
+  /** Poses `character` from evaluated bone worlds for the duration of `draw`, then restores the current pose. */
+  withPose<T>(character: CharacterId, boneWorld: Float64Array, draw: () => T): T;
+  /** Overlay layer hook (also used by P8's presence outline, §7.6); returns a disposer. */
+  addOverlayPass(pass: AgentOverlayPass): Disposer;
+}
 const SHOT_LABEL = 'Move Shot Camera';
 
 export class ViewportManager {
@@ -291,6 +315,8 @@ export class ViewportManager {
   /** Untouched view cameras should be (re)framed at the next frame preparation. */
   private autoFrame = true;
   private readonly projector = new PaneProjector();
+  /** M-AI (MCP-SPEC §4.3, §7.6): overlay passes of the agent host, drawn after the control pass. */
+  private readonly overlayPasses = new Set<AgentOverlayPass>();
   private readonly onKeyDown = (e: KeyboardEvent): void => {
     if (e.code === 'Escape') this.cancelInteraction();
   };
@@ -962,6 +988,40 @@ export class ViewportManager {
     return snapshotOf(this.resolve(pane).nav);
   }
 
+  /**
+   * M-AI (MCP-SPEC §4.3): the agent host — the shared renderer and scene, the user's active pane and its camera, a
+   * temporary pose for one draw and overlay passes. Reading it changes nothing the user sees. Async: the pose code is a
+   * lazy chunk (§0.4).
+   */
+  async agentHost(): Promise<ViewportAgentHost> {
+    const { withAgentPose } = await import('./agentPose');
+    return {
+      renderer: this.renderer,
+      scene: this.scene,
+      // Keyboard focus inside a pane (its menu, a focused pane element) is the user's current interaction; else the
+      // pane of the last pointer press or wheel; else the hovered pane; else null (MAI-D0-15).
+      activePaneId: () => {
+        const focus = typeof document === 'undefined' ? null : document.activeElement;
+        if (focus !== null && focus !== document.body) {
+          for (const [id, pane] of this.panes) if (pane.element.contains(focus)) return id;
+        }
+        if (this.lastPointerPane !== null && this.panes.has(this.lastPointerPane)) return this.lastPointerPane;
+        const hovered = this.pointerAt?.paneId ?? null;
+        return hovered !== null && this.panes.has(hovered) ? hovered : null;
+      },
+      paneCamera: (paneId) => this.camera(paneId),
+      withPose: (character, boneWorld, draw) =>
+        withAgentPose(this.scene, this.sync.model(character), this.app.characters.get(character), boneWorld, draw),
+      addOverlayPass: (pass) => {
+        this.overlayPasses.add(pass);
+        this.invalidate();
+        return () => {
+          if (this.overlayPasses.delete(pass)) this.invalidate();
+        };
+      },
+    };
+  }
+
   setNavProfile(profile: NavProfile): void {
     this.profile = profile;
   }
@@ -1216,6 +1276,8 @@ export class ViewportManager {
       camera.layers.set(LAYER.helpers);
       renderer.render(planes.scene, camera);
     }
+    // M-AI (MCP-SPEC §7.6): agent overlay passes after the control pass, before the manipulator.
+    for (const pass of this.overlayPasses) pass.draw({ camera, scene: this.scene });
     renderer.clearDepth();
     if (this.kitIn(pane)) {
       this.projector.set(camera, viewport.width, viewport.height, camera.near);

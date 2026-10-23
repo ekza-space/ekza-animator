@@ -51,7 +51,7 @@ often also has a shell, and names and metadata in imported files are untrusted t
    (`edit.revertSteps`, compare-before-restore per merge unit through a pure `planRestore`) undoes older AI steps
    without destroying later user edits, and a snapshot taken before the agent's first edit restores the whole
    project in one undoable step.
-3. **Transports.** The `ekza-animator-mcp` bin speaks stdio to the client for both protocol eras through SDK v2's
+3. **Transports.** The `ekza-studio-mcp` bin speaks stdio to the client for both protocol eras through SDK v2's
    `serveStdio` and a low-level `Server` with our own handlers (our validation, our manifest order), optionally
    Streamable HTTP bound to `127.0.0.1` with a bearer token. The **live leg** is a WebSocket that the editor tab opens
    to the server on a loopback port (47821–47830); the **headless leg** runs `createHeadlessEditorApp` in the server

@@ -5,7 +5,7 @@
 import type { StoreApi } from 'zustand/vanilla';
 import type { AnimCurve, CompiledAnimCurve, Disposer, Frame, Handle, ParamDef, ParamValues, Quat, TangentType,
   Vec3 } from '@ekza-studio/anim-core';
-import type { AssetId, AssetRecord, CameraId, ChangeBatch, ChannelId, ChannelValues, CharacterId, ClipId, ConstraintId,
+import type { AnyChange, AssetId, AssetRecord, CameraId, ChangeBatch, ChannelId, ChannelValues, CharacterId, ClipId, ConstraintId,
   ControlId, CurveId, DocumentStore, GroupId, JointId, KeyId, MeshId, MeshRef, SkeletonId, Tx, UndoResult,
   UserId } from '@ekza-studio/doc';
 import type { ComponentKind, ComponentSelection, DirtySet, EditMesh, ElementRemap, FalloffCurve, HiddenSet, MeshData,
@@ -17,6 +17,7 @@ import type { ExportArtifact, ExportKind, ExportProfileDef, ExportReduceSpec, Ex
 import type { ChannelBuffer, ClipSampler, FootPin, LimbId, PoseBuffers, PoseClipboard, QuickRigMarker, QuickRigMarkers,
   RigProgram, SkeletonDesc, SkeletonPreset, TemplateJoint } from '@ekza-studio/rig';
 import type { OperatorMap } from './operators/args';
+import type { SampleDef } from './workflows/samples';
 
 // ---------- panels and scopes ----------
 /** Open string; built-in ids below. Extensions use namespaced ids ('acme.notes'). */
@@ -296,17 +297,66 @@ export type PrefsStore = StoreApi<Prefs>;
 export type OperatorId = `${string}.${string}`;
 export type OperatorCategory = string;                            // 'file' | 'edit' | 'select' | 'key' | 'channel' | 'pose' | 'time' | 'graph' | 'clip' | 'view' | 'rig' | 'ui' | …
 export type PollResult = true | { readonly ok: false; readonly reason: string };
-export interface RunContext { readonly panel?: PanelKind; readonly paneId?: string; readonly source?: RunSource;   // M6a, changed (additive)
+
+// ---------- run context (MCP-SPEC §4.1, changed, additive) ----------
+// `RunSource` is M6A-SPEC §4.6's declaration (below, one declaration after both merged); agent runs pass 'api'.
+/** Who runs an operator when it is not the local user (§5.6). `id` is stable for one pairing or one server process. */
+export interface RunActor {
+  readonly kind: 'agent';
+  readonly id: string;                         // 'agt_' + 12 base62 characters
+  readonly name: string;                       // client name as reported ('Claude Code'), ≤ 40 characters, sanitised
+}
+/** Targets of an actor run in place of the user's session (§5.7). Parts left out are empty, never the user's.
+ *  Named `runScope` on the contexts so it is never confused with `OperatorDef.scope` (the keymap scope). */
+export interface RunScope {
+  readonly character?: CharacterId;            // default: the operator's explicit args, else session.activeCharacter
+  readonly clip?: ClipId;                      // default: that character's active clip
+  readonly selection?: {
+    readonly controls?: readonly ControlId[];                       // lead = last
+    readonly keys?: ReadonlyMap<KeyId, KeyPartSelection>;
+    readonly channels?: readonly ChannelRef[];
+  };
+}
+export interface RunContext {
+  readonly panel?: PanelKind;
+  readonly paneId?: string;
+  readonly source?: RunSource;                 // M6a; M-AI agent runs: 'api'
   /** M6a (B0a addition, docs/wp-notes/m6a-contracts-foundation.md): the run comes from an auto-repeated keydown
    *  (`KeyboardEvent.repeat`); selection operators coalesce such runs (§5.6). */
-  readonly repeat?: boolean }
-export interface OperatorContext {
-  readonly app: EditorApp;
+  readonly repeat?: boolean;
+  readonly actor?: RunActor;                   // M-AI
+  readonly signal?: AbortSignal;               // M-AI: checked before poll, after prepare, before apply
+  readonly runScope?: RunScope;                // M-AI: only meaningful with `actor`
+  /** M-AI: the agent access class the tool layer resolved for this run (policy table or `OperatorDef.agent`);
+   *  'view' exempts the run from the session-state invariant (runner rule 6). Ignored without `actor`. */
+  readonly access?: AgentAccess;
+}
+export interface OperatorContext {             // changed (additive: the new fields are optional, so shipped test
+  readonly app: EditorApp;                     // literals `{app, panel: null, paneId: null}` still compile)
   readonly panel: PanelKind | null;
   readonly paneId: string | null;
-  /** M6a (B0a addition): the run context's source and repeat flag, for LastRun recording and selection coalescing. */
+  /** M6a (B0a addition): the run context's source and repeat flag, for LastRun recording and selection coalescing.
+   *  Left out when the run context has none (M6a code tests `source === undefined`). */
   readonly source?: RunSource;
   readonly repeat?: boolean;
+  // M-AI: the runner always sets the four fields below (null when absent).
+  readonly actor?: RunActor | null;
+  readonly runScope?: RunScope | null;         // null for non-actor runs
+  readonly signal?: AbortSignal | null;        // also handed to `prepare` (long bakes and parses stop early)
+  readonly access?: AgentAccess | null;        // the access the tool layer resolved (runner rule 6)
+}
+
+// ---------- agent classification of operators (MCP-SPEC §4.1, changed, additive) ----------
+export type AgentAccess = 'edit' | 'view' | 'files';
+export interface OperatorAgentPolicy {
+  readonly policy: 'allowed' | 'confirm' | 'denied';
+  readonly access?: AgentAccess;               // required unless denied
+  /** The operator reads its targets through `selectionOf(ctx)`/`scopedClipOf(ctx)`, so `operator_run {context}` works. */
+  readonly runScope?: boolean;
+  readonly reason?: string;                    // denied/confirm: shown to the agent (sanitised, §5.3)
+  /** 'allowed' operators that need a confirmation for some arguments (`channel.toggleLock {locked: false}`,
+   *  `clip.setSettings` changing fps): returns the confirm detail, or null when the call is allowed as is. */
+  readonly confirmWhen?: (app: EditorApp, args: unknown) => string | null;
 }
 export interface ApplyContext extends OperatorContext {
   /** The operator's single transaction (flags.undo) or null. Calling app.run inside apply throws EkzaError('nested-run'). */
@@ -348,6 +398,8 @@ export interface OperatorDef<A = void, R = void, P = void> {
   poll?(ctx: OperatorContext, args: A): PollResult;
   prepare?(ctx: OperatorContext, args: A): Promise<P> | P;
   apply(ctx: ApplyContext, args: A, prepared: P): R;
+  /** M-AI: how agents may call it. Absent: the built-in policy table (agent-tools) decides; unknown → denied. */
+  readonly agent?: OperatorAgentPolicy;
 }
 export type OperatorResult<R = unknown> =
   | { readonly status: 'finished'; readonly value: R }
@@ -559,6 +611,10 @@ export interface EditorServices {
   readonly kernelDebug?: boolean;
   /** M6b (§0.5, §0.4.7), changed (additive): base URL of the clip library, default '/library/'. */
   readonly libraryPath?: string;
+  /** M-AI: bytes of a bundled sample; when present `file.loadSample` uses it instead of fetch (Node hosts). */
+  readonly readSample?: ((sample: SampleDef) => Promise<Uint8Array>) | null;
+  /** M-AI: still and contact-sheet capture (live: WebGL + schematic fallback; headless: schematic). */
+  readonly viewCapture?: ViewCaptureService | null;
 }
 
 /** M2a: content-addressed autosave slots (IndexedDB in the browser; null in Node). */
@@ -661,6 +717,10 @@ export interface HistoryStep {
   readonly at: number;                                            // ms (coalescing window)
   readonly selection?: SelectionPart | null;                      // M6a, changed (additive)
   readonly testPose?: TestPosePart | null;                        // M6b, changed (additive)
+  readonly actor?: RunActor | null;            // M-AI: set for agent runs
+  /** M-AI: the document changes of an actor step (for edit.revertSteps); dropped oldest-first above the journal cap
+   *  (runner rule 3) and always together with the step's doc entry (M6a `evictOldest`/`dropOldest`, §3 rule 11). */
+  readonly changes?: readonly AnyChange[] | null;
 }
 export interface HistoryResult {
   readonly label: string;
@@ -700,6 +760,88 @@ export interface EditorHistory {
   /** Removes every test-pose part (of one character, or all) from the undo and redo stacks; steps left empty are
    *  removed, as `dropOverrides` does, so the history stays linear. Run when leaving Rig & Skin (§5.17). */
   dropTestPoses(character?: CharacterId): void;
+  /** M-AI: the steps of both stacks, oldest first (read-only snapshots; ids are stable). */
+  entries(): { readonly undo: readonly HistoryStep[]; readonly redo: readonly HistoryStep[] };
+}
+
+// ---------- presence (MCP-SPEC §4.1, new) ----------
+export interface PresenceFocus {
+  readonly character: CharacterId | null;
+  readonly clip: ClipId | null;
+  readonly controls: readonly ControlId[];     // ≤ 64; drawn only when `clip` is the character's active clip
+  readonly frame: Frame | null;                // clip frame of `clip`
+}
+export interface PresencePeer {
+  readonly id: string;                         // RunActor.id for agents
+  readonly kind: 'agent' | 'user';             // 'user' is filled by M3 collaboration
+  readonly name: string;
+  readonly color: string;                      // CSS custom property name, e.g. '--presence-agent'
+  readonly focus: PresenceFocus | null;
+  readonly activity: string | null;            // 'Set pose (3 controls) @ f12', 'waiting for your drag', null = idle
+  readonly since: number;                      // ms timestamp of the last change
+}
+export interface PresenceRegistry {
+  readonly version: number;
+  list(): readonly PresencePeer[];
+  get(id: string): PresencePeer | undefined;
+  upsert(peer: Omit<PresencePeer, 'since'>): void;
+  remove(id: string): void;
+  subscribe(listener: () => void): Disposer;
+}
+
+// ---------- view capture service (MCP-SPEC §4.1, new; implemented by hosts, §5.15) ----------
+/** `left`/`right`: the camera on that side of the character (the character's left = +X), looking at it.
+ *  `user`: a read-only snapshot of the user's active (else hovered) pane camera — live only. */
+export type CaptureView = 'front' | 'back' | 'left' | 'right' | 'top' | 'three_quarter_left' | 'three_quarter_right'
+  | 'shot' | 'follow' | 'user';
+/** Character space (§5.2): +Y up, +Z forward, +X the character's left, metres. */
+export interface CaptureCamera {
+  readonly projection: 'perspective' | 'orthographic';
+  readonly position: Vec3;
+  readonly target: Vec3;
+  readonly up: Vec3;
+  readonly fovYDeg: number;                    // perspective
+  readonly orthoHeightM: number;               // orthographic: visible height
+}
+export interface CaptureTile {
+  readonly frame: Frame;                       // clip frame
+  readonly view: CaptureView;
+  readonly camera: CaptureCamera | null;       // null only for 'user': the live service reads the pane camera
+  readonly label: string;                      // burned in: 'f12 left'
+}
+export interface CaptureOverlays {
+  readonly grid: boolean;                      // floor grid, 10 cm
+  readonly controls: boolean;                  // control shapes (shaded only; schematic draws joints always)
+  readonly contacts: readonly { readonly frame: Frame; readonly positionM: Vec3 }[];   // marks drawn on tiles of that frame
+  /** Bone paths over `frames` with a tick per frame and a dot at each tile's frame (≤ 4 bones, ≤ 600 points each). */
+  readonly trails: readonly { readonly bone: string; readonly pointsM: readonly Vec3[]; readonly frames: readonly Frame[] }[];
+}
+export interface ViewCaptureRequest {
+  readonly character: CharacterId;
+  readonly clip: ClipId;
+  readonly tiles: readonly CaptureTile[];      // 1…16 × views, in sheet order (row-major)
+  readonly tilePx: { readonly w: number; readonly h: number };
+  readonly columns: number;
+  readonly overlays: CaptureOverlays;
+  readonly fidelity: 'shaded' | 'schematic';
+  readonly format: 'png' | 'webp';             // webp only for 'shaded'
+  /** Pose with the user's unkeyed overrides; only for the user's current frame of the active clip (§6.8). */
+  readonly withOverrides: boolean;
+  readonly signal?: AbortSignal;
+}
+export interface ViewCaptureResult {
+  readonly bytes: Uint8Array;
+  readonly mime: 'image/png' | 'image/webp';
+  readonly width: number;
+  readonly height: number;
+  readonly fidelity: 'shaded' | 'schematic';   // 'schematic' after a shaded failure: see fallbackReason
+  readonly tiles: readonly { readonly frame: Frame; readonly view: CaptureView; readonly camera: CaptureCamera;
+    readonly rect: readonly [number, number, number, number] }[];
+  readonly fallbackReason: string | null;      // 'WebGL context lost', 'tab hidden', …
+}
+export interface ViewCaptureService {
+  readonly fidelities: readonly ('shaded' | 'schematic')[];
+  capture(req: ViewCaptureRequest): Promise<ViewCaptureResult>;
 }
 
 // ---------- edit kernel (shared by operators, tools and panels; §4.11.0) ----------
@@ -768,6 +910,7 @@ export interface EditorApp {
     load(): Promise<void>; readonly loaded: boolean };
   /** Loads the clip-library chunk (§0.4.7). */
   readonly library: { readonly service: ClipLibraryService; load(): Promise<void>; readonly loaded: boolean };
+  readonly presence: PresenceRegistry;         // M-AI
   /** Typed operator call; `args` may be omitted for operators whose args type includes `void`. */
   run<K extends keyof OperatorMap>(id: K, ...rest: OperatorRunArgs<K>): Promise<OperatorResult<OperatorReturn<K>>>;
   /** Untyped call for keymaps, menus, plugins and the test API. */

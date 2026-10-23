@@ -66,6 +66,7 @@ export const BUILTIN_OPERATORS: readonly AnyOperator[] = [
   ...LASTOP_OPERATORS,
   ...KEYMAP_SHADOW_OPERATORS,
   ...MODEL_OPERATOR_PROXIES.content,
+  // M-AI: the explicit-target operators register lazily (`agentChunk.ts`, MCP-SPEC §0.4).
 ];
 
 function disposeAll(disposers: Disposer[]): Disposer {

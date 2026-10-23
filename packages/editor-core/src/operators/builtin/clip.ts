@@ -1,36 +1,25 @@
 // Clip operators (MVP-SPEC §4.9 `clip.*`): several named clips per character. New clips and duplicates get their
 // IDs in `prepare`, where their partition (`clip:<id>`) is opened before the transaction writes into it (§4.11.21).
+// MCP-SPEC §4.10 (P1): `clip.new {loop, activate}`, `clip.duplicate {name, activate}` (`activate: false` leaves the
+// session alone; default true, the shipped behaviour), and `clip.delete` under an agent run never writes the session
+// (the session keeper re-points a deleted active clip after the commit).
 import { EkzaError, type Frame } from '@ekza-studio/anim-core';
-import type {
-  CharacterId,
-  ClipId,
-  ClipProvenance,
-  ClipRecord,
-  CurveId,
-  DerivedFrom,
-  LayerId,
-  Redistributable,
-  RootMotionMode,
-  Tx,
-} from '@ekza-studio/doc';
+import type { CharacterId, ClipId, ClipRecord, Redistributable, RootMotionMode } from '@ekza-studio/doc';
 import { newRecordId } from '../../app/internals';
 import { type EditorApp, GLOBAL_SCOPE, type Selection } from '../../types';
-import { planEmptyClip, writeClipPlan } from '../../workflows/clipWrite';
 import { clipNameTaken } from '../../workflows/importChecks';
-import {
-  CLIP_NAME_MAX,
-  clipNameProblem,
-  numberedName,
-  slotProblem,
-  tagsProblem,
-  uniqueName,
-} from '../../workflows/names';
-import { DEFAULT_CLIP_RANGE, orderAfter, orderBetween } from '../../workflows/records';
-import { activateClip, clipFrameOfScene, EMPTY_SELECTION, sceneFpsIn, sceneFrameOf } from '../../workflows/session';
+import { clipNameProblem, slotProblem, tagsProblem } from '../../workflows/names';
+import { clipFrameOfScene, EMPTY_SELECTION, sceneFpsIn, sceneFrameOf } from '../../workflows/session';
 import { derivedFromProblem, fpsValue, sameFps } from '../../workflows/util';
 import type { ClipSettingsArgs } from '../args';
 import { type AnyOperator, all, defineOperator, fail, isFiniteNumber, isRecord, OK, optionalArgs } from './define';
+import { lazyBodies } from './lazyBodies';
 import { pollEditable } from './polls';
+
+/** The apply bodies of clip.new, clip.duplicate, clip.delete and clip.setSettings (`lazyBodies`, M-AI B5): their
+ *  `prepare` (already asynchronous: it opens the clip partitions) loads them. */
+const clipBodies = lazyBodies(() => import('./clipBodies'));
+type ClipBodies = Awaited<ReturnType<typeof clipBodies>>;
 
 const REDISTRIBUTABLE: readonly Redistributable[] = ['yes', 'no', 'unknown'];
 const ROOT_MOTION: readonly RootMotionMode[] = ['hips', 'in-place'];
@@ -61,13 +50,9 @@ function pollClipArg(app: EditorApp, args: unknown) {
   return clipOf(app, args) === null ? fail('The clip does not exist') : OK;
 }
 
-function siblingsOf(tx: Tx, character: CharacterId): readonly ClipRecord[] {
-  return tx.query.clipsOfCharacter(character);
-}
-
 // ---------- new ----------
 
-const clipNew = defineOperator<'clip.new', { readonly id: ClipId }>({
+const clipNew = defineOperator<'clip.new', { readonly id: ClipId; readonly bodies: ClipBodies }>({
   id: 'clip.new',
   label: 'New Clip',
   description: 'Add an empty clip to the character and make it active.',
@@ -96,36 +81,18 @@ const clipNew = defineOperator<'clip.new', { readonly id: ClipId }>({
       const problem = rangeProblem(options['range']);
       if (problem !== null) return fail(problem);
     }
+    if (options['loop'] !== undefined && typeof options['loop'] !== 'boolean') return fail('loop must be a boolean');
+    if (options['activate'] !== undefined && typeof options['activate'] !== 'boolean') {
+      return fail('activate must be a boolean');
+    }
     return pollEditable(app);
   },
   async prepare({ app }) {
     const id = newRecordId(app, 'clip');
     await app.store.open(`clip:${id}`);
-    return { id };
+    return { id, bodies: await clipBodies() };
   },
-  apply({ app, tx }, args, prepared) {
-    if (tx === null) throw new EkzaError('internal', 'clip.new runs in a transaction');
-    const options = args ?? {};
-    const character = options.character ?? app.session.getState().activeCharacter;
-    if (character === null) throw new EkzaError('unsupported', 'Load a character first');
-    const siblings = siblingsOf(tx, character);
-    const plan = planEmptyClip(app, {
-      id: prepared.id,
-      character,
-      name:
-        options.name ??
-        numberedName(
-          'clip',
-          siblings.map((clip) => clip.name),
-        ),
-      fps: options.fps ?? sceneFpsIn(tx),
-      range: options.range ?? DEFAULT_CLIP_RANGE,
-    });
-    writeClipPlan(tx, plan, { name: plan.clip.name, order: orderAfter(siblings.map((clip) => clip.order)) });
-    const written = tx.get('clips', prepared.id);
-    if (written !== undefined) activateClip(app, tx, written);
-    return { clip: prepared.id };
-  },
+  apply: (ctx, args, prepared) => prepared.bodies.clipNew(ctx, args, prepared),
 });
 
 // ---------- rename ----------
@@ -157,17 +124,7 @@ const clipRename = defineOperator({
 
 // ---------- duplicate ----------
 
-/** `<name> copy`, kept within the name limit and unique among the character's clips. */
-function copyName(name: string, siblings: readonly ClipRecord[]): string {
-  const suffix = ' copy';
-  const base = `${name.slice(0, CLIP_NAME_MAX - suffix.length).trimEnd()}${suffix}`;
-  return uniqueName(
-    base,
-    siblings.map((clip) => clip.name),
-  );
-}
-
-const clipDuplicate = defineOperator<'clip.duplicate', { readonly id: ClipId }>({
+const clipDuplicate = defineOperator<'clip.duplicate', { readonly id: ClipId; readonly bodies: ClipBodies }>({
   id: 'clip.duplicate',
   label: 'Duplicate Clip',
   description: 'Copy a clip with its layers, curves, keys and provenance.',
@@ -175,54 +132,33 @@ const clipDuplicate = defineOperator<'clip.duplicate', { readonly id: ClipId }>(
   scope: GLOBAL_SCOPE,
   flags: { undo: true, internal: true },
   undoLabel: () => 'Duplicate Clip',
-  poll: ({ app }, args) => all(pollClipArg(app, args), pollEditable(app)),
+  poll({ app }, args) {
+    const base = all(pollClipArg(app, args), pollEditable(app));
+    if (base !== true) return base;
+    const options = args as { readonly name?: unknown; readonly activate?: unknown };
+    if (options.name !== undefined) {
+      const problem = clipNameProblem(options.name);
+      if (problem !== null) return fail(problem);
+      const source = clipOf(app, args) as ClipRecord;
+      if (clipNameTaken(app.store, source.character, options.name as string))
+        return fail('A clip with that name exists');
+    }
+    if (options.activate !== undefined && typeof options.activate !== 'boolean')
+      return fail('activate must be a boolean');
+    return OK;
+  },
   async prepare({ app }, args) {
     await app.store.open(`clip:${args.clip}`);
     const id = newRecordId(app, 'clip');
     await app.store.open(`clip:${id}`);
-    return { id };
+    return { id, bodies: await clipBodies() };
   },
-  apply({ app, tx }, args, prepared) {
-    if (tx === null) throw new EkzaError('internal', 'clip.duplicate runs in a transaction');
-    const source = tx.get('clips', args.clip);
-    if (source === undefined) throw new EkzaError('invalid-record', `Clip ${args.clip} does not exist`);
-    const siblings = siblingsOf(tx, source.character);
-    tx.put('clips', {
-      ...source,
-      id: prepared.id,
-      name: copyName(source.name, siblings),
-      order: orderBetween(
-        source.order,
-        siblings.map((clip) => clip.order),
-      ),
-      deleted: null,
-    });
-    const layers = new Map<LayerId, LayerId>();
-    for (const layer of tx.query.layersOfClip(source.id)) {
-      const id = newRecordId(app, 'layer');
-      layers.set(layer.id, id);
-      tx.put('layers', { ...layer, id, clip: prepared.id });
-    }
-    const curves = new Map<CurveId, CurveId>();
-    for (const curve of tx.query.curvesOfClip(source.id)) {
-      const layer = layers.get(curve.layer);
-      if (layer === undefined) continue;
-      const id = newRecordId(app, 'curve');
-      curves.set(curve.id, id);
-      tx.put('curves', { ...curve, id, clip: prepared.id, layer });
-    }
-    for (const [from, to] of curves) {
-      for (const key of tx.query.keysOfCurve(from)) {
-        tx.put('keys', { ...key, id: newRecordId(app, 'key'), clip: prepared.id, curve: to });
-      }
-    }
-    return { clip: prepared.id };
-  },
+  apply: (ctx, args, prepared) => prepared.bodies.clipDuplicate(ctx, args, prepared),
 });
 
 // ---------- delete ----------
 
-const clipDelete = defineOperator<'clip.delete', { readonly replacement: ClipId | null }>({
+const clipDelete = defineOperator<'clip.delete', { readonly replacement: ClipId | null; readonly bodies: ClipBodies }>({
   id: 'clip.delete',
   label: 'Delete Clip',
   description: 'Delete a clip (undoable); another clip becomes active, or a new empty one is created.',
@@ -233,60 +169,25 @@ const clipDelete = defineOperator<'clip.delete', { readonly replacement: ClipId 
   poll: ({ app }, args) => all(pollClipArg(app, args), pollEditable(app)),
   async prepare({ app }, args) {
     const clip = app.store.get('clips', args.clip);
-    if (clip === undefined) return { replacement: null };
+    if (clip === undefined) return { replacement: null, bodies: await clipBodies() };
     const others = app.store.query.clipsOfCharacter(clip.character).filter((c) => c.id !== clip.id);
-    if (others.length > 0) return { replacement: null };
+    if (others.length > 0) return { replacement: null, bodies: await clipBodies() };
     const id = newRecordId(app, 'clip');
     await app.store.open(`clip:${id}`);
-    return { replacement: id };
+    return { replacement: id, bodies: await clipBodies() };
   },
-  apply({ app, tx }, args, prepared) {
-    if (tx === null) throw new EkzaError('internal', 'clip.delete runs in a transaction');
-    const clip = tx.get('clips', args.clip);
-    if (clip === undefined) return;
-    const siblings = siblingsOf(tx, clip.character);
-    const index = siblings.findIndex((c) => c.id === clip.id);
-    tx.softDelete('clips', clip.id);
-    let next: ClipRecord | undefined = siblings[index + 1] ?? siblings[index - 1];
-    if (next === undefined || next.id === clip.id) {
-      const id = prepared.replacement ?? newRecordId(app, 'clip');
-      const plan = planEmptyClip(app, {
-        id,
-        character: clip.character,
-        name: numberedName('clip', []),
-        fps: sceneFpsIn(tx),
-        range: DEFAULT_CLIP_RANGE,
-      });
-      writeClipPlan(tx, plan, { name: plan.clip.name, order: orderAfter([clip.order]) });
-      next = tx.get('clips', id);
-    }
-    const state = app.session.getState();
-    if (next !== undefined && state.activeClip[clip.character] === clip.id) {
-      const activeClip = { ...state.activeClip, [clip.character]: next.id };
-      // The timeline and Graph Editor show the active character's clip: keep the frame inside the new clip's range
-      // and drop the key selection (keys of the deleted clip). Another character's switch changes nothing on screen.
-      app.session.setState(
-        clip.character === state.activeCharacter
-          ? {
-              activeClip,
-              time: { ...state.time, sceneFrame: clampedSceneFrame(app, next), band: null },
-              selection: withoutKeys(state.selection),
-            }
-          : { activeClip },
-      );
-    }
-  },
+  apply: (ctx, args, prepared) => prepared.bodies.clipDelete(ctx, args, prepared),
 });
 
 // ---------- set active ----------
 
 /** The selection without keys (they belong to the curves of the previously active clip). */
-function withoutKeys(selection: Selection): Selection {
+export function withoutKeys(selection: Selection): Selection {
   return selection.keys.size === 0 ? selection : { ...selection, keys: new Map() };
 }
 
 /** Scene frame that shows `clip` inside its range: the current one when it does, else the nearest range end. */
-function clampedSceneFrame(app: EditorApp, clip: ClipRecord): Frame {
+export function clampedSceneFrame(app: EditorApp, clip: ClipRecord): Frame {
   const fps = sceneFpsIn(app.store);
   const sceneFrame = app.session.getState().time.sceneFrame;
   const frame = clipFrameOfScene(app, fps, clip, sceneFrame);
@@ -339,7 +240,7 @@ function derivedFromListProblem(value: unknown): string | null {
 }
 
 /** The keep-seconds rescale ratio of a frame-rate change (null: no rescale). */
-function rescaleRatio(clip: ClipRecord, args: Pick<ClipSettingsArgs, 'fps' | 'fpsMode'>): number | null {
+export function rescaleRatio(clip: ClipRecord, args: Pick<ClipSettingsArgs, 'fps' | 'fpsMode'>): number | null {
   if (args.fps === undefined || sameFps(args.fps, clip.fps) || (args.fpsMode ?? 'keep-seconds') !== 'keep-seconds') {
     return null;
   }
@@ -347,7 +248,7 @@ function rescaleRatio(clip: ClipRecord, args: Pick<ClipSettingsArgs, 'fps' | 'fp
 }
 
 /** The clip range after the settings: the given range, else the current one rescaled by a keep-seconds fps change. */
-function finalRange(
+export function finalRange(
   clip: ClipRecord,
   args: Pick<ClipSettingsArgs, 'fps' | 'fpsMode' | 'range'>,
 ): { readonly start: Frame; readonly end: Frame } {
@@ -404,25 +305,7 @@ export function settingsProblem(clip: ClipRecord, args: Readonly<Record<string, 
   return null;
 }
 
-/**
- * Rescales every key of a clip by `ratio` (times and handle `dt`, so slopes per second are kept): the keys of each
- * canonical curve, duplicates' keys included (`keysOfCurve` unions them, `hiddenKeys` has the time collisions).
- */
-function rescaleKeys(tx: Tx, clip: ClipId, ratio: number): void {
-  const keys = tx.query
-    .curvesOfClip(clip)
-    .flatMap((curve) => [...tx.query.keysOfCurve(curve.id), ...tx.query.hiddenKeys(curve.id)]);
-  for (const key of keys) {
-    tx.put('keys', {
-      ...key,
-      t: key.t * ratio,
-      inHandle: { dt: key.inHandle.dt * ratio, dv: key.inHandle.dv },
-      outHandle: { dt: key.outHandle.dt * ratio, dv: key.outHandle.dv },
-    });
-  }
-}
-
-const clipSetSettings = defineOperator({
+const clipSetSettings = defineOperator<'clip.setSettings', ClipBodies>({
   id: 'clip.setSettings',
   label: 'Clip Settings',
   description: 'Frame rate, range, scene start, loop, root motion, Ekza slot, contact frame, tags and provenance.',
@@ -442,40 +325,9 @@ const clipSetSettings = defineOperator({
   async prepare({ app }, args) {
     // A frame-rate change rescales the clip's keys: they must be loaded.
     await app.store.open(`clip:${args.clip}`);
+    return clipBodies();
   },
-  apply({ tx }, args: ClipSettingsArgs) {
-    if (tx === null) throw new EkzaError('internal', 'clip.setSettings runs in a transaction');
-    const clip = tx.get('clips', args.clip);
-    if (clip === undefined) throw new EkzaError('invalid-record', `Clip ${args.clip} does not exist`);
-    const patch: { -readonly [K in keyof ClipRecord]?: ClipRecord[K] } = {};
-    const range = finalRange(clip, args);
-    let contact = clip.contact;
-    if (args.fps !== undefined && !sameFps(args.fps, clip.fps)) {
-      patch.fps = args.fps;
-      const ratio = rescaleRatio(clip, args);
-      if (ratio !== null) {
-        rescaleKeys(tx, clip.id, ratio);
-        if (contact !== null) contact = Math.round(contact * ratio);
-      }
-    }
-    if (args.contact !== undefined) contact = args.contact;
-    if (contact !== null) contact = Math.min(Math.max(contact, range.start), range.end);
-    if (range.start !== clip.range.start || range.end !== clip.range.end) patch.range = range;
-    if (contact !== clip.contact) patch.contact = contact;
-    if (args.sceneStart !== undefined && args.sceneStart !== clip.sceneStart) patch.sceneStart = args.sceneStart;
-    if (args.loop !== undefined && args.loop !== clip.loop) patch.loop = args.loop;
-    if (args.rootMotion !== undefined && args.rootMotion !== clip.rootMotion) patch.rootMotion = args.rootMotion;
-    if (args.slot !== undefined && args.slot !== clip.slot) patch.slot = args.slot;
-    if (args.tags !== undefined && JSON.stringify(args.tags) !== JSON.stringify(clip.tags)) patch.tags = [...args.tags];
-    if (args.provenance !== undefined) {
-      const provenance: ClipProvenance = {
-        derivedFrom: args.provenance.derivedFrom?.map((d: DerivedFrom) => ({ ...d })) ?? clip.provenance.derivedFrom,
-        redistributable: args.provenance.redistributable ?? clip.provenance.redistributable,
-      };
-      if (JSON.stringify(provenance) !== JSON.stringify(clip.provenance)) patch.provenance = provenance;
-    }
-    if (Object.keys(patch).length > 0) tx.patch('clips', clip.id, patch);
-  },
+  apply: (ctx, args: ClipSettingsArgs, bodies) => bodies.clipSetSettings(ctx, args),
 });
 
 export const CLIP_OPERATORS: readonly AnyOperator[] = [

@@ -1,7 +1,7 @@
 // Built-in export profiles (ADR 0010 §4): data with the same shape as the Ekza registry's
 // GET /v1/profiles/{platform}/{profile}, shipped as static offline copies. `kind: '*'` marks a profile that applies
 // to every export kind (local/generic).
-import { profileRules, VRM_RULE_IDS } from '../lint/rules';
+import { profileRules, VRM_RULE_IDS } from '../lint/severities';
 import type { ExportKind, ExportProfileDef } from '../types';
 import { PROFILE_OMOBA_HANDHELD } from './handheld';
 

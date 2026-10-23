@@ -2,7 +2,7 @@
 // contract): the static handheld-prop profile. Its `ekza.handheld.*` rules run in `lintExport` for 'static-glb'
 // exports (`lint/static.ts`); `tex.size` is an error here (the registry's browser preflight bound for handhelds).
 // Registered through BUILTIN_EXPORT_PROFILES (`profiles/builtin.ts`).
-import { profileRules } from '../lint/rules';
+import { profileRules } from '../lint/severities';
 import type { ExportProfileDef } from '../types';
 
 export const PROFILE_OMOBA_HANDHELD: ExportProfileDef = Object.freeze({
