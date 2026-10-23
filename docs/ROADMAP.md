@@ -27,7 +27,7 @@ specified in [MCP-SPEC.md](MCP-SPEC.md), to run in parallel with M6a/M6b). Keep 
 | M0 | Scaffold, contracts, stubs, math, toolchain, test kit | **Done** (on `dev`) | 2026-10-17 | 2026-10-17 | WP-0a + WP-0b; local gates green, CI runs on the first push |
 | M1 | MVP → public alpha `v0.1.0` | **Done**, released `v0.1.0` | 2026-10-17 | 2026-10-18 | WP-1…WP-10 done; E2E-00…E2E-27 green in Chrome and SwiftShader; owner demo script passes (acceptance round 3); [budgets](#m1-budgets-architecture-14) recorded, 3 misses with owners. The tag waits for the owner's review of [DECISIONS-OPEN](DECISIONS-OPEN.md) |
 | M2a | Game-clip daily driver | **Done**, released `v0.2.0` | 2026-10-18 | 2026-10-18 | [M2A-SPEC](M2A-SPEC.md) v0.3: A0…A5 + integration with its fix round 1 ([status](#m2a-work-package-status)); E2E-00…27, E2E-M2A-01…25 and the owner demo script (scripted walkthrough) green in Chrome and SwiftShader on `dev`, the acceptance walk and attack authored without Plant Feet; the M2a-stretch items listed as `test.fixme`; M-1, M-2, M-3 [met on `dev`](#m2a-budgets-on-dev); one new report-only miss (M-4, Dope Sheet drag); FR-EXP-12 partial; acceptance fix round 1 on `dev` (2026-10-19): the 2 major and 12 minor defects of the acceptance round fixed with regression tests (M2A-INT-20…33: foot roll about the toes joint, "In place" removes only the travel, reduction never larger in bytes, …); owner items in [DECISIONS-OPEN §F](DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18) |
-| M-AI | Agent bridge (MCP): AI agents read and edit animation live in the open tab or headless on files | MVP cut (spec v0.3 §0.4, 2026-10-23); D0, P1, P2 ported on `mai/port`; phase B B1–B4 next | — | — | [MCP-SPEC §0.4](MCP-SPEC.md#04-mvp-cut-2026-10-23), [ADR 0022](adr/0022-m-ai-mvp-cut.md); full plan [MCP-SPEC](MCP-SPEC.md); ≈ 55 agent-days + a fix round (≈ 3), critical path ≈ 20 working days ([work packages](#m-ai-work-package-status)); FR-AI-01…15 (FR-EXT-06's MCP half pulled forward from M5); ADR 0018 proposed; owner defaults in [DECISIONS-OPEN §N](DECISIONS-OPEN.md#n-agent-bridge-m-ai-defaults-chosen-2026-10-19); runs **in parallel with M6a/M6b** (files both touch are routed one by one, MCP-SPEC §8.2); a recorded real-model run gates the first npm publish |
+| M-AI | Agent bridge (MCP): AI agents read and edit animation live in the open tab or headless on files | MVP cut (spec v0.3 §0.4, 2026-10-23); D0, P1, P2 ported on `mai/port`; **MVP integrated on `mai/int` (2026-10-24)**: B1–B5 merged, MVP-AC-1…4 in `pnpm run ci`, MVP-AC-5 recorded (owner acceptance and merge into `dev` pending) | — | — | [MCP-SPEC §0.4](MCP-SPEC.md#04-mvp-cut-2026-10-23), [ADR 0022](adr/0022-m-ai-mvp-cut.md); full plan [MCP-SPEC](MCP-SPEC.md); ≈ 55 agent-days + a fix round (≈ 3), critical path ≈ 20 working days ([work packages](#m-ai-work-package-status)); FR-AI-01…15 (FR-EXT-06's MCP half pulled forward from M5); ADR 0018 proposed; owner defaults in [DECISIONS-OPEN §N](DECISIONS-OPEN.md#n-agent-bridge-m-ai-defaults-chosen-2026-10-19); runs **in parallel with M6a/M6b** (files both touch are routed one by one, MCP-SPEC §8.2); a recorded real-model run gates the first npm publish |
 | M2b | Adoption: FBX/BVH/Mixamo retarget | Planned | — | — | gated by provenance |
 | M2c | Breadth and polish → V1 release | Planned | — | — | constraints (FR-RIG-10) and control-shape editing (FR-RIG-13) moved to M6b (2026-10-19) |
 | M3 | Collaboration P1 | Planned | — | — | `doc-yjs` already passes the suite (M1) |
@@ -185,6 +185,17 @@ tests are `READY`/`test.fixme` gates; preferred merge order in [MCP-SPEC §10.1]
 | P8 | `agent-ui` | Agent panel, grants dialog, confirm card (incl. the redo card), status pill, Show, checkpoint groups, Restore before the agent, presence (viewport outline, time-slider flag), audit log and revert, test API slice | Agent 8 | 5 | Not started | — |
 | P9 | `evals` | `packages/agent-evals`: 25 graded tasks, prompt reference scripts, simulated user, reference/adversarial/fuzz/schema-lint modes in CI, Anthropic API and Claude Code drivers | Agent 9 | 7.5 | Not started | — |
 | INT | `integration` | E2E-AI-01 (live acceptance) and E2E-AI-02 (headless acceptance), description review, README, `docs/agents.md`, ARCHITECTURE, demo, `npm pack` check, the real-model release gate | Integration | 4 (+ ≈ 3) | Not started | the npm publish is the owner's |
+
+MVP cut (MCP-SPEC §0.4.5), built 2026-10-23…24 and integrated on `mai/int` (DECISIONS-OPEN §N.6–§N.10):
+
+| WP | Branch | Status |
+|---|---|---|
+| B5 eager diet | `mai/b5-diet` | Merged into `mai/int` |
+| B1 server + headless, evals smoke | `mai/b1-server` | Merged into `mai/int` |
+| B2 bridge | `mai/b2-bridge` | Merged into `mai/int` |
+| B3 agent UI + live `view_capture` | `mai/b3-ui` | Merged into `mai/int` |
+| B4 rig tools | `mai/b4-rig` | Merged into `mai/int` |
+| INT | `mai/int` | Done: toolset `1.0.0-mvp.1`, `docs/agents.md`, MVP-AC-1…4 in CI, MVP-AC-5 recorded ([wp-notes/mai-int.md](wp-notes/mai-int.md)); awaiting the owner's acceptance and merge into `dev` |
 
 ## Recommended order
 

@@ -40,9 +40,12 @@ Focus is the modeling base (M6a) first. These tracks are fully specified and par
 - [ ] **M-AI — Agent bridge (MCP)**, MVP (owner request 2026-10-23: AI control of the editor through MCP, then
       release): [MCP-SPEC §0.4](docs/MCP-SPEC.md#04-mvp-cut-2026-10-23) v0.3, [ADR 0022](docs/adr/0022-m-ai-mvp-cut.md),
       [ADR 0018](docs/adr/0018-agent-bridge-mcp.md), research 20–22. D0, P1, P2 ported onto `dev` on `mai/port`
-      (2026-10-23; needs the bundle decision M-AI-MVP-2 before it merges). Phase B: B1 server + headless, B2 bridge,
-      B3 agent UI + live capture, B4 rig tools (rig a model, add a library walk, export VRM), optional B5 eager diet;
-      INT with MVP-AC-1…5 (one recorded Claude Code session). ≈ 17.5 agent-days. Then P3–P5, full P9 (phase C).
+      (2026-10-23). Phase B built and integrated on **`mai/int`** (2026-10-24: B5 eager diet, B1 server + headless,
+      B2 bridge, B3 agent UI + live capture, B4 rig tools; toolset `1.0.0-mvp.1`, 37 tools; gates unchanged and green):
+      MVP-AC-1/3 unit tests, AC-2 `ai-01-live`, AC-4 `ai-03-live-rig`, AC-5 recorded with a real Claude Code session
+      ([docs/evidence/m-ai-mvp/](docs/evidence/m-ai-mvp/), `tooling/m-ai-ac5.mjs`). Open for the owner: accept AC-5,
+      merge `mai/int` into `dev`, the npm publish of `ekza-studio-mcp` (name check, `THIRD_PARTY_NOTICES.md`/README/
+      LICENSE in the package, M-AI-B1-14), the hosted origin question M-AI-INT-9. Then P3–P5, full P9 (phase C).
 - [x] **Layout presets for focused work** (owner request, 2026-10-20; right after M6a, inside its workspace/layout
       system): Animate (default) Alt+1; Blocking — one big viewport + time slider only, Alt+2; Polish — viewport over a
       large Graph Editor + time slider, Alt+3; Review — viewport full window + playback only, Alt+4; Maya-style

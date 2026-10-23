@@ -1,6 +1,6 @@
 # Ekza Studio — M-AI build specification ("agent bridge: MCP")
 
-Status: v0.3 (2026-10-23: the MVP cut §0.4 and the port of D0, P1 and P2 onto `dev`, §0.1–§0.3 — **§0.4 wins over
+Status: v0.3 — **MVP integrated on `mai/int` (2026-10-24)**: B1–B5 merged, toolset `1.0.0-mvp.1` (37 tools), MVP-AC-1…4 in `pnpm run ci`, MVP-AC-5 recorded in `docs/evidence/m-ai-mvp/` ([wp-notes/mai-int.md](wp-notes/mai-int.md), DECISIONS-OPEN §N.10). (2026-10-23: the MVP cut §0.4 and the port of D0, P1 and P2 onto `dev`, §0.1–§0.3 — **§0.4 wins over
 the rest of this file for the MVP**; v0.2 2026-10-19 applied design review round 1, recorded in §11.3), the build spec for
 milestone **M-AI**: an AI agent (Claude Code, Claude Desktop or any other MCP client) reads and edits an Ekza
 Studio project, either **live** in the editor tab the user has open or **headless** on project files, through one
