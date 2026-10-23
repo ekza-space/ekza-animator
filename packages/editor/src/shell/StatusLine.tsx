@@ -332,6 +332,21 @@ export function StatusLine(): JSX.Element {
     }
   };
 
+  const agentPill = (
+    <Group key="agent" label="AI agent">
+      <Tip text="AI agent (Windows › Agent)">
+        <button
+          type="button"
+          className="rounded px-1.5 text-ui text-fg-3 hover:bg-hover hover:text-fg"
+          data-testid="status-agent"
+          onClick={() => void shell.runFromUi('workspace.showPanel', { panel: 'agent' })}
+        >
+          AI
+        </button>
+      </Tip>
+    </Group>
+  );
+
   return (
     <div
       className="flex h-[var(--size-statusline)] shrink-0 items-center gap-2 overflow-x-auto border-b border-line bg-header px-2"
@@ -339,7 +354,11 @@ export function StatusLine(): JSX.Element {
       aria-label="Status line"
       data-testid="statusline"
     >
-      {groups.map((id) => render(id))}
+      {/* M-AI (MCP-SPEC §7.1, §7.5): the agent pill sits before the layout buttons in every workspace (not a
+          workspace status group, so the workspaces' group lists stay as shipped). D0 placeholder: "AI" (muted) opens
+          the Agent panel; P8 shows the live state through the lazy agent chunk. */}
+      {groups.flatMap((id) => (id === 'layout' ? [agentPill, render(id)] : [render(id)]))}
+      {groups.includes('layout') ? null : agentPill}
     </div>
   );
 }

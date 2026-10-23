@@ -52,3 +52,17 @@ export {
 } from './tables/registry';
 export { clipToSceneFrame, sceneToClipFrame, wrapClipFrame } from './time/scene';
 export { PatchUndoManager, type UndoHost, type UndoWrite } from './undo/patchUndo';
+// M-AI (MCP-SPEC §4.2): compare-before-restore as a plan over the current document.
+export {
+  applyRestorePlan,
+  type DocRow,
+  type PlannedRestoreWrites,
+  planRestore,
+  planSnapshotRestore,
+  RESTORE_HOST,
+  type RestoreHost,
+  type RestorePlan,
+  type RestoreSkip,
+  type RestoreWrite,
+  restoreHostOf,
+} from './undo/restorePlan';

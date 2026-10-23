@@ -210,8 +210,16 @@ export async function prepareGlbAnimationImport(app: EditorApp, input: ImportInp
   return { character: input.character, asset, clips, warnings };
 }
 
-/** Writes imported clips (unique names, after the character's clips) and makes the first one active. */
-export function applyClipImport(app: EditorApp, tx: Tx, plan: ClipImportPlan): ClipsResult {
+/**
+ * Writes imported clips (unique names, after the character's clips) and makes the first one active, unless
+ * `activate: false` (MCP-SPEC §4.10, agent imports: the session's active character and clip stay).
+ */
+export function applyClipImport(
+  app: EditorApp,
+  tx: Tx,
+  plan: ClipImportPlan,
+  opts?: { readonly activate?: boolean },
+): ClipsResult {
   // The file was read asynchronously: the character may have gone meanwhile (undo, delete).
   if (tx.get('characters', plan.character) === undefined) {
     throw new EkzaError('invalid-record', 'The character was removed while the file was being read');
@@ -229,6 +237,6 @@ export function applyClipImport(app: EditorApp, tx: Tx, plan: ClipImportPlan): C
     ids.push(clip.clip.id);
   }
   const first = ids[0] === undefined ? undefined : tx.get('clips', ids[0]);
-  if (first !== undefined) activateClip(app, tx, first);
+  if (first !== undefined && opts?.activate !== false) activateClip(app, tx, first);
   return { clips: ids, warnings: plan.warnings };
 }

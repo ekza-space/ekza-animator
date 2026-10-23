@@ -3,10 +3,12 @@ export { registerViewportContributions } from './manager/contributions';
 export { subscribeViewportManager, viewportManagerOf } from './manager/lookup';
 export { resolveControl, type ViewportTestApi, viewportTestApi } from './manager/testApi';
 export {
+  type AgentOverlayPass,
   DEFAULT_DISPLAY,
   type PanePointerMenus,
   type PanePointerPress,
   type PaneState,
+  type ViewportAgentHost,
   ViewportManager,
   type ViewportPointerLayer,
   WHEEL_BURST_MS,

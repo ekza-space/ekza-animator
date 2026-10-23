@@ -31,6 +31,7 @@ Code sketches inside ADRs are illustrative. The normative TypeScript contracts a
 | [0015](0015-mesh-storage-in-the-document.md) | Mesh storage in the document: revision refs, content-addressed chunks, claims, undo | Accepted (2026-10-19, M6A-SPEC v1.0) |
 | [0016](0016-modeling-interaction-paradigm.md) | Modeling interaction paradigm: Maya base, Blender semantics, one keymap per preset | Accepted (2026-10-19, M6A-SPEC v1.0) |
 | [0017](0017-ai-generation-boundary.md) | AI 3D generation boundary: server gateway, provider-agnostic contract, provenance by construction | Proposed (2026-10-18, rev. 2026-10-19); items 7–8 Accepted with M6A-SPEC v1.0 |
+| [0018](0018-agent-bridge-mcp.md) | Agent bridge: MCP over the operator registry, a paired loopback bridge to the open tab, a headless runtime | Proposed (2026-10-19, M-AI spec; rev. 2026-10-19 design review) |
 | [0019](0019-swatch-shaders.md) | Swatch shaders: a palette swatch is the material, versioned by its table | Accepted (2026-10-21, SHADING-SPEC v1.0) |
 | [0020](0020-m6b-mvp-cut.md) | M6b MVP cut: the owner flow first, VRM 1.0 as the OMOBA deliverable, a CC0 clip library | Accepted (2026-10-22, M6B-SPEC v1.2 §0) |
 | [0021](0021-autorig-mode.md) | Auto-Rig mode: a second shell over the same app and document | Proposed (2026-10-22, AUTORIG-SPEC v0.1) |
@@ -40,6 +41,9 @@ ADRs 0014–0016 were accepted on 2026-10-19 with the M6a build spec [`../M6A-SP
 refinements); ADR 0017's provenance items 7–8 were accepted with it, the rest waits for the M7 spec. They extend, and
 do not supersede, ADRs 0002, 0005, 0008, 0011 and 0013. The plan they serve is
 [`../MODELING-PLAN.md`](../MODELING-PLAN.md).
+
+ADR 0018 becomes Accepted when the M-AI build spec ([`../MCP-SPEC.md`](../MCP-SPEC.md)) freezes at its package D0; it
+extends, and does not supersede, ADRs 0008 and 0013.
 
 Status values: `Proposed`, `Accepted`, `Superseded by NNNN`, `Rejected`. All ADRs are owner-overridable defaults;
 the owner-facing list, including the design-review outcomes, is [`../DECISIONS-OPEN.md`](../DECISIONS-OPEN.md).

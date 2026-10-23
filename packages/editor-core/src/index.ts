@@ -9,6 +9,21 @@ export {
   startAutosave,
 } from './app/autosave';
 export { createEditorApp } from './app/createEditorApp';
+// M-AI (MCP-SPEC §4.1): the headless editor, the run scope helpers, presence and the actor-run constants.
+export { createHeadlessEditorApp, createHeadlessServices, type HeadlessServicesOptions } from './app/headless';
+export { CHANGE_JOURNAL_CAP } from './history/history';
+export { NOT_AVAILABLE_YET } from './operators/builtin/stub';
+export {
+  AGENT_PROTECTED_SESSION_FIELDS,
+  AI_LABEL_MAX,
+  AI_LABEL_PREFIX,
+  actorLabel,
+  CANCELLED_BY_AGENT,
+  GESTURE_IN_PROGRESS,
+} from './operators/runner';
+export { scopedCharacterOf, scopedClipOf, selectionOf, setSelectionOf } from './operators/scope';
+export { createPresenceRegistry, PRESENCE_MAX_CONTROLS } from './presence/registry';
+export { EDITOR_VERSION, isSampleId, SAMPLES, type SampleDef } from './workflows/samples';
 export { channelDefaultOf, channelUnit } from './edit/channelMeta';
 export { applyChannelEdits, beginChannelEditGesture } from './edit/channels';
 export { beginKeyEditGesture } from './edit/gesture';

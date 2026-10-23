@@ -17,6 +17,7 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@ekza-studio/agent-tools": "workspace:*",
     "@ekza-studio/anim-core": "workspace:*",
     "@ekza-studio/curve-editor": "workspace:*",
     "@ekza-studio/doc": "workspace:*",
@@ -24,6 +25,7 @@
     "@ekza-studio/io": "workspace:*",
     "@ekza-studio/mesh-core": "workspace:*",
     "@ekza-studio/rig": "workspace:*",
+    "@ekza-studio/schematic-render": "workspace:*",
     "@ekza-studio/ui": "workspace:*",
     "@ekza-studio/viewport": "workspace:*",
     "@react-three/fiber": "9.8.1",

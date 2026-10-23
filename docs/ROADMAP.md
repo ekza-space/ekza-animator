@@ -12,10 +12,11 @@ accepted, [work-package status](#m6a-work-package-status) below; v0.8 2026-10-19
 with acceptance fix rounds 1–2 (M2A-INT-20…35), **released as `v0.2.0`**; **the modeling iteration
 is planned**: the old M6 "splines first" is replaced by M6a/M6b/M6c/M7 in [MODELING-PLAN.md](MODELING-PLAN.md), splines
 move to M8, and the [recommended order](#recommended-order) puts modeling before collaboration; v0.8 applies the plan's
-design review, MODELING-PLAN v0.2). Keep the [status table](#status) current: every merged milestone task updates it. Requirement IDs refer to
+design review, MODELING-PLAN v0.2; v0.9 adds milestone **M-AI**, the agent bridge over MCP, pulled forward from M5 and
+specified in [MCP-SPEC.md](MCP-SPEC.md), to run in parallel with M6a/M6b). Keep the [status table](#status) current: every merged milestone task updates it. Requirement IDs refer to
 [REQUIREMENTS.md](REQUIREMENTS.md); the MVP build plan is [MVP-SPEC.md](MVP-SPEC.md), the M2a build plan is
 [M2A-SPEC.md](M2A-SPEC.md), the M6a build plan is [M6A-SPEC.md](M6A-SPEC.md), the M6b build plan is
-[M6B-SPEC.md](M6B-SPEC.md). Sizes are rough
+[M6B-SPEC.md](M6B-SPEC.md), the M-AI build plan is [MCP-SPEC.md](MCP-SPEC.md). Sizes are rough
 **agent-days** (one implementation agent working full time); calendar time depends on parallelism.
 
 ## Status
@@ -26,6 +27,7 @@ design review, MODELING-PLAN v0.2). Keep the [status table](#status) current: ev
 | M0 | Scaffold, contracts, stubs, math, toolchain, test kit | **Done** (on `dev`) | 2026-10-17 | 2026-10-17 | WP-0a + WP-0b; local gates green, CI runs on the first push |
 | M1 | MVP → public alpha `v0.1.0` | **Done**, released `v0.1.0` | 2026-10-17 | 2026-10-18 | WP-1…WP-10 done; E2E-00…E2E-27 green in Chrome and SwiftShader; owner demo script passes (acceptance round 3); [budgets](#m1-budgets-architecture-14) recorded, 3 misses with owners. The tag waits for the owner's review of [DECISIONS-OPEN](DECISIONS-OPEN.md) |
 | M2a | Game-clip daily driver | **Done**, released `v0.2.0` | 2026-10-18 | 2026-10-18 | [M2A-SPEC](M2A-SPEC.md) v0.3: A0…A5 + integration with its fix round 1 ([status](#m2a-work-package-status)); E2E-00…27, E2E-M2A-01…25 and the owner demo script (scripted walkthrough) green in Chrome and SwiftShader on `dev`, the acceptance walk and attack authored without Plant Feet; the M2a-stretch items listed as `test.fixme`; M-1, M-2, M-3 [met on `dev`](#m2a-budgets-on-dev); one new report-only miss (M-4, Dope Sheet drag); FR-EXP-12 partial; acceptance fix round 1 on `dev` (2026-10-19): the 2 major and 12 minor defects of the acceptance round fixed with regression tests (M2A-INT-20…33: foot roll about the toes joint, "In place" removes only the travel, reduction never larger in bytes, …); owner items in [DECISIONS-OPEN §F](DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18) |
+| M-AI | Agent bridge (MCP): AI agents read and edit animation live in the open tab or headless on files | Planned (spec v0.2, after design review round 1) | — | — | [MCP-SPEC](MCP-SPEC.md); ≈ 55 agent-days + a fix round (≈ 3), critical path ≈ 20 working days ([work packages](#m-ai-work-package-status)); FR-AI-01…15 (FR-EXT-06's MCP half pulled forward from M5); ADR 0018 proposed; owner defaults in [DECISIONS-OPEN §H](DECISIONS-OPEN.md#h-agent-bridge-m-ai-defaults-chosen-2026-10-19); runs **in parallel with M6a/M6b** (files both touch are routed one by one, MCP-SPEC §8.2); a recorded real-model run gates the first npm publish |
 | M2b | Adoption: FBX/BVH/Mixamo retarget | Planned | — | — | gated by provenance |
 | M2c | Breadth and polish → V1 release | Planned | — | — | constraints (FR-RIG-10) and control-shape editing (FR-RIG-13) moved to M6b (2026-10-19) |
 | M3 | Collaboration P1 | Planned | — | — | `doc-yjs` already passes the suite (M1) |
@@ -164,6 +166,25 @@ the other packages also wait for the M6a packages listed per row.
 | C10 | `character-writer` | VRM 1.0 / GLB writer, meta, thumbnail, profiles, export dialog | 5 | C1; B8 | Planned |
 | C11 | `imports-recovery` | weight edits on imports, Make Character Editable, missing-weight fill | 4.5 | C5, C10; B8 | Planned |
 | INT | `integration` | E2E-SKIN-08, E2E-RIG-10, AS-LP-S2, budgets, docs, owner demo; one fix round (≈ 4) | 5 | all; M6a INT + fix round | Planned |
+### M-AI work-package status
+
+Packages and ownership: [MCP-SPEC §8](MCP-SPEC.md#8-work-packages) (shared files in §8.1, the overlap with M6a in §8.2).
+D0 lands first (on top of M6a's B0a when that is on `dev`); P1…P9 start together in their own worktrees (branches `mai/<slug>`); cross-package
+tests are `READY`/`test.fixme` gates; preferred merge order in [MCP-SPEC §10.1](MCP-SPEC.md#101-merge-order).
+
+| WP | Slug | Scope | Owner | Size | Status | Notes |
+|---|---|---|---|---|---|---|
+| D0 | `contracts-foundation` | §4 contracts; runner changes (actor, `AI: ` labels, change journal, no cross-actor coalescing, no selection snapshots, session-state invariant, run scope), `createHeadlessEditorApp`, `PresenceRegistry`, `planRestore`/`planSnapshotRestore`, the minimal working tool runtime (validation, gating, envelope, sanitiser, resolver), package scaffolds, tool definitions and policy table, manifest and schema lint, lockfile, the contract PRs to M6a's owners | Integration | 5 | Not started | — |
+| P1 | `operators-scope` | Ten explicit-target operators (`key.write`, `key.delete`, `key.adjust`, `key.retime`, `pose.setAt`, `pose.goals`, `pose.transfer`, `clip.makeLoop`, `edit.revertSteps`, `edit.restoreDocument`), `key.tween {frames}`, `rig.ikFk.matchRange {clip}`, twelve scope-ready and two actor-safe operators | Agent 1 | 7 | Not started | — |
+| P2 | `tools-core` | The full tool runtime (queue, gesture and redo waits, confirms, automatic stale check), resolver, units, budgets; reads, posing, keys incl. `keys_adjust`, curves incl. handles, clips, history tools; instructions, resources, prompts | Agent 2 | 7 | Not started | — |
+| P3 | `operators-escape` | `operators_list`, `operator_describe`, `operator_run`, wire schemas with unit tables, policy enforcement | Agent 3 | 2.5 | Not started | — |
+| P4 | `motion-analysis` | `packages/motion-analysis` incl. arcs, chunked bounded sampling, `analyze_*` tools | Agent 4 | 3 | Not started | — |
+| P5 | `see` | `schematic-render`, cameras (both sides, the user's view) and sheets, trails, `renderTile` over the viewport's agent host, live capture service, `view_capture`, `view_plot_curves` | Agent 5 | 5 | Not started | — |
+| P6 | `mcp-server` | `ekza-studio-mcp`: stdio (both protocol eras), HTTP on 127.0.0.1, hub and router, headless projects, hardened workspace sandbox, file tools, all-inlined bundle, CLI | Agent 6 | 5 | Not started | — |
+| P7 | `bridge` | Loopback WebSocket bridge: discovery, server-generated pairing codes, tokens, tab-result re-validation, grants enforcement, queue, gesture wait, cancel, close/resume/replace, blobs, `editor_connect` | Agent 7 | 4.5 | Not started | — |
+| P8 | `agent-ui` | Agent panel, grants dialog, confirm card (incl. the redo card), status pill, Show, checkpoint groups, Restore before the agent, presence (viewport outline, time-slider flag), audit log and revert, test API slice | Agent 8 | 5 | Not started | — |
+| P9 | `evals` | `packages/agent-evals`: 25 graded tasks, prompt reference scripts, simulated user, reference/adversarial/fuzz/schema-lint modes in CI, Anthropic API and Claude Code drivers | Agent 9 | 7.5 | Not started | — |
+| INT | `integration` | E2E-AI-01 (live acceptance) and E2E-AI-02 (headless acceptance), description review, README, `docs/agents.md`, ARCHITECTURE, demo, `npm pack` check, the real-model release gate | Integration | 4 (+ ≈ 3) | Not started | the npm publish is the owner's |
 
 ## Recommended order
 
@@ -183,6 +204,16 @@ The queue of next actions is [TODO.md](../TODO.md).
 5. **M2b** and the rest of **M2c** → **V1** release.
 6. **M4a T1** (typed animation assets), then **M3** collaboration (it now also carries mesh-chunk transport and mesh
    claims, ADR 0015), **M4b**, **M5**, **M8**.
+
+**M-AI runs in parallel** (set 2026-10-19 at the owner's request; reasons in
+[MCP-SPEC §10.1](MCP-SPEC.md#101-merge-order)): it needs no modeling work and adds no document schema, so separate
+agents build it next to M6a/M6b. M-AI's D0 lands after M6a's B0a is on `dev` (or B0a rebases on D0); the files both
+milestones touch — editor-core types, history, runner and app wiring, the test API, tokens, the shell and the viewport
+manager — each have one owner and a route (contract PRs to M6a's owners, M6a's extension points, new files) in
+[MCP-SPEC §8.2](MCP-SPEC.md#82-overlap-with-m6a-checked-against-m6a-spec-91-on-m6aspec), and one line of M6a's LastRun
+recorder ignores agent runs (M6A-SPEC §5.7 contract note). M-AI ships in the next release after its integration
+(`v0.3.0` stays the modeling base, Q-MOD-DIR-6, so an earlier M-AI release is a `v0.2.x` tag; the owner's call); the
+first npm publish of `ekza-studio-mcp` is the owner's. The scripting console (FR-EXT-06's other half) stays in M5.
 
 ---
 
@@ -447,6 +478,39 @@ motion trails, `rig.ikFk.matchRange` with an automatic Simplify.
 **Depends on**: M1. Leg IK uses the M1 solver and the existing solver slot; the records and tables are unchanged, but
 `SCHEMA_VERSION` becomes 2 so that M1 apps open projects with enabled IK read-only (M2A-SPEC §5.7).
 
+## M-AI — Agent bridge (MCP) (≈ 55 agent-days + a fix round; ~20 working days on the critical path)
+
+Build spec: [MCP-SPEC.md](MCP-SPEC.md) (contracts, normative behaviours, tool catalogue, E2E-AI-01…08, the
+evaluation suite, packages D0, P1…P9, INT); decision record: [ADR 0018](adr/0018-agent-bridge-mcp.md); research
+[20](research/20-mcp-state-and-dcc-servers.md), [21](research/21-agent-bridge-architecture.md),
+[22](research/22-animation-agent-toolset.md).
+
+**Deliverables**: the `ekza-studio-mcp` bin (`npx -y ekza-studio-mcp`), an MCP server over stdio for both protocol
+revisions (2025-11-25 and 2026-07-28) with optional Streamable HTTP on `127.0.0.1`; 39 task-level tools over the
+operator registry (reads; posing with goal posing and IK targets; keys, value adjustments and retiming; curve clean-up
+with tangent handles; clips and seamless loops; analysis of contacts, foot sliding, loop seams, oscillation, pops and
+arcs; contact-sheet captures from both sides or the user's view, with trails, and curve plots; checkpoints and revert;
+project files and exports; a policy-filtered operator escape hatch) — no code execution; a **live bridge** to the open
+editor tab (loopback WebSocket, `Origin`/`Host` checks, a server-generated one-time pairing code claimed in a
+human-approved call, grants Read / Edit / Files / View, confirmations, Pause and Disconnect); every agent edit one
+undoable `AI: …` step on a clip it names, that never touches the user's selection, playhead, unkeyed edits or redo
+steps; presence (status pill, outlines, time-slider flag, [Show]) and an Agent panel with the audit log grouped by
+request, Revert and Restore before the agent; a **headless runtime** on `.ekzanim`/`.vrm`/`.glb` files in a sandboxed
+workspace folder with schematic pictures; MCP resources and motion-recipe prompts; setup docs for Claude Code,
+Claude Desktop, Cursor, VS Code and Codex; an evaluation suite with graded tasks in CI and a recorded real-model run
+before the first publish.
+
+**Acceptance**: an MCP SDK client connects over stdio, pairs with a live tab, loads Polybot, keys a three-wave
+left-hand animation through tools, checks it with metrics and a contact sheet, and exports a VRMA that validates
+(E2E-AI-01); the same task runs headless from a `.ekzanim` (E2E-AI-02); the session-state invariant and the eval
+reference/adversarial/fuzz modes pass; `Mod+Z` undoes AI steps.
+
+**Later (not M-AI)**: the in-app Assistant panel over the Claude API (proxy route or the local companion; FR-AI-16),
+text-to-motion tools behind the ADR 0017 gateway (FR-AI-17), remote MCP servers with Ekza accounts (FR-AI-18, M4b).
+
+**Depends on**: the M2a release (`v0.2.0`). Independent of M6a/M6b except the shared operator runner (see the
+ordering note under [Recommended order](#recommended-order)).
+
 ## M2b — Adoption: FBX/BVH/Mixamo retarget (≈ 10–15 agent-days)
 
 FBX (Mixamo) and BVH import with humanoid bone-map retarget to curves or VRMA (FR-IO-11), humanoid inference for
@@ -529,7 +593,8 @@ comments (FR-COL-06). **Acceptance**: a commenter cannot change animation (serve
 
 **Deliverables**: animation layers UI + evaluation (additive/override, weights, mute/solo, merge, avatar masks);
 space switching with matching; foot roll; quaternion rotation curves; non-linear clip sequencing; multi-character
-clips; pose library; editable motion trails; smoothing filters; scripting console and MCP bridge over operators;
+clips; pose library; editable motion trails; smoothing filters; a scripting console over the agent tool layer (the
+MCP/agent bridge moved to [M-AI](#m-ai--agent-bridge-mcp--55-agent-days--a-fix-round-20-working-days-on-the-critical-path));
 BVH/FBX export adapters; per-user animation layers + region claims for "four hands" (usage-driven); generic
 constraints in collaboration.
 
@@ -674,3 +739,9 @@ fallback; sandboxed third-party plugins.
 | Mesh undo history pins hundreds of MB (morph-heavy imports, whole-layer ops) | M6a | Derived GC roots, undo byte budget with eviction, journal cap, implicit default tail in chunks (ADR 0015) |
 | Tool feel found wrong only at the final owner run | M6a | Transform and topology tools in separate packages (B12a/B12b), owner feel check after B12a, AS-LP-A requires every base tool |
 | An exposed generation gateway spends the operator's credits | M7 | Off unless enabled, auth required, server-side spend caps, CSP before BYO keys (ADR 0017) |
+| A local page or process poses as the editor or the agent over the loopback bridge | M-AI | `Origin` allow-list of the editor's own origins (missing `Origin` refused), loopback `Host`, server-generated one-time pairing code, human-approved `editor_connect`, server-side re-validation of every tab result, in-memory token, grants and confirmations (ADR 0018, MCP-SPEC §5.19) |
+| Prompt injection through names and metadata of imported files while the agent also has a shell | M-AI | One sanitiser for every outgoing string (no control, format or tag characters), no code or network tools, every edit undoable, Files and View opt-in, an injection eval task |
+| Chrome's Local Network Access prompt blocks hosted editors from reaching the bridge ("nothing is listening") | M-AI | The Connect dialog explains and detects the prompt; a locally served editor needs no prompt; Safari unsupported for live mode |
+| M-AI's changes collide with M6a's B0a, B7, B9, B10 and B11 files | M-AI, M6a | D0 lands after B0a; a file-by-file overlap table with one route per file (MCP-SPEC §8.2); additive contract PRs; a one-line LastRun contract note |
+| Agents work but nobody checked a real model gets useful work done | M-AI | A recorded Claude Code run over the core tasks (pass@1 ≥ 60 %) and a scripted live session gate the first npm publish (MCP-SPEC §10.2) |
+| Agents pose poorly from numbers; users expect hero animation | M-AI | Goal posing, captures and metrics; README says agents are best at chores and blocking; text-to-motion later |

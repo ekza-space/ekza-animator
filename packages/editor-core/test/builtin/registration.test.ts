@@ -100,6 +100,23 @@ const CATALOG: Readonly<Record<string, boolean>> = {
   'rig.toggleSecondary': false,
 };
 
+/**
+ * MCP-SPEC §4.10 operators registered by the built-ins from D0 on (stubs until P1 lands them), all undoable (literal
+ * update, MCP-SPEC §3 rule 10).
+ */
+const MAI_OPERATORS: Readonly<Record<string, boolean>> = {
+  'key.write': true,
+  'key.delete': true,
+  'key.adjust': true,
+  'key.retime': true,
+  'pose.setAt': true,
+  'pose.goals': true,
+  'pose.transfer': true,
+  'clip.makeLoop': true,
+  'edit.revertSteps': true,
+  'edit.restoreDocument': true,
+};
+
 function isStub(error: unknown): boolean {
   return error instanceof EkzaError && error.code === 'not-implemented';
 }
@@ -278,9 +295,10 @@ describe('built-in operators', () => {
         ...Object.keys(ADDITIONS),
         ...Object.keys(M2A_OPERATORS),
         ...Object.keys(M6A_OPERATORS),
+        ...Object.keys(MAI_OPERATORS),
       ].sort(),
     );
-    for (const [id, undo] of Object.entries({ ...ADDITIONS, ...M2A_OPERATORS, ...M6A_OPERATORS })) {
+    for (const [id, undo] of Object.entries({ ...ADDITIONS, ...M2A_OPERATORS, ...M6A_OPERATORS, ...MAI_OPERATORS })) {
       expect([id, app.operators.get(id)?.flags?.undo === true]).toEqual([id, undo]);
     }
     for (const [id, undo] of Object.entries(CATALOG)) {

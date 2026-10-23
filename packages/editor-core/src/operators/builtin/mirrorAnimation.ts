@@ -1,15 +1,18 @@
 // Mirror animation (M2A-SPEC §4.9 `pose.mirrorAnimation`, §5.14; A4): flip, left → right or right → left on the
 // active clip, optionally half a cycle later; humanoid rigs only. One step, label `Mirror Animation`. The workflow
 // loads with the first run (`prepare`, the eager-route budget §5.27); the runner polls again after it.
+// MCP-SPEC §4.10 (P1): agent runs mirror the run scope's clip and controls (`controls` argument first, else the
+// scope's controls or its keys' and channels' controls), never the user's selection or active clip.
 import { EkzaError } from '@ekza-studio/anim-core';
 import type { ControlId } from '@ekza-studio/doc';
 import { isHumanoidProgram, type MirrorMode } from '@ekza-studio/rig';
-import { GLOBAL_SCOPE } from '../../types';
+import { scopedCharacterOf } from '../scope';
+import { type CharacterRuntime, GLOBAL_SCOPE, type OperatorContext } from '../../types';
 import type * as MirrorWorkflow from '../../workflows/mirrorAnimation';
-import { activeClipRecord, selectedControls } from '../../workflows/targets';
 import type { CountResult } from '../args';
-import { type AnyOperator, all, defineOperator, fail, isRecord, OK } from './define';
-import { activeRuntimeOf, pollClipEdit, pollRuntime } from './polls';
+import { type AnyOperator, all, defineOperator, fail, isActorRun, isRecord, OK } from './define';
+import { pollRuntime } from './polls';
+import { NO_TARGETS, pollScopedClipEdit, scopedClipRecord, scopedTargetControls } from './scoped';
 
 type MirrorWorkflowModule = typeof MirrorWorkflow;
 
@@ -45,6 +48,17 @@ function argsProblem(raw: unknown): string | null {
   return null;
 }
 
+/** The runtime of the run's character (the active one for user runs, the scope's for agents). */
+function runtimeOfRun(ctx: OperatorContext): CharacterRuntime | undefined {
+  const character = scopedCharacterOf(ctx);
+  return character === null ? undefined : ctx.app.characters.get(character);
+}
+
+function pollRunRuntime(ctx: OperatorContext) {
+  if (!isActorRun(ctx)) return pollRuntime(ctx.app);
+  return runtimeOfRun(ctx) === undefined ? fail('The character is still loading') : OK;
+}
+
 const mirrorAnimationOperator = defineOperator({
   id: 'pose.mirrorAnimation',
   label: 'Mirror Animation',
@@ -54,28 +68,32 @@ const mirrorAnimationOperator = defineOperator({
   scope: GLOBAL_SCOPE,
   flags: { undo: true },
   undoLabel: () => 'Mirror Animation',
-  poll({ app }, raw) {
+  poll(ctx, raw) {
+    const { app } = ctx;
     const problem = argsProblem(raw);
     if (problem !== null) return fail(problem);
-    const base = all(pollClipEdit(app), pollRuntime(app));
+    const base = all(pollScopedClipEdit(ctx), pollRunRuntime(ctx));
     if (base !== true) return base;
-    const runtime = activeRuntimeOf(app);
+    const runtime = runtimeOfRun(ctx);
     if (runtime === undefined || !isHumanoidProgram(runtime.program)) return fail('Mirror needs a humanoid rig');
     const args = raw as { readonly offset?: string; readonly controls?: readonly ControlId[] };
-    if (args.offset === 'halfCycle' && activeClipRecord(app)?.loop !== true) {
+    if (args.offset === 'halfCycle' && scopedClipRecord(ctx)?.loop !== true) {
       return fail('Half-cycle mirroring needs a loop clip (Clip settings › Loop)');
     }
     if (args.controls !== undefined && args.controls.some((id) => app.store.get('controls', id) === undefined)) {
       return fail('Unknown control');
     }
+    // Agent runs never fall back to "the whole character": they name controls (argument or scope).
+    if (isActorRun(ctx) && (args.controls ?? scopedTargetControls(ctx)).length === 0) return fail(NO_TARGETS);
     return OK;
   },
   prepare: loadMirrorWorkflow,
-  apply({ app, tx }, args, workflow) {
+  apply(ctx, args, workflow) {
+    const { app, tx } = ctx;
     if (tx === null) throw new EkzaError('internal', 'pose.mirrorAnimation runs in a transaction');
-    const clip = activeClipRecord(app, tx);
+    const clip = scopedClipRecord(ctx, tx);
     if (clip === undefined) return { count: 0 } satisfies CountResult;
-    const controls = args.controls ?? selectedControls(app, tx).map((control) => control.id);
+    const controls = args.controls ?? scopedTargetControls(ctx, tx).map((control) => control.id);
     const result = workflow.mirrorAnimation(app, tx, clip, {
       mode: args.mode,
       offset: args.offset ?? 'none',

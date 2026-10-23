@@ -403,6 +403,11 @@ function cardParams(def: OperatorDef<unknown, unknown, unknown>, args: ParamValu
 export function recordLastRun(app: EditorApp, run: FinishedRun): void {
   const { def, args, ctx, value, stepId, before } = run;
   if (stepId === null || def.flags?.undo !== true) return;
+  // M-AI (MCP-SPEC §3 rule 11, runner rule 8): an agent run never becomes `lastRun`; its step still closes the card.
+  if (ctx?.actor !== undefined && ctx.actor !== null) {
+    closeLastRun(app, LAST_RUN_CLOSED.another);
+    return;
+  }
   if (!recordsLastRun(def)) {
     closeLastRun(app, def.flags?.selection === true ? LAST_RUN_CLOSED.selection : LAST_RUN_CLOSED.another);
     return;

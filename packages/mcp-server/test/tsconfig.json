@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": ["../src/tsconfig.json", "../../../tooling/tsconfig/test.json"],
+  "compilerOptions": {
+    "rootDir": "..",
+    "outDir": "../.tsbuild/test"
+  },
+  "include": ["./**/*", "../vitest.config.ts"],
+  "references": [
+    {
+      "path": "../src"
+    },
+    {
+      "path": "../../anim-core/src"
+    },
+    {
+      "path": "../../doc/src"
+    },
+    {
+      "path": "../../rig/src"
+    },
+    {
+      "path": "../../io/src"
+    },
+    {
+      "path": "../../editor-core/src"
+    },
+    {
+      "path": "../../agent-tools/src"
+    },
+    {
+      "path": "../../schematic-render/src"
+    }
+  ]
+}

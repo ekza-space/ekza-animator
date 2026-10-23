@@ -42,6 +42,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          # MCP-SPEC §5.21: the agent-tools manifest test compares with the manifest at the merge base
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 10.32.1
