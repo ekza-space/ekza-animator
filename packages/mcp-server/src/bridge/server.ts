@@ -140,7 +140,16 @@ interface Pairing {
 }
 
 const fail = (
-  code: 'not_connected' | 'busy' | 'not_found' | 'declined' | 'timeout' | 'cancelled' | 'unsupported' | 'internal',
+  code:
+    | 'not_connected'
+    | 'busy'
+    | 'not_found'
+    | 'declined'
+    | 'timeout'
+    | 'cancelled'
+    | 'unsupported'
+    | 'not_granted'
+    | 'internal',
   message: string,
   hint: string,
   retryable: boolean,
@@ -628,9 +637,16 @@ export async function startBridgeServer(opts: BridgeServerOptions): Promise<Brid
               'deliver the file as a download',
               false,
             )
-          : await opts.files
-              .write(call.tool, call.args, writes)
-              .catch(() => fail('internal', 'The workspace write failed.', 'call the tool again', false));
+          : !(current.grants.files && current.grants.workspace)
+            ? fail(
+                'not_granted',
+                'Writing into the workspace folder needs the Workspace option of the Files grant.',
+                'only the user can give it, in the Agent panel; or deliver the file as a download',
+                false,
+              )
+            : await opts.files
+                .write(call.tool, call.args, writes)
+                .catch(() => fail('internal', 'The workspace write failed.', 'call the tool again', false));
       if (outcome !== null) result = outcome;
     }
     call.resolve(result);
@@ -743,7 +759,9 @@ export async function startBridgeServer(opts: BridgeServerOptions): Promise<Brid
       current.calls.set(id, call);
       callOpts.signal.addEventListener('abort', onAbort, { once: true });
       void (async () => {
-        const files = opts.files === undefined ? [] : await opts.files.attach(tool, args).catch(() => []);
+        // workspace bytes go to the tab only while the user granted Files with the workspace folder (§5.9, INT)
+        const mayAttach = opts.files !== undefined && current.grants.files && current.grants.workspace;
+        const files = mayAttach ? await (opts.files as TabFileHooks).attach(tool, args).catch(() => []) : [];
         if (!current.calls.has(id)) return;
         const attached: { path: string; blob: string }[] = [];
         for (const [index, file] of files.entries()) {
