@@ -86,10 +86,9 @@ describe('project_import', () => {
     expect(imported).toMatchObject({ ok: true, data: { character: 'Polybot' } });
     expect(imported.undo?.label.startsWith('AI: ')).toBe(true);
     expect(imported.data?.['clips']).toHaveLength(1);
-    // the static-model kinds are the character setup module's (B4): without its hook they are unsupported
-    expect((await session.call('project_import', { sample: 'polybot_apose' })).error).toMatchObject({
-      code: 'unsupported',
-    });
+    // the static-model kinds go to the character setup module's hook (B4, registered by the catalogue since INT)
+    const model = await session.call('project_import', { sample: 'polybot_apose' });
+    expect(model).toMatchObject({ ok: true, data: { character: null, model: { readyToRig: expect.any(Boolean) } } });
     await session.ok('project_save', { path: 'scene.ekzanim' });
     expect((await session.call('project_import', { path: 'scene.ekzanim' })).error).toMatchObject({
       code: 'invalid_args',

@@ -95,6 +95,8 @@ function createRuntime(app: EditorApp): AgentRuntime {
       ...(params.gestureWaitMs === null ? {} : { gestureWaitMs: params.gestureWaitMs }),
       ...(params.confirmTimeoutMs === null ? {} : { confirmTimeoutMs: params.confirmTimeoutMs }),
     },
+    // what `hello` reports, as the e2e test API's session does (INT)
+    ...(e2eBuild() ? { build: 'e2e' as const } : {}),
   };
   let session: AgentSessionHandle | null = null;
   let unavailable: string | null = null;

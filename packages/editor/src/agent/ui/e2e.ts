@@ -3,6 +3,7 @@
 // and drive real tool calls through it (audit rows, AI steps, view_capture) without the bridge (B2's ai-01 covers
 // the socket). A separate chunk: only e2e pages import it.
 import type { AgentToolResult } from '@ekza-studio/agent-tools';
+import { setAgentSession } from '../bridge/slot';
 import { createFakeAgentSession, type FakeAgentSession, type FakeSessionOptions } from './fakeSession';
 import type { AgentRuntime } from './runtime';
 
@@ -45,6 +46,8 @@ export function installAgentE2eHook(runtime: AgentRuntime): () => void {
     installFake(opts) {
       fake = createFakeAgentSession(runtime.app, opts);
       runtime.install(fake);
+      // the test API's agent() reads the page's slot: the fake session is the page's session from now on (INT)
+      setAgentSession(runtime.app, fake);
     },
     async call(tool, args, opts) {
       if (fake === null) throw new Error('installFake first');
