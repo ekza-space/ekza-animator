@@ -251,6 +251,8 @@ describe('the session-state invariant (§5.7, §9.2)', () => {
     expect([...DRAWN].sort()).toEqual(
       readyTools()
         .map((tool) => tool.name)
+        // view_capture is a live read with a capture service: tools-view.test.ts checks the invariant for it (B3)
+        .filter((name) => name !== 'view_capture')
         .sort(),
     );
   });

@@ -15,6 +15,8 @@ import {
   vec3Out,
 } from '../../schemas/common';
 import { BUDGETS, defineTool } from '../define';
+import { viewCapture as viewCaptureRun } from './capture';
+import { CAPTURE_FRAMES_MAX } from './sheet';
 
 export const CAPTURE_VIEWS = [
   'front',
@@ -33,26 +35,26 @@ export const viewCapture = defineTool({
   name: 'view_capture',
   title: 'Look at the animation',
   description:
-    "Look at the animation: one image with a still or a contact sheet of up to 16 frames from preset cameras or the user's view, optionally with bone trails.",
+    "Look at the animation in the user's editor: one image with a still or a contact sheet of up to 6 frames from preset cameras on both sides of the character or from the user's own view. The character's left is on the image's right in the front view.",
   group: 'view',
   input: z.strictObject({
     ...scoped,
     frames: z
       .union([
-        frameList('Clip frames (≤ 16).', 16),
+        frameList('Clip frames (≤ 6).', CAPTURE_FRAMES_MAX),
         z.enum(['keys', 'extremes']).describe('keys: the key frames; extremes: the extreme poses.'),
         z
           .strictObject({ every: z.number().min(1).max(FRAME_MAX).describe('Every this many frames over the clip.') })
           .describe('Frames at a regular step.'),
       ])
-      .describe('Which frames: a list (≤ 16), keys, extremes or {every}.'),
+      .describe('Which frames: a list (≤ 6), keys, extremes or {every} (thinned to ≤ 6).'),
     views: z
       .array(z.enum(CAPTURE_VIEWS))
       .min(1)
       .max(3)
       .default(['front'])
       .describe(
-        "Cameras (1…3): front, back, left/right (the character's), top, three-quarter, shot, follow, or user (live).",
+        "Cameras (1…3): front, back, left/right (the character's), top, three_quarter_left/right, or user (the user's own view).",
       ),
     crop: z.enum(['body', 'upper_body', 'legs', 'hands', 'head']).default('body').describe('Framing (default body).'),
     overlays: z
@@ -104,6 +106,8 @@ export const viewCapture = defineTool({
   kind: 'read',
   budget: BUDGETS.image,
   example: { clip: 'walk', frames: [0, 10, 20], views: ['front'] },
+  ready: true,
+  run: (ctx, args) => viewCaptureRun(ctx, args as never) as never,
 });
 
 export const viewPlotCurves = defineTool({

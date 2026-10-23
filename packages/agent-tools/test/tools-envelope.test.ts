@@ -81,7 +81,10 @@ describe('success envelopes against the manifest (§5.3, §5.21)', () => {
     }
     const p2 = allTools()
       .filter(
-        (tool) => tool.ready && !['keys_tween', 'curves_set_interpolation', 'curves_euler_filter'].includes(tool.name),
+        // view_capture needs a live host with a capture service: tools-view.test.ts validates its envelope (B3)
+        (tool) =>
+          tool.ready &&
+          !['keys_tween', 'curves_set_interpolation', 'curves_euler_filter', 'view_capture'].includes(tool.name),
       )
       .map((tool) => tool.name)
       .filter((name) => manifest.tools.some((tool) => tool.name === name));

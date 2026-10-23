@@ -137,3 +137,16 @@ export {
   type ResourceTemplateDef,
   STATIC_RESOURCES,
 } from './text/resources';
+// view_capture (B3): the live capture service hook, cameras and the sheet layout the editor's service shares
+export { attachViewCapture, MVP_CAPTURE_VIEWS, viewCaptureServiceOf } from './tools/view/capture';
+export { type Bounds, CAMERA_PADDING, type CaptureCrop, cropBounds, presetCamera } from './tools/view/cameras';
+export {
+  CAPTURE_FRAMES_MAX,
+  DEFAULT_MAX_EDGE_PX,
+  type SheetLayout,
+  sheetLayout,
+  thinEvenly,
+  tileAspect,
+  tileRect,
+  visualTokens,
+} from './tools/view/sheet';
