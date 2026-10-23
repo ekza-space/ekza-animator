@@ -164,7 +164,7 @@ Hide what you do not need, per workspace (details: [docs/LAYOUT-PRESETS.md](docs
 | Rig & Skin | **M6b MVP: Quick Rig (guessed markers, front/side axis rule, live VRM skeleton preview), Create Skeleton with an auto control rig, joint fitting with symmetry, Orient and Mirror Joints, one-click Bind Skin in a worker, Paint Skin Weights with mirror strokes and holds, test poses, Validation as the export gate, the CC0 Clip Library with preview and Use Clip, VRM 1.0 export with OMOBA's runtime lints**; **the A-pose path: Quick Rig and Create Skeleton on A-posed meshes, *Straighten to T-Pose* (Apply Pose as Rest) so the exported VRM is a T-pose VRM 1.0** | Constraints and control-shape editing, the Joint tool, the Component Editor, weight transfer and inpainting, rig edits on imported avatars (full M6b) |
 | Auto-Rig mode | **Mode chooser on `/` (remembered), a Mixamo-style five-step wizard at `/autorig` over the same document and undo history: model checks with one-click fixes (T- or A-posed GLB, VRM), guessed markers in front/side views, one-click *Auto-rig* (skeleton + skin + T-pose straighten) with Adjust joints and weight painting, the CC0 clip library with speed/trim/mirror/in-place/arm space, export to OMOBA/Space VRM 1.0, GLB, VRMA or an OMOBA local test kit; *Open in Studio* and back** | *Publish to Hub* (Ekza Hub upload, hidden until the Hub path exists), rig and weight edits on imported avatars, decimation over 200k triangles, an OMOBA-side motion smoke test, `ru`/`zh` strings |
 
-Full numbered list: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
+Feature catalogue by category, with UI locations and releases: [docs/FEATURES.md](docs/FEATURES.md). Full numbered list: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
 
 ## Quickstart
 
@@ -201,6 +201,8 @@ docs/                    research, ADRs, requirements, roadmap, MVP spec, glossa
 
 ## Documentation
 
+- [docs/FEATURES.md](docs/FEATURES.md) — feature catalogue by category: what the product has, where it is in the UI
+  and since which release (machine-readable: [docs/FEATURES.summary.json](docs/FEATURES.summary.json)).
 - [ARCHITECTURE.md](ARCHITECTURE.md) — layers, packages and dependency rules, data model, evaluation, rig, IO,
   viewport, Graph Editor, shell, collaboration boundary, extensibility, budgets, testing, and how research
   conflicts were resolved.
