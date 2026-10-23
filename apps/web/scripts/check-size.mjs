@@ -91,7 +91,7 @@ export const BOUNDARIES = [
   },
   { id: 'clip-library', label: 'clip library (panel, preview, Use Clip)', markers: ['ekza-clip-library'] },
   // M-AI B5 (MCP-SPEC §0.3): the actor side of the run scope loads with the runner's actor rules; the apply bodies of
-  // the Graph Editor and pose operators load on their first run (`operators/builtin/lazyBodies.ts`).
+  // the Graph Editor, pose and clip operators load on their first run (`operators/builtin/lazyBodies.ts`).
   {
     id: 'actor-scope',
     label: 'agent run scope (actorScope, actorRun)',
@@ -103,6 +103,7 @@ export const BOUNDARIES = [
     markers: ['with locked rotation curves were not filtered'],
   },
   { id: 'pose-bodies', label: 'pose operator bodies', markers: ['locked channel(s) were not changed'] },
+  { id: 'clip-bodies', label: 'clip operator bodies', markers: ['clip.duplicate runs in a transaction'] },
 ];
 
 /**
