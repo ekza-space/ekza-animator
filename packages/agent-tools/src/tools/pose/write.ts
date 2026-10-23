@@ -571,7 +571,8 @@ export async function poseIkTarget(ctx: AgentToolContext, args: PoseIkTargetArgs
         position,
         ...(rotation === undefined ? {} : { rotation }),
         ...(pole === undefined ? {} : { pole }),
-        ensureIk: args.ensureIk,
+        // P1's pose.goals needs a switch range with 'auto'; a limb already IK at the frame needs no switch.
+        ensureIk: plan.switchRange === null ? 'never' : 'auto',
         ...(plan.switchRange === null ? {} : { switchRange: { start: plan.switchRange[0], end: plan.switchRange[1] } }),
       },
     ],
