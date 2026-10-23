@@ -52,8 +52,11 @@ confirm cards (`user-actions.json`). To run it again: `pnpm mcp:build`, build an
 
 ## Gate
 
-`EKZA_E2E_PORT=3156 pnpm run ci` (local Chrome): see the final report of the package for the last run. check:size
-`/editor` 890,932 B, `/autorig` 651,856 B (M-AI-INT-11).
+`EKZA_E2E_PORT=3156 pnpm run ci` (local Chrome) **green**: format, lint, typecheck, deps, fixtures, licences, unit
+suites (22/22 turbo tasks), build, check:size `/editor` 890,932 B and `/autorig` 651,856 B (M-AI-INT-11), e2e 365
+passed / 24 skipped. Earlier full runs had one load-dependent failure each (`m6b-rig-01-checklist` twice,
+`m6a-shell` pixel probe once, `ai-01-live` once on a camera still framing the import); each passed 3/3 alone with
+`--repeat-each 3`. `ai-01-live` now waits for resting cameras and E2E-RIG-01 for a resting knee before its drag.
 
 ## Open
 
