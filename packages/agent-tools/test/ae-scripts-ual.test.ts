@@ -9,22 +9,10 @@
 // Deviation of the copies (P9 decides): the seam's velocity test is relative — the velocity mismatch across the seam
 // may exceed the clean walk's own by ≤ 0.05°/frame. §5.16's literal |(p(e) − p(e−1)) − (p(s+1) − p(s))| is the
 // acceleration of any smooth loop: the clean UAL walk measures ≈ 5°/frame on its bones.
-import {
-  evaluateAnimCurve,
-  quatInvert,
-  quatMultiply,
-  quatRotateVec3,
-  type TangentType,
-} from '@ekza-studio/anim-core';
+import { evaluateAnimCurve, quatInvert, quatMultiply, quatRotateVec3, type TangentType } from '@ekza-studio/anim-core';
 import { type CharacterId, type ClipId, seededIdSource } from '@ekza-studio/doc';
 import { readFixture } from '@ekza-studio/doc/testing';
-import {
-  createHeadlessEditorApp,
-  deleteKeys,
-  type EditorApp,
-  ensureCurve,
-  writeKeyAt,
-} from '@ekza-studio/editor-core';
+import { createHeadlessEditorApp, deleteKeys, type EditorApp, ensureCurve, writeKeyAt } from '@ekza-studio/editor-core';
 import { parseGlb } from '@ekza-studio/io';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { allBones, angleDeg, animatedCurves, bonesAt, DEG, lagOf, length, range, sub, type World } from './ae-graders';
@@ -331,8 +319,8 @@ describe('UAL walk setups and graders (grader integrity, §9.3.4)', () => {
 describe.skipIf(!READY.p1)('UAL walk scripts (P2 copies of §9.3.3 references, READY.p1)', () => {
   // M-AI-MVP-6 (DECISIONS-OPEN §N, MCP-SPEC §0.4): the seam's C1 grade (≤ 0.05° per frame beyond the clean walk) fails
   // with P1's clip.makeLoop slope matching (0.2–0.7° over, hips chain); found at the port, also failing on the old base
-  // with P1 + P2 merged. Skipped until the evals package (phase C) settles the grader or P1's slope matching.
-  it.skip('AE-04: makes the hitching loop seamless without changing how it looks', async () => {
+  // with P1 + P2 merged. Gated on READY.p9: the evals package settles the grader or P1's slope matching.
+  it.skipIf(!READY.p9)('AE-04: makes the hitching loop seamless without changing how it looks', async () => {
     hitch(w);
     const setup = posesOf(w, w.clip, range(3, END - 4));
     const runtime = runtimeOf(w.fx);
@@ -356,8 +344,8 @@ describe.skipIf(!READY.p1)('UAL walk scripts (P2 copies of §9.3.3 references, R
 
   // M-AI-MVP-6 (DECISIONS-OPEN §N, MCP-SPEC §0.4): the seam's C1 grade (≤ 0.05° per frame beyond the clean walk) fails
   // with P1's clip.makeLoop slope matching (0.2–0.7° over, hips chain); found at the port, also failing on the old base
-  // with P1 + P2 merged. Skipped until the evals package (phase C) settles the grader or P1's slope matching.
-  it.skip('AE-07: moves the left foot’s contact two frames later', async () => {
+  // with P1 + P2 merged. Gated on READY.p9: the evals package settles the grader or P1's slope matching.
+  it.skipIf(!READY.p9)('AE-07: moves the left foot’s contact two frames later', async () => {
     const left = heelStrike(w, w.clip, 'DEF-foot.L');
     const right = heelStrike(w, w.clip, 'DEF-foot.R');
     const result = await call(runtimeOf(w.fx), 'keys_retime', {

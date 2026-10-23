@@ -3,14 +3,7 @@
 // raw bone worlds from `evaluateAt` (never the tools' own outputs). AE-01 wave, AE-02 nod by pose_set blocking,
 // AE-06 1.5× slower, AE-12 relaxed arms and a head turn, AE-18 "25 % bigger", AE-25 key the user's shown pose.
 // Tasks that need P4's analysis or P5's capture, scope-migrated operators (P1) or the UAL walk fixtures are P9's.
-import {
-  mat4Decompose,
-  quatInvert,
-  quatMultiply,
-  quatRotateVec3,
-  type Vec3,
-  xfIdentity,
-} from '@ekza-studio/anim-core';
+import { mat4Decompose, quatInvert, quatMultiply, quatRotateVec3, type Vec3, xfIdentity } from '@ekza-studio/anim-core';
 import type { CharacterId, ClipId, ControlId } from '@ekza-studio/doc';
 import type { EditorApp } from '@ekza-studio/editor-core';
 import { beforeEach, describe, expect, it } from 'vitest';

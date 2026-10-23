@@ -2,16 +2,7 @@
 // rig, switch a limb between IK and FK with the key policies, match one side to the other at the current frame or
 // over a range, and edit a leg's foot-roll pivots. Each undoable operator is one transaction and one history step.
 import { EkzaError, eulerFilterCurves, type Frame } from '@ekza-studio/anim-core';
-import type {
-  ChannelId,
-  ChannelValues,
-  CharacterId,
-  ClipId,
-  ControlId,
-  CurveId,
-  SolverId,
-  Tx,
-} from '@ekza-studio/doc';
+import type { ChannelId, ChannelValues, CharacterId, ClipId, ControlId, CurveId, SolverId, Tx } from '@ekza-studio/doc';
 import {
   type FootRollParams,
   type Ik2Params,

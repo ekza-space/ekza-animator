@@ -4,15 +4,7 @@
 // A1's (`@ekza-studio/rig`); this file reads compiled `RigProgram.limbs`, calls the rig's limb functions through
 // one seam (`limbKitOf`) and writes channels through the edit kernel.
 import { type Disposer, EkzaError, type Frame, type Mat4 } from '@ekza-studio/anim-core';
-import type {
-  ChannelId,
-  ChannelValues,
-  CharacterId,
-  ClipId,
-  ClipRecord,
-  ControlId,
-  ReadView,
-} from '@ekza-studio/doc';
+import type { ChannelId, ChannelValues, CharacterId, ClipId, ClipRecord, ControlId, ReadView } from '@ekza-studio/doc';
 import {
   applyOverrides,
   type ChannelBuffer,
