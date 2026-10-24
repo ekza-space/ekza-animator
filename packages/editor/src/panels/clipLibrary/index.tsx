@@ -7,6 +7,8 @@ import type { PanelProps } from '../types';
 import { ClipCardList } from './ClipCardList';
 
 export { ClipCardList, type ClipCardListProps } from './ClipCardList';
+// CHARACTER-CONTRACT-SPEC §8.4 (C1): the Target panel's body shares this lazy group (`lazyPanelDef` picks `target`).
+export { default as target } from '../target';
 
 export default function ClipLibraryView({ app }: PanelProps): JSX.Element {
   return (

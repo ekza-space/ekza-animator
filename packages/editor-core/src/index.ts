@@ -447,6 +447,8 @@ export { type ChannelSources, previewValues, registerChannelSourceProvider } fro
 export { defaultRiggingPrefs } from './prefs/defaults';
 export { DEFAULT_BRUSH, defaultRigSession } from './session/rig';
 export { isRigWorkspaceOperator, lazyOperatorChunk, RIG_MENUS, RIG_STATUS_GROUPS, rigStatus } from './workspaces/rig';
+// CHARACTER-CONTRACT-SPEC §8 (C1): the open slot vocabulary and the loader of the lazy target chunk (its module type).
+export { isTargetSlotId, loadTargetKit, type TargetKit } from './workflows/targetSlots';
 // M6b C7 (rig shell): the Validation service's shapes, the checklist, the Rig keymap rows and the mode rules. Values
 // here are read by lazy UI code and tests only (the rig-workspace chunk creates the services).
 export {

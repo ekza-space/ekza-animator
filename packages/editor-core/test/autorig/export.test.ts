@@ -14,7 +14,14 @@ import {
   type MeshId,
   type SkeletonId,
 } from '@ekza-studio/doc';
-import { type ExportArtifact, OMOBA_MANIFEST_FIELDS, parseGlb, unzipFiles, vrmThumbnail } from '@ekza-studio/io';
+import {
+  type ExportArtifact,
+  OMOBA_MANIFEST_FIELDS,
+  parseGlb,
+  stageVrmForOmoba,
+  unzipFiles,
+  vrmThumbnail,
+} from '@ekza-studio/io';
 import { type SkinWeights, withSkin } from '@ekza-studio/mesh-core';
 import { describe, expect, it } from 'vitest';
 import type { AutoRigExportResult, EditorApp } from '../../src';
@@ -237,7 +244,7 @@ describe('autorig.export: same bytes as Studio (FR-AR-12)', () => {
 });
 
 describe('autorig.export: the OMOBA local test kit (§5.6.4)', () => {
-  it('runs headless: <slug>.glb = the VRM bytes, <slug>.png = the stored thumbnail, OMOBA manifest fields, README', async () => {
+  it('runs headless: <slug>.glb = the VRM staged for OMOBA, <slug>.png = the stored thumbnail, OMOBA manifest fields, README', async () => {
     const { t, character } = await readyLad();
     const result = await ok<AutoRigExportResult>(t.app, 'autorig.export', {
       character,
@@ -249,9 +256,11 @@ describe('autorig.export: the OMOBA local test kit (§5.6.4)', () => {
     expect(saved.map((d) => [d.fileName, d.mime])).toEqual([['cube-lad-omoba-kit.zip', 'application/zip']]);
     const files = unzipFiles(saved[0]?.bytes as Uint8Array);
     expect(Object.keys(files)).toEqual(['cube-lad.glb', 'cube-lad.png', 'manifest-entry.json', 'README.txt']);
-    // the VRM target's bytes, unchanged
+    // the VRM target's bytes as OMOBA's local import stages them (CHARACTER-CONTRACT-SPEC P-4: VRM 1.0 turned to −Z)
     const vrm = await ok<AutoRigExportResult>(t.app, 'autorig.export', { character, target: 'ekza-vrm', fileName: '' });
-    expect(sha(files['cube-lad.glb'] as Uint8Array)).toBe(vrm.artifacts[0]?.sha256);
+    const staged = stageVrmForOmoba(vrm.artifacts[0]?.bytes as Uint8Array);
+    expect(staged.turned).toBe(true);
+    expect(sha(files['cube-lad.glb'] as Uint8Array)).toBe(sha(staged.bytes));
     expect(result.artifacts[0]?.sha256).toBe(vrm.artifacts[0]?.sha256);
     const thumb = t.app.store.get('characters', character)?.vrm?.thumbnail;
     expect(files['cube-lad.png']).toEqual(await t.app.services.assets.get(thumb as never));
@@ -425,7 +434,7 @@ describe('autorig.export: imported avatars (§5.6.1, AS-AR-4)', () => {
     const files = unzipFiles(packed.bytes);
     const slug = kit.fileName.replace(/-omoba-kit\.zip$/, '');
     expect(Object.keys(files)).toEqual([`${slug}.glb`, `${slug}.png`, 'manifest-entry.json', 'README.txt']);
-    expect(sha(files[`${slug}.glb`] as Uint8Array)).toBe(sha(baked));
+    expect(sha(files[`${slug}.glb`] as Uint8Array)).toBe(sha(stageVrmForOmoba(baked).bytes));
     expect(sha(files[`${slug}.png`] as Uint8Array)).toBe(sha(vrmThumbnail(baked)?.bytes as Uint8Array));
     expect(Array.from((files[`${slug}.png`] as Uint8Array).subarray(0, 4))).toEqual([0x89, 0x50, 0x4e, 0x47]);
     const entry = JSON.parse(new TextDecoder().decode(files['manifest-entry.json'])) as Record<string, unknown>;

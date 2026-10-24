@@ -9,6 +9,7 @@ import { newRecordId } from '../../app/internals';
 import { type EditorApp, GLOBAL_SCOPE, type Selection } from '../../types';
 import { clipNameTaken } from '../../workflows/importChecks';
 import { clipNameProblem, slotProblem, tagsProblem } from '../../workflows/names';
+import { isTargetSlotId, loadTargetKit, targetHooks } from '../../workflows/targetSlots';
 import { clipFrameOfScene, EMPTY_SELECTION, sceneFpsIn, sceneFrameOf } from '../../workflows/session';
 import { derivedFromProblem, fpsValue, sameFps } from '../../workflows/util';
 import type { ClipSettingsArgs } from '../args';
@@ -277,7 +278,8 @@ export function settingsProblem(clip: ClipRecord, args: Readonly<Record<string, 
   if (args['rootMotion'] !== undefined && !ROOT_MOTION.includes(args['rootMotion'] as RootMotionMode)) {
     return "rootMotion is 'hips' or 'in-place'";
   }
-  if (args['slot'] !== undefined) {
+  // CHARACTER-CONTRACT-SPEC §8.2: a contract slot id (dotted) is checked against the character's target in `poll`.
+  if (args['slot'] !== undefined && !isTargetSlotId(args['slot'])) {
     const problem = slotProblem(args['slot']);
     if (problem !== null) return problem;
   }
@@ -316,13 +318,15 @@ const clipSetSettings = defineOperator<'clip.setSettings', ClipBodies>({
   poll({ app }, args) {
     const base = pollClipArg(app, args);
     if (base !== true) return base;
-    const problem = settingsProblem(
-      clipOf(app, args) as ClipRecord,
-      args as unknown as Readonly<Record<string, unknown>>,
-    );
+    const clip = clipOf(app, args) as ClipRecord;
+    const problem =
+      settingsProblem(clip, args as unknown as Readonly<Record<string, unknown>>) ??
+      (isTargetSlotId(args.slot) ? (targetHooks()?.problem(app, clip.character, clip.id, args.slot) ?? null) : null);
     return problem === null ? pollEditable(app) : fail(problem);
   },
   async prepare({ app }, args) {
+    // A contract slot is checked by the target chunk: load it, the runner polls again.
+    if (isTargetSlotId(args.slot) && targetHooks() === null) await loadTargetKit(app);
     // A frame-rate change rescales the clip's keys: they must be loaded.
     await app.store.open(`clip:${args.clip}`);
     return clipBodies();

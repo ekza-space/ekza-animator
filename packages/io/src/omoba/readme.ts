@@ -8,11 +8,23 @@ export function omobaValidateCommand(file: string): string {
   return `cargo run --offline -p omoba-passport --bin validate-runtime-vrm -- ${file}`;
 }
 
-/** The README of a kit (plain text, LF line ends, a final newline); `version` is the avatar file's VRM version. */
-export function omobaKitReadme(entry: OmobaManifestEntry, version: '0.x' | '1.0' = '1.0'): string {
+/**
+ * The README of a kit (plain text, LF line ends, a final newline); `version` is the avatar file's VRM version, `turned`
+ * whether the kit's file is the VRM 1.0 turned to rest facing −Z as OMOBA's local import stages it (P-4).
+ */
+export function omobaKitReadme(entry: OmobaManifestEntry, version: '0.x' | '1.0' = '1.0', turned = false): string {
   const { slug } = entry;
+  const avatar = turned
+    ? `  ${slug}.glb            the avatar: the exported VRM ${version} file staged as OMOBA’s local import does`
+    : `  ${slug}.glb            the avatar: the exported VRM ${version} file, byte for byte (OMOBA stages VRM files as .glb)`;
   const files = [
-    `  ${slug}.glb            the avatar: the exported VRM ${version} file, byte for byte (OMOBA stages VRM files as .glb)`,
+    avatar,
+    ...(turned
+      ? [
+          '                       (scripts/convert_vrm_to_glb.py): turned 180° to rest facing -Z like every avatar',
+          '                       the game renders, recorded as asset.extras.omoba_rest_yaw180',
+        ]
+      : []),
     ...(entry.thumbnail === null ? [] : [`  ${entry.thumbnail}            its thumbnail`]),
     '  manifest-entry.json  one avatar entry in the field names of OMOBA’s avatar manifest',
   ];

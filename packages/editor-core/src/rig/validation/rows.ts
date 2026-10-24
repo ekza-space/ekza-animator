@@ -70,7 +70,14 @@ const AREA: Readonly<Record<string, RigValidationRow['area']>> = {
   rig: 'rig',
   vrm: 'export',
 };
-const AREA_ORDER: readonly RigValidationRow['area'][] = ['skeleton', 'transforms', 'skin', 'rig', 'export'];
+const AREA_ORDER: readonly RigValidationRow['area'][] = [
+  'skeleton',
+  'transforms',
+  'skin',
+  'rig',
+  'export',
+  'animation',
+];
 const SEVERITY_ORDER: Readonly<Record<RigValidationSeverity, number>> = { error: 0, warning: 1, info: 2 };
 
 type Fix = RigValidationRow['fix'];

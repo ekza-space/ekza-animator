@@ -1,8 +1,10 @@
 // The OMOBA local test kit packer (AUTORIG-SPEC §5.6.4, AR-D24; D6) and the deterministic zip it and the VRMA bundle
-// use (`fflate`, which io already owns; no new dependency). The kit holds `<slug>.glb` (the VRM bytes unchanged),
+// use (`fflate`, which io already owns; no new dependency). The kit holds `<slug>.glb` (the VRM staged as OMOBA's
+// local import stages it: a VRM 1.0 turned to rest facing −Z, `facing.ts`, CHARACTER-CONTRACT-SPEC P-4; VRM 0.x as is),
 // `<slug>.png` (the thumbnail, when there is one; `.jpg` for an imported VRM's JPEG), `manifest-entry.json` (OMOBA's field names) and `README.txt`.
 // Identical input gives identical bytes: every entry has the DOS epoch as its time, no OS attributes, a fixed order.
 import { unzipSync, zipSync, type Zippable } from 'fflate';
+import { stageVrmForOmoba } from './facing';
 import { type OmobaKitMeta, omobaManifestEntry, omobaManifestJson } from './manifest';
 import { omobaKitReadme } from './readme';
 
@@ -56,16 +58,20 @@ export function omobaKitFileName(meta: OmobaKitMeta): string {
   return `${omobaManifestEntry(meta, false).slug}-omoba-kit.zip`;
 }
 
-/** Packs the OMOBA local test kit (§5.6.4). The VRM bytes go in unchanged. */
+/**
+ * Packs the OMOBA local test kit (§5.6.4). The VRM goes in as OMOBA's `convert_vrm_to_glb.py` stages it (P-4): a
+ * VRM 1.0 turned to rest facing −Z with `asset.extras.omoba_rest_yaw180`, a VRM 0.x byte for byte.
+ */
 export function packOmobaKit(input: OmobaKitInput): Uint8Array {
   const entry = omobaManifestEntry(input.meta, input.thumbnail !== null);
   const text = new TextEncoder();
+  const staged = stageVrmForOmoba(input.vrm);
   return zipFiles([
-    { path: `${entry.slug}.glb`, bytes: input.vrm },
+    { path: `${entry.slug}.glb`, bytes: staged.bytes },
     ...(input.thumbnail === null || entry.thumbnail === null
       ? []
       : [{ path: entry.thumbnail, bytes: input.thumbnail, deflate: false }]),
     { path: 'manifest-entry.json', bytes: text.encode(omobaManifestJson(entry)) },
-    { path: 'README.txt', bytes: text.encode(omobaKitReadme(entry, input.meta.vrmVersion ?? '1.0')) },
+    { path: 'README.txt', bytes: text.encode(omobaKitReadme(entry, input.meta.vrmVersion ?? '1.0', staged.turned)) },
   ]);
 }

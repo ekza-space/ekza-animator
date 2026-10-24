@@ -207,7 +207,8 @@ export function ClipSettingsForm(props: ClipSettingsFormProps): JSX.Element {
             </option>
           ))}
           {draft.slot !== '' && !(SLOT_VOCABULARY as readonly string[]).includes(draft.slot) ? (
-            <option value={draft.slot}>{draft.slot} (unknown)</option>
+            // a slot outside vocabulary v1: a target slot (CHARACTER-CONTRACT-SPEC §8.2) or one the form flags below
+            <option value={draft.slot}>{draft.slot}</option>
           ) : null}
         </select>
       </Row>

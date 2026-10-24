@@ -1,4 +1,4 @@
-import { parseGlb, pngSize, unzipFiles } from '@ekza-studio/io';
+import { parseGlb, pngSize, stageVrmForOmoba, unzipFiles } from '@ekza-studio/io';
 import { expect, type Page, test } from '@playwright/test';
 import {
   characterRequest,
@@ -25,7 +25,8 @@ import { call, runOk } from './helpers/test-api';
 // E2E-AR-07 (AUTORIG-SPEC §10 D6, §5.6.1, §5.6.4; AS-AR-4 and AS-AR-6 ⑤ parts): the other targets through the UI.
 // The GLB equals `file.exportCharacter` through local/generic with every clip; the VRMA target saves one .vrma per
 // clip (zipped when several), each equal to `file.export` kind vrma; the OMOBA kit (under *For developers*) holds the
-// VRM target's bytes unchanged, the 1024 px thumbnail and a manifest entry in OMOBA's field names; an imported VRM
+// VRM target's bytes as OMOBA's local import stages them (VRM 1.0 turned to rest facing −Z, CHARACTER-CONTRACT-SPEC
+// P-4), the 1024 px thumbnail and a manifest entry in OMOBA's field names; an imported VRM
 // offers the Space bake, VRMA and the kit once it has a clip (never a plain GLB), byte-equal to `file.export`'s bake;
 // a textured body rigged without the sword next to it keeps its texture in the VRM.
 
@@ -88,7 +89,7 @@ test('GLB with animations and the VRMA clips, byte-equal to Studio’s exports',
   expect((await autorig(page))?.slices['export']).toEqual({ target: 'vrma', downloaded: true });
 });
 
-test('the OMOBA local test kit: the VRM bytes unchanged, the thumbnail, OMOBA’s manifest fields', async ({ page }) => {
+test('the OMOBA local test kit: the VRM staged for OMOBA, the thumbnail, OMOBA’s manifest fields', async ({ page }) => {
   test.setTimeout(240_000);
   const character = await riggedCubeLad(page);
   await useClips(page, character, ['idle']);
@@ -107,7 +108,11 @@ test('the OMOBA local test kit: the VRM bytes unchanged, the thumbnail, OMOBA’
   keepExport('ar-07-cube-lad-omoba-kit.zip', kitFile.bytes);
   const kit = readKit(kitFile.bytes);
   expect(kit.files).toEqual(['cube-lad.glb', 'cube-lad.png', 'manifest-entry.json', 'README.txt']);
-  expect(sha256(kit.bytes['cube-lad.glb'] as Uint8Array)).toBe(vrm.sha);
+  // P-4: the VRM 1.0 rests facing +Z; the kit holds it turned to −Z as OMOBA's convert_vrm_to_glb.py stages it
+  const staged = stageVrmForOmoba(vrm.bytes);
+  expect(staged.turned).toBe(true);
+  expect(sha256(kit.bytes['cube-lad.glb'] as Uint8Array)).toBe(sha256(staged.bytes));
+  expect((await parseGlb(kit.bytes['cube-lad.glb'] as Uint8Array)).json.asset.extras?.['omoba_rest_yaw180']).toBe(true);
   expect(pngSize(kit.bytes['cube-lad.png'] as Uint8Array)).toEqual({ width: 1024, height: 1024 });
   expectOmobaEntry(kit, 'cube-lad');
   expect(kit.entry).toEqual({

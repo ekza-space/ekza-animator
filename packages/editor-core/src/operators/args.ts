@@ -547,7 +547,8 @@ export interface OperatorMap {
   'library.stop': { args: void; result: void };
   'library.useClip': { args: { readonly character: CharacterId; readonly clip: string;
     readonly params?: ClipParams;                                  // AUTORIG D0 (CR-AR-2a, D5): the derived asset, library clip first in derivedFrom
-    readonly replace?: ClipId };                                   // AUTORIG D0 (D5): one step deletes it and adds the new clip (name and slot kept)
+    readonly replace?: ClipId;                                     // AUTORIG D0 (D5): one step deletes it and adds the new clip (name and slot kept)
+    readonly slot?: string };                                      // CC C1: the new clip's slot (a contract slot moves off other clips)
     result: { readonly clip: ClipId } };
 
   // ===================== Auto-Rig (AUTORIG-SPEC §4.5; D0 registers every id from its owner's stub file) =====================
@@ -562,7 +563,7 @@ export interface OperatorMap {
     result: AutoRigRigResult };                                                                                    // D4; `rigidParts` AR-R4-5
   'autorig.cancel': { args: void; result: void };                                                                  // D4 (U)
   'autorig.clip.add': { args: { readonly character: CharacterId; readonly clip: string; readonly params: ClipParams;
-    readonly replace?: ClipId }; result: { readonly clip: ClipId } };                                              // D5
+    readonly replace?: ClipId; readonly slot?: string }; result: { readonly clip: ClipId } };                      // D5; `slot` CC C1
   'autorig.export': { args: { readonly character: CharacterId; readonly target: AutoRigExportTarget; readonly fileName: string };
     result: AutoRigExportResult };                                                                                 // D6
   'autorig.navigate': { args: { readonly to: ShellRoute; readonly workspace?: WorkspaceId; readonly from?: 'studio' | 'autorig';
@@ -625,6 +626,15 @@ export interface OperatorMap {
       readonly skippedFields: readonly { readonly table: string; readonly id: string; readonly fields: readonly string[] | null }[] } };
   'edit.restoreDocument': { args: { readonly snapshot: DocSnapshot; readonly label: string };   // user runs only (denied to agents)
     result: { readonly writes: number } };
+  // ---------- CHARACTER-CONTRACT-SPEC §8.2 (C1, additive): the target binding (lazy chunk `workflows/target`) ----------
+  'target.bind': { args: { readonly character: CharacterId; readonly game: string; readonly target: string;
+    readonly revision?: string }; result: { readonly revision: string } };
+  'target.unbind': { args: { readonly character: CharacterId }; result: void };
+  'target.update': { args: { readonly character: CharacterId; readonly revision?: string }; result: { readonly revision: string } };
+  'target.slot.assign': { args: { readonly character: CharacterId; readonly slot: string; readonly clip: ClipId }; result: void };
+  'target.slot.clear': { args: { readonly character: CharacterId; readonly slot: string }; result: void };
+  'target.slot.alias': { args: { readonly character: CharacterId; readonly slot: string; readonly to: string | null };
+    result: void };
   // stretch (D0 types only, MCP-SPEC §1.2; not registered until built): 'pose.plantContacts', 'pose.recipe'
   'pose.plantContacts': { args: { readonly clip: ClipId; readonly feet?: readonly ('L' | 'R')[];
     readonly contacts?: readonly { readonly foot: 'L' | 'R'; readonly range: { readonly start: Frame; readonly end: Frame } }[];

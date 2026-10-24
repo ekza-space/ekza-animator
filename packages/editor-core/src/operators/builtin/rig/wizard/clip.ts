@@ -30,6 +30,8 @@ const clipAdd = defineOperator<'autorig.clip.add', { readonly clip: ClipId }>({
     // (Use Clip's own poll checks that `replace` is a clip of the character).
     const replace = args['replace'];
     if (replace !== undefined && typeof replace !== 'string') return fail('replace must be a clip id');
+    // CC C1: `slot` is Use Clip's (checked by its poll).
+    if (args['slot'] !== undefined && typeof args['slot'] !== 'string') return fail('slot must be a slot name');
     return OK;
   },
   async prepare(ctx, args) {
@@ -39,6 +41,7 @@ const clipAdd = defineOperator<'autorig.clip.add', { readonly clip: ClipId }>({
       clip: args.clip,
       params,
       ...(args.replace === undefined ? {} : { replace: args.replace }),
+      ...(args.slot === undefined ? {} : { slot: args.slot }),
     });
     const clip = isRecord(value) ? value['clip'] : undefined;
     if (typeof clip !== 'string') throw new EkzaError('internal', 'Use Clip returned no clip');

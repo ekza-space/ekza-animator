@@ -1,0 +1,24 @@
+{
+  "schema": "ekza.contract-index.v1",
+  "game": "omoba",
+  "contractSchema": "ekza.game-contract.v1",
+  "profiles": [
+    "omoba.character.v1"
+  ],
+  "channels": {
+    "live": "sha256-68441bd332b357e4e44da2e1268938eee5f610a39dd5c06d8bd53eb3042f48a7",
+    "test": "sha256-68441bd332b357e4e44da2e1268938eee5f610a39dd5c06d8bd53eb3042f48a7"
+  },
+  "submit": false,
+  "revisions": [
+    {
+      "revision": "sha256-68441bd332b357e4e44da2e1268938eee5f610a39dd5c06d8bd53eb3042f48a7",
+      "file": "sha256-68441bd332b357e4e44da2e1268938eee5f610a39dd5c06d8bd53eb3042f48a7.json",
+      "bytes": 215740,
+      "sha256": "9a3ecdd165380958e380e8dcecbc43e5ea4ea8f9b0cb0a674bfa66f370911e80",
+      "previousRevision": null,
+      "targets": 18,
+      "slots": 113
+    }
+  ]
+}

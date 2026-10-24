@@ -345,7 +345,7 @@ Specs: [ADR 0005](adr/0005-export-strategy.md), [ADR 0010](adr/0010-ekza-integra
 | Profile | For | Status |
 |---|---|---|
 | `ekza/space-avatar-v1` | Ekza avatar — Space and OMOBA (VRM 1.0); OMOBA runtime rules are errors | `v0.4.0` |
-| `ekza/omoba-humanoid-v1` | OMOBA humanoid GLB with the five game clips | `v0.1.0` |
+| `ekza/omoba-humanoid-v1` | OMOBA humanoid v1 GLB with the five legacy passport clips (`idle walk attack cast death`, what OMOBA's v1 passport requires; the game itself moves heroes with Run — character targets use the contract's slots) | `v0.1.0` |
 | `ekza/vrma-humanoid-v1` | Ekza humanoid clip (VRMA) | `v0.1.0` |
 | `ekza/omoba-handheld-v1` | Static handheld prop | `v0.3.0` |
 | `local/generic` | Local file, generic checks (≤ 256 MiB) | `v0.1.0` |
