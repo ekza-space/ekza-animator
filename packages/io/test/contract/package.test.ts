@@ -1,9 +1,9 @@
 // CHARACTER-CONTRACT-SPEC §4.1, §5.1, §5.3, §8.16 and GAME-PROTOCOL-SPEC §5.2, §7.2, Appendix B (C2): the package
 // manifest `ekza.package.v1` (strict reader, deterministic writer) and the TypeScript rule set on package bytes, run
-// on OMOBA's conformance fixtures (`fixtures/contracts/omoba/v1`: C0, omoba-bevy PR #109 `c0fe23f`, copied by
-// `tooling/sync-contract.mjs --fixtures` with SHA-256 pinning): every one of the 45 package cases gives its expected
-// gate verdict (rule ids, warnings, per-slot verdicts and warnings) and every one of the 12 contract cases its reader
-// verdict and reason code — except the two expectations listed in `C0_DRAFT_DIFFERENCES` (CC-C2-4).
+// on OMOBA's conformance fixtures (`fixtures/contracts/omoba/v1`: C0, omoba-bevy PR #109 `c0fe23f` with the fixture
+// fix of PR #116 `699bc85`, copied by `tooling/sync-contract.mjs --fixtures` with SHA-256 pinning): every one of the 45
+// package cases gives its expected gate verdict (rule ids, warnings, per-slot verdicts and warnings) and every one of
+// the 12 contract cases its reader verdict and reason code (CC-C2-4).
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { EkzaError } from '@ekza-studio/anim-core';
@@ -45,24 +45,6 @@ for (const entry of MANIFEST.contracts) {
   if (entry.status === 'retired') RETIRED.add(model.revision);
 }
 const OPTIONS = { contract: (revision: string) => CONTRACTS.get(revision), retired: (r: string) => RETIRED.has(r) };
-/**
- * Two expected verdicts of C0 (`omoba-bevy` PR #109 @ c0fe23f, fixtures unchanged since f025981) disagree with the
- * rules as specified (§5.1), because the generator declares one rule per case instead of computing it; reported to C0
- * (CC-C2-4). `clip-too-short`: its manifest keeps the baseline contact 0.1 s while the clip's `ekza_animation_v1` says
- * 0.05 s (`clip.markers`: "equal to the per-clip metadata when both exist"). `ok-shared-animation`: the 0.5 s rocket
- * basic attack is longer than its `minIntervalSecs` 0.4375 s (warning `clip.min-interval`).
- */
-const C0_DRAFT_DIFFERENCES: Readonly<Record<string, Readonly<Record<string, unknown>>>> = {
-  'clip-too-short': { slots: { 'basic.wildspark.0': ['clip.duration', 'clip.markers'] } },
-  'ok-shared-animation': { slotWarnings: { 'basic.wildspark.rockets.0': ['clip.min-interval'] } },
-};
-const merged = (expected: Record<string, unknown>, change: Readonly<Record<string, unknown>> | undefined) => {
-  const out: Record<string, unknown> = { ...expected };
-  for (const [key, value] of Object.entries(change ?? {})) {
-    out[key] = { ...(expected[key] as Record<string, unknown>), ...(value as Record<string, unknown>) };
-  }
-  return out;
-};
 const sorted = (value: unknown): unknown =>
   Array.isArray(value)
     ? (value as string[]).toSorted((a, b) => a.localeCompare(b))
@@ -83,7 +65,7 @@ describe('conformance fixtures (CC Appendix D, copied with SHA-256 pinning)', ()
 
   for (const testCase of MANIFEST.packageCases) {
     it.skipIf(SKIPPED.has(testCase.file))(`package ${testCase.id}`, () => {
-      const expected = merged(jsonOf<Record<string, unknown>>(testCase.expected), C0_DRAFT_DIFFERENCES[testCase.id]);
+      const expected = jsonOf<Record<string, unknown>>(testCase.expected);
       const verdict = gateVerdict(checkCharacterPackage(bytesOf(testCase.file), OPTIONS));
       expect(sorted(verdict)).toEqual(
         sorted({
