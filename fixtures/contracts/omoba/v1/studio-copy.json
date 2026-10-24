@@ -1,12 +1,6 @@
 {
   "schema": "ekza-studio.fixture-copy.v1",
   "manifestSha256": "b515c09d4f8824dc5393e722ddd4b1f3b41a98ade09daf842e82e69328429209",
-  "cap": 1048576,
-  "skipped": [
-    {
-      "file": "packages/pack-animation-bytes-over.glb",
-      "bytes": 4759176,
-      "sha256": "d08762d9eca5890f4bfab2ff0225612b2852afe2f9c82a032c1b864e7eb251db"
-    }
-  ]
+  "cap": 8388608,
+  "skipped": []
 }

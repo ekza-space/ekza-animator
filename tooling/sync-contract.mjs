@@ -14,9 +14,10 @@
 // `tooling/test/sync-contract.test.mjs`) verifies every game's index against its files without writing.
 //
 // C2 (CHARACTER-CONTRACT-SPEC §5.3 item 3, Appendix D): `--fixtures <dir>` copies a game's conformance fixtures (OMOBA:
-// `omoba-bevy/shared/assets/catalog/game-contract-fixtures/v1/`) into `fixtures/contracts/<game>-fixtures/v1/`: the
-// fixture manifest and every file it lists, each checked against the manifest's SHA-256 (pinning); a file above 1 MiB
-// is not copied and is named in `studio-copy.json` (io's tests synthesize those cases). `--check` verifies the copy.
+// `omoba-bevy/shared/assets/catalog/game-contract-fixtures/v1/`) into `fixtures/contracts/<game>/v1/`: the fixture
+// manifest and every file it lists, each checked against the manifest's SHA-256 (pinning; `.gitattributes` keeps the
+// bytes from line-ending conversion); a file above the cap (8 MiB) is not copied and is named in `studio-copy.json`.
+// `--check` verifies the copy.
 //
 // Usage: node tooling/sync-contract.mjs --from <file> [--schema <file>]… [--restamp] [--root <repo>]
 //        node tooling/sync-contract.mjs --fixtures <dir> [--root <repo>]
@@ -152,10 +153,10 @@ export function syncContract({ root, from, schemas = [], restamp = false, submit
 }
 
 /** Fixture files above this are not copied (named in `studio-copy.json`). */
-export const FIXTURE_FILE_CAP = 1_048_576;
+export const FIXTURE_FILE_CAP = 8_388_608;
 export const FIXTURE_COPY = 'studio-copy.json';
 /** The directory of a game's copied conformance fixtures. */
-export const fixturesPath = (game) => `${FIXTURE_DIR}/${game}-fixtures/v1`;
+export const fixturesPath = (game) => `${FIXTURE_DIR}/${game}/v1`;
 
 /** Copies a game's conformance fixtures (see the header). Returns what it copied and skipped. */
 export function syncFixtures({ root, from, cap = FIXTURE_FILE_CAP }) {
@@ -297,7 +298,7 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(p
     const result = syncFixtures({ root, from: resolve(value('--fixtures')) });
     console.log(
       `sync-contract: ${result.game} fixtures, ${result.copied} file(s) copied` +
-        (result.skipped.length === 0 ? '' : `, not copied (over 1 MiB): ${result.skipped.join(', ')}`),
+        (result.skipped.length === 0 ? '' : `, not copied (over the cap): ${result.skipped.join(', ')}`),
     );
   } else {
     const from = value('--from');

@@ -1,8 +1,9 @@
 // CHARACTER-CONTRACT-SPEC §4.1, §5.1, §5.3, §8.16 and GAME-PROTOCOL-SPEC §5.2, §7.2, Appendix B (C2): the package
 // manifest `ekza.package.v1` (strict reader, deterministic writer) and the TypeScript rule set on package bytes, run
-// on OMOBA's conformance fixtures (`fixtures/contracts/omoba-fixtures/v1`, copied by `tooling/sync-contract.mjs
-// --fixtures` with SHA-256 pinning): every package case gives its expected gate verdict, every contract case its
-// reader verdict. The one case over the copy's 1 MiB cap (`pack-animation-bytes-over`) is reproduced with a lower cap.
+// on OMOBA's conformance fixtures (`fixtures/contracts/omoba/v1`: C0, omoba-bevy PR #109 `c0fe23f`, copied by
+// `tooling/sync-contract.mjs --fixtures` with SHA-256 pinning): every one of the 45 package cases gives its expected
+// gate verdict (rule ids, warnings, per-slot verdicts and warnings) and every one of the 12 contract cases its reader
+// verdict and reason code — except the two expectations listed in `C0_DRAFT_DIFFERENCES` (CC-C2-4).
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { EkzaError } from '@ekza-studio/anim-core';
@@ -11,16 +12,16 @@ import {
   type ContractModel,
   characterPackageManifest,
   checkCharacterPackage,
+  contractRefusalReason,
   gateVerdict,
   packageManifestJson,
-  readContract,
   readContractText,
   readPackageManifest,
   validationReport,
 } from '../../src/contract';
 
 const ROOT = new URL('../../../../', import.meta.url);
-const DIR = new URL('fixtures/contracts/omoba-fixtures/v1/', ROOT);
+const DIR = new URL('fixtures/contracts/omoba/v1/', ROOT);
 const bytesOf = (path: string): Uint8Array => new Uint8Array(readFileSync(new URL(path, DIR)));
 const jsonOf = <T>(path: string): T => JSON.parse(readFileSync(new URL(path, DIR), 'utf8')) as T;
 const sha256 = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex');
@@ -43,7 +44,7 @@ for (const entry of MANIFEST.contracts) {
 }
 const OPTIONS = { contract: (revision: string) => CONTRACTS.get(revision), retired: (r: string) => RETIRED.has(r) };
 /**
- * Two expected verdicts of the C0 draft (`omoba-bevy` `feat/character-contract-export` @ f025981) disagree with the
+ * Two expected verdicts of C0 (`omoba-bevy` PR #109 @ c0fe23f, fixtures unchanged since f025981) disagree with the
  * rules as specified (§5.1), because the generator declares one rule per case instead of computing it; reported to C0
  * (CC-C2-4). `clip-too-short`: its manifest keeps the baseline contact 0.1 s while the clip's `ekza_animation_v1` says
  * 0.05 s (`clip.markers`: "equal to the per-clip metadata when both exist"). `ok-shared-animation`: the 0.5 s rocket
@@ -73,7 +74,9 @@ describe('conformance fixtures (CC Appendix D, copied with SHA-256 pinning)', ()
       if (SKIPPED.has(file)) continue;
       expect({ file, sha256: sha256(bytesOf(file)) }).toEqual({ file, sha256: pin.sha256 });
     }
-    expect([...SKIPPED]).toEqual(['packages/pack-animation-bytes-over.glb']);
+    expect([...SKIPPED]).toEqual([]);
+    expect(MANIFEST.packageCases).toHaveLength(45);
+    expect(MANIFEST.contractCases).toHaveLength(12);
   });
 
   for (const testCase of MANIFEST.packageCases) {
@@ -91,7 +94,7 @@ describe('conformance fixtures (CC Appendix D, copied with SHA-256 pinning)', ()
     });
   }
 
-  it('pack-animation-bytes-over (not copied): the animation byte cap, reproduced with a lower cap', () => {
+  it('the animation byte cap reads its parameter (a lower cap fails a small package)', () => {
     const model = CONTRACTS.get(MANIFEST.contracts[0]?.revision as string) as ContractModel;
     const low: ContractModel = {
       ...model,
@@ -106,13 +109,15 @@ describe('conformance fixtures (CC Appendix D, copied with SHA-256 pinning)', ()
 
   for (const testCase of MANIFEST.contractCases) {
     it(`contract ${testCase.id}: ${testCase.document}`, () => {
+      const expected = jsonOf<{ readonly document: string }>(`expected/${testCase.id}.json`).document;
+      expect(expected).toBe(testCase.document);
       let verdict = 'ok';
       try {
-        readContract(jsonOf<unknown>(testCase.file));
+        readContractText(readFileSync(new URL(testCase.file, DIR), 'utf8'));
       } catch (error) {
-        verdict = error instanceof EkzaError ? 'refused' : 'crashed';
+        verdict = error instanceof EkzaError ? `refused: ${contractRefusalReason(error)}` : `crashed: ${String(error)}`;
       }
-      expect(verdict).toBe(testCase.document === 'ok' ? 'ok' : 'refused');
+      expect(verdict).toBe(expected);
     });
   }
 });

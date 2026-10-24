@@ -1,7 +1,7 @@
 // CHARACTER-CONTRACT-SPEC §8.4, §9 F2, GAME-PROTOCOL-SPEC §6.1 (C1): the Pro Target panel. Polybot in Animate; the
 // Windows › Target opens the lazy panel beside Clips; *For: OMOBA · Wildspark* binds the character from the
 // bundled snapshot (two same-origin requests, nothing else); the checklist lists Wildspark's whole kit in the game's
-// order — nine clip slots, all game defaults, and six objects (gear, projectiles, the trap) with their offers;
+// order — nine clip slots, all game defaults (OMOBA's C0 contract; its objects arrive with GP5);
 // *From library* fills Run in one step with the contract's settings (C2: `target.slot.create`, in place, so no
 // warning); Shockline from the library gets its contact at the game's time, and once that contact is cleared it shows
 // ⚠ with the contract's reason and its one-tap fix; *Same as* lets Last Spark reuse it; *Use default* empties a slot;
@@ -42,12 +42,10 @@ test('E2E-CC-01: Target panel — bind, fill from the library, fix, reuse, defau
   expect(contracts[0]).toBe(index);
   expect(contracts.slice(1).every((path) => /^\/contracts\/omoba\/sha256-[0-9a-f]{64}\.json$/.test(path))).toBe(true);
   expect(new Set(contracts).size).toBe(2);
-  // the whole kit: nine clip slots and six objects (gear, projectiles, the trap: shown, made in a later Studio)
-  await expect(panel.locator('[data-testid^="target-row-"][data-status]')).toHaveCount(15);
-  await expect(page.getByTestId(row('wildspark.handheld.repeater'))).toHaveAttribute('data-status', 'default');
-  await expect(page.getByTestId(row('wildspark.prop.trap'))).toHaveAttribute('data-status', 'fixed');
-  await expect(page.getByTestId('target-offer-wildspark.handheld.set')).toContainText('Wildspark gear set');
-  await expect(page.getByTestId('target-deferred')).toContainText('omoba.asset.grip');
+  // OMOBA's C0 contract: Wildspark's nine clip slots, one offer (its gear slots and offer arrive with GP5)
+  await expect(panel.locator('[data-testid^="target-row-"][data-status]')).toHaveCount(9);
+  await expect(page.getByTestId('target-offer-character.wildspark')).toContainText('Character for Wildspark');
+  await expect(page.getByTestId('target-deferred')).toHaveCount(0);
   await expect(page.getByTestId(row('base.run'))).toHaveAttribute('data-status', 'default');
   await expect(page.getByTestId('target-row-timing-base.run')).toHaveText('game default · ↻ 0.67 s');
 

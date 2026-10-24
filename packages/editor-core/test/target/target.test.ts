@@ -46,7 +46,15 @@ async function expectUndoRedoExact(app: EditorApp, id: string, args?: unknown): 
 
 const PUBLIC = new URL('../../../../apps/web/public/contracts/', import.meta.url);
 const TEXT = readFileSync(new URL('../../../../fixtures/contracts/omoba.game-contract.json', import.meta.url), 'utf8');
-const MODEL: ContractModel = readContractText(TEXT);
+/**
+ * The pure status tests run on the GP5-shaped draft (the converter prototype: Wildspark's six asset slots beside its
+ * clips), so asset slots stay covered while OMOBA's C0 contract emits animation slots only (CC-C2-19); the operators
+ * bind the bundled contract.
+ */
+const BUNDLED: ContractModel = readContractText(TEXT);
+const MODEL: ContractModel = readContractText(
+  readFileSync(new URL('../../../../fixtures/contracts/omoba.game-contract.gp5-draft.json', import.meta.url), 'utf8'),
+);
 
 interface Served {
   readonly requests: string[];
@@ -244,11 +252,11 @@ describe('target operators and the open vocabulary', () => {
     expect(after).toBeDefined();
     const target = targetOf(app.store, character);
     expect(target?.target).toBe('wildspark');
-    expect(target?.contract.revision).toBe(MODEL.revision);
-    expect(target?.contract).toEqual({ schema: 'ekza.game-contract.v1', game: 'omoba', revision: MODEL.revision });
-    expect(readContractText(target?.document ?? '').revision).toBe(MODEL.revision);
+    expect(target?.contract.revision).toBe(BUNDLED.revision);
+    expect(target?.contract).toEqual({ schema: 'ekza.game-contract.v1', game: 'omoba', revision: BUNDLED.revision });
+    expect(readContractText(target?.document ?? '').revision).toBe(BUNDLED.revision);
     expect(app.history.peekUndo()?.label).toBe('Set Target');
-    expect(served.requests).toEqual(['/contracts/omoba/index.json', `/contracts/omoba/${MODEL.revision}.json`]);
+    expect(served.requests).toEqual(['/contracts/omoba/index.json', `/contracts/omoba/${BUNDLED.revision}.json`]);
     const statuses = slotStatuses(app, character);
     expect(statuses?.offers[0]?.counts.default).toBe(9);
     // the wave clip (no slot) is an extra
@@ -353,8 +361,9 @@ describe('target operators and the open vocabulary', () => {
     const offline: Served = { requests: [], tamper: false };
     const kit = await loadTargetKit(reopened);
     kit.contractsOf(reopened, { fetch: servedFetch(offline) });
-    expect(kit.slotStatuses(reopened, character)?.rows).toHaveLength(15);
-    await kit.contractsOf(reopened).load('omoba', MODEL.revision);
+    // OMOBA's C0 contract: Wildspark's nine clip slots (its gear slots arrive with GP5)
+    expect(kit.slotStatuses(reopened, character)?.rows).toHaveLength(9);
+    await kit.contractsOf(reopened).load('omoba', BUNDLED.revision);
     expect(offline.requests).toEqual([]);
   });
 

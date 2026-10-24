@@ -187,6 +187,8 @@ export const ALLOWED = {
       'three',
       // M6B-SPEC §2.1: the CI-only VRM validator of the character writer's gates.
       'vrm-validator',
+      // CHARACTER-CONTRACT-SPEC §4.1 (C2): the written package manifest against the pinned ekza.package.v1 schema.
+      'ajv',
     ],
   },
   [VIEWPORT]: {

@@ -15,7 +15,8 @@ import {
   type EditorApp,
   type IntakeReport,
 } from '@ekza-studio/editor-core';
-import { checkCharacterPackage, parseGlb, readContractText, unzipFiles } from '@ekza-studio/io';
+import { checkCharacterPackage, gateVerdict, parseGlb, readContractText, unzipFiles } from '@ekza-studio/io';
+import Ajv2020 from 'ajv/dist/2020';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { vrmErrors } from './m6b.writer.support';
 import { validate } from './ops.support';
@@ -198,5 +199,83 @@ describe('C2 headless: rig → bind → fill two slots → package → read back
       writeFileSync(new URL('fixtures/contracts/omoba-package/polybot-wildspark.vrm', ROOT), bytes);
     }
     writeFileSync(new URL(zip?.fileName ?? 'dev.zip', OUT), zip?.bytes ?? new Uint8Array(0));
+  });
+
+  it('a full Wildspark fill: every slot custom, one reused clip; the manifest validates against ekza.package.v1', async () => {
+    const downloads: { fileName: string; bytes: Uint8Array }[] = [];
+    const app = createHeadlessEditorApp({
+      validate,
+      idSource: seededIdSource(29),
+      onDownload: (download) => downloads.push(download),
+    });
+    const intake = await run<IntakeReport>(app, 'autorig.intake', {
+      bytes: file('fixtures/models/polybot-unskinned-tpose.glb'),
+      name: 'polybot-unskinned-tpose.glb',
+    });
+    await app.rig.load();
+    await run(app, 'skel.quickRig.start', { meshes: intake.meshes as MeshId[] });
+    const { character } = await run<AutoRigRigResult>(app, 'autorig.rig', { straighten: false, rigidParts: false });
+    await characterReady(app, character);
+    await run(app, 'char.setVrmMeta', { character, patch: { authors: ['Ekza Studio tests'], licensePreset: 'cc0' } });
+    await run(app, 'char.renderThumbnail', { character });
+    await run(app, 'target.bind', { character, game: 'omoba', target: 'wildspark' });
+    const fills: readonly (readonly [string, string])[] = [
+      ['base.idle', 'idle'],
+      ['base.run', 'run'],
+      ['base.death', 'death'],
+      ['basic.wildspark.0', 'punch'],
+      ['basic.wildspark.rockets.0', 'pistol-shoot'],
+      ['skill.wild_switch.release', 'hit'],
+      ['skill.wild_traps.release', 'punch'],
+    ];
+    for (const [slot, libraryClip] of fills) {
+      await run(app, 'target.slot.create', { character, slot, from: 'library', libraryClip });
+    }
+    await run(app, 'target.slot.create', { character, slot: 'skill.wild_zap.release', from: 'default' });
+    await run(app, 'target.slot.alias', {
+      character,
+      slot: 'skill.wild_rocket.release',
+      to: 'basic.wildspark.rockets.0',
+    });
+    // the contract's one-tap fixes until no error is left (contacts at their targets)
+    const kit = await import('@ekza-studio/editor-core').then((core) => core.loadTargetKit(app));
+    for (let round = 0; round < 12; round++) {
+      const fix = kit
+        .targetValidationRows(app, character, 'ekza/omoba-humanoid-v2')
+        .find((row) => row.severity === 'error' && row.fix !== null)?.fix;
+      if (fix === undefined || fix === null) break;
+      await run(app, fix.op, fix.args);
+    }
+    const offer = kit.slotStatuses(app, character)?.offers.find((entry) => entry.package === 'character');
+    expect(offer?.counts).toMatchObject({ custom: 9, invalid: 0, default: 0 });
+
+    const result = await run<{ saved: boolean; lints: { severity: string; code: string }[] }>(
+      app,
+      'target.exportPackage',
+      { character },
+    );
+    expect(result.lints.filter((lint) => lint.severity === 'error')).toEqual([]);
+    const bytes = downloads.at(-1)?.bytes ?? new Uint8Array(0);
+    const json = (await parseGlb(bytes)).json as unknown as Json;
+    const manifest = json.asset.extras['ekza_package_v1'];
+    // the pinned JSON Schema of ekza.package.v1 (GAME-PROTOCOL-SPEC Appendix B, OMOBA's copy)
+    const schema = JSON.parse(
+      new TextDecoder().decode(file('fixtures/contracts/ekza.package.v1.schema.json')),
+    ) as object;
+    const ajv = new Ajv2020({ allErrors: true, strict: false });
+    const valid = ajv.validate(schema, manifest);
+    expect(ajv.errors ?? []).toEqual([]);
+    expect(valid).toBe(true);
+    // OMOBA's gate verdict: the package passes and so does every slot
+    const verdict = gateVerdict(
+      checkCharacterPackage(bytes, { contract: (r) => (r === CONTRACT.revision ? CONTRACT : undefined) }),
+    );
+    expect(verdict.pack).toBe('ok');
+    expect(Object.values(verdict.slots)).toEqual(Array.from({ length: 9 }, () => 'pass'));
+    expect(json.animations).toHaveLength(8);
+    const slots = (manifest as { slots: Record<string, { animation?: number }> }).slots;
+    expect(slots['skill.wild_rocket.release']?.animation).toBe(slots['basic.wildspark.rockets.0']?.animation);
+    mkdirSync(OUT, { recursive: true });
+    writeFileSync(new URL('polybot-wildspark-full.vrm', OUT), bytes);
   });
 });

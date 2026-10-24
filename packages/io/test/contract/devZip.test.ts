@@ -10,7 +10,7 @@ import { parseGlbSync } from '../../src/glb/parse';
 import { omobaDevZipFileName, packOmobaDevZip, unzipFiles } from '../../src/omoba';
 import type { EkzaClipMetaV1 } from '../../src/types';
 
-const DIR = new URL('../../../../fixtures/contracts/omoba-fixtures/v1/', import.meta.url);
+const DIR = new URL('../../../../fixtures/contracts/omoba/v1/', import.meta.url);
 const VRM = new Uint8Array(readFileSync(new URL('packages/ok-vrm1-three-slots.glb', DIR)));
 const CONTRACT = readContractText(readFileSync(new URL('contract.json', DIR), 'utf8'));
 const report = checkCharacterPackage(VRM, { contract: (r) => (r === CONTRACT.revision ? CONTRACT : undefined) });

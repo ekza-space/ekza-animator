@@ -12,7 +12,7 @@ Specs: [CHARACTER-CONTRACT-SPEC](../CHARACTER-CONTRACT-SPEC.md) v0.2 (§4, §5, 
 |---|---|
 | `ekza.package.v1`: strict reader (every Appendix B check; a newer 1.x minor reads leniently), deterministic writer of a character package's manifest (every customizable slot of the offer once, offer order, sorted markers), the JSON key order of Appendix B | `packages/io/src/contract/packageManifest.ts` |
 | The byte rules on a package (`pack.manifest` … `pack.bytes`, `pack.slot-known`, `pack.ref`, `pack.unreferenced`, `rig.humanoid`, every `clip.*`), measured values per slot, the gate verdict shape, `ekza.validation-report.v1` | `packages/io/src/contract/packageCheck.ts` |
-| OMOBA's conformance fixtures (C0 draft `f025981`), copied and pinned; every package and contract case through the TypeScript rules | `fixtures/contracts/omoba-fixtures/v1/`, `tooling/sync-contract.mjs --fixtures`, `packages/io/test/contract/package.test.ts` |
+| OMOBA's C0 contract bundled; its conformance fixtures (`c0fe23f`), copied and pinned; every package and reader case through the TypeScript rules and reader | `apps/web/public/contracts/omoba/`, `fixtures/contracts/omoba/v1/`, `tooling/sync-contract.mjs --fixtures`, `packages/io/test/contract/package.test.ts` |
 | Profile `ekza/omoba-humanoid-v2` "OMOBA character (VRM 1.0 with your animations)" among the model-character profiles; `writeCharacter` embeds `asset.extras.ekza_package_v1` after `ekza_animation_v1` | `packages/io/src/profiles/{builtin,character}.ts`, `io/src/character/{index,artifact}.ts` |
 | The developer zip (`<slug>-omoba-dev.zip`) | `packages/io/src/omoba/devZip.ts` |
 | `EkzaClipMetaV1.label` and `.markers`, written only when set (M1 goldens unchanged); the import restores slot, contact, root motion, tags, label and named markers of Studio-written clips | `io/src/types.ts`, `io/src/bake/meta.ts`, `editor-core/src/workflows/{ekzaClipRestore,importAnimation}.ts` |
@@ -40,14 +40,52 @@ Specs: [CHARACTER-CONTRACT-SPEC](../CHARACTER-CONTRACT-SPEC.md) v0.2 (§4, §5, 
 - `packages/autorig/src/steps/export/{ExportStep.tsx,files.ts}`, `i18n/en/export.ts`.
 - Tests updated for the new behaviour: io `lint.test.ts` (profile list), editor `m6b-character-writer.test.tsx` (profile options), editor-core `autorig/composition.test.ts` (target list), e2e `cc-01-target-panel.spec.ts`, `helpers/ar-export.ts` (`chooseTarget` type).
 - Docs: ADR 0010 rev. 3 (T2 row → `ekza_package_v1`; clip `label`/`markers`), DECISIONS-OPEN §Q.2, `fixtures/LICENSES.md` (game contracts paragraph).
+- C0 conformance: `.gitattributes` (new: `-text` for the pinned contract bytes), `tooling/check-deps.mjs` (`ajv` for
+  headless-tests), `packages/headless-tests/package.json` + `pnpm-lock.yaml` (`ajv` 8.20.0, already pinned in the
+  repo), C1's `io/src/contract/{gameContract,read}.ts` (reason codes), C1's tests on the C0 data
+  (`io/test/contract/contract.test.ts`, `editor-core/test/target/target.test.ts`, e2e `cc-01`).
+
+## Conformance with OMOBA's C0 contract (added scope)
+
+C0 (`omoba-bevy` PR #109, `feat/character-contract-export` @ `c0fe23f`, open) published OMOBA's contract, its schemas
+and conformance fixtures; the C2 code now conforms to them.
+
+1. **Snapshot.** `node tooling/sync-contract.mjs --from <cc-c0>/shared/assets/catalog/game-contract.json --schema …`
+   (the three schemas): revision `sha256-bae71784fff170720fcaf18da3992c05a4800257f89954157b687406b1257402` **verifies as
+   is** (no `--restamp`; Studio's canonical JSON reproduces it); the three schema files are byte-identical to C1's
+   copies. The prototype revision left the bundle (kept as `fixtures/contracts/omoba.game-contract.gp5-draft.json` for
+   the asset-slot tests). Wildspark now has nine rows and one offer (C0 emits animation slots only).
+2. **Conformance test** (`packages/io/test/contract/package.test.ts`): all 45 package cases, the 12 reader cases and
+   `manifest.json` in `fixtures/contracts/omoba/v1/`, every file checked against the manifest's SHA-256
+   (`.gitattributes -text`). **43 of 45** package cases give exactly the expected gate verdict (pack rule ids,
+   warnings, per-slot verdicts and slot warnings); **12 of 12** reader cases give the expected verdict and reason code.
+   Studio changes for C0: `clip.in-place` from the rest pose with `maxHorizontal`/`maxHorizontalHold`/`maxUp`/`maxDown`
+   read from the params (N1); the VRM 1.0 bone names through `clip.channels.params.vrm1BoneMap` (N4); the per-clip
+   metadata key from `clip.markers.params.metaKey`; reader reason codes (`contractRefusalReason`). Order N7 was already
+   Studio's.
+3. **OMOBA expectations Studio believes wrong** (not changed; the test records Studio's verdict):
+   - `clip-too-short`: expected `basic.wildspark.0: ["clip.duration"]`; Studio also reports `clip.markers`. The case is
+     two changes from the baseline, not one: the clip was shortened to 0.1 s with its metadata contact moved to 0.05 s,
+     but the manifest kept the baseline's 0.1 s contact (`THREE`). GAME-PROTOCOL-SPEC §7.2 `clip.markers`: "equal to
+     the per-clip metadata when both exist" (the rule even names the key, `metaKey`), so 0.1 ≠ 0.05 fails. Fix in the
+     generator: give the case's manifest the clip's contact (0.05 s).
+   - `ok-shared-animation`: expected no warnings; Studio warns `clip.min-interval` on `basic.wildspark.rockets.0`. The
+     shared clip is 0.5 s and the rocket-mode basic attack's `minIntervalSecs` is 0.4375 s; the rule (CC §5.1, C0's
+     own table "warning when a basic clip outlasts `minIntervalSecs`") warns. Fix: a 0.4 s shared clip, or expect the
+     warning.
+4. **A full Wildspark fill** (headless, nine custom slots, one shared by Last Spark): the written manifest validates
+   against the pinned `ekza.package.v1.schema.json` (Ajv 2020-12) and against OMOBA's own validator
+   (`export_game_contract.load_schema`, run once read-only), and the gate verdict is `ok` with every slot `pass`. The
+   rule set also caught real drift in three starter-pack clips used in place (Cast 0.172, Sword Attack 0.197, Jump
+   Start 0.250 leg lengths > 0.15), so the test uses others (CC-C2-21). OMOBA's Rust `validate-runtime-vrm` was not
+   run (a cargo build; C3's gate).
 
 ## Findings
 
 - **VRM 1.0 thumbs.** The contract's `drivenBones` use VRM 0.x thumb names; Studio's VRM 1.0 writer maps
   `*ThumbMetacarpal`. Read as OMOBA's retargeter reads them (CC-C2-5); C3's passport must do the same.
-- **C0 draft fixtures**: two expectations disagree with §5.1 (CC-C2-4): `clip-too-short` (manifest contact 0.1 s vs
-  metadata 0.05 s) and `ok-shared-animation` (0.5 s rocket basic > `minIntervalSecs` 0.4375 s). Report to C0.
-- The fixture contract and every contract case of C0 read with C1's reader as expected.
+- **C0 fixtures**: two expectations disagree with §5.1 (above, CC-C2-4). Report to C0.
+- The fixture contract and every contract case of C0 read with C1's reader as expected (with reason codes).
 
 ## What the next packages need
 
