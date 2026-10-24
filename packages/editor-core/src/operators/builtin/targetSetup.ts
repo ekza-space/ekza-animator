@@ -26,6 +26,9 @@ import {
   type LintIssue,
   OMOBA_PACKAGE_PROFILE_ID,
   omobaDevZipFileName,
+  PACKAGE_MANIFEST_KEY,
+  parseGlb,
+  readPackageManifest,
   omobaLicense,
   omobaSlug,
   packOmobaDevZip,
@@ -39,8 +42,9 @@ import { runExportCharacter } from '../../workflows/exportCharacter';
 import { sanitizeClipName, uniqueName } from '../../workflows/names';
 import { pinnedModel } from '../../workflows/target/contracts';
 import { CONTACT_MARKER, scaleClipMarkers, setClipMarker } from '../../workflows/target/markers';
-import { packageManifestOf, packagePlan } from '../../workflows/target/package';
+import { packagePlan } from '../../workflows/target/package';
 import { slotStatuses } from '../../workflows/target/service';
+import { lazyOperatorChunk } from '../../workspaces/rig';
 import { FIX_LABELS } from '../../workflows/target/status';
 import { patchTarget, type TargetRecord, targetOf } from '../../workflows/target/table';
 import type * as ClipBodyModule from './clipBodies';
@@ -82,6 +86,18 @@ function boundSlot(
   }
   if (spec.animation === null) return `${spec.label} takes an object, not a clip`;
   return { target, model, spec, anim: spec.animation };
+}
+
+/** A slot label as a clip name: "Shockline (W) — release" → "Shockline W - release" (`[A-Za-z0-9 _.-]`). */
+export function slotClipName(label: string): string {
+  return sanitizeClipName(
+    label
+      .replace(/[()[\]]/g, '')
+      .replace(/[–—]/g, '-')
+      .replace(/[^A-Za-z0-9 _.-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim(),
+  );
 }
 
 /** The clip frame of a marker's target time (seconds after the start), never past its limit. */
@@ -222,6 +238,7 @@ const slotCreate = defineOperator<'target.slot.create', CreatePrepared>({
             : {}),
       };
     }
+    await lazyOperatorChunk(app, op);
     const def = app.operators.get(op);
     if (def === undefined) throw new EkzaError('unsupported', `${op} is not available`);
     const poll = def.poll?.(ctx, inner) ?? true;
@@ -235,7 +252,7 @@ const slotCreate = defineOperator<'target.slot.create', CreatePrepared>({
     const bound = boundSlot(app, args.character, args.slot);
     if (typeof bound === 'string') throw new EkzaError('unsupported', bound);
     const taken = tx.query.clipsOfCharacter(args.character).map((clip) => clip.name);
-    const name = uniqueName(sanitizeClipName(bound.spec.label), taken);
+    const name = uniqueName(slotClipName(bound.spec.label), taken);
     let id: ClipId;
     if (prepared.inner === null) {
       const frames = blankFrames(bound.anim, BLANK_FPS);
@@ -345,6 +362,7 @@ const fix = defineOperator<'target.fix', FixPrepared>({
     if (args.rule !== 'clip.loop-closure' || ctx.app.store.query.curvesOfClip(found.clip.id).length === 0) {
       return { clip: found.clip, loop: null };
     }
+    await lazyOperatorChunk(ctx.app, 'clip.makeLoop');
     const def = ctx.app.operators.get('clip.makeLoop');
     const loopArgs = { clip: found.clip.id, method: 'matchEnds', rootTravel: found.anim.inPlace ? 'inPlace' : 'keep' };
     if (def === undefined || (def.poll?.(ctx, loopArgs) ?? true) !== true) return { clip: found.clip, loop: null };
@@ -513,7 +531,7 @@ export async function buildPackage(
       ? null
       : packOmobaDevZip({
           vrm: artifact.bytes,
-          manifest: packageManifestOf(plan, '0'),
+          manifest: await writtenManifest(artifact.bytes),
           animations,
           thumbnail,
           meta: kit,
@@ -521,6 +539,12 @@ export async function buildPackage(
     mime: 'application/zip',
     lints,
   };
+}
+
+/** The slot map the package VRM carries (the developer zip's `slot-map.json` is a copy of it). */
+async function writtenManifest(bytes: Uint8Array) {
+  const extras = (await parseGlb(bytes)).json.asset.extras;
+  return readPackageManifest(isRecord(extras) ? extras[PACKAGE_MANIFEST_KEY] : undefined);
 }
 
 /** The busy label of a running package export. */

@@ -157,7 +157,21 @@ const linear = (m: Mat4, v: Vec3): Vec3 => [
   (m[2] as number) * v[0] + (m[6] as number) * v[1] + (m[10] as number) * v[2],
 ];
 
-/** The VRM humanoid of the file: its version and node index by bone name (null: no or two VRM extensions). */
+/**
+ * VRM 1.0 renamed the thumb chain; the contract's bone lists (the motion library's `drivenBones`) speak VRM 0.x names,
+ * as OMOBA's retargeter reads them (`retarget_animations.VRM1_THUMB_NAMES`, `humanoid/retarget.rs source_semantic`).
+ */
+const VRM1_THUMBS: Readonly<Record<string, string>> = Object.fromEntries(
+  ['left', 'right'].flatMap((side) => [
+    [`${side}ThumbMetacarpal`, `${side}ThumbProximal`],
+    [`${side}ThumbProximal`, `${side}ThumbIntermediate`],
+  ]),
+);
+
+/**
+ * The VRM humanoid of the file: its version and node index by bone name in VRM 0.x terms (a VRM 1.0 thumb chain is
+ * renamed, `VRM1_THUMBS`); version null: no or two VRM extensions.
+ */
 function humanoidOf(json: GltfJson): { readonly version: 'vrm0' | 'vrm1' | null; readonly bones: Map<string, number> } {
   const root = json as unknown as Readonly<Record<string, unknown>>;
   const extensions = isRecord(root['extensions']) ? root['extensions'] : {};
@@ -168,7 +182,7 @@ function humanoidOf(json: GltfJson): { readonly version: 'vrm0' | 'vrm1' | null;
   if (isRecord(v1)) {
     const human = isRecord(v1['humanoid']) ? v1['humanoid']['humanBones'] : undefined;
     for (const [name, bone] of Object.entries(isRecord(human) ? human : {})) {
-      if (isRecord(bone) && isIndex(bone['node'])) bones.set(name, bone['node']);
+      if (isRecord(bone) && isIndex(bone['node'])) bones.set(VRM1_THUMBS[name] ?? name, bone['node']);
     }
     return { version: 'vrm1', bones };
   }
