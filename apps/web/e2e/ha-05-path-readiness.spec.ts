@@ -7,14 +7,16 @@
 //   total and equals the list; tapping the selected stage's ⚠ opens Health; a destination with a triangle budget
 //   shows the budget ring;
 // - the visible-target budget at rest (≤ 22) holds for what is on screen.
-// Until T6a's frame is integrated these parts run in the T6b harness (`/dev-halo`); at integration the spec opens
-// `/app` instead.
+// Since the integration (T6-INT) the spec runs in the real frame at `/app` (`?stage=make` skips Home on an empty
+// project); destinations are chosen where a person chooses them, in Health's *For:* chips.
 import { expect, type Locator, type Page, type TestInfo, test } from '@playwright/test';
+import { openSheetFromShell } from './helpers/halo';
 import { call, runOk, waitForTestApi } from './helpers/test-api';
 
-const START = '/dev-halo?e2e=1';
+const START = '/app?e2e=1&stage=make';
 
 interface T6bSlice {
+  readonly [key: string]: unknown;
   readonly destination: string;
   readonly total: number;
   readonly stages: Record<string, { readonly glyph: string; readonly count: number }>;
@@ -71,11 +73,16 @@ test('readiness is one list: glyphs, the status pill, Health and the budget read
   await expect.poll(async () => (await call(page, 'state')).workspace).toBe('model');
   await runOk(page, 'mesh.create.cube');
   await expect(page.getByTestId('halo-next-chip')).toContainText('Rig it for me');
+  expect((await halo(page)).t6b.next).toBe('rigIt');
   // A clean mesh is ready for Just exploring (Mesh Check errors only, ST-4).
   await expect(page.getByTestId('halo-path-glyph-make')).toHaveText('●');
 
-  await press(page.getByTestId('harness-destination-omoba'), testInfo);
+  // Health's For: chips choose the destination (the status pill shows only once there is something to fix)
+  await openSheetFromShell(page, 'health', touch(testInfo));
+  await press(page.getByTestId('halo-health-destination-omoba'), testInfo);
   await expect.poll(async () => (await halo(page)).t6b.destination).toBe('omoba');
+  await page.getByTestId('halo-sheet-health').getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(page.getByTestId('halo-sheet-health')).toHaveCount(0);
   const slice = (await halo(page)).t6b;
   expect(slice.rows.map((row) => row.code)).toContain('no-skeleton');
   expect(slice.total).toBe(slice.rows.length);
@@ -90,8 +97,10 @@ test('readiness is one list: glyphs, the status pill, Health and the budget read
   await expect.poll(async () => (await halo(page)).sheet).toBe('health');
   await expect(page.getByTestId('halo-sheet-health')).toBeVisible();
 
+  await expect.poll(async () => (await halo(page)).t6b['sheetSection']).toBe('rig');
+
   // A destination with a triangle budget shows the ring.
-  await press(page.getByTestId('harness-destination-prop'), testInfo);
+  await press(page.getByTestId('halo-health-destination-prop'), testInfo);
   await expect(page.getByTestId('halo-budget-ring')).toContainText('/ 600');
   const budget = (await halo(page)).t6b.budget;
   expect(budget?.tris).toBeGreaterThan(0);

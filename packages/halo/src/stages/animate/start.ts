@@ -4,35 +4,30 @@
 // Thread provides the focused band source itself while it is mounted). Leaving Animate closes the stage's transient
 // surfaces and stops a library preview.
 import { PANEL, VIEWPORT_TOOL } from '@ekza-studio/editor-core';
-import { createElement, lazy, type JSX, Suspense } from 'react';
+import { type ComponentType, createElement, type JSX, lazy, Suspense } from 'react';
+import type { HaloSheetProps } from '../../manifest/sheets';
 import type { HaloController } from '../../shell/controller';
-import { registerHaloSheet, type SheetBodyProps } from '../../shell/Sheets';
+import { registerHaloSheet } from '../../shell/Sheets';
 import { FITTABLE_TOOLS, fittingTool } from './model';
 import { installReach } from './reach';
 import { installRec } from './rec';
-import { sheetContextOf } from './sheetContext';
 import { animateUi, closeAnimateSurfaces } from './ui';
 
 const LibrarySheet = lazy(() => import('../../sheets/library'));
 
-/** The frame's size class (its root's `data-size`), for where a sheet docks. */
-function sideOf(): 'right' | 'bottom' {
-  if (typeof document === 'undefined') return 'right';
-  const size = document.querySelector('[data-shell="ekza-halo-shell"]')?.getAttribute('data-size');
-  return size === 'wide' || size === null || size === undefined ? 'right' : 'bottom';
-}
-
-/** The Library in the frame's sheet slot (T6a's `registerHaloSheet`; T6-INT may move it to `SHEET_LOADERS`). */
-function LibraryHost({ controller }: SheetBodyProps): JSX.Element {
-  const { store } = controller.ctx;
-  const close = (): void => {
-    if (store.get().sheet === 'library') store.set({ sheet: null });
+/**
+ * The Library in the frame's sheet slot (`registerHaloSheet`, the frame's `HaloSheetContext`), with the journeys'
+ * touch counter (P-T7-2: `HaloSheetContext.touch`).
+ */
+function libraryHost(controller: HaloController): ComponentType<HaloSheetProps> {
+  const touch = (): void => controller.ctx.store.set((s) => ({ touches: s.touches + 1 }));
+  return function LibraryHost({ ctx, args }: HaloSheetProps): JSX.Element {
+    return createElement(
+      Suspense,
+      { fallback: null },
+      createElement(LibrarySheet, { ctx: { ...ctx, touch }, ...(args === undefined ? {} : { args }) }),
+    );
   };
-  return createElement(
-    Suspense,
-    { fallback: null },
-    createElement(LibrarySheet, { ctx: sheetContextOf(controller, null, sideOf(), close) }),
-  );
 }
 
 /** The fitting manipulator follows the lead selected control in Animate (§10.1). */
@@ -81,7 +76,7 @@ export function startAnimate(controller: HaloController): () => void {
   disposers.push(installRec(app, store));
   disposers.push(installFittingTool(controller));
   disposers.push(installReach(ctx, () => store.set((s) => ({ touches: s.touches + 1 }))));
-  disposers.push(registerHaloSheet('library', LibraryHost));
+  disposers.push(registerHaloSheet('library', libraryHost(controller)));
 
   // leaving Animate (or the sheet slot taken by another sheet) closes the stage's transient surfaces
   disposers.push(
@@ -91,8 +86,6 @@ export function startAnimate(controller: HaloController): () => void {
         if (app.library.loaded && app.library.service.preview !== null) void ctx.run('library.stop');
       }
       if (next.home && !previous.home) closeAnimateSurfaces(ui);
-      // one sheet at a time: the frame's sheet slot takes over from a docked noun's More or Numbers
-      if (next.sheet !== null && previous.sheet === null) ui.set({ more: null, numbers: null });
     }),
   );
   // one Halo at a time: a docked Thread noun closes the canvas Halo, a canvas Halo closes the docked one

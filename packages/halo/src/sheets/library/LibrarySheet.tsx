@@ -193,7 +193,7 @@ function Card({
   );
 }
 
-export default function LibrarySheet({ ctx }: HaloSheetProps): JSX.Element {
+export default function LibrarySheet({ ctx }: { readonly ctx: CountingSheetContext }): JSX.Element {
   const app = ctx.host.app;
   useAppVersion(app);
   const count = useCount(ctx);

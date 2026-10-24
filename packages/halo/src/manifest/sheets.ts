@@ -4,6 +4,7 @@
 // Every sheet is lazy (§20.6): `sheetLoaders.ts` holds the `import()`s, this module is plain data and types.
 
 import type { HostShell } from '@ekza-studio/editor/host';
+import type { ReactNode } from 'react';
 import type { HaloStage, OperatorResult } from '@ekza-studio/editor-core';
 import type { DestinationId } from '../path/destinations';
 import type { Noun } from '../verbs/nouns';
@@ -83,6 +84,8 @@ export interface HaloSheetContext {
   readonly destination: DestinationId;
   /** Where the frame docks sheets now (its size class, §4.6). */
   readonly side: 'right' | 'bottom';
+  /** A Compact container (§4.4): bottom sheets rise full height. */
+  readonly compact?: boolean;
   close(): void;
   open(sheet: SheetId, args?: SheetArgs): void;
   /** Switches the Path's stage (a More row from another stage says "switches to Rig" and does it, §8). */
@@ -94,6 +97,13 @@ export interface HaloSheetContext {
   openPro(): void;
   /** Hide UI (§4.7): only the canvas and a faint restore button; absent where the frame has none. */
   hideUi?(): void;
+  /**
+   * §6.4 verb → target: a More row whose operator takes a second thing (Parent to…) waits for a tap on the target in
+   * the frame. True when the frame took it (the sheet then closes); false or absent: run the row as usual.
+   */
+  startTarget?(op: string, label: string): boolean;
+  /** The frame's own content for a named slot of a sheet (Settings › Input: `halo.input`, T6a's rows). */
+  renderSlot?(slot: string): ReactNode;
 }
 
 export interface HaloSheetProps {

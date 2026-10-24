@@ -89,6 +89,19 @@ describe('touch kit markup', () => {
     );
     expect(tabs).toContain('role="tablist"');
     expect(tabs).toMatch(/role="tab" aria-selected="true"/);
+    // per-segment test ids: derived from the group's, or the item's own
+    const ids = html(
+      h(Segmented<'whole' | 'faces'>, {
+        items: [items[0], { ...items[1], testId: 'own-faces' }],
+        value: 'whole',
+        onValueChange: noop,
+        label: 'Pick',
+        'data-testid': 'pick',
+      }),
+    );
+    expect(ids).toContain('data-testid="pick-whole"');
+    expect(ids).toContain('data-testid="own-faces"');
+    expect(radios).not.toContain('data-testid');
   });
 
   it('Stepper is a named group with a spinbutton and − / + that stop at the range', () => {
@@ -143,7 +156,7 @@ describe('touch kit markup', () => {
     // the title names the dialog (Radix links `aria-labelledby` once the title has mounted; the e2e spec checks it)
     expect(out).toMatch(/<h2 id="[^"]+"[^>]*>Everything for 1 face<\/h2>/);
     expect(out).toContain('aria-label="Close"');
-    expect(out).toContain('data-touch-scroll=""');
+    expect(out).toMatch(/data-touch-scroll="" tabindex="0"/);
     expect(out).toContain('data-density="touch"');
     const bottom = html(
       h(Sheet, { open: true, onOpenChange: noop, title: 'Numbers', side: 'bottom', detent: 'peek' }, 'x'),

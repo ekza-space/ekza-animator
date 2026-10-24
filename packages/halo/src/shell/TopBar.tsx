@@ -1,41 +1,16 @@
 // The top bar (STUDIO-TOUCH-SPEC §4.1–§4.4): `◂ Project • ▾` (the project menu; the dot means unsaved changes), the
 // Path, `⌕ Do or find…` (a button until tapped, §4.1 / S22), `Share ⤴` and `▤ Pro layout`. Regular containers put the
 // Path on a second row; Compact ones move it to a bottom tab bar, fold ▤ Pro layout into the project menu and show ↶
-// here. The Path's readiness glyphs are T6b's (`path/Path.tsx` replaces `PathTabs` at integration).
-import type { HaloStage } from '@ekza-studio/editor-core';
-import { Cluster, Segmented, TouchButton, TouchIconButton } from '@ekza-studio/ui/touch';
+// here. The Path with its readiness glyphs is T6b's (`path/Path.tsx`, through `./PathParts`).
+import { Cluster, TouchButton, TouchIconButton } from '@ekza-studio/ui/touch';
 import type { JSX } from 'react';
 import { Icon } from '../halo/icons';
 import { commitSession } from '../session/sessions';
 import { en } from '../i18n/en';
 import type { HaloController } from './controller';
 import { useSessionValue, type SizeClass } from './hooks';
-import { HALO_STAGES } from './stage';
+import { FramePath } from './PathParts';
 import { useHaloStore } from './store';
-
-export function PathTabs({
-  controller,
-  bar = false,
-}: {
-  readonly controller: HaloController;
-  readonly bar?: boolean;
-}): JSX.Element {
-  const stage = useHaloStore(controller.ctx.store, (s) => s.stage);
-  return (
-    <Cluster className={bar ? 'flex p-[3px]' : 'flex max-w-full overflow-x-auto p-[3px]'} data-touch-scroll="">
-      <Segmented<HaloStage>
-        kind="tablist"
-        variant="accent"
-        label={en.top.stages}
-        data-testid="halo-path"
-        {...(bar ? { className: 'w-full' } : {})}
-        value={stage}
-        onValueChange={(next) => void controller.enterStage(next)}
-        items={HALO_STAGES.map((s) => ({ value: s, label: en.stage[s] }))}
-      />
-    </Cluster>
-  );
-}
 
 export function TopBar({
   controller,
@@ -74,7 +49,7 @@ export function TopBar({
         </Cluster>
         {size === 'wide' ? (
           <div className="pointer-events-auto min-w-0">
-            <PathTabs controller={controller} />
+            <FramePath controller={controller} />
           </div>
         ) : null}
         <span className="flex-1" />
@@ -139,7 +114,7 @@ export function TopBar({
       </div>
       {size === 'regular' ? (
         <div className="pointer-events-auto flex">
-          <PathTabs controller={controller} bar />
+          <FramePath controller={controller} bar />
         </div>
       ) : null}
     </header>

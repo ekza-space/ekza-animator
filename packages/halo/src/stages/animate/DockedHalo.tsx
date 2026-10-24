@@ -19,11 +19,8 @@ import { threadContext, timeText } from '../../thread/strip/model';
 import { PETAL_VARIANTS, type PetalChoice, type PetalDef, petalsFor } from '../../verbs/table';
 import { AnimateGlyph, type AnimateIcon } from './icons';
 import { animateCharacter, controlsOf, loopItCall, type OpCall, swapSidesCalls } from './model';
-import { sheetContextOf, threadNoun } from './sheetContext';
+import { threadNoun } from './sheetContext';
 import { type AnimateUiStore, type DockNoun, useAnimateUi } from './ui';
-
-const MoreSheet = lazy(() => import('../../sheets/more'));
-const NumbersSheet = lazy(() => import('../../sheets/numbers'));
 
 const w = animateWords;
 
@@ -436,8 +433,7 @@ export function DockedHalo({
         if (clip !== null && app.session.getState().activeClip[clip.character] !== clip.id) {
           void ctx.run('clip.setActive', { clip: clip.id });
         }
-        store.set({ sheet: null, halo: null });
-        ui.set({ numbers: docked, more: null });
+        store.set({ sheet: 'numbers', sheetArgs: { section: 'animation' }, sheetNoun: noun, halo: null, focus: null });
         return;
       }
       action.local();
@@ -536,32 +532,4 @@ export function DockedHalo({
       ) : null}
     </Cluster>
   );
-}
-
-/** ⋯ More of the docked noun (the T6b More sheet over that noun), rendered by the frame beside its other sheets. */
-export function DockedMore({
-  controller,
-  ui,
-  size,
-}: {
-  readonly controller: HaloController;
-  readonly ui: AnimateUiStore;
-  readonly size: SizeClass;
-}): JSX.Element | null {
-  const { app } = controller.ctx;
-  const more = useAnimateUi(ui, (s) => s.more);
-  const numbers = useAnimateUi(ui, (s) => s.numbers);
-  const open = more ?? numbers;
-  if (open === null) return null;
-  const clip = open.kind === 'clip' ? (app.store.get('clips', open.clip) ?? null) : null;
-  const noun = threadNoun(
-    open.kind,
-    open.kind === 'clip' ? open.clip : null,
-    titleOf(app, open, clip),
-    animateCharacter(app),
-  );
-  const ctx = sheetContextOf(controller, noun, size === 'wide' ? 'right' : 'bottom', () =>
-    ui.set({ more: null, numbers: null }),
-  );
-  return <Suspense fallback={null}>{more !== null ? <MoreSheet ctx={ctx} /> : <NumbersSheet ctx={ctx} />}</Suspense>;
 }

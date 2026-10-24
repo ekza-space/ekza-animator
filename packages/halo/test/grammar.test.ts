@@ -16,7 +16,7 @@ import {
 } from '@ekza-studio/viewport';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createGrammar, type Grammar } from '../src/halo/grammar';
-import { standInVerbs, type Verb } from '../src/halo/verbSource';
+import { haloVerbs, type Verb } from '../src/halo/verbSource';
 import { haloArbiterConfig } from '../src/input/arbiter';
 import { claimOf } from '../src/input/claims';
 import type { ThumbController } from '../src/input/thumb';
@@ -38,9 +38,11 @@ interface World {
   readonly dispose: () => void;
 }
 
-/** The operators the stand-in petals name (registered so their polls pass; the context's `run` records runs). */
+/** The operators the petals name (T6b's verb table; registered so their polls pass; the context's `run` records runs). */
 const PETAL_OPS = [
   'clip.new',
+  'library.open',
+  'rig.ikFk.switch',
   'key.set',
   'select.all',
   'pose.resetToRest',
@@ -81,7 +83,7 @@ function world(input: Partial<typeof DEFAULT_INPUT> = {}): World {
   let consumed = 0;
   const grammar = createGrammar({
     ctx,
-    verbs: standInVerbs,
+    verbs: haloVerbs,
     runVerb: (verb) => ran.push(verb),
     consumeThumb: () => {
       consumed += 1;
@@ -164,6 +166,7 @@ describe('a tap (§5.2, §6.1)', () => {
       'pose.mirror:{"mode":"flip"}',
       'pose.resetToRest',
       'pose.copy',
+      'rig.ikFk.switch',
     ]);
     expect(w.store.get().touches).toBe(1);
     w.dispose();
@@ -222,13 +225,27 @@ describe('a tap (§5.2, §6.1)', () => {
   });
 });
 
+describe('the verb source (P-T6A-1)', () => {
+  it('More beyond the petals comes from the manifest, loaded on demand', async () => {
+    const w = world();
+    toolSelects(w, [A]);
+    const noun = haloVerbs.noun(w.app, 'animate');
+    expect(noun?.kind).toBe('control');
+    const more = noun === null ? [] : await haloVerbs.more(w.app, noun, 'animate');
+    expect(more.length).toBeGreaterThan(0);
+    const petals = new Set(noun === null ? [] : haloVerbs.petals(w.app, noun, 'animate').map((v) => v.id));
+    expect(more.filter((verb) => petals.has(verb.id))).toEqual([]);
+    w.dispose();
+  });
+});
+
 describe('long-press and flicks (§5.2)', () => {
   it('a long-press on empty space opens the ring of empty space’s verbs; a flick runs the slot', () => {
     const w = world();
     w.arbiter.down('pane-single', ev(1, 400, 300));
     vi.advanceTimersByTime(460);
     expect(w.store.get().halo).toMatchObject({ mode: 'ring', at: { x: 400, y: 300 } });
-    expect(w.grammar.noun()?.kind).toBe('space');
+    expect(w.grammar.noun()?.kind).toBe('empty');
     const slots = w.grammar.slots();
     expect(slots[0]).toBe('N'); // New animation keeps its slot
     w.arbiter.move('pane-single', ev(1, 400, 240));
@@ -236,6 +253,23 @@ describe('long-press and flicks (§5.2)', () => {
     w.arbiter.up('pane-single', ev(1, 400, 240), false);
     expect(w.ran.map((v) => v.id)).toEqual(['clip.new']);
     expect(w.port.calls).toEqual([]); // the tool never saw the press
+    w.dispose();
+  });
+
+  it('a long-press on the manipulator opens its own noun (§6.2: Space, Size, Pivot); closing ends the focus', () => {
+    const w = world();
+    toolSelects(w, [A]);
+    w.port.hit = { kind: 'manipulator', handle: 'rx' };
+    w.arbiter.down('pane-single', ev(1, 400, 300));
+    vi.advanceTimersByTime(460);
+    expect(w.store.get().halo).toMatchObject({ mode: 'ring' });
+    expect(w.store.get().focus).toEqual({ kind: 'manipulator', id: null });
+    expect(w.grammar.noun()?.kind).toBe('manipulator');
+    expect(w.port.calls).toEqual([]); // the tool never saw the press
+    w.arbiter.up('pane-single', ev(1, 400, 300), false);
+    w.grammar.close();
+    expect(w.store.get().focus).toBeNull();
+    expect(w.grammar.noun()).toBeNull();
     w.dispose();
   });
 

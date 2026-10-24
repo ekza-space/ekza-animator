@@ -11,7 +11,7 @@ import { type SizeClass, useDocumentVersion } from '../../shell/hooks';
 import { useHaloStore } from '../../shell/store';
 import { Thread } from '../../thread/strip/Thread';
 import { AnimationsRow } from './AnimationsRow';
-import { DockedHalo, DockedMore } from './DockedHalo';
+import { DockedHalo } from './DockedHalo';
 import { animateCharacter } from './model';
 import { animateUi } from './ui';
 
@@ -69,15 +69,14 @@ function CurvesStandIn({ controller }: { readonly controller: HaloController }):
 }
 
 /**
- * The dock for the frame (P-T6A-4): `dock` replaces the shell's tray in Animate (null elsewhere), `overlay` renders
- * beside the frame's sheets (a docked noun's ⋯ More), and `lift` is the extra height the dock takes above the tray's,
- * for the floating grammar and the corner clusters.
+ * The dock for the frame (P-T6A-4): `dock` replaces the shell's tray in Animate (null elsewhere), and `lift` is the
+ * extra height the dock takes above the tray's, for the floating grammar and the corner clusters.
  */
 export function useAnimateDock(
   controller: HaloController,
   size: SizeClass,
   height: number,
-): { readonly dock: JSX.Element | null; readonly overlay: JSX.Element | null; readonly lift: number } {
+): { readonly dock: JSX.Element | null; readonly lift: number } {
   const { ctx } = controller;
   const stage = useHaloStore(ctx.store, (s) => s.stage);
   const layer = useHaloStore(ctx.store, (s) => s.threadLayer);
@@ -92,11 +91,11 @@ export function useAnimateDock(
     observer.observe(element);
     return () => observer.disconnect();
   }, [element]);
-  if (stage !== 'animate') return { dock: null, overlay: null, lift: 0 };
+  if (stage !== 'animate') return { dock: null, lift: 0 };
   const ui = animateUi(ctx.store);
   const compact = size === 'compact';
   const character = animateCharacter(ctx.app);
-  if (character === null) return { dock: <EmptyState controller={controller} />, overlay: null, lift: 0 };
+  if (character === null) return { dock: <EmptyState controller={controller} />, lift: 0 };
   const unfold = layer === 1 ? Math.round(height * 0.34) : 0;
   const dock = (
     <div
@@ -118,7 +117,6 @@ export function useAnimateDock(
   );
   return {
     dock,
-    overlay: <DockedMore controller={controller} ui={ui} size={size} />,
     // the shell's tray is one 54 px row; the dock is two rows at rest, more with a docked Halo, a card or Keys
     lift: measured > 0 ? Math.max(0, measured - 54) : 60 + unfold,
   };

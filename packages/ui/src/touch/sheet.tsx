@@ -180,7 +180,13 @@ export function Sheet({
             <Glyph name="close" />
           </DialogPrimitive.Close>
         </header>
-        <div data-touch-scroll="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-6">
+        {/* focusable, so a keyboard reaches a body with no control in it (WCAG 2.1.1, axe scrollable-region-focusable) */}
+        <div
+          data-touch-scroll=""
+          // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- axe scrollable-region-focusable wins here
+          tabIndex={0}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-6 outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
           {children}
         </div>
         {footer === undefined ? null : (

@@ -5,6 +5,10 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { en } from '../src/i18n/en';
+import { DISCLOSURE } from '../src/manifest/disclosure';
+import { PLAIN_LABELS } from '../src/manifest/labels';
+import { entriesOf, isSurfaceEntry } from '../src/manifest/types';
+import { PETAL_VARIANTS, VERB_TABLE } from '../src/verbs/table';
 import { TARGET_BUDGET, visibleTarget } from '../src/shell/targets';
 
 const SRC = new URL('../src', import.meta.url).pathname;
@@ -27,9 +31,117 @@ describe('every document write is an operator run (§20.1)', () => {
     expect(files.filter((f) => /setRigViewOnly|providePaneDisplay/.test(f.text)).map((f) => f.path)).toEqual([]);
   });
   it('no shared preference written implicitly (only a visible control may, §16.4)', () => {
-    expect(files.filter((f) => /prefs\.setState|'prefs\.set'/.test(f.text)).map((f) => f.path)).toEqual([]);
+    const found = files.flatMap((f) => prefWrites(f.path.slice(SRC.length + 1), f.text));
+    expect(found).toEqual([]);
+    // every allowed writer still writes (a stale row would hide a moved write)
+    for (const [path] of PREF_CONTROLS) {
+      const file = files.find((f) => f.path.endsWith(`/${path}`));
+      const writes = prefMentions(file?.text ?? '').some((m) => m.kind === 'write');
+      expect({ path, found: file !== undefined, writes }).toEqual({ path, found: true, writes: true });
+    }
+  });
+  it('the preference rule: tables name `prefs.set`, sheet controls run it, nothing else writes', () => {
+    // positive: a manifest or label table only names the operator; a visible sheet control runs it
+    expect(prefWrites('manifest/labels.ts', "export const L = { 'prefs.set': 'Settings' };")).toEqual([]);
+    expect(prefWrites('manifest/disclosure.ts', "  'prefs.set': on(2, [S('settings')]),")).toEqual([]);
+    expect(prefWrites('sheets/more/MoreSheet.tsx', "void ctx.run('prefs.set', { patch });")).toEqual([]);
+    expect(prefWrites('sheets/settings/model.ts', "if (d.writer === 'prefs.set') return d.writer;")).toEqual([]);
+    // negative: a direct store write anywhere, the operator run outside a visible control, a write in a table
+    expect(prefWrites('sheets/more/MoreSheet.tsx', 'app.prefs.setState({ modeling });')).toEqual([
+      'sheets/more/MoreSheet.tsx: prefs.setState (a store write; run prefs.set from a visible control)',
+    ]);
+    expect(prefWrites('shell/controller.ts', "void ctx.run('prefs.set', { patch: { autoKey: true } });")).toEqual([
+      "shell/controller.ts: 'prefs.set' outside a visible control (PREF_CONTROLS)",
+    ]);
+    expect(prefWrites('manifest/labels.ts', "run('prefs.set', {});")).toEqual([
+      "manifest/labels.ts: 'prefs.set' outside a visible control (PREF_CONTROLS)",
+    ]);
   });
 });
+
+describe('lazy on /app (§20.6)', () => {
+  /** The modules `src/index.ts` reaches by static imports (an `import()` is a lazy chunk and stops the walk). */
+  function eagerModules(): Set<string> {
+    const seen = new Set<string>();
+    const resolve = (from: string, spec: string): string | null => {
+      if (!spec.startsWith('.')) return null;
+      const base = join(from, '..', spec);
+      for (const candidate of [base, `${base}.ts`, `${base}.tsx`, join(base, 'index.ts')]) {
+        try {
+          if (statSync(candidate).isFile()) return candidate;
+        } catch {
+          // not this one
+        }
+      }
+      return null;
+    };
+    const walk = (path: string): void => {
+      if (seen.has(path)) return;
+      seen.add(path);
+      const text = readFileSync(path, 'utf8');
+      for (const m of text.matchAll(/^(?:import|export)\s+(?!type\b)[^;]*?from\s+'([^']+)'/gms)) {
+        const next = resolve(path, m[1] ?? '');
+        if (next !== null) walk(next);
+      }
+    };
+    walk(join(SRC, 'index.ts'));
+    return new Set([...seen].map((path) => path.slice(SRC.length + 1)));
+  }
+
+  it('the manifest, the parity check, More and every sheet stay out of the initial scripts', () => {
+    const eager = eagerModules();
+    expect(eager.has('shell/Frame.tsx')).toBe(true);
+    expect(eager.has('path/Path.tsx')).toBe(true);
+    const lazy = [...eager].filter((path) =>
+      /^(manifest\/(disclosure|labels|paramSurfaces|check|census|probe|dialogs)|verbs\/derive|sheets\/|input\/(install|InputSettings)|palette\/)/.test(
+        path,
+      ),
+    );
+    expect(lazy).toEqual([]);
+  });
+});
+
+/**
+ * The visible controls that may write a shared preference (§16.4), each through the host's `prefs.set` (or the
+ * operator that owns the setting): Settings' rows (the descriptor table's writer, run from the row's control) and More's
+ * ⚙ Options *Make default*.
+ */
+const PREF_CONTROLS: ReadonlyMap<string, string> = new Map([
+  ['sheets/settings/model.ts', "Settings › every row: the descriptor's writer, run by the row's control"],
+  ['sheets/more/MoreSheet.tsx', 'More › ⚙ Options › Make default: the option defaults'],
+]);
+
+interface PrefMention {
+  readonly kind: 'write' | 'name';
+  readonly text: string;
+}
+
+/**
+ * Every mention of a preference write in a source text: `prefs.setState(` (a direct store write) and the operator id
+ * `'prefs.set'` — as a table key (`'prefs.set':`, the manifest and the labels only name it) or as a value (run, or
+ * handed to a run).
+ */
+function prefMentions(text: string): PrefMention[] {
+  const out: PrefMention[] = [];
+  for (const m of text.matchAll(/prefs\.setState\s*\(/g)) out.push({ kind: 'write', text: m[0] });
+  for (const m of text.matchAll(/'prefs\.set'(\s*:)?/g))
+    out.push({ kind: m[1] === undefined ? 'write' : 'name', text: m[0] });
+  return out;
+}
+
+/** The violations of one file (its path relative to `src`). */
+function prefWrites(path: string, text: string): string[] {
+  const out: string[] = [];
+  for (const mention of prefMentions(text)) {
+    if (mention.kind === 'name') continue;
+    if (mention.text.startsWith('prefs.setState')) {
+      out.push(`${path}: prefs.setState (a store write; run prefs.set from a visible control)`);
+    } else if (!PREF_CONTROLS.has(path)) {
+      out.push(`${path}: 'prefs.set' outside a visible control (PREF_CONTROLS)`);
+    }
+  }
+  return out;
+}
 
 /** Every string of the catalogue with its key path (functions called with a sample value). */
 function strings(node: unknown, path: string[] = []): { readonly path: string; readonly text: string }[] {
@@ -42,22 +154,62 @@ function strings(node: unknown, path: string[] = []): { readonly path: string; r
   return [];
 }
 
-describe('user vocabulary: one word, one kind of thing (§1.3, ST-32)', () => {
+/**
+ * The words a user reads at L0–L2: the shell's catalogue (`i18n/en.ts`), the manifest's plain labels
+ * (`manifest/labels.ts`, More and search), its per-argument `plain` words, and the verb table's petals, ▾ choices and
+ * in-place variants (`verbs/table.ts`) — one vocabulary (T6-INT: the lint covers T6b's tables too, P-T6B-2).
+ */
+function vocabulary(): { readonly path: string; readonly text: string }[] {
   const all = strings(en);
+  for (const [op, text] of Object.entries(PLAIN_LABELS)) all.push({ path: `labels.${op}`, text });
+  for (const [op, value] of Object.entries(DISCLOSURE)) {
+    for (const entry of entriesOf(value)) {
+      if (isSurfaceEntry(entry) && entry.plain !== undefined) all.push({ path: `plain.${op}`, text: entry.plain });
+    }
+  }
+  for (const [noun, petals] of Object.entries(VERB_TABLE)) {
+    for (const petal of petals) {
+      all.push({ path: `table.${noun}.${petal.id}`, text: petal.plain });
+      for (const choice of petal.menu ?? []) all.push({ path: `table.${noun}.${petal.id}.menu`, text: choice.plain });
+    }
+  }
+  for (const [noun, variants] of Object.entries(PETAL_VARIANTS)) {
+    for (const variant of variants ?? []) all.push({ path: `table.${noun}.${variant.id}`, text: variant.plain });
+  }
+  return all;
+}
+
+describe('user vocabulary: one word, one kind of thing (§1.3, ST-32)', () => {
+  const all = vocabulary();
   const where = (word: RegExp): string[] => all.filter((s) => word.test(s.text)).map((s) => s.path);
+
+  it('covers the catalogue, the manifest labels and the verb table', () => {
+    expect(all.some((s) => s.path.startsWith('labels.'))).toBe(true);
+    expect(all.some((s) => s.path.startsWith('plain.'))).toBe(true);
+    expect(all.some((s) => s.path.startsWith('table.'))).toBe(true);
+  });
 
   it('“Move” is never a clip; “Animation” is only a clip', () => {
     expect(all.filter((s) => /\bmoves?\b/i.test(s.text) && /animation|clip/i.test(s.text))).toEqual([]);
-    // every use names clips: a new one, the clips a pose change keeps, the product line
+    // every use names clips: a new one, one from a file or the library, a game slot's, the clips a pose change keeps,
+    // the Animations panel, the product line
     for (const path of where(/\banimations?\b/i)) {
-      expect(path).toMatch(/^(verbs\.newAnimation|home\.|dialogs\.applyPoseAsRest)/);
+      expect(path).toMatch(
+        /^(home\.|dialogs\.applyPoseAsRest|labels\.(clip\.|file\.importAnimation|autorig\.clip\.|target\.slot\.)|plain\.(target\.slot\.|workspace\.showPanel)|table\.empty\.newAnimation)/,
+      );
     }
   });
 
   it('“Numbers” is only the Inspector; “Other side” only the mirrored part; “New shape” only a primitive', () => {
-    expect(where(/\bNumbers\b/)).toEqual(['halo.numbers', 'sheets.numbers']);
-    expect(where(/\bOther side\b/i)).toEqual(['halo.otherSide']);
-    expect(where(/\bnew shape\b/i)).toEqual(['verbs.newShape']);
+    // the Inspector itself, and Pro's Channels and Attributes panels, which arrive at it (ST-T6B-7)
+    expect(where(/\bNumbers\b/)).toEqual(['halo.numbers', 'sheets.numbers', 'plain.workspace.showPanel']);
+    expect(where(/\bOther side\b/i)).toEqual([
+      'halo.otherSide',
+      'labels.select.mirror',
+      'plain.select.mirror',
+      'table.rigDot.mirror',
+    ]);
+    expect(where(/\bnew shape\b/i)).toEqual(['table.empty.newShape']);
   });
 
   it('the selection meanings are the Thumb key’s, and never start with “Add”', () => {

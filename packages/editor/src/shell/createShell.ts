@@ -19,7 +19,8 @@ import { registerModelSelectUi } from '../panels/viewport/hud';
 import { registerModelTransformUi } from '../panels/viewport/ModalReadout';
 import { ALL_SLOTS, FIXED_KINDS } from './layout';
 import { registerShellMenuItems, registerUserPresetMenuItems } from './menuItems';
-import { shellOperatorDefs } from './operators';
+import { provideMaximizePort } from '../host/operators';
+import { shellMaximizePort, shellOperatorDefs } from './operators';
 import { createLayoutPresetStore } from './presets';
 import { registerRigShell } from './rig';
 import type { Shell, ShellUiState } from './types';
@@ -66,6 +67,8 @@ export function createShell(opts: CreateShellOptions): Shell {
   for (const contribution of shellOperatorDefs(app, { workspace, ui, presets })) {
     disposers.push(app.contribute(contribution));
   }
+  // `view.toggleMaximize` is the host's (T6-INT): its panel form maximizes this shell's dockview groups
+  disposers.push(provideMaximizePort(app, shellMaximizePort(workspace)));
 
   // M6A-SPEC §5.18 (B9): marking menus (the viewport's press hook, `ui.markingMenu` through the host's overlay port).
   const markingMenus = createMarkingMenus({

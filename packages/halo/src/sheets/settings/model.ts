@@ -224,19 +224,15 @@ export function descriptorControl(app: EditorApp, descriptor: PrefDescriptor): S
 /**
  * Auto Key in Studio Pro (§15.14 row 14.4, §16.4): the manifest's `key.toggleAutoKey` in Settings › Animation. The
  * `autoKey` descriptor is hidden (Halo's Rec overrides it for the session), so this row shows Studio Pro's own value
- * (`basePrefs`) and writes it by the toggle. While a session override holds `autoKey` (Rec), no write can reach the
- * stored value (the override layer keeps a write of the shown value as the base's own), so the row waits.
+ * (`basePrefs`) and writes it by the toggle, which flips the stored value even while Rec holds the shown one (T6-INT:
+ * the toggle reads the base, and a named scalar write lands in the base). A note says Rec keys here meanwhile.
  */
 export function autoKeyControl(app: EditorApp): SettingsControl {
   const op = 'key.toggleAutoKey';
   const state = app.prefs.getState();
   const own = basePrefs(state).autoKey;
   const registered = app.operators.get(op) !== undefined;
-  const disabledReason = !registered
-    ? NOT_HERE
-    : own !== state.autoKey
-      ? 'Rec is in charge of keying in this layout right now; change this in the Pro layout.'
-      : null;
+  const disabledReason = !registered ? NOT_HERE : null;
   return {
     key: `op:${op}`,
     path: null,
@@ -252,7 +248,7 @@ export function autoKeyControl(app: EditorApp): SettingsControl {
     shared: true,
     op,
     disabledReason,
-    note: null,
+    note: own === state.autoKey ? null : 'Rec keys in this layout for now; this is what Studio Pro does.',
     write: (next) => (disabledReason !== null || typeof next !== 'boolean' || next === own ? null : { op }),
   };
 }

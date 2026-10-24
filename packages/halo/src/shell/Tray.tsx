@@ -8,6 +8,7 @@ import type { JSX } from 'react';
 import { Icon } from '../halo/icons';
 import { pollVerb, spaceNoun } from '../halo/verbSource';
 import { en } from '../i18n/en';
+import { EMPTY_NOUN } from '../verbs/nouns';
 import type { HaloController } from './controller';
 import { useDocumentVersion, useSessionValue } from './hooks';
 import { useHaloStore } from './store';
@@ -67,7 +68,8 @@ export function Tray({
           const verb = petals.find((p) => p.id === id);
           if (verb !== undefined) controller.runVerb(verb, 'petal');
         }}
-        onMore={() => store.set({ sheet: 'more', halo: null })}
+        // empty space's ⋯ More (the tray is its Halo, docked): about empty space, whatever is selected
+        onMore={() => store.set({ sheet: 'more', sheetArgs: null, sheetNoun: EMPTY_NOUN, halo: null, focus: null })}
         onReason={(_id, reason) => ctx.toasts.push({ key: 'reason', text: reason })}
       />
     </Cluster>

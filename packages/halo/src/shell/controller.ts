@@ -14,7 +14,7 @@ import { stageOverlay } from '../canvas/overlay';
 import { createGrammar, type Grammar } from '../halo/grammar';
 import { createVerbRunner } from '../halo/run';
 import { createManipScale } from '../input/manipScale';
-import { standInVerbs, type Verb, type VerbSource } from '../halo/verbSource';
+import { haloVerbs, type Verb, type VerbSource } from '../halo/verbSource';
 import { en } from '../i18n/en';
 import type { InputHandle } from '../input/install';
 import { currentRow } from '../input/situation';
@@ -23,10 +23,12 @@ import { watchDialogs } from '../dialogs/watcher';
 import type { ShellContext } from './context';
 import { rememberProLayout } from './entry';
 import { installHaloKeys, PRO_ONLY_KEY, proOnlyKeyDef } from './keys';
-import { mirrorOf, readInput, readMirror, storageOf, writeMirror } from './mirror';
+import { mirrorOf, readInput, readMirror, storageOf, writeInput, writeMirror } from './mirror';
 import { prefetchLazyChunks } from './prefetch';
+import { createReadinessSource, type ReadinessSource } from './readiness';
+import { nextChip } from '../path/nextChip';
 import { arrivalStage, HALO_STAGES, PANE, parseStage, STAGE_BASICS, stageOfWorkspace, workspaceOfStage } from './stage';
-import { createHaloStore, type HaloStore, initialUi } from './store';
+import { createHaloStore, type HaloInput, type HaloStore, initialUi } from './store';
 import { countVisibleTargets } from './targets';
 import { coachMarks } from './coach';
 import { animateSlice } from '../stages/animate/slice';
@@ -36,7 +38,11 @@ export interface HaloController {
   readonly ctx: ShellContext;
   readonly grammar: Grammar;
   readonly verbs: VerbSource;
+  /** The one readiness list (§7.2): the Path's glyphs, the status corner, the Next chip and the test API read it. */
+  readonly readiness: ReadinessSource;
   runVerb(verb: Verb, from: 'petal' | 'ring' | 'more'): void;
+  /** Settings › Input (§5.1): this device's `halo.input`, never Pro's preferences. */
+  setInput(patch: Partial<HaloInput>): void;
   /** Taps a Path stage (§7.1): commit, escape, workspace, overlay, default tool. */
   enterStage(stage: HaloStage): Promise<void>;
   /** ▤ Pro layout (§16.1): from the tap handler; a coarse-only device first shows one line. */
@@ -98,10 +104,19 @@ export function createHaloController(host: HostShell): HaloController {
     typeof window !== 'undefined' && window.matchMedia?.('(any-pointer: coarse)').matches === true ? 'touch' : 'mouse',
   );
 
-  const verbs = standInVerbs;
+  const verbs = haloVerbs;
+  const readinessSource = createReadinessSource(app, store);
   const runVerb = createVerbRunner(ctx, {
     enterStage: (stage) => controller.enterStage(stage),
-    openSheet: (sheet) => store.set({ sheet, halo: null }),
+    // a petal's sheet (Checks, About this character) is about the Halo's noun when it is a focused one
+    openSheet: (sheet) =>
+      store.set({
+        sheet,
+        sheetArgs: null,
+        sheetNoun: store.get().focus === null ? null : (grammar.noun()?.source ?? null),
+        halo: null,
+        focus: null,
+      }),
   });
   const grammar = createGrammar({
     ctx,
@@ -147,7 +162,8 @@ export function createHaloController(host: HostShell): HaloController {
       loupe: null,
       reselect: null,
       home: false,
-      sheet: ui.sheet === 'more' ? null : ui.sheet,
+      focus: null,
+      ...(ui.sheet === 'more' ? { sheet: null, sheetArgs: null, sheetNoun: null } : {}),
     }));
     await ctx.run('edit.escape');
     const workspace = workspaceOfStage(stage);
@@ -172,7 +188,12 @@ export function createHaloController(host: HostShell): HaloController {
     ctx,
     grammar,
     verbs,
+    readiness: readinessSource,
     runVerb,
+    setInput(patch) {
+      store.set((ui) => ({ input: { ...ui.input, ...patch } }));
+      writeInput(localStorage, store.get().input);
+    },
     enterStage,
     proLayout(force = false, arrival) {
       const ui = store.get();
@@ -357,8 +378,24 @@ export function createHaloController(host: HostShell): HaloController {
         input = null;
       });
 
-      // the grammar's selection watcher
+      // the grammar's selection watcher; a focused noun (the character, the manipulator) ends with its Halo
       disposers.push(grammar.start());
+      disposers.push(
+        store.subscribe((next, previous) => {
+          if (next.halo === null && previous.halo !== null && next.focus !== null) store.set({ focus: null });
+        }),
+      );
+
+      // the one readiness list (§7.2), watched while mounted
+      disposers.push(readinessSource.start());
+
+      // §20.5: the parity probe in e2e builds (a lazy chunk with the manifest; it stays when Halo unmounts)
+      if (host.params.e2e) {
+        void import('../manifest/probe').then(
+          ({ installParityProbe }) => installParityProbe(app),
+          () => {},
+        );
+      }
 
       // T7: the Animate stage (Rec as the shell override, the fitting manipulator, Reach, the Library, the band source)
       disposers.push(startAnimate(controller));
@@ -420,7 +457,7 @@ export function createHaloController(host: HostShell): HaloController {
       // §6.7: kernel questions become Halo surfaces
       disposers.push(
         watchDialogs(ctx, {
-          openSheet: (sheet) => store.set({ sheet, halo: null }),
+          openSheet: (sheet) => store.set({ sheet, sheetArgs: null, sheetNoun: null, halo: null }),
           openPicker: () => store.set({ projectMenu: true }),
           showHome: () => store.set({ home: true, halo: null }),
           toPro: (dialog) => toPro(dialog),
@@ -467,8 +504,37 @@ export function createHaloController(host: HostShell): HaloController {
                 reduceGestures: ui.input.reduceGestures,
                 haloOpensOn: ui.input.haloOpensOn,
                 hideUi: ui.hideUi,
+                focus: ui.focus?.kind ?? null,
               },
               animate: animateSlice(controller),
+              // T6b's slice (the harness's, now the frame's): the readiness list and the Next chip shown
+              t6b: ((): Record<string, unknown> => {
+                const r = readinessSource.get();
+                const busy =
+                  ui.sheet !== null ||
+                  ui.halo !== null ||
+                  ui.form !== null ||
+                  ui.confirm !== null ||
+                  ui.target !== null ||
+                  ui.loupe !== null ||
+                  ui.palette ||
+                  ui.projectMenu;
+                const chip = busy ? null : nextChip(app, r);
+                return {
+                  destination: ui.destination,
+                  total: r.total,
+                  stages: r.stages,
+                  rows: r.rows.map((row) => ({
+                    id: row.id,
+                    stage: row.stage,
+                    code: row.code,
+                    fix: row.fix?.op ?? null,
+                  })),
+                  budget: r.budget,
+                  next: chip === null || chip.id === ui.nextDismissed ? null : chip.id,
+                  sheetSection: ui.sheetArgs?.section ?? null,
+                };
+              })(),
             },
           };
         }),

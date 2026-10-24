@@ -7,6 +7,8 @@ import type { HaloStage } from '@ekza-studio/editor-core';
 import type { CompassSlot, Point, ThumbState } from '@ekza-studio/ui/touch';
 import { THUMB_INITIAL } from '@ekza-studio/ui/touch';
 import { useSyncExternalStore } from 'react';
+import type { SheetArgs } from '../manifest/sheets';
+import type { Noun as KindNoun } from '../verbs/nouns';
 
 /** §5.1 routing modes. */
 export type Routing = 'shared' | 'pencilEdits' | 'pencilOnly';
@@ -67,6 +69,15 @@ export interface TargetState {
   readonly subject: readonly string[];
 }
 
+/**
+ * A noun the Halo shows instead of the selection's (§6.2 "how you get it"): the character from the breadcrumb's root
+ * crumb, the manipulator from a long-press on it. Cleared when the selection changes or the Halo closes.
+ */
+export interface NounFocus {
+  readonly kind: 'character' | 'manipulator';
+  readonly id: string | null;
+}
+
 export interface LoupeState {
   readonly at: Point;
   readonly candidates: readonly { readonly id: string; readonly label: string }[];
@@ -76,6 +87,17 @@ export interface HaloUi {
   readonly stage: HaloStage;
   /** The open sheet ('more', 'numbers', 'scene', 'share', …), else null. */
   readonly sheet: string | null;
+  /** What the open sheet was opened with (a section to scroll to, a filter or a preference path). */
+  readonly sheetArgs: SheetArgs | null;
+  /**
+   * The noun the open sheet is about when it is not the selection's (More from empty space's tray or ring, More from
+   * a focused character); null: the selection's noun, live. Cleared when the selection changes.
+   */
+  readonly sheetNoun: KindNoun | null;
+  /** The noun the Halo shows instead of the selection's (the breadcrumb's character, a long-pressed manipulator). */
+  readonly focus: NounFocus | null;
+  /** The Next chip the user dismissed (§7.2): hidden until the chip changes. */
+  readonly nextDismissed: string | null;
   readonly threadLayer: 0 | 1 | 2;
   /** §7.3: the destination (`exploring` until Share or the Rig-it card sets one). */
   readonly destination: string;
@@ -122,6 +144,10 @@ export function initialUi(stage: HaloStage = 'make'): HaloUi {
   return {
     stage,
     sheet: null,
+    sheetArgs: null,
+    sheetNoun: null,
+    focus: null,
+    nextDismissed: null,
     threadLayer: 0,
     destination: 'exploring',
     rec: true,

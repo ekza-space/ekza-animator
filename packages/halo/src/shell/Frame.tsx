@@ -18,7 +18,8 @@ import { SessionBar } from '../session/SessionBar';
 import type { HaloController } from './controller';
 import { sizeClassOf, useElementSize } from './hooks';
 import { Sheets } from './Sheets';
-import { PathTabs, TopBar } from './TopBar';
+import { FrameNext, FramePath, FrameStatus } from './PathParts';
+import { TopBar } from './TopBar';
 import { Tray } from './Tray';
 import { useAnimateDock } from '../stages/animate/AnimateDock';
 import { useHaloStore } from './store';
@@ -131,28 +132,31 @@ export function Frame({ controller }: { readonly controller: HaloController }): 
             </div>
           </div>
           <div
-            className={`pointer-events-none absolute ${penSide} transition-opacity duration-(--motion-touch)`}
+            className={`pointer-events-none absolute ${penSide} flex flex-col ${
+              handedness === 'right' ? 'items-end' : 'items-start'
+            } gap-2 transition-opacity duration-(--motion-touch)`}
             style={{ ...fade, bottom: `calc(var(--touch-inset-bottom) + ${cornerBottom}px)` }}
           >
+            <FrameStatus controller={controller} />
             <ViewPuck controller={controller} />
           </div>
           <div
             className="pointer-events-none absolute inset-x-0 flex flex-col items-stretch gap-2 px-(--touch-inset-left) transition-opacity duration-(--motion-touch)"
             style={{ ...fade, bottom: 'var(--touch-inset-bottom)' }}
           >
+            <FrameNext controller={controller} />
             <div className="flex justify-center">
               {animate.dock ?? <Tray controller={controller} compact={compact} />}
             </div>
             {compact ? (
               <div className="pointer-events-auto flex">
-                <PathTabs controller={controller} bar />
+                <FramePath controller={controller} bar />
               </div>
             ) : null}
           </div>
         </>
       )}
       <Sheets controller={controller} size={size} />
-      {home ? null : animate.overlay}
       {palette ? (
         <Suspense fallback={null}>
           <Palette controller={controller} side={size === 'wide' ? 'right' : 'bottom'} />

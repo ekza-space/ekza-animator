@@ -58,6 +58,7 @@ export function HaloLayer({
   const confirm = useHaloStore(store, (s) => s.confirm);
   const handedness = useHaloStore(store, (s) => s.input.handedness);
   const targeting = useHaloStore(store, (s) => s.target !== null);
+  const focus = useHaloStore(store, (s) => s.focus);
   const selection = useSessionValue(app, (s) => s.selection);
   const components = useSessionValue(app, (s) => s.model.components.version);
   const lastRun = useSessionValue(app, (s) => s.lastRun);
@@ -71,10 +72,10 @@ export function HaloLayer({
   }, [breathing, selection, components, version, halo]);
 
   const noun = useMemo(
-    () => verbs.noun(app, stage),
-    // the selection, the component counts, the document and the stage decide the noun
+    () => verbs.noun(app, stage, focus),
+    // the selection, the component counts, the document, the stage and a focused noun decide the noun
     // oxlint-disable-next-line react/exhaustive-deps
-    [verbs, app, stage, selection, components, version],
+    [verbs, app, stage, focus, selection, components, version],
   );
   const box: Box | null = useMemo(
     () => (noun === null ? null : selectionBox(app, ctx.vm(), anchor)),
@@ -103,7 +104,7 @@ export function HaloLayer({
   const reason = (_id: string, text: string): void => {
     ctx.toasts.push({ key: 'reason', text });
   };
-  const more = (): void => store.set({ sheet: 'more', halo: null });
+  const more = (): void => grammar.more();
   const hot = halo?.mode === 'ring' && halo.hot !== null && halo.hot !== undefined ? halo.hot : null;
   const hotVerb =
     hot === null

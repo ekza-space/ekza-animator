@@ -85,7 +85,7 @@ const GESTURES: readonly GestureRow[] = [
     finger: 'Clears the selection; in Animate a Reselect chip shows for 4 seconds',
     pencil: SAME,
     mouse: SAME,
-    twin: '⋯ › Unselect all, or Reselect',
+    twin: '⋯ › Clear selection, or Reselect',
   },
   {
     id: 'drag',

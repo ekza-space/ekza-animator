@@ -16,6 +16,15 @@ export interface RunnerDeps {
   openSheet(sheet: string): void;
 }
 
+/** §6.4: the verb waits for a tap on its target (the subject is the selection when it was chosen). */
+export function startTarget(ctx: ShellContext, label: string, op: OperatorId): void {
+  ctx.store.set({
+    target: { label, op, subject: [...ctx.app.session.getState().selection.objects] },
+    halo: null,
+    focus: null,
+  });
+}
+
 type FormsModule = typeof Forms;
 let forms: Promise<FormsModule> | null = null;
 /** The forms chunk (Halo-only, lazy; prefetched at idle). */
@@ -39,13 +48,14 @@ export function createVerbRunner(
       void deps.enterStage(verb.run.stage);
       return;
     }
+    if ('sheet' in verb.run) {
+      deps.openSheet(verb.run.sheet);
+      return;
+    }
     const { op, args } = verb.run;
     if (verb.target === true) {
       // §6.4: "now tap the target" — the next tap's object becomes the verb's `parent`
-      store.set({
-        target: { label: verb.label, op, subject: [...app.session.getState().selection.objects] },
-        halo: null,
-      });
+      startTarget(ctx, verb.label, op);
       return;
     }
     const anchor = store.get().halo?.at ?? store.get().anchor;

@@ -11,6 +11,7 @@ import { animateWords } from '../../i18n/animate';
 import type { HaloController } from '../../shell/controller';
 import { useDocumentVersion, useSessionValue } from '../../shell/hooks';
 import { between, currentFrame, keyDots, threadContext } from '../../thread/strip/model';
+import { EMPTY_NOUN } from '../../verbs/nouns';
 import { AnimateGlyph } from './icons';
 import {
   activeClip,
@@ -351,7 +352,7 @@ export function AnimationsRow({
           onClick={() => {
             count();
             void ctx.run('library.open');
-            store.set({ sheet: 'library', halo: null });
+            store.set({ sheet: 'library', sheetArgs: null, sheetNoun: null, halo: null, focus: null });
           }}
         >
           <AnimateGlyph name="library" size={18} />
@@ -365,7 +366,8 @@ export function AnimationsRow({
           className="shrink-0 rounded-full border border-line bg-panel shadow-touch"
           onClick={() => {
             count();
-            store.set({ sheet: 'more', halo: null });
+            // empty space's More (§6.2 first row, docked): Key all, All controls, Reset pose, the time rows
+            store.set({ sheet: 'more', sheetArgs: null, sheetNoun: EMPTY_NOUN, halo: null, focus: null });
           }}
         />
       </div>

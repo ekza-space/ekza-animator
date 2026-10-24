@@ -64,7 +64,9 @@ export const NOUN_OWNER: Readonly<Record<NounKind, Owner>> = {
   faces: 'T6a',
   edges: 'T6a',
   vertices: 'T6a',
-  imagePlane: 'T6a',
+  // T6-INT: the canvas cannot select a plane (no selection operator holds its id, P-T6B-7), so its petals and More
+  // wait for the Make stage (T8) to give planes a selection; the Scene sheet's rows reach its fields until then
+  imagePlane: 'T8',
   character: 'T6a',
   control: 'T6a',
   foot: 'T6a',
@@ -145,6 +147,13 @@ export const CHROME_OWNER = {
   historyRibbon: 'T10',
 } as const satisfies Record<string, Owner>;
 export type ChromePart = keyof typeof CHROME_OWNER;
+
+/**
+ * The verbs that wait for a second thing through the frame's target mode (§6.4, ST-T6A-15): a petal or a More row
+ * of one enters "now tap the target" and runs with `{ids: subject, parent: target}`. Its poll is not read before the
+ * target is tapped (it asks for the target in the selection). Weld to… and Bridge are tool sessions instead.
+ */
+export const TARGET_OPS: ReadonlySet<string> = new Set<string>(['scene.parent']);
 
 /** Stage trays (§7.1): owned by the stage packages. */
 export const TRAY_OWNER: Readonly<Record<Stage, Owner>> = { make: 'T8', paint: 'T8', rig: 'T9', animate: 'T7' };

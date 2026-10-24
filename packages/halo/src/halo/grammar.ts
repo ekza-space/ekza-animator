@@ -11,6 +11,7 @@ import type { ArbiterFollow, ArbiterTap, PickResult } from '@ekza-studio/viewpor
 import { en } from '../i18n/en';
 import type { ShellContext } from '../shell/context';
 import { PANE } from '../shell/stage';
+import { EMPTY_NOUN, type Noun as KindNoun } from '../verbs/nouns';
 import { type Noun, pollVerb, spaceNoun, type Verb, type VerbSource } from './verbSource';
 
 /** How long a tap waits for the tool's selection change before it reads the selection as it is (ms). */
@@ -53,6 +54,8 @@ export interface Grammar {
   petals(): readonly { readonly verb: Verb; readonly reason: string | null }[];
   /** The noun the Halo shows now (null: closed or nothing). */
   noun(): Noun | null;
+  /** ⋯ More for the open Halo's noun (§6.3): the More sheet, about that noun even when it is not the selection's. */
+  more(): void;
   /** A flick ring's slot of each petal (⋯ More last). */
   slots(): readonly CompassSlot[];
   /** Runs the open ring's petal at a slot (a flick or a right drag released on it); false: nothing ran. */
@@ -100,7 +103,10 @@ export function createGrammar(deps: GrammarDeps): Grammar {
   let lastPointer = 'touch';
 
   const stage = (): HaloStage => store.get().stage;
-  const currentNoun = (): Noun | null => verbs.noun(app, stage());
+  const currentNoun = (): Noun | null => verbs.noun(app, stage(), store.get().focus);
+  /** The noun More is about when it is not the live selection's (empty space's ring, a focused character). */
+  const sheetNounOf = (noun: Noun | null): KindNoun | null =>
+    noun === null || noun.kind === 'empty' ? EMPTY_NOUN : store.get().focus !== null ? noun.source : null;
 
   const showReselect = (controls: readonly ControlId[]): void => {
     if (reselectTimer !== null) clearTimeout(reselectTimer);
@@ -260,8 +266,11 @@ export function createGrammar(deps: GrammarDeps): Grammar {
         return ringFollow(at);
       }
       spaceRing = false;
-      if (control !== null && !selected.controls.includes(control)) selectControl(control);
-      else if (control === null && tap.hit?.kind !== 'manipulator') replayClick();
+      if (tap.hit?.kind === 'manipulator') {
+        // §6.2: the manipulator is a noun of its own (Space, Size, Pivot), reached by a long-press on it
+        store.set({ focus: { kind: 'manipulator', id: null } });
+      } else if (control !== null && !selected.controls.includes(control)) selectControl(control);
+      else if (control === null) replayClick();
       openRing(at);
       return ringFollow(at);
     },
@@ -301,7 +310,7 @@ export function createGrammar(deps: GrammarDeps): Grammar {
       openArc(store.get().anchor);
     },
     close() {
-      store.set({ halo: null });
+      store.set({ halo: null, focus: null });
     },
     frame(what) {
       void ctx.run('view.frame', { what, paneId: PANE });
@@ -342,6 +351,10 @@ export function createGrammar(deps: GrammarDeps): Grammar {
       if (halo.mode === 'ring' && spaceRing) return spaceNoun();
       return currentNoun();
     },
+    more() {
+      const noun = grammar.noun();
+      store.set({ halo: null, focus: null, sheet: 'more', sheetArgs: null, sheetNoun: sheetNounOf(noun) });
+    },
     slots() {
       const petals = grammar.petals().map((p) => p.verb);
       return ringSlots([...petals, {}]);
@@ -350,7 +363,7 @@ export function createGrammar(deps: GrammarDeps): Grammar {
       const index = grammar.slots().indexOf(slot);
       const petals = grammar.petals();
       if (index === petals.length) {
-        store.set({ halo: null, sheet: 'more' });
+        grammar.more();
         return true;
       }
       const petal = petals[index];
@@ -383,6 +396,8 @@ export function createGrammar(deps: GrammarDeps): Grammar {
         const next = selectionKey(app);
         if (next === key) return;
         key = next;
+        // a focused noun (the character, the manipulator) and a sheet's own noun give way to the new selection
+        if (store.get().focus !== null || store.get().sheetNoun !== null) store.set({ focus: null, sheetNoun: null });
         if (pending !== null) {
           // the tool's click changed the selection: settle on the next task (several runs may follow)
           if (settle !== null) clearTimeout(settle);

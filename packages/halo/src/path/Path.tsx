@@ -45,9 +45,11 @@ export interface PathProps {
   /** A tap on a stage's ⚠n: Health, scrolled to that stage (§7.2). */
   readonly onProblems?: (stage: Stage) => void;
   readonly className?: string;
+  /** A full-width bar (the frame's second row on Regular, the bottom tab bar on Compact, §4.3–§4.4). */
+  readonly bar?: boolean;
 }
 
-export function Path({ stage, readiness, onStage, onProblems, className }: PathProps): JSX.Element {
+export function Path({ stage, readiness, onStage, onProblems, className, bar = false }: PathProps): JSX.Element {
   const items: SegmentedItem<Stage>[] = STAGES.map((id) => {
     const r = readiness.stages[id];
     return {
@@ -75,11 +77,16 @@ export function Path({ stage, readiness, onStage, onProblems, className }: PathP
     if (tapped !== undefined && readiness.stages[tapped].glyph === 'warn') onProblems?.(tapped);
   };
   return (
-    <Cluster className={className ?? 'max-w-full overflow-x-auto p-[3px]'} data-touch-scroll="" onClick={onClick}>
+    <Cluster
+      className={className ?? (bar ? 'flex p-[3px]' : 'flex max-w-full overflow-x-auto p-[3px]')}
+      data-touch-scroll=""
+      onClick={onClick}
+    >
       <Segmented<Stage>
         kind="tablist"
         variant="accent"
         label="Stage"
+        {...(bar ? { className: 'w-full [&>[role=tab]]:grow' } : {})}
         data-testid="halo-path"
         value={stage}
         onValueChange={onStage}

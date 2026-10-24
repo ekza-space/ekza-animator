@@ -4,7 +4,7 @@
 // plain word (Duplicate, Delete, Mirror). Per-argument rows take their own `plain` from the manifest entry, and petals
 // their table label. User vocabulary (§1.3): *Move* only for translation, *Animation* only for a clip, *Add* only for
 // new content, *New shape* for a primitive, *Numbers* for the Inspector, *Other side* for the mirrored part; the
-// vocabulary test (`test/manifest/labels.test.ts`) holds these rules over this table.
+// vocabulary lint (`test/rules.test.ts`) holds these rules over this table and the catalogue.
 export const PLAIN_LABELS: Readonly<Record<string, string>> = {
   // file
   'file.new': 'New project',
@@ -30,7 +30,7 @@ export const PLAIN_LABELS: Readonly<Record<string, string>> = {
   'edit.restoreDocument': 'Undo all of it',
   // select
   'select.all': 'Select all',
-  'select.none': 'Unselect all',
+  'select.none': 'Clear selection',
   'select.mirror': 'Other side',
   'select.pickWalk': 'Next part',
   'select.mode': 'Edit shape',
@@ -42,7 +42,7 @@ export const PLAIN_LABELS: Readonly<Record<string, string>> = {
   'select.mesh.shell': 'Whole part',
   'select.mesh.all': 'Select all faces',
   'select.mesh.invert': 'Invert',
-  'select.mesh.none': 'Unselect faces',
+  'select.mesh.none': 'Clear points, edges and faces',
   'select.mesh.convert': 'Convert',
   'select.mesh.matching': 'Show me',
   'select.mesh.bySwatch': 'Select faces of this colour',

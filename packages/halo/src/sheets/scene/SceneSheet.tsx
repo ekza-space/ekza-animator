@@ -214,6 +214,31 @@ function ActionButton(props: {
   );
 }
 
+/** *Replace image…* on a reference image's row (T6-INT): Files (or Photos on iPad), then one `imagePlane.replace`. */
+function ReplaceImage(props: { readonly onPicked: (bytes: Uint8Array, name: string) => void }): JSX.Element {
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <ActionChip onClick={() => input.current?.click()} data-testid="halo-scene-menu-replace">
+        Replace image…
+      </ActionChip>
+      <input
+        ref={input}
+        type="file"
+        accept="image/*"
+        hidden
+        data-testid="halo-scene-replace-file"
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0];
+          event.currentTarget.value = '';
+          if (file !== undefined)
+            void file.arrayBuffer().then((buffer) => props.onPicked(new Uint8Array(buffer), file.name));
+        }}
+      />
+    </>
+  );
+}
+
 function RowMenu(props: {
   readonly row: SceneRow;
   readonly mode: MenuState['mode'];
@@ -304,6 +329,15 @@ function RowMenu(props: {
           Rename…
         </ActionChip>
       )}
+      {row.replaceImage === undefined ? null : (
+        <ReplaceImage
+          onPicked={(bytes, fileName) => {
+            const replace = row.replaceImage;
+            if (replace !== undefined) props.onCall(replace(bytes, fileName));
+            props.onClose();
+          }}
+        />
+      )}
       {row.parentTargets.length === 0 ? null : (
         <ActionChip onClick={() => props.setMode('parent')} data-testid="halo-scene-menu-parent">
           Parent to…
@@ -368,11 +402,18 @@ function Row(props: {
           }}
           data-testid={`halo-scene-row-${row.key}`}
         >
-          <span className={row.hidden ? 'truncate font-medium text-fg-3' : 'truncate font-medium text-fg'}>
+          <span
+            className={`truncate font-medium ${row.hidden ? (row.selected ? 'text-fg-2' : 'text-fg-3') : 'text-fg'}`}
+          >
             {row.active ? '● ' : ''}
             {row.name}
           </span>
-          {row.detail === null ? null : <span className="truncate text-touch-label text-fg-3">{row.detail}</span>}
+          {row.detail === null ? null : (
+            // on the selected row's tint the faint grey falls below 4.5:1 (axe color-contrast)
+            <span className={`truncate text-touch-label ${row.selected ? 'text-fg-2' : 'text-fg-3'}`}>
+              {row.detail}
+            </span>
+          )}
           {row.select !== null && row.select.reason !== null ? (
             <span className="truncate text-touch-label text-fg-2">{row.select.reason}</span>
           ) : null}

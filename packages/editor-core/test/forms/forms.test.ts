@@ -14,8 +14,8 @@ import {
   formArgs,
   formDefaults,
   formOf,
-  formProblems,
 } from '../../src/forms';
+import { formProblems } from '../../src/forms/problems';
 import { IDENTITY_CLIP_PARAMS } from '../../src/library/params';
 import type { EditorApp } from '../../src/types';
 import { DEFAULT_BLEND_FRAMES } from '../../src/workflows/loop';
