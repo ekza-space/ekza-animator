@@ -1573,7 +1573,7 @@ The local, key-free clean-up of MODELING-PLAN §7.2 G-a, built on branch `m7/ga-
 | ID | Decision | Why |
 |---|---|---|
 | M7-GA-1 | **meshoptimizer 1.3.0 pinned** (MIT), the registry's latest on 2026-10-24 (published 2026-09-25); only `meshoptimizer/simplifier` is imported, on first use, in the intake worker | The plan named 1.3.0; checked against the registry; the simplifier module embeds its WASM (≈ 20 kB gzip) |
-| M7-GA-2 | **Wedges**: material slot, `paint` slot, `uv0`, `uv1` and `color0` split simplifier vertices (normals do not; they are recomputed at a 60° hard angle) | meshoptimizer infers seams from coincident positions and collapses a seam only along itself: no crack is possible |
+| M7-GA-2 | **Wedges**: material slot, `paint` slot, `uv0`, `uv1` and `color0` split simplifier vertices (normals do not; they are recomputed at an 80° hard angle, M7-GA-17) | meshoptimizer infers seams from coincident positions and collapses a seam only along itself: no crack is possible |
 | M7-GA-3 | **`vertex_lock` on UV seams is an option, off by default; on palette and material borders it is on** | Locking every seam point of a 241-chart atlas (6,593 of 48k points) forbids 3k triangles; seams are crack-free without it |
 | M7-GA-4 | **Exact target by bisection** over the requested index count (≤ 10 runs); `reduce.target-unreached` when locks stop it | §7.2 "exact triangle target found by search"; a closed mesh loses triangles in pairs (odd targets end one under) |
 | M7-GA-5 | **Pinch repair**: new edges with more than two faces lock their points' one-ring and the search runs again (≤ 2 rounds); `reduce.non-manifold` if any remain | meshoptimizer keeps attribute topology, not the welded mesh's link condition (seen where 220 UV charts meet) |
@@ -1585,7 +1585,10 @@ The local, key-free clean-up of MODELING-PLAN §7.2 G-a, built on branch `m7/ga-
 | M7-GA-11 | **PNG decoding is ours** (`io/png/decode.ts`); JPEG/WebP through `createImageBitmap` without colour conversion; unreadable textures fall back to the factor with a warning | The same pixels in Node and every browser; `sharp` stays banned |
 | M7-GA-12 | **Texture downsize writes a new model asset** (PNG images, the BIN laid out again) and repoints the material slots | Asset records are immutable by hash |
 | M7-GA-13 | **Quadrangulate is on in the intake preset** (30°, seams, hard edges and materials kept), an option there, automatic nowhere else | Q-MOD-K-9 |
-| M7-GA-14 | **The acceptance input is procedural** (`io/testing` `makeAiLikeGlb`: 96,824 triangles, a 241-chart atlas, facing +X); no binary fixture | No CC0 50k–200k textured GLB in the fixtures; deterministic and licence-clean |
+| M7-GA-14 | **The acceptance input is procedural** (`io/testing` `makeAiLikeGlb`: 96,824 triangles, a 241-chart atlas on a black background with 2 texels of padding, facing +X); no binary fixture | No CC0 50k–200k textured GLB in the fixtures; deterministic and licence-clean |
+| M7-GA-15 | **The palette bake never reads the atlas background**: samples inset 25 % toward each triangle's centroid, nearest texel, only texels inside the charts (rasterized from the UV triangles as imported) that are not transparent; a face with no valid sample takes its nearest valid neighbour's slot | Fix round 1 (review of `ga-after.png`): on a black gutter without padding the old bake gave 24 of 3,000 faces a darkened colour; now 0 |
+| M7-GA-16 | **Clusters within OKLab 0.03 merge; unused clusters leave the palette** | Texture noise split each colour into two or three swatches; blend clusters were never chosen |
+| M7-GA-17 | **Hard edges above 80° after a reduce** (was 60°) | 60° left ≈ 216 hard edges on a reduced character, drawn as dark lines along the limbs in Model; 80° keeps ≈ 48 and a box prop's 90° edges |
 
 ### T.2 Contract (the Halo Make stage, T8, and the Generate panel, G-d, build against it)
 

@@ -32,7 +32,8 @@ default 1), the smooth point normal (`normalWeight`, 0.5) and the vertex colour.
 (`lockSeams`, off by default, M7-GA-3) and on material/palette-border points (`lockPalette`, on). Flags: `Regularize`
 for skinned meshes (`regularize: null` = auto), `LockBorder` and `Prune` on request; no error limit. The output is
 index-only, so every kept vertex keeps its exact position, UVs, colours, skin weights and morph deltas; `normal.custom`
-is dropped (the surface changed) and hard edges are re-derived at `hardAngle` (60°) plus the source's own hard edges.
+is dropped (the surface changed) and hard edges are re-derived at `hardAngle` (80°, M7-GA-17) plus the source's own hard
+edges.
 
 **Exact target by search.** meshoptimizer lands at the requested index count or a little under it; when under, a
 bisection over the requested count (at most 10 runs) finds the largest result within the budget. A closed mesh loses
@@ -55,12 +56,18 @@ of the target meshes (the parts of one model keep their relative placement). The
 identity in world (`localFromWorld`), pivots reset, and children that are not targets keep their world placement.
 
 **Palette bake.** The base colour (texture × factor in linear light, or a palette mesh's swatch) is sampled at a fixed
-R2-sequence pattern of points per triangle (6 by default), each sample weighted by its triangle's area / samples; the
-samples of all target meshes are histogrammed (OKLab quantized at 1/256) and clustered by weighted k-means in OKLab
-(greedy k-means++ seeding from the heaviest bin, Lloyd until stable, ≤ 64 iterations); each face takes the swatch its
-samples cover most — its **dominant** colour (M7-GA-6: the mean turned striped shirts pink). Swatches are ordered by
-covered area and merged when they round to the same 8-bit colour. One new palette for the model; the meshes become
-palette-coloured, `material: {preset: 'unlit'}`, `source: null` (paintable, M7-GA-7).
+R2-sequence pattern of points per triangle (6 by default), **pulled 25 % toward the triangle's centroid**, each sample
+weighted by its triangle's area / samples. A texture sample reads the **nearest texel** (no bilinear blend: every
+sample is a colour the image holds) and only texels **inside the atlas's charts** — rasterized from the UV triangles of
+the meshes as imported (before the reduce) — that are not transparent (alpha ≥ 16): the background between charts
+(black, transparent or a packer's padding) never votes (M7-GA-15). The valid samples of all target meshes are
+histogrammed (OKLab quantized at 1/256) and clustered by weighted k-means in OKLab (greedy k-means++ seeding from the
+heaviest bin, Lloyd until stable, ≤ 64 iterations); each face takes the cluster its samples cover most — its
+**dominant** colour (M7-GA-6: the mean turned striped shirts pink); a face with no valid sample takes its nearest valid
+neighbour's (breadth-first over shared edges). Clusters within OKLab 0.03 of a heavier one (texture-noise splits of one
+colour) merge into it, clusters no face uses are left out, and the palette is ordered by covered area (M7-GA-16). One
+new palette for the model; the meshes become palette-coloured, `material: {preset: 'unlit'}`, `source: null`
+(paintable, M7-GA-7).
 
 **Texture downsize** (`texture: 'keep'` in the preset, or `mesh.textureDownsize`). Images larger than the limit are
 decoded, downsampled by an area filter in linear light (integer-indexed, the same bytes everywhere) and re-encoded as
@@ -70,9 +77,10 @@ PNG (RGB when opaque); the GLB's BIN is laid out again and the meshes' material 
 
 | Check | Result |
 |---|---|
-| A 50k–200k-triangle textured GLB, CC0 or procedural | `makeAiLikeGlb()`: **96,824** triangles, one 1024² texture, 241 UV charts (6,593 seam points), facing +X, 1 unit tall; glTF-Validator 0 errors |
+| A 50k–200k-triangle textured GLB, CC0 or procedural | `makeAiLikeGlb()`: **96,824** triangles, one 1024² texture, 241 UV charts (6,593 seam points) on a black atlas background with 2 texels of padding, facing +X, 1 unit tall; glTF-Validator 0 errors |
 | ≤ 3,000 triangles | **3,000** exactly (headless and browser); 2,998 for an odd 2,999 |
-| ≤ 16 colours | **16** swatches (shirt red, stripe white, belt, trousers blue, shoes, skin, hair, eyes and their shades) |
+| ≤ 16 colours | **8** swatches, every one used (the model's trousers, shirt, stripes, belt, shoes, skin and hair; noise splits merged, M7-GA-16); the eyes are too small to win a face at 3,000 triangles |
+| No colour from the atlas background | the background samples are ignored (69 of 18,000 in the chain); on the same atlas with **no padding** (black right at the chart edge) **0 faces** take a colour further than OKLab 0.06 from every colour the charts hold (the old bake: 24 faces) |
 | No cracks along UV seams | one closed shell before and after: `boundaryLoops 0`, `nonManifoldEdges 0`, `shells 1`; the kept corners' UVs are all source UVs |
 | Normalized | 1.70 m tall (± 2 mm after the reduce pulls extreme points in; normalize itself is exact), standing on y = 0, centred, facing +Z, identity placement |
 | One undo step | `Intake` (the import is its own step; `mesh.intake {bytes}` makes import + intake one) |
@@ -82,7 +90,8 @@ PNG (RGB when opaque); the GLB's BIN is laid out again and the meshes' material 
 | Decimate first | a 217,854-triangle file: `mesh.importStatic` refuses (`too-large`); `mesh.intake {bytes, preset: 'hero'}` imports and cleans it to ≤ 10,000 in one step, closed |
 
 Screenshots (before: the AI-like import, facing +X with its texture; after: the intake preset, 3,000 triangles,
-16 colours, facing +Z) are produced by `m7-01-intake.spec.ts` with `EKZA_M7GA_SHOTS=<folder>` and attached to the test.
+8 colours, facing +Z; after-arm: a close-up of the arm) are produced by `m7-01-intake.spec.ts` with
+`EKZA_M7GA_SHOTS=<folder>` and attached to the test.
 
 ## Budgets (§3.12; report only; this machine: Apple M4 Pro, loaded)
 
@@ -110,7 +119,7 @@ the measurement behind M7-GA-3.
 The kernel's `mesh.quadrangulate` (angle 30°, hard edges, UV seams and material borders kept) runs after the reduce,
 on by default in the preset only. On the AI-like model at 3,000 triangles: **1,150 quads + 700 triangles** (62 % of the
 faces are quads; 77 % of the triangles were paired); on the atlas-cut sphere 66 %. The rest stay triangles where a pair
-would cross a UV seam (every chart border), a 60° hard edge or a non-convex quad. The shape and the triangle count do
+would cross a UV seam (every chart border), a hard edge (80°) or a non-convex quad. The shape and the triangle count do
 not change (each quad keeps the reduce's diagonal). Quality: good for selection and loops on large smooth areas;
 edge flow follows the reduce, not the anatomy, so it is no substitute for retopology (below).
 
@@ -154,9 +163,36 @@ Sources: <https://github.com/wjakob/instant-meshes> (LICENSE.txt: BSD 3-Clause),
 | M7-GA-11 | **PNG decoding is ours** (`io/png/decode.ts`), JPEG/WebP through `createImageBitmap` without colour conversion; textures that cannot be read fall back to the material factor with a warning | The same pixels in Node tests and every browser; `sharp` stays banned |
 | M7-GA-12 | **Texture downsize writes a new model asset** (images as PNG, the BIN laid out again) and repoints the meshes' material slots | Asset records are immutable by hash; accessors keep their views |
 | M7-GA-13 | **Quadrangulate is on in the intake preset** (30°, seams, hard edges and materials kept), an option there, never automatic elsewhere | Q-MOD-K-9 as decided |
-| M7-GA-14 | **The procedural AI-like model** (`io/testing` `makeAiLikeGlb`) is the acceptance input; no binary fixture is committed | No CC0 50k–200k textured GLB exists in the fixtures; a generator in code is deterministic, licence-clean and 0 bytes in the repository |
+| M7-GA-14 | **The procedural AI-like model** (`io/testing` `makeAiLikeGlb`) is the acceptance input, its atlas on a black background with 2 texels of padding (both options); no binary fixture is committed | No CC0 50k–200k textured GLB exists in the fixtures; a generator in code is deterministic, licence-clean and 0 bytes in the repository |
+| M7-GA-15 | **The palette bake never reads the atlas background**: samples inset 25 % toward the triangle's centroid, nearest texel, only texels inside the charts (rasterized from the UV triangles as imported) and not transparent (alpha ≥ 16); a face with no valid sample takes its nearest valid neighbour's slot | Review of `ga-after.png` (coordinator, 2026-10-24); the debug below |
+| M7-GA-16 | **Clusters within OKLab 0.03 merge; unused clusters are dropped**: the palette holds only colours some face uses | Texture noise split each colour into two or three swatches (16 for 8 colours), and dominant voting left blend clusters unused |
+| M7-GA-17 | **Hard edges above 80° after a reduce** (was 60°) | At 60° the reduced character carried ≈ 216 hard edges, drawn as dark lines along the limbs in Model; 80° keeps ≈ 48 (the creases) and a box prop's 90° edges stay hard |
 
 The contract rows `M7-GA-CONTRACT-1` … `-6` (ids, parameter names, the outcome) are in DECISIONS-OPEN §T.
+
+## Fix round 1: the palette bake and the atlas background (review of `ga-after.png`)
+
+The coordinator saw dark, jagged specks and edge lines on the arms, shoulders and shirt edges, and red reaching the
+skin at the shoulders, and suspected samples from the atlas's black gutter. The per-face debug (Node, the AI-like model
+reduced to 3,000 triangles, 6 samples per triangle; coverage rasterized from the import's UV triangles):
+
+| | Samples outside every chart (texel-centre test) | Faces with one | Faces on a colour the charts do not hold |
+|---|---|---|---|
+| Old bake, black gutter, no padding | 491 of 18,000 (2.7 %) | 424 of 3,000 | **24** (blue, red and skin darkened by black) |
+| Old bake, black gutter, 2 texels of padding | 491 (2.7 %) | 424 | 1 |
+| Old bake, the model as reviewed (cells filled with chart colour, no gutter) | — | — | 0 dark faces on the arms: the dark swatches sat on the hair (mean y 1.60 m), the shoes (0.04) and the belt (0.82) |
+| **New bake**, black gutter, no padding | 65 (0.4 %, the inset) — all ignored | 52 — none decided by them | **0**; 1 face filled from a neighbour |
+
+So the reviewed screenshot's dark lines were **not** baked colours: the arm close-up showed thin strokes along edges —
+Model's hard-edge overlay (`hardEdges: true` in Model) on 215 edges that the reduce marked hard at 60° (M7-GA-17). The
+gutter defect was real nevertheless, on any atlas with a background at the chart edge (24 faces above), and is fixed
+(M7-GA-15). The red at the shoulders is the model's short sleeves (the shirt reaches |x| = 0.42 m), coarsened by
+3,000 triangles. Dominant colour still avoids the pink stripes: no swatch of either test is a red/white blend (the
+regression asserts every used swatch is within OKLab 0.06 of a chart colour), so it stays; the outlier-trimmed mean was
+not needed. New tests: mesh-wasm (a 144-chart sphere atlas on a black and on a transparent gutter: no foreign colour, and
+it fails on the old sampling, where faces used a 19,42,118 swatch — blue darkened by black; a face whose UVs sit on the background
+is filled from its neighbours), headless (the AI-like model on black with no padding: 0 foreign faces, every swatch
+used), e2e (`m7-01`: the bake saw and ignored background samples; `ga-after-arm.png`, the arm close-up).
 
 ## For G-d (the Generate panel) and the Halo Make stage (T8)
 
