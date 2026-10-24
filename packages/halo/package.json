@@ -1,0 +1,31 @@
+{
+  "name": "@ekza-studio/halo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Ekza Studio's Simple layout (Halo): the touch-first shell over the same EditorApp, document, history and operators as Studio Pro and Auto-Rig.",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@ekza-studio/anim-core": "workspace:*",
+    "@ekza-studio/curve-editor": "workspace:*",
+    "@ekza-studio/doc": "workspace:*",
+    "@ekza-studio/editor": "workspace:*",
+    "@ekza-studio/editor-core": "workspace:*",
+    "@ekza-studio/ui": "workspace:*",
+    "@ekza-studio/viewport": "workspace:*",
+    "react": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -92,6 +92,9 @@ importers:
       '@ekza-studio/editor':
         specifier: workspace:*
         version: link:../../packages/editor
+      '@ekza-studio/halo':
+        specifier: workspace:*
+        version: link:../../packages/halo
       '@ekza-studio/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -478,6 +481,43 @@ importers:
       gltf-validator:
         specifier: 2.0.0-dev.3.10
         version: 2.0.0-dev.3.10
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@types/node@24.19.1)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@24.19.1)(jiti@2.7.0))
+
+  packages/halo:
+    dependencies:
+      '@ekza-studio/anim-core':
+        specifier: workspace:*
+        version: link:../anim-core
+      '@ekza-studio/curve-editor':
+        specifier: workspace:*
+        version: link:../curve-editor
+      '@ekza-studio/doc':
+        specifier: workspace:*
+        version: link:../doc
+      '@ekza-studio/editor':
+        specifier: workspace:*
+        version: link:../editor
+      '@ekza-studio/editor-core':
+        specifier: workspace:*
+        version: link:../editor-core
+      '@ekza-studio/ui':
+        specifier: workspace:*
+        version: link:../ui
+      '@ekza-studio/viewport':
+        specifier: workspace:*
+        version: link:../viewport
+      react:
+        specifier: 'catalog:'
+        version: 19.3.0
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.1
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.3.0
       vitest:
         specifier: 'catalog:'
         version: 4.1.11(@types/node@24.19.1)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@24.19.1)(jiti@2.7.0))
