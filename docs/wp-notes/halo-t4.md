@@ -96,7 +96,7 @@ under [Gates](#gates).
 
 | Check | Result |
 |---|---|
-| Unit tests | `packages/ui`: 155 passed (104 before + 51 for the kit: 33 models, 14 markup, 4 tokens and isolation) |
+| Unit tests | `packages/ui`: 155 passed (104 before + 51 for the kit: 31 models, 14 markup, 6 tokens and isolation) |
 | 44 pt / 16 px tokens | `size-touch-hit` 44 px, `type-touch-input` 16 px, `space-gutter` 16 px, `space-edge-side` 12 px, `space-edge-bottom` 20 px in `tokens.json`; the scope's `max()` rules; asserted by `tokens-and-isolation.test.ts` and in the browser by `dev-touch.spec.ts` (every target ≥ 44 × 44 px and every input ≥ 16 px at rest, with the More sheet, with the numpad, at 85 % and 150 %) |
 | axe (WCAG 2.0 / 2.1 / 2.2 A + AA and best-practice tags), axe-core 4.12.1, production e2e build, Chrome | **0 violations** in 8 states: rest with the Halo arc (1280 px), More sheet open, numpad open, long-press ring, bottom sheet open (modal), Loupe open, Text & touch size 150 %, phone 390 px (touch). 35–41 rules pass per state. Incomplete (needs review, not violations): `color-contrast` where text sits on the frosted / gradient canvas layers (`bgOverlap`, background image) or is a glyph (`nonBmp`) — those pairs are the token pairs in the contrast table (`text`, `text-2` on `bg-panel` / `bg-header` / `bg-field`, `on-accent` on `accent-fill`); `aria-hidden-focus` behind the modal bottom sheet (Radix hides the rest of the page while it is open, as Pro's dialogs do). Reduced motion: petal `transition-duration` 0 s. No page errors. Script: Playwright + `axe.min.js` injected (ST-T4-13). |
 | `dev-touch.spec.ts` | 10 tests, green in the gate and alone, and 4 × repeated against the dev server |
