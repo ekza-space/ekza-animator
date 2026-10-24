@@ -7,6 +7,11 @@
 // clip of the character), *Same as ▾* (reuse another slot's clip), *Use default* (clear). A row's name activates its
 // clip. Object rows (asset slots) show their default until gear arrives (GP6); rules the game checks itself are named.
 // Clips the game will not use are listed with *Map to slot ▾*. Every change is one `target.*` / Use Clip step.
+// C2 (§8.7–§8.10): an empty clip row offers *New* (a blank clip with the contract's length, loop, in place and contact),
+// *Start from default* (the default's library copy), *From library ▾* and *From file…*, all `target.slot.create`; each
+// issue shows its one-tap fix (`target.fix`: Make loop, Set in place, Fit timing, Set contact, Use default; a contact
+// issue also offers Fit timing); the header exports the OMOBA hero package or its developer zip
+// (`target.exportPackage`).
 import type { CharacterId, ClipId, ClipRecord } from '@ekza-studio/doc';
 import type { EditorApp, SessionState, TargetKit } from '@ekza-studio/editor-core';
 import type { ContractModel } from '@ekza-studio/io';
@@ -54,7 +59,6 @@ const STATUS_TEXT: Readonly<Record<Row['status']['kind'], string>> = {
 };
 
 const selectCharacter = (s: SessionState): CharacterId | null => s.activeCharacter;
-const IDENTITY_IN_PLACE = { speed: 1, trim: null, mirror: false, inPlace: true, armSpace: 0 } as const;
 
 const run = (app: EditorApp, id: string, args: unknown) => void runUntypedOperator(app, PANEL_KIND, id, args);
 
@@ -183,11 +187,41 @@ function SlotRowView(props: {
           {issues.map((issue) => (
             <li
               key={`${issue.rule}:${issue.message}`}
-              className={issue.severity === 'error' ? 'text-[var(--warning,#e8b04a)]' : MUTED_TEXT}
+              className={`flex flex-wrap items-center gap-1 ${issue.severity === 'error' ? 'text-[var(--warning,#e8b04a)]' : MUTED_TEXT}`}
               title={issue.rule}
             >
-              {issue.severity === 'error' ? '⚠ ' : ''}
-              {issue.message}
+              <span>
+                {issue.severity === 'error' ? '⚠ ' : ''}
+                {issue.message}
+              </span>
+              {issue.fix === undefined ? null : (
+                <button
+                  type="button"
+                  className={BUTTON}
+                  data-testid={`target-row-fix-${row.slot}-${issue.rule}`}
+                  onClick={() =>
+                    run(app, 'target.fix', {
+                      character,
+                      slot: row.slot,
+                      rule: issue.rule,
+                      ...(issue.marker === undefined ? {} : { marker: issue.marker }),
+                    })
+                  }
+                >
+                  {issue.fix}
+                </button>
+              )}
+              {issue.rule === 'clip.markers' ? (
+                <button
+                  type="button"
+                  className={BUTTON}
+                  title="Scale the clip to the game's timing"
+                  data-testid={`target-row-fit-${row.slot}`}
+                  onClick={() => run(app, 'target.fix', { character, slot: row.slot, rule: 'clip.duration' })}
+                >
+                  Fit timing
+                </button>
+              ) : null}
             </li>
           ))}
         </ul>
@@ -224,6 +258,26 @@ function SlotRowView(props: {
             </button>
           ) : (
             <>
+              <button
+                type="button"
+                className={BUTTON}
+                title="A blank clip with the game's length, loop, in place and contact"
+                data-testid={`target-row-new-${row.slot}`}
+                onClick={() => run(app, 'target.slot.create', { character, slot: row.slot, from: 'blank' })}
+              >
+                New
+              </button>
+              {defaultClip !== null ? (
+                <button
+                  type="button"
+                  className={BUTTON}
+                  title="Start from a copy of the game's default"
+                  data-testid={`target-row-from-default-${row.slot}`}
+                  onClick={() => run(app, 'target.slot.create', { character, slot: row.slot, from: 'default' })}
+                >
+                  Start from default
+                </button>
+              ) : null}
               <select
                 className={`${SELECT} max-w-28`}
                 aria-label={`From library for ${row.label}`}
@@ -233,12 +287,7 @@ function SlotRowView(props: {
                 onChange={(event) => {
                   const clip = event.currentTarget.value;
                   if (clip === '') return;
-                  run(app, 'library.useClip', {
-                    character,
-                    clip,
-                    slot: row.slot,
-                    ...(spec?.animation?.inPlace === true ? { params: IDENTITY_IN_PLACE } : {}),
-                  });
+                  run(app, 'target.slot.create', { character, slot: row.slot, from: 'library', libraryClip: clip });
                 }}
               >
                 <option value="">From library…</option>
@@ -266,6 +315,34 @@ function SlotRowView(props: {
                   </option>
                 ))}
               </select>
+              <label
+                className={`${BUTTON} cursor-pointer`}
+                title="A .vrma or .glb animation"
+                data-testid={`target-row-file-${row.slot}`}
+              >
+                From file…
+                <input
+                  type="file"
+                  accept=".vrma,.glb"
+                  className="sr-only"
+                  data-testid={`target-row-file-input-${row.slot}`}
+                  onChange={(event) => {
+                    const input = event.currentTarget;
+                    const picked = input.files?.[0];
+                    input.value = '';
+                    if (picked === undefined) return;
+                    void picked.arrayBuffer().then((buffer) =>
+                      run(app, 'target.slot.create', {
+                        character,
+                        slot: row.slot,
+                        from: 'file',
+                        fileName: picked.name,
+                        bytes: new Uint8Array(buffer),
+                      }),
+                    );
+                  }}
+                />
+              </label>
               {sameAs.length > 0 ? (
                 <select
                   className={`${SELECT} max-w-28`}
@@ -355,6 +432,28 @@ function Checklist(props: {
           </div>
         ) : null}
         <div className={MUTED_TEXT}>Empty slots use the game’s own animations.</div>
+        {characterOffer === undefined ? null : (
+          <div className="mt-1 flex flex-wrap items-center gap-1" data-testid="target-export">
+            <button
+              type="button"
+              className={PRIMARY_BUTTON}
+              title="One VRM 1.0 with your slot animations and the slot map"
+              data-testid="target-export-package"
+              onClick={() => run(app, 'target.exportPackage', { character })}
+            >
+              Export package
+            </button>
+            <button
+              type="button"
+              className={BUTTON}
+              title="For local tests: the VRM staged for OMOBA, one VRMA per slot, the slot map"
+              data-testid="target-export-devzip"
+              onClick={() => run(app, 'target.exportPackage', { character, devZip: true })}
+            >
+              Developer zip
+            </button>
+          </div>
+        )}
       </div>
       {sections.map((section) => (
         <section key={section.label} aria-label={section.label} className="flex flex-col gap-0.5">

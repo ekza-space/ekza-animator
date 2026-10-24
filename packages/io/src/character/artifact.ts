@@ -76,6 +76,8 @@ export interface CharacterArtifactInput {
   readonly animationMeta: EkzaAnimationV1;
   /** Sources of the character's parts (for the meta's thirdPartyLicenses; the clips' sources are added). */
   readonly derivedFrom?: readonly DerivedFrom[];
+  /** The package manifest to embed (`ekza_package_v1`, C2), or none. */
+  readonly packageManifest?: Readonly<Record<string, unknown>> | null;
 }
 
 /** Writes, lints and reads back one character file. */
@@ -90,6 +92,7 @@ export async function exportCharacterArtifact(input: CharacterArtifactInput): Pr
     format: input.format,
     animationMeta: meta,
     derivedFrom: [...(input.derivedFrom ?? []), ...meta.provenance.derivedFrom],
+    packageManifest: input.packageManifest ?? null,
   });
   const lints = [
     ...input.baked.flatMap((clip) => clip.warnings),

@@ -31,13 +31,16 @@ export function readContract(json: unknown, opts: ContractReadOptions = {}): Con
 /** Reads contract text: the 1 MiB cap, JSON, then `readContract`. */
 export function readContractText(text: string, opts: ContractReadOptions = {}): ContractModel {
   if (new TextEncoder().encode(text).byteLength > CONTRACT_MAX_BYTES) {
-    throw new EkzaError('invalid-input', `game contract: at most ${CONTRACT_MAX_BYTES} bytes`, { field: 'contract' });
+    throw new EkzaError('invalid-input', `game contract: at most ${CONTRACT_MAX_BYTES} bytes`, {
+      field: 'contract',
+      reason: 'size',
+    });
   }
   let json: unknown;
   try {
     json = JSON.parse(text) as unknown;
   } catch {
-    throw new EkzaError('invalid-input', 'game contract: must be valid JSON', { field: 'contract' });
+    throw new EkzaError('invalid-input', 'game contract: must be valid JSON', { field: 'contract', reason: 'json' });
   }
   return readContract(json, opts);
 }

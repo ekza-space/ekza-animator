@@ -2,12 +2,20 @@
 // files, recomputed revisions, profiles, the fixture = the live revision); the sync takes a game's file, refuses a
 // revision that does not match its content (unless `--restamp`, for draft data) and keeps earlier revisions listed.
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { canonical, checkContracts, fixturePath, revisionOf, syncContract } from '../sync-contract.mjs';
+import {
+  canonical,
+  checkContracts,
+  fixturePath,
+  fixturesPath,
+  revisionOf,
+  syncContract,
+  syncFixtures,
+} from '../sync-contract.mjs';
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 const FIXTURE = join(repoRoot, fixturePath('omoba'));
@@ -48,6 +56,24 @@ test('sync: refuses a stale revision, restamps draft data, keeps earlier revisio
 
     writeFileSync(join(root, 'apps/web/public/contracts/omoba', `${one.revision}.json`), '{}');
     assert.ok(checkContracts(root).some((problem) => problem.includes('SHA-256')));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('fixtures (C2): copied pinned to the manifest SHA-256, big files named, tampering found by --check', () => {
+  const root = mkdtempSync(join(tmpdir(), 'sync-fixtures-'));
+  try {
+    cpSync(join(repoRoot, 'apps/web/public/contracts'), join(root, 'apps/web/public/contracts'), { recursive: true });
+    cpSync(join(repoRoot, 'fixtures/contracts/omoba.game-contract.json'), join(root, fixturePath('omoba')));
+    const source = join(repoRoot, fixturesPath('omoba'));
+    const result = syncFixtures({ root, from: source, cap: 100_000 });
+    assert.equal(result.game, 'omoba');
+    assert.ok(result.skipped.includes('packages/clip-4097-keys.glb'));
+    assert.ok(!existsSync(join(root, fixturesPath('omoba'), 'packages/clip-4097-keys.glb')));
+    assert.deepEqual(checkContracts(root), []);
+    writeFileSync(join(root, fixturesPath('omoba'), 'expected/ok-all-default.json'), '{}');
+    assert.ok(checkContracts(root).some((problem) => problem.includes('ok-all-default.json')));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

@@ -5,7 +5,7 @@ import type { CameraId, ChannelId, CharacterId, CharacterVrmMeta, ClipId, Constr
   GroupId, HumanBoneName, ImagePlaneId, ImagePlaneRecord, JointId, JointRole, KeyId, MeshId, MeshRecord, OrthoCamera,
   PaletteId, Redistributable, RootMotionMode, Side, SkeletonId, SwatchId, SwatchShader } from '@ekza-studio/doc';
 import type { BindMethod, ComponentKind, PaintOp, StrokeStamp } from '@ekza-studio/mesh-core';
-import type { CharacterExportRequest, ExportArtifact, ExportRequest, StaticExportRequest } from '@ekza-studio/io';
+import type { CharacterExportRequest, ExportArtifact, ExportRequest, LintIssue, StaticExportRequest } from '@ekza-studio/io';
 import type { BakeConstraintsArgs, ConstraintType, FootRollParams, LimbId, MirrorMode, QuickRigMarker, QuickRigMarkers,
   ReduceSpec, SkeletonPreset } from '@ekza-studio/rig';
 import type { BodyPart, ChannelEditResult, ChannelRef, DisplayFlags, GraphViewMode, HistoryResult, IkFkKeyMode,
@@ -639,6 +639,17 @@ export interface OperatorMap {
   'target.slot.clear': { args: { readonly character: CharacterId; readonly slot: string }; result: void };
   'target.slot.alias': { args: { readonly character: CharacterId; readonly slot: string; readonly to: string | null };
     result: void };
+  // ---------- CHARACTER-CONTRACT-SPEC §8.7–§8.10 (C2, additive): slot setup, fixes, markers, the hero package ----------
+  'target.slot.create': { args: { readonly character: CharacterId; readonly slot: string;
+    readonly from: 'blank' | 'default' | 'library' | 'file'; readonly libraryClip?: string; readonly params?: ClipParams;
+    readonly fileName?: string; readonly bytes?: Uint8Array }; result: { readonly clip: ClipId } };
+  'target.fix': { args: { readonly character: CharacterId; readonly slot: string; readonly rule: string;
+    readonly marker?: string }; result: void };
+  'target.marker.set': { args: { readonly clip: ClipId; readonly marker: string; readonly frame: Frame | null };
+    result: void };
+  'target.exportPackage': { args: { readonly character: CharacterId; readonly devZip?: boolean; readonly fileName?: string };
+    result: { readonly fileName: string; readonly saved: boolean; readonly artifact: ExportArtifact;
+      readonly lints: readonly LintIssue[]; readonly bytes: Uint8Array | null } };
   // stretch (D0 types only, MCP-SPEC §1.2; not registered until built): 'pose.plantContacts', 'pose.recipe'
   'pose.plantContacts': { args: { readonly clip: ClipId; readonly feet?: readonly ('L' | 'R')[];
     readonly contacts?: readonly { readonly foot: 'L' | 'R'; readonly range: { readonly start: Frame; readonly end: Frame } }[];

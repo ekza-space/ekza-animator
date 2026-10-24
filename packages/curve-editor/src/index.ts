@@ -24,7 +24,13 @@ export { GraphEditorController } from './graph/GraphEditorController';
 export { applyKeySelection, type KeySelectItem, selectModeFor } from './graph/selection';
 export { type CurveRenderer } from './painters/renderer';
 export { DEFAULT_GRAPH_THEME, GRAPH_METRICS, type GraphTheme } from './painters/theme';
-export { registerTimelineContributions, TimeSliderController } from './timeline/TimeSliderController';
+export {
+  registerTimelineContributions,
+  TimeSliderController,
+  type TimeSliderLayer,
+} from './timeline/TimeSliderController';
+export type { SliderLayout } from './timeline/layout';
+export type { TimelineTheme } from './timeline/theme';
 export {
   builtinGraphTool,
   GRAPH_INSERT_TOOL,

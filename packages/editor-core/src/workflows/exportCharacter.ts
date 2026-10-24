@@ -15,6 +15,10 @@
 //   file back where a display loader exists. Errors block the download (the operator).
 // - M6a's three skin lints never apply to a character export: `skin.influences`, `skin.weight-sum` and
 //   `skin.unweighted-vertex` (C7's rows) are the one source.
+// - CHARACTER-CONTRACT-SPEC §8.10 (C2): `profile: 'ekza/omoba-humanoid-v2'` with `clips: 'target'` is the OMOBA hero
+//   package — the target chunk's package plan picks the custom slot clips (each named by its primary slot, with its
+//   label and named markers in `ekza_animation_v1`), the writer embeds the `ekza_package_v1` slot map, and the contract's
+//   byte rules run on the written file (`package.<rule>` lints; errors block like every other export lint).
 // - Thumbnail: the software renderer of io (deterministic PNG), stored as an `AssetRecord` (role 'thumbnail', by hash)
 //   and referenced by `CharacterRecord.vrm.thumbnail`; exports read the stored bytes.
 import { EkzaError, type Frame } from '@ekza-studio/anim-core';
@@ -32,6 +36,7 @@ import {
 import {
   type BakedClip,
   type CharacterExportRequest,
+  type EkzaClipMetaV1,
   type CharacterMeshIn,
   type CharacterReadBack,
   type CharacterWriteInput,
@@ -43,6 +48,8 @@ import {
   exportFileName,
   type LintIssue,
   type LintSeverity,
+  OMOBA_PACKAGE_PROFILE_ID,
+  packageManifestJson,
   pngSize,
   ruleSeverity,
   SPACE_PROFILE_ID,
@@ -58,6 +65,7 @@ import { clipMeta, influenceKeepFrames, inPlaceNode, loadWritePath } from './exp
 import { threeReadBack } from './exportModel';
 import { yieldToHost } from './host';
 import { EDITOR_VERSION } from './samples';
+import { loadTargetKit } from './targetSlots';
 
 /** A request with every field resolved. */
 export type CharacterExportPlan = CharacterExportRequest & { readonly character: CharacterId };
@@ -95,9 +103,13 @@ export function normalizeCharacterRequest(app: EditorApp, raw: unknown): Charact
   if (profile !== null && typeof profile !== 'string') return 'expects a profile id or null';
   const format = r['format'] === undefined ? (characterFormats(profile)[0] ?? 'vrm') : r['format'];
   if (format !== 'vrm' && format !== 'glb') return `Unknown format ${JSON.stringify(format)} (vrm or glb)`;
-  const clips = r['clips'] === undefined ? 'slots' : r['clips'];
-  if (clips !== 'slots' && !(Array.isArray(clips) && clips.every((id) => typeof id === 'string'))) {
-    return "expects clips: 'slots' or a list of clip ids";
+  const clips = r['clips'] === undefined ? (profile === OMOBA_PACKAGE_PROFILE_ID ? 'target' : 'slots') : r['clips'];
+  if (
+    clips !== 'slots' &&
+    clips !== 'target' &&
+    !(Array.isArray(clips) && clips.every((id) => typeof id === 'string'))
+  ) {
+    return "expects clips: 'slots', 'target' or a list of clip ids";
   }
   const material = r['material'] === undefined ? null : r['material'];
   if (material !== null && material !== 'unlit' && material !== 'lit')
@@ -136,11 +148,20 @@ export function characterRequestProblem(app: EditorApp, raw: unknown): string | 
   }
   const routing = characterProfileProblem(plan.profile, plan.format);
   if (routing !== null) return routing;
+  // §8.10 (C2): the OMOBA package exports the target's clips, and only the package does.
+  if ((plan.clips === 'target') !== (plan.profile === OMOBA_PACKAGE_PROFILE_ID)) {
+    return plan.clips === 'target'
+      ? 'The target’s clips export as the OMOBA character package (ekza/omoba-humanoid-v2)'
+      : 'The OMOBA character package exports the target’s clips (clips: target)';
+  }
+  if (plan.clips === 'target' && !hasTarget(app, plan.character)) {
+    return 'Set what the character is for first (Windows › Target)';
+  }
   const skeleton = app.store.query.skeletonOfCharacter(plan.character);
   if (skeleton === undefined || app.store.query.jointsOfSkeleton(skeleton.id).length === 0) {
     return 'Create the skeleton first (Rig & Skin › Quick Rig)';
   }
-  if (plan.clips !== 'slots') {
+  if (plan.clips !== 'slots' && plan.clips !== 'target') {
     for (const id of plan.clips) {
       const clip = app.store.get('clips', id);
       if (clip === undefined || clip.character !== plan.character || clip.deleted !== null) {
@@ -152,8 +173,21 @@ export function characterRequestProblem(app: EditorApp, raw: unknown): string | 
   return null;
 }
 
-/** The clips a request exports: the listed ones, or every clip with an Ekza slot ('slots'); never test clips. */
+/** Whether the character has a contract target (the raw `ekza.targets` row: the target chunk need not be loaded). */
+function hasTarget(app: EditorApp, character: CharacterId): boolean {
+  const row = (app.store as unknown as { get(table: string, id: string): unknown }).get(
+    'ekza.targets',
+    `tgt:${character}`,
+  );
+  return isRecord(row) && row['deleted'] === null && app.store.get('characters', character)?.deleted === null;
+}
+
+/**
+ * The clips a request exports: the listed ones, or every clip with an Ekza slot ('slots'); never test clips. A
+ * 'target' request is resolved to its package's clips by `runExportCharacter` first (none here).
+ */
 export function exportedClips(view: ReadView, plan: CharacterExportPlan): readonly ClipRecord[] {
+  if (plan.clips === 'target') return [];
   if (plan.clips === 'slots') {
     return view.query
       .clipsOfCharacter(plan.character)
@@ -267,6 +301,8 @@ function bakeRange(clip: ClipRecord): { readonly start: Frame; readonly end: Fra
 export async function characterWriteInput(
   app: EditorApp,
   plan: CharacterExportPlan,
+  /** Extra clip metadata (the package's labels and named markers, C2). */
+  metaOf?: (clip: ClipRecord, meta: EkzaClipMetaV1) => EkzaClipMetaV1,
 ): Promise<{
   readonly write: CharacterWriteInput;
   readonly baked: readonly BakedClip[];
@@ -326,7 +362,7 @@ export async function characterWriteInput(
           loop: clip.loop,
           ...rootMotionOf(clip, inPlaceNode(app.store, program, clip)),
           stepSchedule: computeStepSchedule(program, sampler, range, 'raw'),
-          meta: clipMeta(clip, index, name),
+          meta: metaOf === undefined ? clipMeta(clip, index, name) : metaOf(clip, clipMeta(clip, index, name)),
           ...(leverArm === null
             ? {}
             : {
@@ -403,7 +439,20 @@ export async function runExportCharacter(app: EditorApp, raw: unknown): Promise<
   await app.rig.load().catch(() => {});
   const profile = plan.profile === null ? null : (app.exportProfiles.get(plan.profile) ?? null);
   const write = await loadWritePath();
-  const { write: input, baked, derivedFrom } = await characterWriteInput(app, plan);
+  // §8.10 (C2): the OMOBA package's clips, labels, markers and slot map come from the target chunk.
+  const kit = plan.clips === 'target' ? await loadTargetKit(app) : null;
+  const target = kit === null ? null : kit.packagePlan(app, plan.character);
+  const resolved: CharacterExportPlan =
+    target === null ? plan : { ...plan, clips: target.clips.map((clip) => clip.id) };
+  const {
+    write: input,
+    baked,
+    derivedFrom,
+  } = await characterWriteInput(
+    app,
+    resolved,
+    kit === null ? undefined : (clip, meta) => kit.packageClipMeta(app, clip, meta),
+  );
   const fileName = exportFileName(
     plan.fileName.replace(/\.(vrm|glb)$/i, ''),
     { character: record.name, clip: '', fps: 30 },
@@ -422,7 +471,18 @@ export async function runExportCharacter(app: EditorApp, raw: unknown): Promise<
       baseSha256: null,
     }),
     derivedFrom,
+    packageManifest:
+      kit === null || target === null ? null : packageManifestJson(kit.packageManifestOf(target, EDITOR_VERSION)),
   });
+  if (kit !== null && target !== null) {
+    // The contract's byte rules on the written package (read-back; the passport's rules), and clips without keys.
+    const empty = baked
+      .filter((clip) => clip.tracks.length === 0)
+      .map((clip) =>
+        lintOf('package.clip.channels', 'error', `${clip.meta.label ?? clip.name}: the clip has no keys yet`),
+      );
+    artifact = { ...artifact, lints: [...artifact.lints, ...empty, ...kit.packageLints(artifact.bytes, target).lints] };
+  }
   // The rows of the profile (Validation, VRM meta) join the byte lints; a byte lint with a row's code is that row.
   const rows = characterExportRows(app, plan.character, plan.profile, plan.format);
   const rowCodes = new Set(rows.map((row) => row.code));

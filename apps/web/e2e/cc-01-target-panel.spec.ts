@@ -1,9 +1,10 @@
 // CHARACTER-CONTRACT-SPEC §8.4, §9 F2, GAME-PROTOCOL-SPEC §6.1 (C1): the Pro Target panel. Polybot in Animate; the
 // Windows › Target opens the lazy panel beside Clips; *For: OMOBA · Wildspark* binds the character from the
 // bundled snapshot (two same-origin requests, nothing else); the checklist lists Wildspark's whole kit in the game's
-// order — nine clip slots, all game defaults, and six objects (gear, projectiles, the trap) with their offers;
-// *From library* fills Run in one Use Clip step (in place, so no warning); a library clip without a contact frame in
-// Shockline shows ⚠ with the contract's reason; *Same as* lets Last Spark reuse it; *Use default* empties a slot;
+// order — nine clip slots, all game defaults (OMOBA's C0 contract; its objects arrive with GP5);
+// *From library* fills Run in one step with the contract's settings (C2: `target.slot.create`, in place, so no
+// warning); Shockline from the library gets its contact at the game's time, and once that contact is cleared it shows
+// ⚠ with the contract's reason and its one-tap fix; *Same as* lets Last Spark reuse it; *Use default* empties a slot;
 // undo walks the steps back. Set `EKZA_CC_SCREENSHOTS=<dir>` to save the panel's picture there.
 import { expect, test } from '@playwright/test';
 import { history } from './helpers/autorig';
@@ -41,26 +42,28 @@ test('E2E-CC-01: Target panel — bind, fill from the library, fix, reuse, defau
   expect(contracts[0]).toBe(index);
   expect(contracts.slice(1).every((path) => /^\/contracts\/omoba\/sha256-[0-9a-f]{64}\.json$/.test(path))).toBe(true);
   expect(new Set(contracts).size).toBe(2);
-  // the whole kit: nine clip slots and six objects (gear, projectiles, the trap: shown, made in a later Studio)
-  await expect(panel.locator('[data-testid^="target-row-"][data-status]')).toHaveCount(15);
-  await expect(page.getByTestId(row('wildspark.handheld.repeater'))).toHaveAttribute('data-status', 'default');
-  await expect(page.getByTestId(row('wildspark.prop.trap'))).toHaveAttribute('data-status', 'fixed');
-  await expect(page.getByTestId('target-offer-wildspark.handheld.set')).toContainText('Wildspark gear set');
-  await expect(page.getByTestId('target-deferred')).toContainText('omoba.asset.grip');
+  // OMOBA's C0 contract: Wildspark's nine clip slots, one offer (its gear slots and offer arrive with GP5)
+  await expect(panel.locator('[data-testid^="target-row-"][data-status]')).toHaveCount(9);
+  await expect(page.getByTestId('target-offer-character.wildspark')).toContainText('Character for Wildspark');
+  await expect(page.getByTestId('target-deferred')).toHaveCount(0);
   await expect(page.getByTestId(row('base.run'))).toHaveAttribute('data-status', 'default');
   await expect(page.getByTestId('target-row-timing-base.run')).toHaveText('game default · ↻ 0.67 s');
 
-  // Run from the library: one Use Clip step, in place for an in-place slot
+  // Run from the library: one step with the contract's settings, in place for an in-place slot
   await page.getByTestId('target-row-library-base.run').selectOption('run');
   await expect(page.getByTestId(row('base.run'))).toHaveAttribute('data-status', 'custom');
-  await expect.poll(async () => (await history(page)).undo.at(-1)).toBe('Use Clip Run');
+  await expect.poll(async () => (await history(page)).undo.at(-1)).toBe('Use Clip for Run (all movement)');
   await expect(page.getByTestId('target-row-timing-base.run')).toContainText('in place');
   await expect(page.getByTestId('target-summary')).toHaveText('1 yours · 8 game default');
 
-  // Shockline from the library: no contact frame yet → ⚠ to fix with the contract's reason
+  // Shockline from the library: the contact at the game's time; without it → ⚠ with the reason and its fix
   await page.getByTestId('target-row-library-skill.wild_zap.release').selectOption('pistol-shoot');
+  await expect(page.getByTestId(row('skill.wild_zap.release'))).toHaveAttribute('data-status', 'custom');
+  const zap = (await call(page, 'clips', character)).find((clip) => clip.name === 'Shockline W - release');
+  await runOk(page, 'clip.setSettings', { clip: zap?.id, contact: null });
   await expect(page.getByTestId(row('skill.wild_zap.release'))).toHaveAttribute('data-status', 'invalid');
   await expect(page.getByTestId('target-row-issues-skill.wild_zap.release')).toContainText('Needs a contact frame');
+  await expect(page.getByTestId('target-row-fix-skill.wild_zap.release-clip.markers')).toHaveText('Set contact');
   await expect(page.getByTestId('target-summary')).toHaveText('1 yours · 7 game default · 1 to fix');
 
   // Last Spark reuses the Shockline clip (Same as…)
@@ -71,7 +74,7 @@ test('E2E-CC-01: Target panel — bind, fill from the library, fix, reuse, defau
   await expect.poll(async () => (await history(page)).undo.at(-1)).toBe('Same Clip for Last Spark (R) — release');
 
   // a row's name activates its clip (Use Clip left Pistol Shoot active)
-  const run = (await call(page, 'clips', character)).find((clip) => clip.name === 'Run');
+  const run = (await call(page, 'clips', character)).find((clip) => clip.name === 'Run all movement');
   expect((await call(page, 'state')).activeClip).not.toBe(run?.id);
   await page.getByTestId('target-row-label-base.run').click();
   await expect.poll(async () => (await call(page, 'state')).activeClip).toBe(run?.id);
@@ -85,7 +88,7 @@ test('E2E-CC-01: Target panel — bind, fill from the library, fix, reuse, defau
   await page.getByTestId('target-row-clear-skill.wild_zap.release').click();
   await expect(page.getByTestId(row('skill.wild_zap.release'))).toHaveAttribute('data-status', 'default');
   await expect(page.getByTestId(row('skill.wild_rocket.release'))).toHaveAttribute('data-status', 'default');
-  await expect(page.getByTestId('target-extras')).toContainText('Pistol shoot');
+  await expect(page.getByTestId('target-extras')).toContainText('Shockline W - release');
 
   // undo: Shockline is filled again
   await runOk(page, 'edit.undo');

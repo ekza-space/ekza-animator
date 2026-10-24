@@ -51,6 +51,7 @@ export {
   LOCAL_PROFILE_ID,
   MODEL_CHARACTER_PROFILE_IDS,
   OMOBA_GLB_PROFILE_ID,
+  OMOBA_PACKAGE_PROFILE_ID,
   SPACE_PROFILE_ID,
 } from './profiles/character';
 export {

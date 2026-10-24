@@ -77,6 +77,11 @@ export interface CharacterWriteOptions {
   readonly animationMeta?: EkzaAnimationV1 | null;
   /** Sources of the character's parts and clips, for `VRMC_vrm.meta.thirdPartyLicenses` when the meta leaves it empty. */
   readonly derivedFrom?: readonly DerivedFrom[];
+  /**
+   * A package manifest (`asset.extras.ekza_package_v1`, CHARACTER-CONTRACT-SPEC §4.1; C2), written after
+   * `ekza_animation_v1`; absent or null: none (every other export keeps its bytes).
+   */
+  readonly packageManifest?: Readonly<Record<string, unknown>> | null;
 }
 
 /** Deterministic bytes (stable order, no timestamps). */
@@ -91,6 +96,9 @@ export async function writeCharacter(input: CharacterWriteInput, opts: Character
   asset.extras = {
     [MODEL_META_KEY]: modelBlock(input.model),
     ...(animationMeta === null ? {} : { ekza_animation_v1: animationMeta }),
+    ...(opts.packageManifest === undefined || opts.packageManifest === null
+      ? {}
+      : { ekza_package_v1: opts.packageManifest }),
     ...(input.heightScale === null ? {} : { ekza: { avatar: { heightScale: input.heightScale } } }),
   };
   const buffer = doc.createBuffer();

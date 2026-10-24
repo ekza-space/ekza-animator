@@ -18,6 +18,9 @@ export const exportStep = {
   targetGlbHint: 'For Unity, Godot, three.js and other 3D tools',
   targetVrma: 'Animations only (.vrma)',
   targetVrmaHint: (clips: number, file: string) => `${clips === 1 ? '1 clip' : `${clips} clips`} → ${file}`,
+  // CHARACTER-CONTRACT-SPEC §8.5 (C2): the hero package of a character made for an OMOBA hero
+  targetHero: 'OMOBA hero package · VRM 1.0',
+  targetHeroHint: 'Your slot animations and the slot map; empty slots use OMOBA’s own animations',
   targetKit: 'OMOBA local test kit (.zip)',
   targetKitHint: 'The VRM, its thumbnail when it has one, a manifest entry and the validator steps',
   developers: 'For developers',
@@ -94,6 +97,8 @@ export const exportStep = {
   ruleCrossLimb: 'Each part follows one limb',
   ruleRigMode: 'Rig mode',
   // notes
+  // C2: the hero package's note (the target's own copy; CC-20 keeps the VRM note until OMOBA plays custom clips)
+  heroNote: 'The package carries your slot animations and the slot map; empty slots use OMOBA’s own animations.',
   omobaNote: 'OMOBA plays its own motion library on your VRM; your clips play in Space.',
   hubNote: 'Upload this file to Ekza Hub to use it in OMOBA online.',
   kitNote: 'Runtime compatibility is not approval: the kit is for testing in a local OMOBA build.',
