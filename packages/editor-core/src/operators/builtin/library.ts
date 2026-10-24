@@ -30,7 +30,8 @@ import { GLOBAL_SCOPE } from '../../types';
 import type { ClipImportPlan } from '../../workflows/importAnimation';
 import { animationTargetProblem } from '../../workflows/importChecks';
 import { importPathLoaded } from '../../workflows/importLoader';
-import { uniqueName } from '../../workflows/names';
+import { slotProblem, uniqueName } from '../../workflows/names';
+import { isTargetSlotId, loadTargetKit, targetSlotProblem, targetSlotsLoaded } from '../../workflows/targetSlots';
 import { type AnyOperator, all, defineOperator, fail, isRecord, OK, runContextOf } from './define';
 import { pollEditable } from './polls';
 
@@ -189,12 +190,22 @@ const useClip = defineOperator<'library.useClip', UseClipPlan>({
   poll: ({ app }, args) => {
     const base = all(pollEditable(app), pollTarget(app, args));
     if (base !== true) return base;
-    const replace = (args as unknown as Readonly<Record<string, unknown>>)['replace'];
+    const raw = args as unknown as Readonly<Record<string, unknown>>;
+    // CHARACTER-CONTRACT-SPEC §8.2 (C1): `slot` gives the new clip a slot (a contract slot moves off other clips).
+    const slot = raw['slot'];
+    if (slot !== undefined) {
+      const problem = isTargetSlotId(slot)
+        ? targetSlotProblem(app, args.character, null, slot, { moving: true })
+        : slotProblem(slot);
+      if (problem !== null) return fail(problem);
+    }
+    const replace = raw['replace'];
     if (replace === undefined) return OK;
     const old = typeof replace === 'string' ? app.store.get('clips', replace as ClipId) : undefined;
     return old !== undefined && old.character === args.character ? OK : fail('replace must be a clip of the character');
   },
   async prepare({ app }, args) {
+    if (isTargetSlotId(args.slot) && !targetSlotsLoaded()) await loadTargetKit(app);
     const library = requireClipLibrary(app);
     const entry = await library.clip(args.clip);
     if (library.failed(entry.id)) throw new EkzaError('checksum', CHECKSUM_FAILED, { clip: entry.id });
@@ -217,11 +228,16 @@ const useClip = defineOperator<'library.useClip', UseClipPlan>({
     if (id === undefined || clip === undefined) throw new EkzaError('internal', 'Use Clip wrote no clip');
     const others = tx.query.clipsOfCharacter(args.character).filter((other) => other.id !== id);
     const slot =
-      replaced !== undefined
-        ? replaced.slot
-        : entry.slot !== null && !others.some((other) => other.slot === entry.slot)
-          ? entry.slot
-          : null;
+      args.slot !== undefined
+        ? args.slot
+        : replaced !== undefined
+          ? replaced.slot
+          : entry.slot !== null && !others.some((other) => other.slot === entry.slot)
+            ? entry.slot
+            : null;
+    if (args.slot !== undefined && isTargetSlotId(args.slot)) {
+      for (const other of others) if (other.slot === args.slot) tx.patch('clips', other.id, { slot: null });
+    }
     const provenance = libraryProvenance(clip.provenance, entry, plan.asset.id);
     tx.patch('clips', id, {
       name:

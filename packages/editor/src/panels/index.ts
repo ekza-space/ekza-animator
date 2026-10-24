@@ -52,6 +52,8 @@ export function registerBuiltinPanels(registry: PanelRegistry): Disposer {
     // so Windows never lists a panel that can show nothing (Q-MVP-15). Its stub body stays in ./componentEditor.
     // M-AI (MCP-SPEC §7.1): the Agent panel, a lazy chunk opened from Windows › Agent or the status pill
     registerAgentPanel(registry),
+    // CHARACTER-CONTRACT-SPEC §8.4 (C1): the Target panel, a lazy chunk docked beside Clips (Windows › Target)
+    registry.register(lazyPanelDef('target', 'Target', () => import('./target'))),
   ];
   return () => {
     for (const dispose of [...disposers].reverse()) dispose();

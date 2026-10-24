@@ -3,7 +3,7 @@
 // `clip.setSettings` with exactly the fields that changed.
 import type { Fps, Frame } from '@ekza-studio/anim-core';
 import type { ClipRecord, DerivedFrom, Redistributable, RootMotionMode } from '@ekza-studio/doc';
-import type { ClipSettingsArgs } from '@ekza-studio/editor-core';
+import { type ClipSettingsArgs, isTargetSlotId } from '@ekza-studio/editor-core';
 import { formatFixed, parseNumericInput } from '../channels/kit/kernel';
 
 // ---------- names ----------
@@ -273,7 +273,9 @@ export function checkDraft(clip: ClipRecord, draft: ClipSettingsDraft): DraftChe
     }
   }
 
-  if (draft.slot !== '' && !(SLOT_VOCABULARY as readonly string[]).includes(draft.slot)) {
+  // CHARACTER-CONTRACT-SPEC §8.2: a target slot (a dotted id, set from the Target panel) is kept as it is.
+  const keptTargetSlot = draft.slot === clip.slot && isTargetSlotId(draft.slot);
+  if (draft.slot !== '' && !keptTargetSlot && !(SLOT_VOCABULARY as readonly string[]).includes(draft.slot)) {
     errors.slot = `'${draft.slot}' is not an Ekza slot`;
   }
 

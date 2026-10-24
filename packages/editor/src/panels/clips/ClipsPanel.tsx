@@ -168,6 +168,18 @@ export function ClipsPanel({ app, instanceId }: PanelProps): JSX.Element {
         >
           <TrashIcon />
         </button>
+        <span className="flex-1" />
+        {/* CHARACTER-CONTRACT-SPEC §8.4 (C1): what a game needs from the character, in the Target panel */}
+        <button
+          type="button"
+          className={BUTTON}
+          disabled={noCharacter}
+          title="Target: the animations a game needs from the active character"
+          data-testid="clips-target"
+          onClick={() => void runOperator(app, PANEL_KIND, 'workspace.showPanel', { panel: 'target' })}
+        >
+          Target
+        </button>
       </div>
       {noCharacter ? (
         <div className={EMPTY_STATE} data-testid="clips-empty">

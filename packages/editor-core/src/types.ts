@@ -611,6 +611,8 @@ export interface EditorServices {
   readonly kernelDebug?: boolean;
   /** M6b (§0.5, §0.4.7), changed (additive): base URL of the clip library, default '/library/'. */
   readonly libraryPath?: string;
+  /** CHARACTER-CONTRACT-SPEC §8.1 (C1, additive): base URL of the bundled contract snapshots, default '/contracts/'. */
+  readonly contractsPath?: string;
   /** M-AI: bytes of a bundled sample; when present `file.loadSample` uses it instead of fetch (Node hosts). */
   readonly readSample?: ((sample: SampleDef) => Promise<Uint8Array>) | null;
   /** M-AI: still and contact-sheet capture (live: WebGL + schematic fallback; headless: schematic). */
@@ -1329,7 +1331,9 @@ export interface SkinService {
 // ---------- validation (C7 service; rules from C2, C5, C8a, C10) ----------
 export type RigValidationSeverity = 'error' | 'warning' | 'info';
 export interface RigValidationRow {
-  readonly code: string; readonly severity: RigValidationSeverity; readonly area: 'skeleton' | 'skin' | 'transforms' | 'rig' | 'export';
+  readonly code: string; readonly severity: RigValidationSeverity;
+  /** 'animation' (CHARACTER-CONTRACT-SPEC §8.3, C1, additive): the bound target's slot checks. */
+  readonly area: 'skeleton' | 'skin' | 'transforms' | 'rig' | 'export' | 'animation';
   readonly message: string; readonly ids: readonly string[];    // joints, meshes, controls, constraints
   readonly points?: Readonly<Record<string, Uint32Array>>;      // per mesh, for Select
   readonly fix: { readonly label: string; readonly op: OperatorId; readonly args: unknown } | null;

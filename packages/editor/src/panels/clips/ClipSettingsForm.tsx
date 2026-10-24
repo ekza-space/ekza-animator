@@ -2,7 +2,7 @@
 // motion, Ekza slot, contact frame, tags and provenance. Used in the Clips panel's settings popover and in the
 // Attributes panel. One Apply = one `clip.setSettings` run with the changed fields = one undo step.
 import type { ClipRecord, Redistributable, RootMotionMode } from '@ekza-studio/doc';
-import type { EditorApp, PanelKind } from '@ekza-studio/editor-core';
+import { type EditorApp, isTargetSlotId, type PanelKind } from '@ekza-studio/editor-core';
 import { type JSX, type ReactNode, useId, useState } from 'react';
 import { runOperator } from '../channels/kit/run';
 import { BUTTON, CHECK, ERROR_TEXT, INPUT, INVALID, MUTED_TEXT, PRIMARY_BUTTON, SELECT } from '../channels/kit/styles';
@@ -207,7 +207,9 @@ export function ClipSettingsForm(props: ClipSettingsFormProps): JSX.Element {
             </option>
           ))}
           {draft.slot !== '' && !(SLOT_VOCABULARY as readonly string[]).includes(draft.slot) ? (
-            <option value={draft.slot}>{draft.slot} (unknown)</option>
+            <option value={draft.slot}>
+              {draft.slot} {isTargetSlotId(draft.slot) ? '(target slot)' : '(unknown)'}
+            </option>
           ) : null}
         </select>
       </Row>

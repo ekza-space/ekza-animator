@@ -75,8 +75,9 @@ export const ALL_SLOTS: typeof ANIMATE_SLOTS = [
 ];
 
 /** Extra panels outside every workspace layout and where they open (M-AI INT: the Agent panel docks right, beside
- *  the Channels panel, so the viewport stays visible while the agent works). */
-const EXTRA_PANEL_SLOTS: Readonly<Record<string, 'left' | 'right' | 'bottom'>> = { agent: 'right' };
+ *  the Channels panel, so the viewport stays visible while the agent works; the Target panel, CHARACTER-CONTRACT-SPEC
+ *  §8.4, docks left as a tab beside Clips). */
+const EXTRA_PANEL_SLOTS: Readonly<Record<string, 'left' | 'right' | 'bottom'>> = { agent: 'right', target: 'left' };
 
 /** Panel kinds rendered outside dockview (fixed regions). */
 export const FIXED_KINDS: ReadonlySet<PanelKind> = new Set([PANEL.timeline]);

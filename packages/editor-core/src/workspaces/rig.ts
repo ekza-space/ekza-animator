@@ -6,6 +6,7 @@
 // (library.*). Eager and tiny: no rig code is imported here.
 import type { EditorApp, WorkspaceDef, WorkspaceStatus } from '../types';
 import { AGENT_OPERATOR_IDS, loadAgentOperators } from '../operators/builtin/agentChunk';
+import { loadTargetKit } from '../workflows/targetSlots';
 
 /** The MVP menus (§0.4.5; `constrain` and `control` arrive after the MVP, Q-MVP-15). */
 export const RIG_MENUS: readonly string[] = [
@@ -82,5 +83,7 @@ export function lazyOperatorChunk(app: EditorApp, id: string): Promise<void> | n
   if (isRigWorkspaceOperator(id)) return app.rig.loaded ? null : app.rig.load();
   // M-AI (MCP-SPEC §0.4): the explicit-target operators' chunk.
   if (AGENT_OPERATOR_IDS.has(id)) return loadAgentOperators(app);
+  // CHARACTER-CONTRACT-SPEC §8.2 (C1): the target chunk.
+  if (id.startsWith('target.')) return loadTargetKit(app).then(() => {});
   return null;
 }

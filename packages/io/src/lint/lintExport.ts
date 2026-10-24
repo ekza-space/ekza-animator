@@ -35,6 +35,8 @@ export const HARD_JSON_LIMIT = 8 * MiB;
 export const DEFAULT_JSON_LIMIT = 4 * MiB;
 const ALLOWED_REQUIRED = new Set(['KHR_materials_unlit', 'KHR_texture_transform']);
 const SLOT_NAME = /^[a-z][a-z0-9_]{0,31}$/;
+/** A contract slot id (CHARACTER-CONTRACT-SPEC §3.6, §4.1: a package names each animation by its slot id). */
+const CONTRACT_SLOT = /^[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+$/;
 const MAX_URI_ISSUES = 20;
 const MAX_PATH_ISSUES = 20;
 
@@ -288,7 +290,7 @@ function checkNames(animations: readonly GltfAnimationDef[], ours: ReadonlySet<n
     if (ours.has(i)) {
       if (name.trim().toLowerCase() === 'tpose') {
         emit('ekza.slot-name', "The reserved clip name 'tpose' is never exported", pointer('animations', i, 'name'));
-      } else if (!SLOT_NAME.test(name)) {
+      } else if (!SLOT_NAME.test(name) && !(name.length <= 64 && CONTRACT_SLOT.test(name))) {
         emit(
           'ekza.slot-name',
           `Clip name '${name}' is not a slot name ([a-z][a-z0-9_]{0,31})`,
