@@ -233,6 +233,39 @@ test.describe('ha-06: the Thread', () => {
       .toBeLessThan(1e-4);
   });
 
+  test('Reach previews the solved leg while dragging, and writes nothing until the lift (P-T7-1)', async ({
+    page,
+  }, testInfo) => {
+    touchOnly(testInfo);
+    test.setTimeout(90_000);
+    await openHalo(page);
+    await loadSample(page, 'polybot');
+    const goal = (await call(page, 'controls')).find((c) => c.name === 'L Leg IK')?.id ?? '';
+    await fingerTap(page, await controlFree(page, 'L Leg IK'));
+    await expect.poll(() => selectedControls(page)).toEqual([goal]);
+    await expect.poll(async () => (await animate(page)).reachPoint).not.toBeNull();
+    const at = (await animate(page)).reachPoint as Point;
+    // the drawn goal (the live pose; `boneWorld` evaluates the clip itself)
+    const drawn = await call(page, 'screenOfControl', goal, 'pane-single');
+    if (drawn === null) throw new Error('the goal is off screen');
+    const steps = (await call(page, 'history')).undo.length;
+    const s = await cdp(page);
+    await touchEvent(s, 'touchStart', [at]);
+    for (let i = 1; i <= 12; i++)
+      await touchEvent(s, 'touchMove', [{ x: at.x + (40 * i) / 12, y: at.y - (50 * i) / 12 }]);
+    // mid-drag: the leg already follows the finger (the preview source), and the history is untouched
+    await expect
+      .poll(async () => {
+        const now = await call(page, 'screenOfControl', goal, 'pane-single');
+        return now === null ? 0 : Math.hypot(now.x - drawn.x, now.y - drawn.y);
+      })
+      .toBeGreaterThan(30);
+    expect((await call(page, 'history')).undo.length).toBe(steps);
+    await touchEvent(s, 'touchEnd', []);
+    await s.detach();
+    await expect.poll(async () => (await call(page, 'history')).undo.at(-1)).toMatch(/^Reach/);
+  });
+
   test('Keys: a marquee on the rows selects keys; two fingers zoom; Push later keys', async ({ page }, testInfo) => {
     touchOnly(testInfo);
     test.setTimeout(90_000);
