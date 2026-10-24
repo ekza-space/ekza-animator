@@ -1,39 +1,50 @@
-// The grammar's verb source (STUDIO-TOUCH-SPEC §6.1–§6.3, §20.2): which noun the selection is, its first-layer
-// petals and its ⋯ More rows. The curated table, the noun resolver and the derived More list are work package T6b's
-// (`verbs/{nouns,table,derive}.ts`, over the Disclosure Manifest); until they are wired in at integration this module
-// is the stand-in the grammar runs on — a few real operators per noun, in the spec's slot order (§6.2), so taps,
-// petals, the ring and More work end to end. The shape (`VerbSource`) is the seam the integration keeps.
-import type { CharacterId, ControlId, JointId } from '@ekza-studio/doc';
+// The grammar's verb source (STUDIO-TOUCH-SPEC §6.1–§6.3, §20.2): which noun the selection is, its first-layer petals
+// and its ⋯ More rows. Since the integration (T6-INT, P-T6A-1) the source is work package T6b's — the noun resolver
+// (`verbs/nouns.ts`), the curated verb table with its in-place variants (`verbs/table.ts`) and More derived from the
+// Disclosure Manifest (`verbs/derive.ts`) — behind the one seam the grammar was built on (`VerbSource`: `noun`,
+// `petals`, `more`). This module adapts T6b's data to the grammar's shapes: the breadcrumb's crumbs, the petal's icon
+// and action (an operator run, a stage switch, a sheet), ⟳ Again and Paste in place, and verb → target (§6.4).
 import type { EditorApp, HaloStage, OperatorId, PollResult } from '@ekza-studio/editor-core';
 import type { CompassSlot } from '@ekza-studio/ui/touch';
 import { en } from '../i18n/en';
+import type { NounKind, SheetId } from '../manifest/types';
 import { PANE } from '../shell/stage';
+import type { NounFocus } from '../shell/store';
+import { moreFor } from '../verbs/derive';
+import { characterNoun, EMPTY_NOUN, type Noun as KindNoun, resolveNoun as resolveKindNoun } from '../verbs/nouns';
+import { PETAL_VARIANTS, type PetalDef, type PetalVariant, petalsFor } from '../verbs/table';
 import type { VerbIcon } from './icons';
 
-/** The noun kinds the grammar resolves from the selection (§6.2 rows). */
-export type NounKind = 'space' | 'object' | 'face' | 'edge' | 'vertex' | 'character' | 'control' | 'joint';
+export type { NounKind };
 
-/** One crumb of the breadcrumb (§6.5): tap it to select that ancestor. */
+/** One crumb of the breadcrumb (§6.5): tap it to select that ancestor, or to focus its noun (the character). */
 export interface Crumb {
   readonly label: string;
   readonly select?: { readonly op: OperatorId; readonly args?: unknown };
+  /** The crumb is a noun of its own (§6.2 "Character: the breadcrumb root"): a tap opens its Halo. */
+  readonly focus?: NounFocus;
 }
 
 export interface Noun {
   readonly kind: NounKind;
-  /** The lead record's id (the test API's `noun.id`), null for empty space and component sets. */
+  /** The lead record's id (the test API's `noun.id`), null for empty space and the manipulator. */
   readonly id: string | null;
   /** What the Halo's header and the screen reader say: "2 faces", "L Upper Arm", "3 parts". */
   readonly label: string;
   readonly count: number;
   readonly crumbs: readonly Crumb[];
+  /** T6b's noun (the sheets' `HaloSheetContext.noun`, More's rows, Numbers' sections). */
+  readonly source: KindNoun;
 }
 
-/** What a verb does: an operator run (with a form first when it has one, §5.6), or a stage switch. */
-export type VerbAction = { readonly op: OperatorId; readonly args?: unknown } | { readonly stage: HaloStage };
+/** What a verb does: an operator run (with a form first when it has one, §5.6), a stage switch or a sheet. */
+export type VerbAction =
+  | { readonly op: OperatorId; readonly args?: unknown }
+  | { readonly stage: HaloStage }
+  | { readonly sheet: SheetId };
 
 export interface Verb {
-  /** Stable id (the operator id, or `stage:<stage>`). */
+  /** Stable id (the operator id with its arguments, `stage:<stage>` or `sheet:<sheet>`). */
   readonly id: string;
   readonly label: string;
   readonly run: VerbAction;
@@ -50,254 +61,265 @@ export interface Verb {
 }
 
 export interface VerbSource {
-  noun(app: EditorApp, stage: HaloStage): Noun | null;
+  noun(app: EditorApp, stage: HaloStage, focus?: NounFocus | null): Noun | null;
   /** At most six, in slot order; the grammar greys the ones whose poll fails (§6.3). */
   petals(app: EditorApp, noun: Noun, stage: HaloStage): readonly Verb[];
-  /** ⋯ More: everything else that applies (the full derivation is T6b's). */
+  /** ⋯ More beyond the petals: every other operator the Disclosure Manifest attaches to the noun and stage. */
   more(app: EditorApp, noun: Noun, stage: HaloStage): readonly Verb[];
 }
 
 // ---------- nouns ----------
 
-const recordName = (app: EditorApp, table: 'controls' | 'meshes' | 'joints' | 'characters', id: string): string => {
-  const record = (app.store.get as (t: string, i: string) => { readonly name?: string } | undefined)(table, id);
-  return record?.name ?? id;
-};
+const recordName = (app: EditorApp, table: string, id: string): string | null =>
+  (app.store.get(table as never, id as never) as { readonly name?: string } | undefined)?.name ?? null;
 
-function characterOfControl(app: EditorApp, control: ControlId): CharacterId | null {
-  const rig = app.store.get('controls', control)?.rig;
-  if (rig === undefined) return null;
-  return app.store.list('characters').find((c) => c.rig === rig)?.id ?? null;
+/** The character the Halo's breadcrumb starts at: the noun's own, else the active one (Rig), else the only one. */
+function characterOf(app: EditorApp, noun: KindNoun): string | null {
+  if (noun.character !== null) return noun.character;
+  const characters = app.store.list('characters').filter((c) => c.deleted === null);
+  const active = app.session.getState().activeCharacter;
+  if (active !== null && characters.some((c) => c.id === active)) return active;
+  return characters.length === 1 ? (characters[0]?.id ?? null) : null;
 }
 
-function controlNoun(app: EditorApp, controls: readonly ControlId[]): Noun {
-  const lead = controls[controls.length - 1] as ControlId;
-  const character = characterOfControl(app, lead);
-  const record = app.store.get('controls', lead);
+function crumbsOf(app: EditorApp, noun: KindNoun, stage: HaloStage): Crumb[] {
   const crumbs: Crumb[] = [];
-  if (character !== null) crumbs.push({ label: recordName(app, 'characters', character) });
-  if (controls.length === 1 && record?.parent !== null && record?.parent !== undefined) {
+  const character = noun.kind === 'mesh' && stage !== 'rig' ? null : characterOf(app, noun);
+  if (character !== null && noun.kind !== 'character') {
     crumbs.push({
-      label: recordName(app, 'controls', record.parent),
-      select: { op: 'select.controls', args: { ids: [record.parent], mode: 'replace' } },
+      label: recordName(app, 'characters', character) ?? en.halo.character,
+      focus: { kind: 'character', id: character },
     });
   }
-  const label = controls.length === 1 ? recordName(app, 'controls', lead) : en.halo.parts(controls.length);
-  crumbs.push({ label });
-  return { kind: 'control', id: lead, label, count: controls.length, crumbs };
+  const kind = noun.kind;
+  if (kind === 'control' || kind === 'foot') {
+    const record = app.store.get('controls', noun.id as never) as { readonly parent?: string | null } | undefined;
+    if (noun.count === 1 && typeof record?.parent === 'string') {
+      crumbs.push({
+        label: recordName(app, 'controls', record.parent) ?? record.parent,
+        select: { op: 'select.controls', args: { ids: [record.parent], mode: 'replace' } },
+      });
+    }
+  } else if (kind === 'joint') {
+    if (character === null) crumbs.push({ label: en.halo.skeleton });
+  } else if (kind === 'faces' || kind === 'edges' || kind === 'vertices') {
+    crumbs.push({ label: en.halo.scene });
+    if (noun.id !== null) {
+      crumbs.push({
+        label: recordName(app, 'meshes', noun.id) ?? noun.id,
+        select: { op: 'select.mode', args: { mode: 'object' } },
+      });
+    }
+  } else if ((kind === 'mesh' || kind === 'imagePlane') && character === null) {
+    crumbs.push({ label: en.halo.scene });
+  }
+  crumbs.push({ label: noun.label });
+  return crumbs;
 }
 
-function jointNoun(app: EditorApp, joints: readonly JointId[]): Noun {
-  const lead = joints[joints.length - 1] as JointId;
-  const label = joints.length === 1 ? recordName(app, 'joints', lead) : en.halo.parts(joints.length);
-  return { kind: 'joint', id: lead, label, count: joints.length, crumbs: [{ label: en.halo.skeleton }, { label }] };
-}
+const MANIPULATOR: KindNoun = {
+  kind: 'manipulator',
+  id: null,
+  ids: [],
+  label: 'Manipulator',
+  count: 0,
+  character: null,
+};
 
-/** The noun the selection is in a stage (the stand-in for T6b's `resolveNoun`). */
-export function resolveNoun(app: EditorApp, stage: HaloStage): Noun | null {
-  const state = app.session.getState();
-  const { selection } = state;
-  if (stage === 'make' || stage === 'paint') {
-    const mode = state.model.componentMode;
-    const selected = state.model.components.selected;
-    const mesh = state.model.hilite[state.model.hilite.length - 1] ?? null;
-    const meshCrumbs = (label: string): Crumb[] => [
-      { label: en.halo.scene },
-      ...(mesh === null
-        ? []
-        : [
-            {
-              label: recordName(app, 'meshes', mesh),
-              select: { op: 'select.mode' as OperatorId, args: { mode: 'object' } },
-            },
-          ]),
-      { label },
-    ];
-    if (mode === 'face' && selected.face > 0) {
-      const label = en.halo.faces(selected.face);
-      return { kind: 'face', id: mesh, label, count: selected.face, crumbs: meshCrumbs(label) };
-    }
-    if (mode === 'edge' && selected.edge > 0) {
-      const label = en.halo.edges(selected.edge);
-      return { kind: 'edge', id: mesh, label, count: selected.edge, crumbs: meshCrumbs(label) };
-    }
-    if (mode === 'vertex' && selected.vertex > 0) {
-      const label = en.halo.points(selected.vertex);
-      return { kind: 'vertex', id: mesh, label, count: selected.vertex, crumbs: meshCrumbs(label) };
-    }
-    if (selection.objects.length > 0) {
-      const lead = selection.objects[selection.objects.length - 1] as string;
-      const label =
-        selection.objects.length === 1 ? recordName(app, 'meshes', lead) : en.halo.parts(selection.objects.length);
-      return {
-        kind: 'object',
-        id: lead,
-        label,
-        count: selection.objects.length,
-        crumbs: [{ label: en.halo.scene }, { label }],
-      };
-    }
+/** The noun the selection is in a stage (T6b's resolver), or a focused one (the character, the manipulator). */
+export function resolveNoun(app: EditorApp, stage: HaloStage, focus: NounFocus | null = null): Noun | null {
+  let source: KindNoun;
+  if (
+    focus?.kind === 'character' &&
+    focus.id !== null &&
+    app.store.get('characters', focus.id as never) !== undefined
+  ) {
+    source = characterNoun(app, focus.id);
+  } else if (focus?.kind === 'manipulator') {
+    source = MANIPULATOR;
+  } else {
+    source = resolveKindNoun(app, stage);
   }
-  if (selection.joints.length > 0) return jointNoun(app, selection.joints);
-  if (selection.controls.length > 0) return controlNoun(app, selection.controls);
-  if (stage === 'rig' && selection.objects.length > 0) {
-    const lead = selection.objects[selection.objects.length - 1] as string;
-    const label = recordName(app, 'meshes', lead);
-    return { kind: 'object', id: lead, label, count: selection.objects.length, crumbs: [{ label }] };
-  }
-  return null;
+  if (source.kind === 'empty') return null;
+  return {
+    kind: source.kind,
+    id: source.id,
+    label: source.label,
+    count: source.count,
+    crumbs: crumbsOf(app, source, stage),
+    source,
+  };
 }
 
 /** Empty space: the noun of a long-press on nothing (§6.2 first row; docked in the tray at rest). */
 export function spaceNoun(): Noun {
-  return { kind: 'space', id: null, label: en.halo.emptySpace, count: 0, crumbs: [] };
+  return { kind: 'empty', id: null, label: en.halo.emptySpace, count: 0, crumbs: [], source: EMPTY_NOUN };
 }
 
-// ---------- petals (the stand-in table, §6.2) ----------
+// ---------- petals ----------
 
-const op = (
-  id: OperatorId,
-  label: string,
-  icon?: VerbIcon,
-  slot?: CompassSlot,
-  args?: unknown,
-  extra?: Partial<Verb>,
-): Verb => ({
-  id: args === undefined ? id : `${id}:${JSON.stringify(args)}`,
-  label,
-  run: args === undefined ? { op: id } : { op: id, args },
-  ...(icon === undefined ? {} : { icon }),
-  ...(slot === undefined ? {} : { slot }),
-  ...extra,
-});
+/** T6b's icon names (lucide's) → the Halo's own line icons (§6.1: the operators' `icon` stays untouched). */
+const ICONS: Readonly<Record<string, VerbIcon>> = {
+  box: 'shape',
+  'person-standing': 'rig',
+  image: 'upload',
+  eye: 'eye',
+  'eye-off': 'eye',
+  palette: 'palette',
+  'paint-bucket': 'paint',
+  wand: 'rig',
+  bone: 'rig',
+  stethoscope: 'warn',
+  link: 'bind',
+  plus: 'clip',
+  library: 'clip',
+  diamond: 'key',
+  'diamond-plus': 'key',
+  scan: 'select',
+  'scan-eye': 'select',
+  'rotate-ccw': 'reset',
+  'rotate-cw': 'orient',
+  'square-dashed': 'faces',
+  copy: 'copy',
+  'flip-horizontal': 'mirror',
+  brush: 'paint',
+  paintbrush: 'paint',
+  'arrow-up-from-square': 'pull',
+  square: 'inset',
+  'square-round-corner': 'bevel',
+  trash: 'delete',
+  scissors: 'cut',
+  merge: 'merge',
+  'move-horizontal': 'slide',
+  spline: 'connect',
+  crosshair: 'weld',
+  clipboard: 'paste',
+  repeat: 'again',
+  compass: 'orient',
+  pencil: 'pencil',
+  search: 'search',
+  play: 'play',
+  'sliders-horizontal': 'options',
+  'id-card': 'rig',
+};
 
-const toStage = (stage: HaloStage, label: string, icon: VerbIcon): Verb => ({
-  id: `stage:${stage}`,
-  label,
-  run: { stage },
-  icon,
-});
+/** Per petal: the icon the Halo drew for it before the table (Duplicate is a copy with a plus). */
+const PETAL_ICON: Readonly<Record<string, VerbIcon>> = { duplicate: 'duplicate', newAnimation: 'clip' };
+
+/** The verbs that wait for a target through the grammar's target mode (§6.4): their run takes `{ids, parent}`. */
+export const TARGET_OPS: ReadonlySet<string> = new Set<string>(['scene.parent']);
 
 const v = en.verbs;
 
-function table(app: EditorApp, noun: Noun, stage: HaloStage): Verb[] {
-  const state = app.session.getState();
-  switch (noun.kind) {
-    case 'space':
-      if (stage === 'animate') {
-        return [
-          op('clip.new', v.newAnimation, 'clip', 'N'),
-          op('key.set', v.keyAll, 'key', 'E', { target: 'character' }),
-          op('select.all', v.allControls, 'select', 'S'),
-          op('pose.resetToRest', v.resetPose, 'reset', 'W'),
-        ];
-      }
-      if (stage === 'rig') {
-        return [
-          op('select.joints', v.allJoints, 'select', 'N', { all: true }),
-          op('skin.bind', v.bindSkin, 'bind', 'E', {}),
-        ];
-      }
-      return [
-        op('mesh.create.cube', v.newShape, 'shape', 'N', undefined, { hasMenu: false }),
-        op('select.objects', v.selectAll, 'select', 'E', { all: 'meshes', mode: 'replace' }),
-        op('view.showAll', v.showAll, 'eye', 'S'),
-      ];
-    case 'object':
-      return [
-        op('select.mode', v.editShape, 'faces', 'N', { mode: 'face' }),
-        op('scene.duplicate', v.duplicate, 'duplicate', 'E'),
-        toStage('paint', v.paint, 'paint'),
-        toStage('rig', v.rigIt, 'rig'),
-        op('scene.parent', v.parentTo, 'connect', 'W', undefined, { target: true }),
-        op('scene.delete', v.delete, 'delete', 'SW'),
-      ];
-    case 'face':
-      return [
-        op('mesh.extrude', v.pull, 'pull', 'N'),
-        op('mesh.inset', v.inset, 'inset', 'E'),
-        op('mesh.bevel', v.bevel, 'bevel', 'S'),
-        op('mesh.delete', v.delete, 'delete', 'SW'),
-      ];
-    case 'edge':
-      return [
-        op('mesh.insertLoop', v.loopCut, 'cut', 'N'),
-        op('mesh.bevel', v.bevel, 'bevel', 'E'),
-        op('mesh.merge', v.merge, 'merge', 'S'),
-        op('mesh.slide', v.slide, 'slide', 'W'),
-        op('mesh.delete', v.delete, 'delete', 'SW'),
-      ];
-    case 'vertex':
-      return [
-        op('mesh.merge', v.merge, 'merge', 'N'),
-        op('mesh.targetWeld', v.weldTo, 'weld', 'E'),
-        op('mesh.slide', v.slide, 'slide', 'S'),
-        op('mesh.connect', v.connect, 'connect', 'W'),
-        op('mesh.delete', v.delete, 'delete', 'SW'),
-      ];
-    case 'control':
-    case 'character': {
-      const paste = state.clipboard.pose !== null;
-      return [
-        op('key.set', v.key, 'key', 'N'),
-        op('pose.mirror', v.mirrorPose, 'mirror', 'E', { mode: 'flip' }, { hasMenu: true }),
-        op('pose.resetToRest', v.reset, 'reset', 'S'),
-        paste
-          ? op('pose.paste', v.pastePose, 'paste', 'W', undefined, { changed: true, hasMenu: true })
-          : op('pose.copy', v.copyPose, 'copy', 'W'),
-      ];
+function verbId(petal: PetalDef): string {
+  if (petal.op !== undefined) return petal.args === undefined ? petal.op : `${petal.op}:${JSON.stringify(petal.args)}`;
+  if (petal.go?.stage !== undefined) return `stage:${petal.go.stage}`;
+  return `sheet:${petal.go?.sheet ?? petal.id}`;
+}
+
+function verbOf(petal: PetalDef, changed = false): Verb {
+  const action: VerbAction | null =
+    petal.op !== undefined
+      ? petal.args === undefined
+        ? { op: petal.op }
+        : { op: petal.op, args: petal.args }
+      : petal.go?.stage !== undefined
+        ? { stage: petal.go.stage }
+        : petal.go?.sheet !== undefined
+          ? { sheet: petal.go.sheet }
+          : null;
+  const icon = PETAL_ICON[petal.id] ?? (petal.icon === undefined ? undefined : ICONS[petal.icon]);
+  return {
+    id: verbId(petal),
+    label: petal.plain,
+    run: action ?? { sheet: 'more' },
+    ...(icon === undefined ? {} : { icon }),
+    ...(petal.menu !== undefined && petal.menu.length > 1 ? { hasMenu: true } : {}),
+    ...(changed ? { changed: true } : {}),
+    ...(petal.target === true && petal.op !== undefined && TARGET_OPS.has(petal.op) ? { target: true } : {}),
+  };
+}
+
+/** Does an in-place variant hold now (§6.1)? */
+function variantHolds(app: EditorApp, variant: PetalVariant, petals: readonly PetalDef[]): boolean {
+  const s = app.session.getState();
+  switch (variant.when) {
+    case 'repeatable': {
+      const last = s.lastRun;
+      return last !== null && last.repeatable && last.closed === null && petals.some((p) => p.op === last.id);
     }
-    case 'joint':
-      return [
-        op('skel.joint.orient', v.orient, 'orient', 'N'),
-        op('skel.joint.mirror', v.mirror, 'mirror', 'E'),
-        op('rig.mode', v.paint, 'paint', 'S', { mode: 'skin' }),
-      ];
+    case 'poseCopied':
+      return s.clipboard.pose !== null;
+    case 'keysCopied':
+      return s.clipboard.keys !== null;
+    // the variant's own operator answers whether it applies (Unpin while feet are pinned, Make editable on an
+    // imported character mesh, Bind again on a bound mesh)
+    case 'feetPinned':
+    case 'editableMesh':
+    case 'bound':
+      return variant.op !== undefined && pollOp(app, variant.op, variant.args) === true;
   }
 }
 
-const MORE: Readonly<Record<NounKind, readonly OperatorId[]>> = {
-  space: ['view.showAll', 'select.all', 'file.new'],
-  object: ['mesh.freezeTransforms', 'mesh.resetTransforms', 'mesh.triangulate', 'mesh.quadrangulate', 'mesh.cleanup'],
-  face: [
-    'mesh.extract',
-    'mesh.duplicateFaces',
-    'mesh.fillHole',
-    'select.mesh.grow',
-    'select.mesh.shrink',
-    'select.mesh.shell',
-  ],
-  edge: ['mesh.soften', 'mesh.harden', 'mesh.offsetLoop', 'mesh.connect', 'select.mesh.grow', 'select.mesh.shrink'],
-  vertex: ['mesh.averageVertices', 'mesh.collapse', 'mesh.deleteEdgeVertex', 'select.mesh.grow', 'select.mesh.shrink'],
-  character: ['pose.copy', 'pose.resetToRest', 'select.all'],
-  control: ['select.mirror', 'pose.copy', 'key.delete', 'select.none'],
-  joint: ['skel.joint.orient', 'skel.joint.mirror', 'select.none'],
-};
+function pollOp(app: EditorApp, op: OperatorId, args: unknown): PollResult {
+  if (app.operators.get(op) === undefined) return { ok: false, reason: en.sheet.soon };
+  try {
+    return app.operators.poll(op, { panel: 'viewport', paneId: PANE }, args);
+  } catch {
+    return true;
+  }
+}
 
-/** The stand-in verb source: a few real operators per noun (T6b's curated table replaces it). */
-export const standInVerbs: VerbSource = {
-  noun: resolveNoun,
-  petals(app, noun, stage) {
-    const petals = table(app, noun, stage);
-    // §6.1: after a repeatable operation the last petal becomes ⟳ Again (`edit.repeatLast`); its slot stays.
-    const last = app.session.getState().lastRun;
-    if (last !== null && last.repeatable && last.closed === null && petals.some((p) => opOf(p) === last.id)) {
-      const label = petals.find((p) => opOf(p) === last.id)?.label ?? last.label;
-      const again = op('edit.repeatLast', v.again(label), 'again', petals.at(-1)?.slot, undefined, { changed: true });
-      if (petals.length >= 4) petals[petals.length - 1] = again;
-      else petals.push(again);
+/** The petals of a noun in a stage: T6b's table with its in-place variants applied (slots never move, §6.1). */
+export function petalVerbs(app: EditorApp, kind: NounKind, stage: HaloStage): Verb[] {
+  const petals = petalsFor(kind, stage);
+  const verbs = petals.map((petal) => verbOf(petal));
+  for (const variant of PETAL_VARIANTS[kind] ?? []) {
+    const index = petals.findIndex((p) => p.id === variant.replaces);
+    if (index < 0 || !variantHolds(app, variant, petals)) continue;
+    if (variant.when === 'repeatable') {
+      // ⟳ Again names what it repeats (the last run's petal)
+      const last = app.session.getState().lastRun;
+      const repeated = petals.find((p) => p.op === last?.id)?.plain ?? last?.label ?? '';
+      verbs[index] = { ...verbOf(variant, true), label: v.again(repeated) };
+    } else {
+      verbs[index] = verbOf(variant, true);
     }
-    return petals.slice(0, 6);
-  },
+  }
+  // ids stay unique within a Halo (several petals may run one operator with their own fields, e.g. an image plane's)
+  const seen = new Set<string>();
+  return verbs.map((verb, i) => {
+    if (!seen.has(verb.id)) {
+      seen.add(verb.id);
+      return verb;
+    }
+    const id = `${verb.id}#${petals[i]?.id ?? i}`;
+    seen.add(id);
+    return { ...verb, id };
+  });
+}
+
+/** The verb source over T6b's nouns, verb table and derived More (the grammar's one seam). */
+export const haloVerbs: VerbSource = {
+  noun: resolveNoun,
+  petals: (app, noun, stage) => petalVerbs(app, noun.kind, stage),
   more(app, noun, stage) {
-    const petals = new Set(table(app, noun, stage).map((p) => p.id));
-    return MORE[noun.kind]
-      .filter((id) => app.operators.get(id) !== undefined && !petals.has(id))
-      .map((id) => op(id, app.operators.get(id)?.label ?? id));
+    return moreFor(app, noun.source, stage)
+      .flatMap((group) => group.rows)
+      .filter((row) => !row.petal)
+      .map(
+        (row): Verb => ({
+          id: row.key,
+          label: row.plain,
+          run: row.args === undefined ? { op: row.op } : { op: row.op, args: row.args },
+          ...(row.pro === '' ? {} : { proName: row.pro }),
+          ...(TARGET_OPS.has(row.op) ? { target: true } : {}),
+        }),
+      );
   },
 };
 
-/** The operator a verb runs, or null for a stage switch. */
+/** The operator a verb runs, or null for a stage switch or a sheet. */
 export function opOf(verb: Verb): OperatorId | null {
   return 'op' in verb.run ? verb.run.op : null;
 }
@@ -308,12 +330,7 @@ export function pollVerb(app: EditorApp, verb: Verb): PollResult {
   // a verb → target cannot be polled before its target is tapped (§6.4); its run is
   if (verb.target === true)
     return app.operators.get(verb.run.op) === undefined ? { ok: false, reason: en.sheet.soon } : true;
-  if (app.operators.get(verb.run.op) === undefined) return { ok: false, reason: en.sheet.soon };
-  try {
-    return app.operators.poll(verb.run.op, { panel: 'viewport', paneId: PANE }, verb.run.args);
-  } catch {
-    return true;
-  }
+  return pollOp(app, verb.run.op, verb.run.args);
 }
 
 /** Pro's name of a verb's operator (More, the accessible name). */

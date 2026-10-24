@@ -16,7 +16,7 @@ import {
 } from '@ekza-studio/viewport';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createGrammar, type Grammar } from '../src/halo/grammar';
-import { standInVerbs, type Verb } from '../src/halo/verbSource';
+import { haloVerbs, type Verb } from '../src/halo/verbSource';
 import { haloArbiterConfig } from '../src/input/arbiter';
 import { claimOf } from '../src/input/claims';
 import type { ThumbController } from '../src/input/thumb';
@@ -38,9 +38,11 @@ interface World {
   readonly dispose: () => void;
 }
 
-/** The operators the stand-in petals name (registered so their polls pass; the context's `run` records runs). */
+/** The operators the petals name (T6b's verb table; registered so their polls pass; the context's `run` records runs). */
 const PETAL_OPS = [
   'clip.new',
+  'library.open',
+  'rig.ikFk.switch',
   'key.set',
   'select.all',
   'pose.resetToRest',
@@ -81,7 +83,7 @@ function world(input: Partial<typeof DEFAULT_INPUT> = {}): World {
   let consumed = 0;
   const grammar = createGrammar({
     ctx,
-    verbs: standInVerbs,
+    verbs: haloVerbs,
     runVerb: (verb) => ran.push(verb),
     consumeThumb: () => {
       consumed += 1;
@@ -164,6 +166,7 @@ describe('a tap (§5.2, §6.1)', () => {
       'pose.mirror:{"mode":"flip"}',
       'pose.resetToRest',
       'pose.copy',
+      'rig.ikFk.switch',
     ]);
     expect(w.store.get().touches).toBe(1);
     w.dispose();
@@ -228,7 +231,7 @@ describe('long-press and flicks (§5.2)', () => {
     w.arbiter.down('pane-single', ev(1, 400, 300));
     vi.advanceTimersByTime(460);
     expect(w.store.get().halo).toMatchObject({ mode: 'ring', at: { x: 400, y: 300 } });
-    expect(w.grammar.noun()?.kind).toBe('space');
+    expect(w.grammar.noun()?.kind).toBe('empty');
     const slots = w.grammar.slots();
     expect(slots[0]).toBe('N'); // New animation keeps its slot
     w.arbiter.move('pane-single', ev(1, 400, 240));

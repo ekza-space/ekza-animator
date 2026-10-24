@@ -162,6 +162,11 @@ export default function MoreSheet({ ctx, args }: HaloSheetProps): JSX.Element {
   const label = ctx.noun === null || ctx.noun.kind === 'empty' ? 'here' : ctx.noun.label;
 
   const run = (row: MoreRow): void => {
+    // §6.4: Parent to… and the other verbs that take a second thing wait for a tap on it in the canvas
+    if (ctx.startTarget?.(row.op, row.plain) === true) {
+      ctx.close();
+      return;
+    }
     const def = app.operators.get(row.op);
     if (formOf(row.op, def) !== null) {
       setOptions({ row, mode: 'form' });

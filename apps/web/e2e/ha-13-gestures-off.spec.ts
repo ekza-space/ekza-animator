@@ -103,7 +103,7 @@ test('Reduce gestures: no two-finger undo, quick pinch or flicks; every one has 
   await touchEvent(t, 'touchEnd', []);
   await t.detach();
   await expect(haloMenu(page)).toHaveAttribute('data-mode', 'ring');
-  expect((await halo(page)).noun?.kind).toBe('space');
+  expect((await halo(page)).noun?.kind).toBe('empty');
   expect((await call(page, 'history')).undo.length).toBe(before);
   const keyAll = await petal(page, 'Key all').boundingBox();
   if (keyAll === null) throw new Error('no Key all petal');

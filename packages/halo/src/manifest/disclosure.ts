@@ -402,6 +402,8 @@ export const DISCLOSURE: Readonly<Record<string, ManifestEntry>> = {
     on(0, [C('path')], { when: { to: 'halo' }, plain: 'Ekza Studio' }),
   ],
   'shell.halo': { plumbing: 'shell.halo' },
+  // Halo's own operator (T6a, registered by the shell while it is mounted): Pro's window chords say why they do nothing
+  'halo.proOnlyKey': { plumbing: 'halo.proOnlyKey' },
   'model.animateOnly': { plumbing: 'model.animateOnly' },
   'rig.animateOnly': { plumbing: 'rig.animateOnly' },
   'shell.autoRig': { plumbing: 'shell.autoRig' },

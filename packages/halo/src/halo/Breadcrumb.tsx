@@ -56,7 +56,7 @@ export function Breadcrumb({
     setMenu(null);
     void ctx.run('select.pickWalk', { direction, add: thumbOn });
   };
-  const components = noun.kind === 'face' || noun.kind === 'edge' || noun.kind === 'vertex';
+  const components = noun.kind === 'faces' || noun.kind === 'edges' || noun.kind === 'vertices';
   return (
     <div
       data-halo-chrome=""
@@ -71,9 +71,14 @@ export function Breadcrumb({
               <TouchButton
                 variant="ghost"
                 className={crumbClass}
-                {...(crumb.select === undefined ? { disabled: true } : {})}
+                {...(crumb.select === undefined && crumb.focus === undefined ? { disabled: true } : {})}
+                {...(crumb.focus === undefined ? {} : { 'data-testid': `halo-crumb-${crumb.focus.kind}` })}
                 onClick={() => {
-                  if (crumb.select !== undefined) void ctx.run(crumb.select.op, crumb.select.args);
+                  if (crumb.focus !== undefined) {
+                    // §6.2: the breadcrumb's root is the character's Halo
+                    store.set({ focus: crumb.focus });
+                    grammar.open();
+                  } else if (crumb.select !== undefined) void ctx.run(crumb.select.op, crumb.select.args);
                 }}
               >
                 {crumb.label}
@@ -105,7 +110,15 @@ export function Breadcrumb({
           variant="ghost"
           className="px-2.5 text-accent-text"
           data-testid="halo-numbers"
-          onClick={() => store.set({ sheet: 'numbers', halo: null })}
+          onClick={() =>
+            store.set({
+              sheet: 'numbers',
+              sheetArgs: null,
+              sheetNoun: store.get().focus === null ? null : noun.source,
+              halo: null,
+              focus: null,
+            })
+          }
         >
           {en.halo.numbers}
         </TouchButton>

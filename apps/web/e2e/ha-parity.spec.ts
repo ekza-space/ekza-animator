@@ -14,10 +14,10 @@ import { call, runOk, waitForTestApi } from './helpers/test-api';
 // it must not exceed `searchOnly.baseline.json`, and an entry not in the baseline fails. `EKZA_HALO_PARITY_WRITE=1`
 // rewrites the baseline after a deliberate change (review the diff). Chrome only: the census does not depend on input.
 //
-// Until T6a's frame is integrated the run starts at the T6b harness (`/dev-halo`, dev and e2e builds), which installs
-// the parity probe; at integration the Halo shell installs it and the run starts at `/app` (one line below).
+// The run starts at `/app` (T6-INT): the Halo shell installs the parity probe in e2e builds, and its census is taken
+// with the frame mounted (the operators Halo registers itself, e.g. `halo.proOnlyKey`, included).
 
-const START = '/dev-halo?e2e=1';
+const START = '/app?e2e=1';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..', '..', '..');
 const BASELINE = join(REPO, 'packages', 'halo', 'src', 'manifest', 'searchOnly.baseline.json');
@@ -107,11 +107,9 @@ test('every operator, argument shape and kernel question has a Halo surface; sea
   await page.goto(START);
   await waitForTestApi(page);
   await page.waitForFunction(() => window.__EKZA_HALO_PARITY__ !== undefined);
+  await expect.poll(() => call(page, 'mountedShell')).toBe('halo');
   await runOk(page, 'file.loadSample', { sample: 'polybot' });
   const parts: CensusLike[] = [];
-  await census(page, 'host', parts);
-
-  await switchTo(page, 'halo', /\/app(\?|$)/);
   await everyWorkspace(page, 'halo', parts);
 
   await switchTo(page, 'studio', /\/editor(\?|$)/);

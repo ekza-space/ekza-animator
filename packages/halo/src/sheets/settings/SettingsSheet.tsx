@@ -213,14 +213,16 @@ function SectionView(props: {
       <SheetGroup>{section.label}</SheetGroup>
       {section.intro === null ? null : <p className="px-2.5 pb-1 text-touch-label text-fg-2">{section.intro}</p>}
       {section.slot === null ? null : (
-        // SLOT (T6a, §5.1, §18): Halo's own `halo.input` settings mount here — the Finger / Pencil / Mouse routing
-        // table and its remapping, *Reduce gestures*, quick pinch to frame all, *Halo opens on*. They are Halo
-        // preferences and never write Studio Pro's `navProfile`.
+        // SLOT (§5.1, §18): the frame's `halo.input` rows mount here (`ctx.renderSlot`, T6a's `input/InputSettings`) —
+        // the Finger / Pencil / Mouse routing, *Halo opens on*, *Reduce gestures*, quick pinch to frame all, the
+        // Thumb key and handedness. They are Halo preferences and never write Studio Pro's `navProfile`.
         <div data-slot={section.slot} data-testid="halo-settings-input-slot" className="px-2.5 pb-1">
-          <p className="text-touch-label text-fg-2">
-            Touch and Pencil: until a Pencil is used, a finger changes what is selected and orbits elsewhere; after that
-            the Pencil edits and fingers move the view.
-          </p>
+          {ctx.renderSlot?.(section.slot) ?? (
+            <p className="text-touch-label text-fg-2">
+              Touch and Pencil: until a Pencil is used, a finger changes what is selected and orbits elsewhere; after
+              that the Pencil edits and fingers move the view.
+            </p>
+          )}
         </div>
       )}
       {section.controls.map((control) => (

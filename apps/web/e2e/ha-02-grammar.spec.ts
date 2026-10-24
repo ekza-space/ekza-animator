@@ -111,7 +111,7 @@ test.describe('ha-02: touch grammar', () => {
     const at = await emptyPoint(page);
     await fingerHold(page, at, 600);
     await expect(haloMenu(page)).toHaveAttribute('data-mode', 'ring');
-    expect((await halo(page)).noun?.kind).toBe('space');
+    expect((await halo(page)).noun?.kind).toBe('empty');
     await page.keyboard.press('Escape');
     // press, flick up (N = New animation) and lift: its form opens (clip.new has a pre-run form, §5.6)
     const s = await cdp(page);
@@ -200,12 +200,12 @@ test.describe('ha-02: touch grammar', () => {
     await fingerTap(page, await emptyPoint(page));
     await expect.poll(async () => (await halo(page)).noun).toBeNull();
     await fingerTap(page, on);
-    await expect.poll(async () => (await halo(page)).noun?.kind).toBe('object');
+    await expect.poll(async () => (await halo(page)).noun?.kind).toBe('mesh');
     await expect(haloMenu(page)).toBeVisible();
     await expect(petal(page, 'Duplicate')).toBeVisible();
     expect((await grammar(page))['halo']).toEqual({ mode: 'arc', reduced: false });
   });
-  test('verb → target: Parent to… waits for a tap on the target, then parents the subject (§6.4)', async ({
+  test('verb → target: Parent to… (More) waits for a tap on the target, then parents the subject (§6.4)', async ({
     page,
   }, testInfo) => {
     touchOnly(testInfo);
@@ -223,11 +223,15 @@ test.describe('ha-02: touch grammar', () => {
     await runOk(page, 'select.objects', { ids: [b], mode: 'replace' });
     await runOk(page, 'view.frame', { what: 'selection', paneId: 'pane-single' });
     await runOk(page, 'select.objects', { ids: [a], mode: 'replace' });
-    // a selection made elsewhere shows its breadcrumb; the Halo opens from its ⋯ Verbs
+    // a selection made elsewhere shows its breadcrumb; the Halo opens from its ⋯ Verbs; Parent to… is in its More
+    // (§6.2's mesh row), and the More row waits for the target like a petal would (§6.4)
     await page.getByTestId('halo-verbs').tap();
-    await expect.poll(async () => (await halo(page)).noun).toEqual({ kind: 'object', id: a });
-    await fingerTap(page, await petalCenter(page, 'Parent to'));
+    await expect.poll(async () => (await halo(page)).noun).toEqual({ kind: 'mesh', id: a });
+    await fingerTap(page, await petalCenter(page, 'More'));
+    await expect(page.getByTestId('halo-sheet-more')).toBeVisible();
+    await page.getByTestId('halo-sheet-more').locator('[data-op="scene.parent"] button').first().tap();
     await expect(page.getByTestId('halo-target')).toBeVisible();
+    await expect(page.getByTestId('halo-sheet-more')).toHaveCount(0);
     const pane = (await call(page, 'panes')).find((p) => p.id === 'pane-single');
     if (pane === undefined) throw new Error('no pane');
     await fingerTap(page, { x: pane.rect.x + pane.rect.w / 2, y: pane.rect.y + pane.rect.h / 2 });

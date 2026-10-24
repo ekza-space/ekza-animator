@@ -5,6 +5,10 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { en } from '../src/i18n/en';
+import { DISCLOSURE } from '../src/manifest/disclosure';
+import { PLAIN_LABELS } from '../src/manifest/labels';
+import { entriesOf, isSurfaceEntry } from '../src/manifest/types';
+import { PETAL_VARIANTS, VERB_TABLE } from '../src/verbs/table';
 import { TARGET_BUDGET, visibleTarget } from '../src/shell/targets';
 
 const SRC = new URL('../src', import.meta.url).pathname;
@@ -32,11 +36,8 @@ describe('every document write is an operator run (§20.1)', () => {
     // every allowed writer still writes (a stale row would hide a moved write)
     for (const [path] of PREF_CONTROLS) {
       const file = files.find((f) => f.path.endsWith(`/${path}`));
-      expect(file, path).toBeDefined();
-      expect(
-        prefMentions(file?.text ?? '').some((m) => m.kind === 'write'),
-        path,
-      ).toBe(true);
+      const writes = prefMentions(file?.text ?? '').some((m) => m.kind === 'write');
+      expect({ path, found: file !== undefined, writes }).toEqual({ path, found: true, writes: true });
     }
   });
   it('the preference rule: tables name `prefs.set`, sheet controls run it, nothing else writes', () => {
@@ -111,22 +112,62 @@ function strings(node: unknown, path: string[] = []): { readonly path: string; r
   return [];
 }
 
-describe('user vocabulary: one word, one kind of thing (§1.3, ST-32)', () => {
+/**
+ * The words a user reads at L0–L2: the shell's catalogue (`i18n/en.ts`), the manifest's plain labels
+ * (`manifest/labels.ts`, More and search), its per-argument `plain` words, and the verb table's petals, ▾ choices and
+ * in-place variants (`verbs/table.ts`) — one vocabulary (T6-INT: the lint covers T6b's tables too, P-T6B-2).
+ */
+function vocabulary(): { readonly path: string; readonly text: string }[] {
   const all = strings(en);
+  for (const [op, text] of Object.entries(PLAIN_LABELS)) all.push({ path: `labels.${op}`, text });
+  for (const [op, value] of Object.entries(DISCLOSURE)) {
+    for (const entry of entriesOf(value)) {
+      if (isSurfaceEntry(entry) && entry.plain !== undefined) all.push({ path: `plain.${op}`, text: entry.plain });
+    }
+  }
+  for (const [noun, petals] of Object.entries(VERB_TABLE)) {
+    for (const petal of petals) {
+      all.push({ path: `table.${noun}.${petal.id}`, text: petal.plain });
+      for (const choice of petal.menu ?? []) all.push({ path: `table.${noun}.${petal.id}.menu`, text: choice.plain });
+    }
+  }
+  for (const [noun, variants] of Object.entries(PETAL_VARIANTS)) {
+    for (const variant of variants ?? []) all.push({ path: `table.${noun}.${variant.id}`, text: variant.plain });
+  }
+  return all;
+}
+
+describe('user vocabulary: one word, one kind of thing (§1.3, ST-32)', () => {
+  const all = vocabulary();
   const where = (word: RegExp): string[] => all.filter((s) => word.test(s.text)).map((s) => s.path);
+
+  it('covers the catalogue, the manifest labels and the verb table', () => {
+    expect(all.some((s) => s.path.startsWith('labels.'))).toBe(true);
+    expect(all.some((s) => s.path.startsWith('plain.'))).toBe(true);
+    expect(all.some((s) => s.path.startsWith('table.'))).toBe(true);
+  });
 
   it('“Move” is never a clip; “Animation” is only a clip', () => {
     expect(all.filter((s) => /\bmoves?\b/i.test(s.text) && /animation|clip/i.test(s.text))).toEqual([]);
-    // every use names clips: a new one, the clips a pose change keeps, the product line
+    // every use names clips: a new one, one from a file or the library, a game slot's, the clips a pose change keeps,
+    // the Animations panel, the product line
     for (const path of where(/\banimations?\b/i)) {
-      expect(path).toMatch(/^(verbs\.newAnimation|home\.|dialogs\.applyPoseAsRest)/);
+      expect(path).toMatch(
+        /^(home\.|dialogs\.applyPoseAsRest|labels\.(clip\.|file\.importAnimation|autorig\.clip\.|target\.slot\.)|plain\.(target\.slot\.|workspace\.showPanel)|table\.empty\.newAnimation)/,
+      );
     }
   });
 
   it('“Numbers” is only the Inspector; “Other side” only the mirrored part; “New shape” only a primitive', () => {
-    expect(where(/\bNumbers\b/)).toEqual(['halo.numbers', 'sheets.numbers']);
-    expect(where(/\bOther side\b/i)).toEqual(['halo.otherSide']);
-    expect(where(/\bnew shape\b/i)).toEqual(['verbs.newShape']);
+    // the Inspector itself, and Pro's Channels and Attributes panels, which arrive at it (ST-T6B-7)
+    expect(where(/\bNumbers\b/)).toEqual(['halo.numbers', 'sheets.numbers', 'plain.workspace.showPanel']);
+    expect(where(/\bOther side\b/i)).toEqual([
+      'halo.otherSide',
+      'labels.select.mirror',
+      'plain.select.mirror',
+      'table.rigDot.mirror',
+    ]);
+    expect(where(/\bnew shape\b/i)).toEqual(['table.empty.newShape']);
   });
 
   it('the selection meanings are the Thumb key’s, and never start with “Add”', () => {

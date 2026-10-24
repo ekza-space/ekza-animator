@@ -56,16 +56,16 @@ function controlNoun(app: EditorApp, ids: readonly string[]): Noun | null {
   const first = ids.at(-1);
   if (first === undefined) return null;
   const record = app.store.get('controls', first as never) as { key?: string; name?: string; rig?: string } | undefined;
-  if (record === undefined) return null;
-  const key = record.key ?? '';
-  const label = ids.length > 1 ? `${ids.length} parts` : (record.name ?? key);
+  // A control id without its record (a rig being rebuilt, a fixture) is still a control: its id names it.
+  const key = record?.key ?? '';
+  const label = ids.length > 1 ? `${ids.length} parts` : (record?.name ?? (key === '' ? first : key));
   return {
     kind: ids.length === 1 && isFootControl(key) ? 'foot' : 'control',
     id: first,
     ids,
     label,
     count: ids.length,
-    character: characterOfRig(app, record.rig ?? null),
+    character: characterOfRig(app, record?.rig ?? null),
   };
 }
 

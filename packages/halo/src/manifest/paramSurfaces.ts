@@ -6,7 +6,10 @@
 // - `options`: ⚙ Options on the More row and the petal's long-press (rendered from the ParamDefs through the
 //   `./toolkit` subpath; *Make default* is the only write to the option defaults) — every operator with a Studio Pro
 //   option box.
-// Plain data, loaded by param-lint in Node: it imports nothing.
+// Plain data, loaded by param-lint in Node: it imports nothing. Fed by what the shell shows (T6-INT, P-T6A-3): the
+// Echo chips float for every adjustable run with visible ParamDefs (`chips/EchoChips.tsx` `echoParams`), the runner
+// and More open a form for every operator `formOf` answers (`halo/run.ts`); `test/manifest/manifest.test.ts` checks
+// both lists against a registry with every chunk loaded.
 
 export type ParamSurfaceKind = 'chips' | 'form' | 'options';
 export interface ParamSurface {
@@ -38,7 +41,8 @@ export const CHIP_OPERATORS: readonly string[] = [
   'mesh.mergeByDistance',
   'mesh.mirror',
   'mesh.offsetLoop',
-  'mesh.primitive.set',
+  // not `mesh.primitive.set`: adjustable, but its values travel inside `params` (no ParamDefs), so no chip floats;
+  // Numbers › Shape inputs is its surface (T6-INT)
   'mesh.quadrangulate',
   'mesh.setNormalAngle',
   'mesh.slide',
@@ -90,6 +94,7 @@ export const FORM_OPERATORS: readonly string[] = [
   'mesh.cleanup',
   'mesh.paint',
   'mesh.paint.fillShell',
+  'mesh.paint.remap',
   'mesh.spinEdge',
   'rig.autoRig.update',
   'skin.weights.flood',

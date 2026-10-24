@@ -115,3 +115,43 @@ export const haloMenu = (page: Page) => page.getByTestId('halo-ring');
 /** A petal by its plain word. */
 export const petal = (page: Page, label: string) =>
   haloMenu(page).getByRole('menuitem', { name: new RegExp(`^${label}\\b`) });
+
+/** T6b's sheets, as the frame hosts them (T6-INT). */
+export const HALO_SHEETS = ['more', 'numbers', 'scene', 'view', 'settings', 'health', 'help', 'about'] as const;
+export type HaloSheetId = (typeof HALO_SHEETS)[number];
+
+const MENU_LABEL: Partial<Record<HaloSheetId, string>> = {
+  scene: 'Scene',
+  view: 'View',
+  settings: 'Settings',
+  health: 'Health',
+  help: 'Help',
+};
+
+/**
+ * Opens a sheet the way a person does in the real shell (T6-INT): More from the tray's ⋯, Numbers from the
+ * breadcrumb (a selection is needed), Scene, View, Settings, Health and Help from the project menu, About this
+ * character from the character's Halo in Rig (the breadcrumb's root crumb, then its petal). `touch` taps, else clicks.
+ */
+export async function openSheetFromShell(page: Page, id: HaloSheetId, touch: boolean): Promise<void> {
+  const press = (locator: ReturnType<Page['locator']>): Promise<void> => (touch ? locator.tap() : locator.click());
+  const label = MENU_LABEL[id];
+  if (id === 'more') {
+    await press(page.getByTestId('halo-tray-verbs').locator('[data-verb="more"]'));
+  } else if (id === 'numbers') {
+    await press(page.getByTestId('halo-numbers'));
+  } else if (id === 'about') {
+    if ((await halo(page)).stage !== 'rig') {
+      await press(page.getByTestId('halo-path').getByRole('tab', { name: /^Rig\b/ }));
+      await expect.poll(async () => (await halo(page)).stage).toBe('rig');
+    }
+    await press(page.getByTestId('halo-crumb-character'));
+    await expect.poll(async () => (await halo(page)).noun?.kind).toBe('character');
+    await press(haloMenu(page).getByRole('menuitem', { name: /^About this character/ }));
+  } else if (label !== undefined) {
+    await press(page.getByTestId('halo-project'));
+    await press(page.getByTestId('halo-project-menu').getByRole('menuitem', { name: label, exact: true }));
+  }
+  await expect(page.getByTestId(`halo-sheet-${id}`)).toBeVisible();
+  await expect.poll(async () => (await halo(page)).sheet).toBe(id);
+}
