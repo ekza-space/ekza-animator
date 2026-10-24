@@ -24,7 +24,10 @@ import {
   splitBudget,
   triangleCount,
   frameRotation,
+  linearToOklab,
+  SRGB_TO_LINEAR,
   transformMesh,
+  WRAP_CLAMP,
   WRAP_REPEAT,
 } from '../src';
 import { BANDS, bandTexture, chartedSphere, gridSphere, meshBytes, openEdges } from './support';
@@ -149,6 +152,74 @@ describe('palette bake (k-means in OKLab)', () => {
       { colours: 6, samples: 6 },
     );
     expect(few.palette.length).toBeLessThanOrEqual(6);
+  });
+
+  it('never takes a colour from the atlas background: black or transparent gutters between 144 charts', () => {
+    // Bands as OKLab, and a swatch is "foreign" when no band is within 0.06 (a visible step).
+    const lab = (c: readonly number[]): Float64Array => {
+      const out = new Float64Array(3);
+      linearToOklab(
+        SRGB_TO_LINEAR[c[0] as number] as number,
+        SRGB_TO_LINEAR[c[1] as number] as number,
+        SRGB_TO_LINEAR[c[2] as number] as number,
+        out,
+      );
+      return out;
+    };
+    const bands = BANDS.map(lab);
+    const foreign = (c: readonly number[]): boolean => {
+      const l = lab(c);
+      return (
+        Math.min(...bands.map((b) => Math.hypot(...[0, 1, 2].map((k) => (b[k] as number) - (l[k] as number))))) > 0.06
+      );
+    };
+    const sphere = chartedSphere(60_000, 12);
+    const reduced = reduceMesh(simplifier, sphere, 2000, REDUCE, false).data;
+    for (const gutter of [
+      [0, 0, 0, 255],
+      [255, 0, 255, 0],
+    ] as const) {
+      const image = bandTexture(512, 12, gutter);
+      const outcome = paletteBake(
+        [{ data: reduced, materials: [0] }],
+        [{ factor: [1, 1, 1, 1], texture: { image, texCoord: 0, wrapS: WRAP_REPEAT, wrapT: WRAP_REPEAT } }],
+        { colours: 16, samples: 6 },
+        [sphere],
+      );
+      // The background was there to read, and nothing of it reached the palette or a face.
+      expect(outcome.facts.backgroundSamples).toBeGreaterThan(0);
+      const paint = outcome.meshes[0]?.layers.get('paint')?.data as Uint16Array;
+      const used = new Set(paint);
+      expect(outcome.palette.filter((_, slot) => used.has(slot)).filter(foreign)).toEqual([]);
+      expect(outcome.palette.length).toBe(used.size);
+    }
+  });
+
+  it('fills a face with no valid sample from its nearest valid neighbour, never from the background', () => {
+    // UVs of one face moved onto the gutter: its samples are all background.
+    const sphere = chartedSphere(2000, 2);
+    const source = sphere.layers.get('uv0')?.data;
+    if (!(source instanceof Float32Array)) throw new Error('no uv0');
+    const uv = source.slice();
+    const c = sphere.faceCorner[10] as number;
+    let k = c;
+    do {
+      uv[2 * k] = 0.001;
+      uv[2 * k + 1] = 0.001;
+      k = sphere.cornerNext[k] as number;
+    } while (k !== c);
+    const moved = { ...sphere, layers: new Map([...sphere.layers, ['uv0', { def: BUILTIN_LAYERS.uv0, data: uv }]]) };
+    const image = bandTexture(256, 2, [0, 0, 0, 255]);
+    const outcome = paletteBake(
+      [{ data: moved, materials: [0] }],
+      [{ factor: [1, 1, 1, 1], texture: { image, texCoord: 0, wrapS: WRAP_CLAMP, wrapT: WRAP_CLAMP } }],
+      { colours: 8, samples: 6 },
+      [sphere],
+    );
+    expect(outcome.facts.filledFaces).toBeGreaterThanOrEqual(1);
+    const paint = outcome.meshes[0]?.layers.get('paint')?.data as Uint16Array;
+    const black = outcome.palette.findIndex((c) => c.every((v) => v < 20));
+    expect(black === -1 || !paint.includes(black)).toBe(true);
   });
 
   it('bakes factor-only materials to their factor', () => {

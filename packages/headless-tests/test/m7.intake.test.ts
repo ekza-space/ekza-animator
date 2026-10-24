@@ -6,7 +6,8 @@
 import type { AssetId, CharacterId, MeshId } from '@ekza-studio/doc';
 import { attachMeshes, type EditorApp, type IntakeOutcome, loadMeshKernel, quickRigOf } from '@ekza-studio/editor-core';
 import { type ExportArtifact, parseGlb } from '@ekza-studio/io';
-import { makeAiLikeGlb } from '@ekza-studio/io/testing';
+import { AI_LIKE_ALBEDOS, makeAiLikeGlb } from '@ekza-studio/io/testing';
+import { linearToOklab, SRGB_TO_LINEAR } from '@ekza-studio/mesh-wasm';
 import { type MeshData, topologyStats, validateMesh } from '@ekza-studio/mesh-core';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { exportCharacter, settled, vrmErrors } from './m6b.writer.support';
@@ -166,6 +167,46 @@ describe('M7 G-a: the intake preset on an AI-like model', () => {
     });
     expect(await vrmErrors(artifact.bytes)).toEqual([]);
     expect(artifact.validation?.errors ?? 0).toBe(0);
+  });
+});
+
+describe('M7 G-a: the palette bake and the atlas background', () => {
+  it('a 241-chart atlas on black (no padding): 0 faces take a colour the charts do not hold', async () => {
+    const lab = (c: readonly number[]): Float64Array => {
+      const out = new Float64Array(3);
+      linearToOklab(
+        SRGB_TO_LINEAR[c[0] as number] as number,
+        SRGB_TO_LINEAR[c[1] as number] as number,
+        SRGB_TO_LINEAR[c[2] as number] as number,
+        out,
+      );
+      return out;
+    };
+    const interior = AI_LIKE_ALBEDOS.map(lab);
+    /** A swatch further than a visible step (OKLab 0.06) from every colour painted inside the charts. */
+    const foreign = (c: readonly number[]): boolean => {
+      const l = lab(c);
+      return (
+        Math.min(...interior.map((a) => Math.hypot(...[0, 1, 2].map((k) => (a[k] as number) - (l[k] as number))))) >
+        0.06
+      );
+    };
+    const a = await app();
+    const bytes = makeAiLikeGlb({ gutter: [0, 0, 0], padding: 0 });
+    const { meshes } = (await runOk(a, 'mesh.importStatic', { bytes, name: 'black-gutter.glb' })) as {
+      meshes: MeshId[];
+    };
+    const outcome = (await runOk(a, 'mesh.intake', { meshes, preset: 'character', forward: '+x' })) as IntakeOutcome;
+    const bake = outcome.steps.find((step) => step.kind === 'paletteBake');
+    // Samples did land on the background (and were ignored)…
+    expect(bake?.facts['backgroundSamples']).toBeGreaterThan(0);
+    // …and no face took a colour from it.
+    const swatches = a.store.query.swatchesOfPalette(outcome.palette as never);
+    const paint = (await dataOf(a, meshes[0] as MeshId)).layers.get('paint')?.data as Uint16Array;
+    const foreignSlots = new Set(swatches.filter((swatch) => foreign(swatch.srgb)).map((swatch) => swatch.slot));
+    expect([...paint].filter((slot) => foreignSlots.has(slot))).toEqual([]);
+    // Every swatch of the palette is used.
+    expect(new Set(paint).size).toBe(swatches.length);
   });
 });
 

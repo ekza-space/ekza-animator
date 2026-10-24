@@ -27,7 +27,8 @@ export function hash01(x: number, y: number): number {
  * a grid with padding: every chart border is a UV seam, as in a generator's atlas.
  */
 export function chartedSphere(triangles: number, charts: number): MeshData {
-  const n = Math.max(8, Math.round(Math.sqrt(triangles / 2)));
+  // Segments a multiple of the chart count, so chart borders run along face edges (no face straddles two charts).
+  const n = Math.max(8, charts * Math.ceil(Math.round(Math.sqrt(triangles / 2)) / charts));
   const base = gridSphere(n, n);
   const uv = base.layers.get('uv0');
   if (uv === undefined) throw new Error('the sphere has no uv0');
@@ -68,9 +69,14 @@ export function chartedSphere(triangles: number, charts: number): MeshData {
 
 /**
  * The texture of `chartedSphere`: each texel takes the band of the 3D height its chart maps back to (charts follow the
- * sphere's own UVs, so the original v of a texel is recovered from its chart), with ±3 % noise.
+ * sphere's own UVs, so the original v of a texel is recovered from its chart), with ±3 % noise; with `gutter`, the
+ * padding between the charts is that RGBA (an atlas background) instead of the chart's colours.
  */
-export function bandTexture(size: number, charts: number): RgbaImage {
+export function bandTexture(
+  size: number,
+  charts: number,
+  gutter: readonly [number, number, number, number] | null = null,
+): RgbaImage {
   const rgba = new Uint8Array(4 * size * size);
   const cell = 1 / charts;
   const pad = cell * 0.04;
@@ -78,16 +84,23 @@ export function bandTexture(size: number, charts: number): RgbaImage {
     for (let x = 0; x < size; x++) {
       const u = (x + 0.5) / size;
       const v = (y + 0.5) / size;
+      const o = 4 * (y * size + x);
+      // The atlas background between the charts (their padding), with no dilation: the worst case.
+      const pu = Math.min(charts - 1, Math.floor(u / cell));
+      const inU = (u - pu * cell - pad) / (cell - 2 * pad);
+      const inV = (v - Math.min(charts - 1, Math.floor(v / cell)) * cell - pad) / (cell - 2 * pad);
+      if (gutter !== null && (inU < 0 || inU > 1 || inV < 0 || inV > 1)) {
+        rgba.set(gutter, o);
+        continue;
+      }
       const pv = Math.min(charts - 1, Math.floor(v / cell));
       const lv = Math.min(1, Math.max(0, (v - pv * cell - pad) / (cell - 2 * pad)));
       const originalV = (pv + lv) * cell;
       const band = BANDS[Math.min(BANDS.length - 1, Math.floor(originalV * BANDS.length))] as readonly number[];
       const noise = (hash01(x, y) - 0.5) * 0.06;
-      const o = 4 * (y * size + x);
       for (let c = 0; c < 3; c++)
         rgba[o + c] = Math.max(0, Math.min(255, Math.round((band[c] as number) * (1 + noise))));
       rgba[o + 3] = 255;
-      void u;
     }
   }
   return { width: size, height: size, rgba };
