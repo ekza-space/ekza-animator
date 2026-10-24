@@ -7,12 +7,11 @@
 import type { ClipRecord } from '@ekza-studio/doc';
 import { type EditorApp, PANEL } from '@ekza-studio/editor-core';
 import { Cluster, TouchButton, TouchIconButton, VerbBar, type VerbItem } from '@ekza-studio/ui/touch';
-import { type JSX, lazy, Suspense, useState } from 'react';
+import { type JSX, useState } from 'react';
 import { animateWords } from '../../i18n/animate';
 import type { NounKind } from '../../manifest/types';
 import type { HaloController } from '../../shell/controller';
 import { useDocumentVersion, useSessionValue } from '../../shell/hooks';
-import type { SizeClass } from '../../shell/hooks';
 import { PANE } from '../../shell/stage';
 import { useHaloStore } from '../../shell/store';
 import { threadContext, timeText } from '../../thread/strip/model';
