@@ -47,12 +47,14 @@ const sanitized = (base: string): string =>
 /**
  * The saved file of a target for an avatar name: `<slug>.vrm`, `<slug>.glb`, `<slug>-omoba-kit.zip`, and for VRMA one
  * `<slug>-<clip>.vrma` or `<slug>-animations.zip`. `firstClip` is the export name of the only clip (its slot or name).
+ * `dev`: the character is made for an OMOBA hero, so the developer files are the package's `<slug>-omoba-dev.zip` (C2).
  */
 export function expectedFileName(
   target: AutoRigExportTarget,
   name: string,
   clips: number,
   firstClip: string | null,
+  dev = false,
 ): string {
   const base = slugOf(name);
   switch (target) {
@@ -62,7 +64,7 @@ export function expectedFileName(
     case 'glb':
       return `${base}.glb`;
     case 'omoba-kit':
-      return `${base}-omoba-kit.zip`;
+      return `${base}-omoba-${dev ? 'dev' : 'kit'}.zip`;
     case 'vrma':
       return clips === 1 && firstClip !== null ? `${sanitized(`${base}-${firstClip}`)}.vrma` : `${base}-animations.zip`;
   }

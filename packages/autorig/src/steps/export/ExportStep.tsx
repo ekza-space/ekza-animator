@@ -661,7 +661,7 @@ function useExportFooter(
   const name =
     record === null || target === null
       ? null
-      : expectedFileName(target, avatarName(record), view.clips, view.firstClip);
+      : expectedFileName(target, avatarName(record), view.clips, view.firstClip, view.available.includes('omoba-hero'));
   useEffect(() => {
     const m = t();
     const download = async (): Promise<void> => {
