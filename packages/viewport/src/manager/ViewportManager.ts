@@ -98,7 +98,7 @@ import type {
   ScreenPoint,
   ViewPreset,
 } from '../types';
-import type { ArbiterPort, CoalescedSample, PointerArbiter, PointerArbiterStage, ViewGesture } from '../input/arbiter';
+import type { CoalescedSample, PipeStep, PointerArbiter, PointerArbiterStage, ViewGesture } from '../input/arbiter';
 import type { ImagePlaneLayer, ImagePlaneSpec } from './imagePlanes';
 import { type MeshLayerHost, meshPaneDisplay } from './meshLayers';
 import { setManagerOf } from './registry';
@@ -581,11 +581,12 @@ export class ViewportManager {
 
   /**
    * STUDIO-TOUCH-SPEC §20.4: installs (null removes) a touch shell's pointer arbiter, the first stage of every press in
-   * a pane (`createPointerArbiter`); the disposer removes this one. Studio Pro installs none.
+   * a pane (`createPointerArbiter`, bound to this manager); the disposer removes this one. Studio Pro installs none.
+   * One stage at a time: Auto-Rig's two-finger navigation is one too, so the two never run together.
    */
   setPointerArbiter(stage: PointerArbiterStage<PointerEvent> | null): Disposer {
     this.arbiter?.cancel();
-    const arbiter = stage?.(this.arbiterPort()) ?? null;
+    const arbiter = stage?.(this) ?? null;
     this.arbiter = arbiter;
     return () => {
       if (this.arbiter !== arbiter) return;
@@ -596,13 +597,13 @@ export class ViewportManager {
 
   /**
    * STUDIO-TOUCH-SPEC §20.3 item 1: moves a pane's camera by a view gesture — orbit and pan by (dx, dy) CSS px, dolly
-   * by `dx` (ln of the distance ratio, towards `at`, pane CSS px, default the centre). A shot camera's gesture commits
-   * once, after a burst of calls (as the wheel's).
+   * by `dx` (ln of the distance ratio, towards `at`, pane CSS px, default the centre). A shot camera's moves are one
+   * gesture until `endNavigate`, which commits them once.
    */
   navigate(paneId: string, gesture: ViewGesture, dx: number, dy: number, at?: { x: number; y: number }): void {
     const pane = this.panes.get(paneId);
     if (pane === undefined) return;
-    this.steer(pane, (controller, rect) => {
+    this.steer(pane, false, (controller, rect) => {
       if (gesture === 'orbit') controller.tumble(dx, dy, rect.height);
       else if (gesture === 'pan') controller.track(dx, dy, rect.width, rect.height);
       else {
@@ -1566,36 +1567,24 @@ export class ViewportManager {
     };
   }
 
-  /** The arbiter's view of the pipeline after its stage (§20.4). */
-  private arbiterPort(): ArbiterPort<PointerEvent> {
-    const run = (id: string, fn: (pane: PaneRuntime) => void): void => {
-      const pane = this.panes.get(id);
-      if (pane !== undefined) fn(pane);
-    };
-    return {
-      local: (id, e) => {
-        const pane = this.panes.get(id);
-        return pane === undefined ? null : this.local(pane, e);
-      },
-      pick: (id, x, y) => this.pick(id, x, y),
-      ortho: (id) => {
-        const preset = this.paneState(id)?.preset ?? null;
-        return preset !== null && preset !== 'persp';
-      },
-      capture: (id, pointerId) => run(id, (pane) => this.capture(pane, pointerId)),
-      down: (id, e) => run(id, (pane) => this.pressDown(pane, e, [])),
-      move: (id, e, coalesced) => run(id, (pane) => this.pressMove(pane, e, coalesced)),
-      up: (id, e, cancelled) => run(id, (pane) => this.pressUp(pane, e, cancelled, [])),
-      startNav: (id, e, gesture) => {
-        const pane = this.panes.get(id);
-        if (pane === undefined || this.busy()) return false;
-        this.capture(pane, e.pointerId);
-        this.startNav(pane, e, gesture);
-        return true;
-      },
-      navigate: (id, gesture, dx, dy, at) => this.navigate(id, gesture, dx, dy, at),
-      endNavigate: () => this.endWheelBurst(),
-    };
+  /**
+   * STUDIO-TOUCH-SPEC §20.4 (the arbiter stage's port, `input/arbiter.ts`; not an app API): one step of the pipeline
+   * after the stage for a press it held — `coalesced` set marks the arbiter's path (§20.3 item 5). False for an unknown
+   * pane, or a navigation while another gesture holds the viewport.
+   */
+  pipe(paneId: string, e: PointerEvent, step: PipeStep, coalesced?: readonly CoalescedSample[]): boolean {
+    const pane = this.panes.get(paneId);
+    if (pane === undefined) return false;
+    if (step === 'down') this.pressDown(pane, e, coalesced);
+    else if (step === 'move') this.pressMove(pane, e, coalesced);
+    else if (step === 'up' || step === 'cancel') this.pressUp(pane, e, step === 'cancel', coalesced);
+    else if (step === 'capture') this.capture(pane, e.pointerId);
+    else if (this.busy()) return false;
+    else {
+      this.capture(pane, e.pointerId);
+      this.startNav(pane, e, step);
+    }
+    return true;
   }
 
   private busy(): boolean {
@@ -1603,31 +1592,22 @@ export class ViewportManager {
   }
 
   private pointerDown(pane: PaneRuntime, e: PointerEvent): void {
-    if (this.arbiter?.down(pane.id, e) === true) {
-      this.lastPointerPane = pane.id;
-      this.pointerAt = { paneId: pane.id, clientX: e.clientX, clientY: e.clientY };
-      return;
-    }
-    this.pressDown(pane, e);
+    this.lastPointerPane = pane.id;
+    this.pointerAt = { paneId: pane.id, clientX: e.clientX, clientY: e.clientY };
+    if (this.arbiter?.down(pane.id, e) !== true) this.pressDown(pane, e);
   }
 
   private pointerMove(pane: PaneRuntime, e: PointerEvent): void {
-    if (this.arbiter?.move(pane.id, e) === true) {
-      this.pointerAt = { paneId: pane.id, clientX: e.clientX, clientY: e.clientY };
-      return;
-    }
-    this.pressMove(pane, e);
+    this.pointerAt = { paneId: pane.id, clientX: e.clientX, clientY: e.clientY };
+    if (this.arbiter?.move(pane.id, e) !== true) this.pressMove(pane, e);
   }
 
   private pointerUp(pane: PaneRuntime, e: PointerEvent, cancelled = false): void {
-    if (this.arbiter?.up(pane.id, e, cancelled) === true) return;
-    this.pressUp(pane, e, cancelled);
+    if (this.arbiter?.up(pane.id, e, cancelled) !== true) this.pressUp(pane, e, cancelled);
   }
 
   /** The pipeline after the arbiter stage; `coalesced` only for presses the arbiter replays (§20.4). */
   private pressDown(pane: PaneRuntime, e: PointerEvent, coalesced?: readonly CoalescedSample[]): void {
-    this.lastPointerPane = pane.id;
-    this.pointerAt = { paneId: pane.id, clientX: e.clientX, clientY: e.clientY };
     if (e.button === 1) e.preventDefault(); // no autoscroll / primary-selection paste
     if (this.busy()) return;
     // M6a rule (b) (§5.17): in Model on the trackpad and one-button profiles, Alt+Shift+LMB is the MMB stand-in.
@@ -1720,7 +1700,6 @@ export class ViewportManager {
   }
 
   private pressMove(pane: PaneRuntime, e: PointerEvent, coalesced?: readonly CoalescedSample[]): void {
-    this.pointerAt = { paneId: pane.id, clientX: e.clientX, clientY: e.clientY };
     if (this.virtualSliderActive) return;
     const nav = this.nav;
     if (nav !== null) {
@@ -1942,7 +1921,7 @@ export class ViewportManager {
     this.lastPointerPane = pane.id;
     e.preventDefault();
     if (this.nav !== null || this.toolPointer !== null) return;
-    this.steer(pane, (controller, rect) => {
+    this.steer(pane, true, (controller, rect) => {
       const action = wheelAction(this.profile, e, rect.height);
       if (action.kind === 'dolly') {
         const ndcX = ((e.clientX - rect.left) / Math.max(rect.width, 1)) * 2 - 1;
@@ -1956,8 +1935,15 @@ export class ViewportManager {
     });
   }
 
-  /** One step of a wheel or `navigate` gesture on a pane's camera; a shot camera's burst commits once when idle. */
-  private steer(pane: PaneRuntime, apply: (controller: NavigationController, rect: DOMRect) => void): void {
+  /**
+   * One step of a wheel or `navigate` gesture on a pane's camera. A shot camera's steps are one burst: the wheel's
+   * commits once when idle (`timed`), `navigate`'s at `endNavigate`.
+   */
+  private steer(
+    pane: PaneRuntime,
+    timed: boolean,
+    apply: (controller: NavigationController, rect: DOMRect) => void,
+  ): void {
     const rect = pane.element.getBoundingClientRect();
     const resolved = this.resolve(pane);
     let controller = resolved.nav;
@@ -1982,10 +1968,15 @@ export class ViewportManager {
     if (burst !== null && resolved.kind === 'shot') {
       this.writeShot(burst);
       if (burst.timer !== null) clearTimeout(burst.timer);
-      burst.timer = setTimeout(() => this.endWheelBurst(), WHEEL_BURST_MS);
+      burst.timer = timed ? setTimeout(() => this.endWheelBurst(), WHEEL_BURST_MS) : null;
     }
     this.picker.forget(pane.id);
     this.invalidate();
+  }
+
+  /** STUDIO-TOUCH-SPEC §20.3 item 1: ends a `navigate` gesture; a shot camera's moves commit once, off the undo stack. */
+  endNavigate(_paneId?: string): void {
+    this.endWheelBurst();
   }
 
   private endWheelBurst(): void {

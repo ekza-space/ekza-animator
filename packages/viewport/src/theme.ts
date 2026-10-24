@@ -40,14 +40,24 @@ export const POLE_LINE = { color: '#c8ccd4', alpha: 0.6, width: 1 } as const;
 /** Hover lightens the side colour by this fraction of the remaining lightness (HSL). */
 export const HOVER_LIGHTEN = 0.2;
 
-/** Picking tolerances in CSS px (MVP-SPEC §4.11.16). */
-export const PICK = {
+/**
+ * Picking tolerances in CSS px (MVP-SPEC §4.11.16) of the pointer in use: these values are the mouse's (Studio Pro's);
+ * a touch shell's input stage switches them per event to the finger's or the pen's (STUDIO-TOUCH-SPEC §5.4,
+ * `input/tolerance.ts`), so consumers read them at call time.
+ */
+export const PICK: {
+  controlPx: number;
+  jointPx: number;
+  manipulatorPx: number;
+  cycleRadiusPx: number;
+  marqueeMinPx: number;
+} = {
   controlPx: 6,
   jointPx: 6,
   manipulatorPx: 7,
   cycleRadiusPx: 3,
   marqueeMinPx: 4,
-} as const;
+};
 
 /** Mesh opacity while a pane shows x-ray. */
 export const XRAY_OPACITY = 0.5;

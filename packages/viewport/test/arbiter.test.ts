@@ -1,8 +1,10 @@
-// STUDIO-TOUCH-SPEC §20.4, §20.7 (T1a spike): the pointer arbiter's state machine over recorded pointer streams, with
-// a fake manager port — tap, double-tap (the second tap absorbed), long-press against drag, drag replay with every
-// coalesced sample, two-finger tap against pinch, a third finger, pen priority and the palm, the brush delay and its
-// rollback, the mouse's eager path and its double-click — and the stage inside a real ViewportManager (a tool sees the
-// replayed press; without an arbiter the pipeline is today's).
+// STUDIO-TOUCH-SPEC §20.4, §20.7 (T1a spike, T1): the pointer arbiter's state machine over recorded pointer streams,
+// with a fake port — tap, double-tap (the second tap absorbed, the taps after it too), long-press against drag, drag
+// replay with every coalesced sample, two-finger tap against pinch, a third finger, pen priority and the palm, the
+// brush delay and its rollback, the mouse's eager path and its double-click, the tool's double-click never formed from
+// delivered taps — and the stage inside a real ViewportManager (a tool sees the replayed press; chrome presses never
+// enter; the pick tolerances follow the pointer; a shot camera's `navigate` gesture commits once; without an arbiter
+// the pipeline is today's).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   type ArbiterConfig,
@@ -11,8 +13,11 @@ import {
   type CoalescedSample,
   createPointerArbiter,
   type PickResult,
+  POINTER_TOLERANCE,
+  pointerArbiter,
 } from '../src';
-import { createRig, type Rig } from './helpers';
+import { PICK } from '../src/theme';
+import { addCamera, createRig, type Rig, shotCamera } from './helpers';
 
 interface Ev extends ArbiterPointer {
   readonly samples?: readonly { clientX: number; clientY: number; pressure: number; timeStamp: number }[];
@@ -23,7 +28,8 @@ type Call =
   | { readonly kind: 'move'; readonly id: number; readonly x: number; readonly y: number; readonly n: number }
   | { readonly kind: 'nav'; readonly gesture: string }
   | { readonly kind: 'navigate'; readonly gesture: string; readonly dx: number }
-  | { readonly kind: 'endNavigate' };
+  | { readonly kind: 'endNavigate' }
+  | { readonly kind: 'two' };
 
 function ev(id: number, type: 'touch' | 'pen' | 'mouse', x: number, y: number, t: number, samples?: Ev['samples']): Ev {
   return {
@@ -41,11 +47,12 @@ function ev(id: number, type: 'touch' | 'pen' | 'mouse', x: number, y: number, t
 function setup(overrides: Partial<ArbiterConfig> = {}, opts: { busy?: boolean; ortho?: boolean } = {}) {
   const calls: Call[] = [];
   const taps: string[] = [];
+  const pointers: string[] = [];
   const config: ArbiterConfig = {
     buffered: ['touch', 'pen'],
     slopPx: { touch: 10, pen: 4 },
     longPressMs: 450,
-    multiTapMs: { touch: 450, pen: 350, mouse: 400 },
+    multiTapMs: { touch: 450, pen: 350, mouse: 500 },
     multiTapPx: { touch: 24, pen: 8, mouse: 4 },
     brushDelayMs: 120,
     twoFingerTapMs: 250,
@@ -74,6 +81,7 @@ function setup(overrides: Partial<ArbiterConfig> = {}, opts: { busy?: boolean; o
     pick: () => hit,
     ortho: () => opts.ortho === true,
     capture: () => {},
+    pointer: (type) => pointers.push(type),
     down: (_pane, e) => calls.push({ kind: 'down', id: e.pointerId, x: e.clientX, y: e.clientY }),
     move: (_pane, e, c: readonly CoalescedSample[]) =>
       calls.push({ kind: 'move', id: e.pointerId, x: e.clientX, y: e.clientY, n: c.length }),
@@ -87,11 +95,12 @@ function setup(overrides: Partial<ArbiterConfig> = {}, opts: { busy?: boolean; o
     navigate: (_pane, gesture, dx) => calls.push({ kind: 'navigate', gesture, dx }),
     endNavigate: () => calls.push({ kind: 'endNavigate' }),
   };
-  const arbiter = createPointerArbiter<Ev>(config)(port);
+  const arbiter = pointerArbiter<Ev>(config, port);
   return {
     arbiter,
     calls,
     taps,
+    pointers,
     setHit: (next: PickResult | null): void => {
       hit = next;
     },
@@ -137,10 +146,64 @@ describe('pointer arbiter: one finger (§5.2, §20.4)', () => {
     arbiter.up('p', ev(2, 'touch', 310, 210, 260), false);
     expect(taps).toEqual(['tap touch 200,150', 'double touch']);
     expect(calls.filter((c) => c.kind === 'down')).toHaveLength(1);
-    // a third tap right after is a fresh first tap (the tool sees it)
-    arbiter.down('p', ev(3, 'touch', 310, 210, 300));
-    arbiter.up('p', ev(3, 'touch', 310, 210, 340), false);
-    expect(taps.at(-1)).toBe('tap touch 210,160');
+  });
+
+  it('taps after a double-tap within the window are absorbed, anywhere; one after the window is fresh (C17)', () => {
+    const { arbiter, calls, taps } = setup();
+    arbiter.down('p', ev(1, 'touch', 300, 200, 0));
+    arbiter.up('p', ev(1, 'touch', 300, 200, 60), false);
+    arbiter.down('p', ev(2, 'touch', 305, 200, 200));
+    arbiter.up('p', ev(2, 'touch', 305, 200, 250), false);
+    // a third tap (and a fourth, far away) within 450 ms of the previous release: absorbed, no second frame
+    arbiter.down('p', ev(3, 'touch', 300, 200, 400));
+    arbiter.up('p', ev(3, 'touch', 300, 200, 440), false);
+    arbiter.down('p', ev(4, 'touch', 500, 300, 700));
+    arbiter.up('p', ev(4, 'touch', 500, 300, 740), false);
+    expect(taps).toEqual(['tap touch 200,150', 'double touch']);
+    expect(calls.filter((c) => c.kind === 'down')).toHaveLength(1);
+    // 450 ms after the last release the next tap is a fresh first tap (the tool sees it)
+    arbiter.down('p', ev(5, 'touch', 300, 200, 1200));
+    arbiter.up('p', ev(5, 'touch', 300, 200, 1240), false);
+    expect(taps.at(-1)).toBe('tap touch 200,150');
+    expect(calls.filter((c) => c.kind === 'down')).toHaveLength(2);
+  });
+
+  it('the tool never receives two taps its double-click window (§5.4, per pointer type) would pair (C17)', () => {
+    // A long pseudo-random stream of taps by finger, pen and mouse, close and far, quick and slow. Whatever reaches
+    // the tool (a replayed click, or a mouse click passed through) must never form a double-click by the Model select
+    // runtime's rule: the next press within the multi-tap window and radius of the last delivered click.
+    const { arbiter, calls } = setup();
+    let seed = 7;
+    const rand = (): number => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed / 2147483648;
+    };
+    const kinds = ['touch', 'pen', 'mouse'] as const;
+    let t = 0;
+    let last: { readonly x: number; readonly y: number; readonly at: number } | null = null;
+    let delivered = 0;
+    const paired: number[] = [];
+    for (let i = 0; i < 400; i++) {
+      const kind = kinds[Math.floor(rand() * 3)] ?? 'touch';
+      t += 40 + rand() * 600;
+      const x = 300 + Math.round(rand() * 40);
+      const y = 200 + Math.round(rand() * 20);
+      const before = calls.length;
+      const pressAt = t;
+      const taken = arbiter.down('p', ev(i, kind, x, y, t));
+      t += 30 + rand() * 60;
+      arbiter.up('p', ev(i, kind, x, y, t), false);
+      const replayed = calls.slice(before).find((c) => c.kind === 'down');
+      if (!taken || replayed !== undefined) {
+        const row = POINTER_TOLERANCE[kind];
+        const near = last !== null && Math.hypot(x - last.x, y - last.y) <= row.multiTapPx;
+        if (last !== null && near && pressAt - last.at <= row.multiTapMs) paired.push(i);
+        last = { x, y, at: t };
+        delivered++;
+      }
+    }
+    expect(paired).toEqual([]);
+    expect(delivered).toBeGreaterThan(100);
   });
 
   it('a second tap too late or too far is a tap of its own', () => {
@@ -277,6 +340,29 @@ describe('pointer arbiter: the Pencil (§5.1, §5.4)', () => {
   });
 });
 
+describe('pointer arbiter: taps the tool would pair (C17)', () => {
+  it('a press the tool would pair with its last click is a double-tap, even with a palm tap between', () => {
+    const { arbiter, calls, taps } = setup();
+    arbiter.down('p', ev(1, 'pen', 300, 200, 0));
+    arbiter.up('p', ev(1, 'pen', 300, 200, 40), false);
+    arbiter.down('p', ev(2, 'touch', 700, 400, 100)); // a palm: consumed, never a tap
+    arbiter.up('p', ev(2, 'touch', 700, 400, 130), false);
+    arbiter.down('p', ev(3, 'pen', 303, 200, 250)); // 210 ms and 3 px after the delivered pen click
+    arbiter.up('p', ev(3, 'pen', 303, 200, 280), false);
+    expect(taps).toEqual(['tap pen 200,150', 'double pen']);
+    expect(calls.filter((c) => c.kind === 'down')).toHaveLength(1);
+  });
+
+  it('every event reports its pointer type to the port first (the pick tolerances follow it)', () => {
+    const { arbiter, pointers } = setup();
+    arbiter.move('p', ev(9, 'mouse', 10, 10, 0));
+    arbiter.down('p', ev(1, 'touch', 300, 200, 10));
+    arbiter.up('p', ev(1, 'touch', 300, 200, 40), false);
+    arbiter.move('p', ev(2, 'pen', 300, 200, 50));
+    expect(pointers).toEqual(['mouse', 'touch', 'touch', 'pen']);
+  });
+});
+
 describe('pointer arbiter: two fingers (§5.2, C6, C14)', () => {
   it('a second finger makes a pair: the first is never delivered; pinch dollies, the midpoint pans', () => {
     const { arbiter, calls, taps } = setup();
@@ -297,6 +383,29 @@ describe('pointer arbiter: two fingers (§5.2, C6, C14)', () => {
     const dolly = calls.find((c) => c.kind === 'navigate' && c.gesture === 'dolly');
     expect(dolly?.kind === 'navigate' && dolly.dx).toBeCloseTo(Math.log(148 / 98), 6);
     expect(calls.at(-1)).toEqual({ kind: 'endNavigate' });
+  });
+
+  it('the navigation ends before the two-finger tap runs (an undo never meets an open camera preview)', () => {
+    const { arbiter, calls } = setup({ onTwoFingerTap: () => calls.push({ kind: 'two' }) });
+    arbiter.down('p', ev(1, 'touch', 300, 200, 0));
+    arbiter.down('p', ev(2, 'touch', 400, 200, 30));
+    arbiter.move('p', ev(2, 'touch', 402, 200, 60)); // within the slop: still a tap, but the pair navigated
+    arbiter.up('p', ev(1, 'touch', 300, 200, 150), false);
+    const kinds = calls.map((c) => c.kind);
+    expect(kinds.slice(-2)).toEqual(['endNavigate', 'two']);
+    expect(kinds.filter((k) => k === 'navigate').length).toBeGreaterThan(0);
+  });
+
+  it('cancel (Esc, blur, the stage replaced) ends a two-finger navigation', () => {
+    const { arbiter, calls } = setup();
+    arbiter.down('p', ev(1, 'touch', 300, 200, 0));
+    arbiter.down('p', ev(2, 'touch', 400, 200, 30));
+    arbiter.move('p', ev(2, 'touch', 450, 200, 60));
+    arbiter.cancel();
+    expect(calls.at(-1)).toEqual({ kind: 'endNavigate' });
+    arbiter.up('p', ev(1, 'touch', 300, 200, 150), false);
+    arbiter.up('p', ev(2, 'touch', 450, 200, 160), false);
+    expect(calls.filter((c) => c.kind === 'endNavigate')).toHaveLength(1);
   });
 
   it('a quick two-finger tap is undo; fingers that rest or travel are not', () => {
@@ -526,5 +635,124 @@ describe('ViewportManager.setPointerArbiter (§20.4)', () => {
     expect(seen.map((s) => s.type)).toEqual(['down', 'move', 'move', 'up']);
     expect(seen.filter((s) => s.type === 'move').every((s) => s.coalesced === 1 && s.pressure === 0.5)).toBe(true);
     off();
+  });
+
+  const base = (claims: ArbiterConfig['claims']): ArbiterConfig => ({
+    buffered: ['touch', 'pen'],
+    slopPx: { touch: 10, pen: 4 },
+    longPressMs: 450,
+    multiTapMs: { touch: 450, pen: 350 },
+    multiTapPx: { touch: 24, pen: 8 },
+    brushDelayMs: 120,
+    twoFingerTapMs: 250,
+    palmMs: 500,
+    routing: () => 'shared',
+    claims,
+    onTap: () => 'select',
+    onDoubleTap: () => {},
+    onLongPress: () => undefined,
+    onTwoFingerTap: () => {},
+  });
+
+  it('a press on chrome inside a pane never reaches the stage or the tool; the pane itself does (C6)', async () => {
+    vi.useRealTimers();
+    rig = await createRig();
+    rig.layout('single');
+    rig.frame();
+    const pane = rig.panes.get('pane-single') as HTMLElement;
+    const chip = document.createElement('button');
+    chip.dataset['ekzaChrome'] = '';
+    Object.assign(chip.style, { position: 'absolute', left: '10px', top: '10px', width: '60px', height: '30px' });
+    pane.append(chip);
+    const seen: string[] = [];
+    rig.app.tools.register({
+      id: 'probe',
+      panel: 'viewport',
+      label: 'Probe',
+      create: () => ({
+        pointerDown: () => seen.push('down') > 0,
+        pointerUp: () => seen.push('up') > 0,
+      }),
+    });
+    rig.app.session.setState((st) => ({ tools: { ...st.tools, viewport: 'probe' } }));
+    const off = rig.vm.setPointerArbiter(createPointerArbiter(base(() => 'tool')));
+    touch(chip, 'pointerdown', 1, 30, 20);
+    touch(chip, 'pointerup', 1, 30, 20);
+    expect(seen).toEqual([]);
+    touch(pane, 'pointerdown', 2, 600, 300);
+    touch(pane, 'pointerup', 2, 600, 300);
+    expect(seen).toEqual(['down', 'up']);
+    // without a stage the chip's press bubbles to the pane as today (Studio Pro)
+    off();
+    touch(chip, 'pointerdown', 3, 30, 20, 'mouse');
+    touch(chip, 'pointerup', 3, 30, 20, 'mouse');
+    expect(seen).toEqual(['down', 'up', 'down', 'up']);
+    chip.remove();
+  });
+
+  it('PICK follows the pointer through the stage (§5.4); without a stage it keeps the mouse values', async () => {
+    vi.useRealTimers();
+    rig = await createRig();
+    rig.layout('single');
+    rig.frame();
+    const pane = rig.panes.get('pane-single') as HTMLElement;
+    const mouse = { controlPx: 6, jointPx: 6, manipulatorPx: 7, cycleRadiusPx: 3, marqueeMinPx: 4 };
+    expect(PICK).toEqual(mouse); // every stage an earlier test installed restored them when it was removed
+    touch(pane, 'pointerdown', 1, 600, 300);
+    touch(pane, 'pointerup', 1, 600, 300);
+    expect(PICK).toEqual(mouse); // Studio Pro: no stage, no switch
+    const off = rig.vm.setPointerArbiter(createPointerArbiter(base(() => 'navigate')));
+    touch(pane, 'pointerdown', 2, 600, 300);
+    expect(PICK.controlPx).toBe(POINTER_TOLERANCE.touch.pickPx);
+    expect(PICK.cycleRadiusPx).toBe(POINTER_TOLERANCE.touch.multiTapPx);
+    expect(PICK.marqueeMinPx).toBe(POINTER_TOLERANCE.touch.slopPx);
+    touch(pane, 'pointerup', 2, 600, 300);
+    touch(pane, 'pointermove', 3, 610, 300, 'pen');
+    expect(PICK.jointPx).toBe(POINTER_TOLERANCE.pen.pickPx);
+    touch(pane, 'pointermove', 4, 620, 300, 'mouse');
+    expect(PICK).toEqual(mouse);
+    touch(pane, 'pointerdown', 5, 600, 300);
+    expect(PICK.controlPx).toBe(POINTER_TOLERANCE.touch.pickPx);
+    off(); // removing the stage (the shell unmounts) gives Studio Pro its values back
+    expect(PICK).toEqual(mouse);
+  });
+
+  it('a buffered press puts the press policy on its pane: no selection, no callout (§4.1, C10)', async () => {
+    vi.useRealTimers();
+    rig = await createRig();
+    rig.layout('single');
+    rig.frame();
+    const pane = rig.panes.get('pane-single') as HTMLElement;
+    const off = rig.vm.setPointerArbiter(createPointerArbiter(base(() => 'navigate')));
+    expect(pane.style.touchAction).toBe('none'); // every pane, from the manager
+    touch(pane, 'pointerdown', 1, 600, 300);
+    touch(pane, 'pointerup', 1, 600, 300);
+    expect(pane.style.getPropertyValue('user-select')).toBe('none'); // (-webkit-touch-callout: WebKit only)
+    off();
+  });
+
+  it('a shot camera’s navigate gesture commits once, at endNavigate, whatever the pauses (§20.3 item 1)', async () => {
+    vi.useRealTimers();
+    rig = await createRig();
+    addCamera(rig.app, shotCamera({ locked: false }));
+    rig.layout('split');
+    rig.frame();
+    expect(rig.vm.paneState('pane-left')?.cameraKind).toBe('shot');
+    const local: number[] = [];
+    rig.app.store.subscribe((batch) => {
+      if (batch.origin === 'local') local.push(batch.version);
+    });
+    rig.vm.navigate('pane-left', 'dolly', Math.log(1.2), 0);
+    await new Promise((resolve) => setTimeout(resolve, 200)); // longer than the wheel's 120 ms burst
+    rig.vm.navigate('pane-left', 'pan', 12, 0);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(local).toHaveLength(0);
+    expect(rig.app.store.preview?.active).toBe(true);
+    rig.vm.endNavigate('pane-left');
+    expect(local).toHaveLength(1);
+    expect(rig.app.store.preview).toBeNull();
+    expect(rig.app.store.undo.canUndo()).toBe(false);
+    rig.vm.endNavigate('pane-left'); // nothing open: a no-op
+    expect(local).toHaveLength(1);
   });
 });
