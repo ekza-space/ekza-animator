@@ -1,0 +1,102 @@
+{
+  "provider": "tripo",
+  "source": "Request and response shapes of the Tripo international API v3 documentation (developers.tripo3d.ai/en/docs/*.md: generation-text-to-model/p, generation-image-to-model/p, files, animations-rig, mesh-decimate, task-query, error-handling, rate-limits), read 2026-10-24. Examples from the docs, not live captures; scripts/smoke-real.ts --record writes live exchanges in this format.",
+  "cases": [
+    {
+      "name": "P1 text-to-model, standard texture",
+      "call": { "kind": "submit", "stage": 0, "request": { "provider": "tripo", "op": "text-to-model", "prompt": "a cute cat", "params": { "faceLimit": 2000 } } },
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/generation/text-to-model", "json": { "prompt": "a cute cat", "model": "P1-20260311", "texture": true, "pbr": false, "texture_quality": "standard", "face_limit": 2000 } },
+          "response": { "status": 200, "json": { "code": 0, "data": { "task_id": "task_abc123" } } }
+        }
+      ],
+      "expect": { "taskId": "task_abc123" }
+    },
+    {
+      "name": "P1 image-to-model: multipart upload, then the file token as input",
+      "call": { "kind": "submit", "stage": 0, "request": { "provider": "tripo", "op": "image-to-model", "images": [{ "upload": "up_1" }], "params": { "texture": "none" } }, "images": ["image/png"] },
+      "exchanges": [
+        { "request": { "method": "POST", "path": "/files", "multipart": true }, "response": { "status": 200, "json": { "code": 0, "data": { "file_token": "file_abc123" } } } },
+        {
+          "request": { "method": "POST", "path": "/generation/image-to-model", "json": { "input": "file_abc123", "model": "P1-20260311", "texture": false, "pbr": false } },
+          "response": { "status": 200, "json": { "code": 0, "data": { "task_id": "task_img1" } } }
+        }
+      ],
+      "expect": { "taskId": "task_img1" }
+    },
+    {
+      "name": "rig v3.0 with VRM bone naming, input = the earlier task",
+      "call": { "kind": "submit", "stage": 0, "request": { "provider": "tripo", "op": "rig", "source": { "job": "job_1" }, "params": { "skeleton": "vrm" } }, "source": { "taskId": "task_abc123" } },
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/animations/rig", "json": { "input": "task_abc123", "model": "v3.0-20260909", "rig_type": "biped", "spec": "vrm", "out_format": "glb" } },
+          "response": { "status": 200, "json": { "code": 0, "data": { "task_id": "task_rig1" } } }
+        }
+      ],
+      "expect": { "taskId": "task_rig1" }
+    },
+    {
+      "name": "retopology v3.0 of an uploaded GLB, quads",
+      "call": { "kind": "submit", "stage": 0, "request": { "provider": "tripo", "op": "retopology", "source": { "upload": "up_2" }, "params": { "faceLimit": 3000, "quad": true } }, "source": { "bytes": "cube" } },
+      "exchanges": [
+        { "request": { "method": "POST", "path": "/files", "multipart": true }, "response": { "status": 200, "json": { "code": 0, "data": { "file_token": "file_glb1" } } } },
+        {
+          "request": { "method": "POST", "path": "/mesh/decimate", "json": { "input": "file_glb1", "model": "v3.0", "quad": true, "bake": true, "face_limit": 3000 } },
+          "response": { "status": 200, "json": { "code": 0, "data": { "task_id": "task_retopo1" } } }
+        }
+      ],
+      "expect": { "taskId": "task_retopo1" }
+    },
+    {
+      "name": "task detail: success (docs example), credits with two decimals",
+      "call": { "kind": "status", "op": "text-to-model", "stage": 0, "taskId": "task_abc123" },
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/tasks/task_abc123" },
+          "response": {
+            "status": 200,
+            "json": { "code": 0, "data": { "task_id": "task_abc123", "type": "text_to_model", "status": "success", "progress": 100, "output": { "model_url": "https://cdn.tripo3d.ai/output/model_pbr.glb", "rendered_image_url": "https://cdn.tripo3d.ai/output/preview.png" }, "credits_consumed": 100.0, "created_at": "2026-04-28T12:00:00Z", "completed_at": "2026-04-28T12:01:30Z" } }
+          }
+        }
+      ],
+      "expect": { "state": "succeeded", "progress": 100, "credits": 100, "outputs": [{ "role": "model", "url": "https://cdn.tripo3d.ai/output/model_pbr.glb" }, { "role": "thumbnail", "url": "https://cdn.tripo3d.ai/output/preview.png" }], "error": null }
+    },
+    {
+      "name": "task detail: running",
+      "call": { "kind": "status", "op": "text-to-model", "stage": 0, "taskId": "task_abc123" },
+      "exchanges": [{ "request": { "method": "GET", "path": "/tasks/task_abc123" }, "response": { "status": 200, "json": { "code": 0, "data": { "task_id": "task_abc123", "type": "text_to_model", "status": "running", "progress": 42, "created_at": "2026-04-28T12:00:00Z" } } } }],
+      "expect": { "state": "running", "progress": 42, "credits": null, "outputs": [], "error": null }
+    },
+    {
+      "name": "task detail: banned (content policy)",
+      "call": { "kind": "status", "op": "image-to-model", "stage": 0, "taskId": "task_bad" },
+      "exchanges": [{ "request": { "method": "GET", "path": "/tasks/task_bad" }, "response": { "status": 200, "json": { "code": 0, "data": { "task_id": "task_bad", "type": "image_to_model", "status": "banned", "progress": 0, "created_at": "2026-04-28T12:00:00Z" } } } }],
+      "expect": { "state": "blocked", "error": { "code": "moderation", "retryable": false } }
+    },
+    {
+      "name": "task detail: failed with a content-policy code",
+      "call": { "kind": "status", "op": "image-to-model", "stage": 0, "taskId": "task_bad2" },
+      "exchanges": [{ "request": { "method": "GET", "path": "/tasks/task_bad2" }, "response": { "status": 200, "json": { "code": 0, "data": { "task_id": "task_bad2", "status": "failed", "progress": 0, "error_code": 2008, "error_message": "Content policy violation", "credits_consumed": 0.0 } } } }],
+      "expect": { "state": "blocked", "credits": 0, "error": { "code": "moderation", "retryable": false } }
+    },
+    {
+      "name": "create refused: insufficient credits (HTTP 403, code 2010)",
+      "call": { "kind": "submit", "stage": 0, "request": { "provider": "tripo", "op": "text-to-model", "prompt": "a cup", "params": {} } },
+      "exchanges": [{ "request": { "method": "POST", "path": "/generation/text-to-model" }, "response": { "status": 403, "json": { "code": 2010, "status": "error", "message": "Insufficient credits", "suggestion": "Top up", "request_id": "req_1" } } }],
+      "expect": { "error": { "code": "insufficient-credits", "sent": "no", "retryable": false } }
+    },
+    {
+      "name": "create refused: concurrency limit (429, code 2000, Retry-After)",
+      "call": { "kind": "submit", "stage": 0, "request": { "provider": "tripo", "op": "text-to-model", "prompt": "a cup", "params": {} } },
+      "exchanges": [{ "request": { "method": "POST", "path": "/generation/text-to-model" }, "response": { "status": 429, "headers": { "retry-after": "5" }, "json": { "code": 2000, "status": "error", "message": "Concurrency limit exceeded" } } }],
+      "expect": { "error": { "code": "rate-limited", "sent": "no", "retryable": true, "retryAfterMs": 5000 } }
+    },
+    {
+      "name": "create refused: retired model version (code 2015)",
+      "call": { "kind": "submit", "stage": 0, "request": { "provider": "tripo", "op": "text-to-model", "prompt": "a cup", "params": {} } },
+      "exchanges": [{ "request": { "method": "POST", "path": "/generation/text-to-model" }, "response": { "status": 400, "json": { "code": 2015, "status": "error", "message": "Version deprecated" } } }],
+      "expect": { "error": { "code": "invalid-input", "sent": "no", "retryable": false } }
+    }
+  ]
+}

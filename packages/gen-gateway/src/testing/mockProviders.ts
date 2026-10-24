@@ -57,8 +57,10 @@ export interface MockProviderServer {
 }
 
 export interface MockOptions {
-  /** Status polls a task spends running before it succeeds (default 2). */
+  /** The status poll at which a task ends (default 2: queued, running, then the outcome). */
   readonly pollsToFinish?: number;
+  /** Status polls a provider's tasks stay queued (default 1). */
+  readonly pollsQueued?: Partial<Record<MockProvider, number>>;
   /** The model bytes a finished task serves (default: a cube GLB). */
   readonly modelBytes?: (task: MockTask) => Uint8Array;
   readonly keys?: { readonly tripo?: string; readonly meshy?: string };
@@ -120,7 +122,7 @@ export async function startMockProviders(opts?: MockOptions): Promise<MockProvid
       t.stepBack = false;
       return 'queued';
     }
-    if (t.polls <= 1) return 'queued';
+    if (t.polls <= (opts?.pollsQueued?.[t.provider] ?? 1)) return 'queued';
     if (t.polls <= pollsToFinish) return 'running';
     return t.outcome;
   };
@@ -296,7 +298,7 @@ export async function startMockProviders(opts?: MockOptions): Promise<MockProvid
           return;
         }
       }
-      if ((coll === 'text' || coll === 'image') && body['ai_model'] !== 'meshy-t2.5') {
+      if ((kind === 'preview' || kind === 'image') && body['ai_model'] !== 'meshy-t2.5') {
         send(res, 400, { message: 'mock expects the pinned meshy-t2.5' });
         return;
       }
@@ -314,7 +316,7 @@ export async function startMockProviders(opts?: MockOptions): Promise<MockProvid
       const t = tasks.get(m[2] as string);
       if (req.method === 'DELETE') {
         if (t === undefined) send(res, 404, { message: 'not found' });
-        else if (t.polls <= 1 && t.outcome !== 'canceled') {
+        else if (t.polls <= (opts?.pollsQueued?.meshy ?? 1) && t.outcome !== 'canceled') {
           t.outcome = 'canceled';
           send(res, 200, {});
         } else send(res, 409, { message: 'Task is in progress' });

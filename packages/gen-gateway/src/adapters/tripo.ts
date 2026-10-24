@@ -312,10 +312,10 @@ async function status(_stage: number, taskId: string, ctx: TaskContext): Promise
         : [],
     credits: num(data['credits_consumed']),
     error:
-      state === 'failed' || state === 'blocked'
-        ? errorCode === 2008
-          ? { code: 'moderation', message: errorMessage, retryable: false }
-          : { code: 'provider-failed', message: errorMessage, retryable: true }
+      state === 'blocked' || (state === 'failed' && errorCode === 2008)
+        ? { code: 'moderation', message: str(data['error_message']) ?? 'Tripo blocked the request under its content policy.', retryable: false }
+        : state === 'failed'
+          ? { code: 'provider-failed', message: errorMessage, retryable: true }
         : state === 'expired'
           ? { code: 'expired', message: 'Tripo no longer has the results of this task.', retryable: false }
           : null,

@@ -23,8 +23,10 @@ async function readJsonDir<T>(dir: string): Promise<T[]> {
 }
 
 export class FileJobStore extends MemoryJobStore {
-  private constructor(private readonly dir: string) {
+  private readonly dir: string;
+  private constructor(dir: string) {
     super();
+    this.dir = dir;
   }
 
   static async open(dir: string): Promise<FileJobStore> {
@@ -46,7 +48,10 @@ export class FileJobStore extends MemoryJobStore {
 }
 
 export class FileBlobStore implements BlobStore {
-  private constructor(private readonly dir: string) {}
+  private readonly dir: string;
+  private constructor(dir: string) {
+    this.dir = dir;
+  }
 
   static async open(dir: string): Promise<FileBlobStore> {
     await mkdir(join(dir, 'blobs'), { recursive: true, mode: 0o700 });
