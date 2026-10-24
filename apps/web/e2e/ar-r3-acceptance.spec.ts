@@ -1,6 +1,6 @@
 // Auto-Rig acceptance fix round 3 (D10; DECISIONS-OPEN §M AR-D10-*): a tester ran Auto-Rig on a real 35-part
 // low-poly character. Each test replays a reported problem with the UI (drops, clicks, keys) and checks the fix:
-// - AR-D10-1/2/8: a 16-part Cube Lad (Maya default names, 5.1 m tall) keeps every part, hands and feet included; an
+// - AR-D10-1/2/8: a 16-part Cube Lad (DCC default names, 5.1 m tall) keeps every part, hands and feet included; an
 //   unticked part is hidden and marked, follows *Set height*, and is in place when ticked again; the project, header
 //   and VRM are named after the file; ① frames the whole 5 m model (AR-D10-6); ⑤ shows no rig controls (AR-D10-4)
 //   and its VRM holds all 16 parts.
@@ -34,7 +34,7 @@ test('AR-D10-1/2/4/8: a 16-part character keeps every part; an unticked part fol
   expect(state.subject.meshes).toEqual(found);
   await expect(page.getByTestId('ar-parts')).not.toContainText('Looks separate');
   await expect(page.getByTestId('ar-parts-all')).toBeDisabled();
-  // AR-D10-8: Maya's default names give way to the file's
+  // AR-D10-8: the desktop DCC's default names give way to the file's
   await expect(page.getByTestId('ar-subject-name')).toHaveText('split-lad');
   // AR-D10-6: ①'s view frames the 5.1 m model: the camera looks at its middle from far enough to see all of it (it
   // kept the 1.8 m person's view, showing the shins)

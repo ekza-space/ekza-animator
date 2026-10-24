@@ -21,7 +21,7 @@ function checkScale(displayScale: number): void {
 }
 
 /**
- * Graph Editor numeric fields of a handle in Maya convention (MVP-SPEC §4.11.4): time in seconds, value in display
+ * Graph Editor numeric fields of a handle in the DCC convention (MVP-SPEC §4.11.4): time in seconds, value in display
  * units (`displayScale` = 180/π for rotation channels, 1 otherwise). The angle is measured on the forward-pointing
  * vector (out: (dt, dv), in: (−dt, −dv)), ±90° when |dt| < 1e-6 frames; weight = 3·hypot(|dt|/fps, dv·k).
  */

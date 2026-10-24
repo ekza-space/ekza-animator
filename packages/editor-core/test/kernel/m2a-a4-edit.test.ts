@@ -1,5 +1,5 @@
 // M2A-SPEC §5.13 tween family and §5.15.3 value scaling (A4) on the kernel: the formulas of every mode, overshoot
-// and attribute ranges, the 'frame' target (neighbours, the keyAll rule, Channel Box channels, skipped channels),
+// and attribute ranges, the 'frame' target (neighbours, the keyAll rule, Channels panel channels, skipped channels),
 // runs of selected keys, target resolution, the slider gesture (one step, coalesced, Esc) and `scaleKeyValues`.
 import { type TangentType } from '@ekza-studio/anim-core';
 import type { AttrDef, ChannelId, ControlId, CurveId, KeyId, KeyRecord } from '@ekza-studio/doc';
@@ -210,7 +210,7 @@ describe('tweenEdits: the pose at a frame (§5.13 target "frame")', () => {
     setFrame(app, 10);
     const frame = { kind: 'frame', controls: [HAND], channels: null, frame: 10 } as const;
     expect(tweenEdits(app, 'tween', 0, frame).map((e) => e.channel)).toEqual(['@roll']);
-    // A selected Channel Box channel names keyAll: false attributes explicitly.
+    // A channel selected in the Channels panel names keyAll: false attributes explicitly.
     const selected = tweenEdits(app, 'tween', 0, {
       ...frame,
       channels: [
@@ -301,7 +301,7 @@ describe('resolveTweenTarget (§5.13 target resolution and the toggle)', () => {
     expect(resolveTweenTarget(app).label).toBe('Pose @ f7.5');
   });
 
-  it('the pose target uses the key target controls and the selected Channel Box channels', () => {
+  it('the pose target uses the key target controls and the channels selected in the Channels panel', () => {
     const app = waveApp();
     selectControls(app, [HAND]);
     const selection = app.session.getState().selection;

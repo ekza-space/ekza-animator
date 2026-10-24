@@ -64,7 +64,7 @@ of WP-8 (in-app glTF-Validator worker) are not done. Fix round 1 (verifier revie
    `screenOfManipulator()` from the ViewportManager's public API (camera kind `'unknown'`, `locked: false`); without
    graph/timeline probes those functions return null. The fix-round trial applied exactly these lines: typecheck
    clean and E2E-01 passes, so WP-10 drops E2E-01's `test.fixme` with them.
-6. **Keymap**: the shell contributes no bindings; `MAYA_KEYMAP` (WP-7a, contributed by WP-7b's `registerBuiltins`)
+6. **Keymap**: the shell contributes no bindings; `DCC_KEYMAP` (WP-7a, contributed by WP-7b's `registerBuiltins`)
    carries §4.10 including Space tap → `view.toggleMaximize`. Menu items for the shell's own commands are contributed
    by the shell (`shell.*` ids); WP-7b's `BUILTIN_MENU_ITEMS` add the editing commands (same op + args are shown once).
 
@@ -106,7 +106,7 @@ of WP-8 (in-app glTF-Validator worker) are not done. Fix round 1 (verifier revie
   `Toggle*`) and icons (`TANGENT_ICONS`, `INFINITY_ICONS`, `DISPLAY_ICONS`, tools, spaces, camera lock, layouts,
   loops) are available to replace the local stand-ins (WP-6 `panels/graph/controls.tsx`, WP-9 D-3); every token in
   WP-6, WP-6t and WP-9 R-4 is defined in `css/tokens.css`.
-- **WP-7b**: `registerBuiltins` must contribute `MAYA_KEYMAP`, the importers (`gltf-model` → `file.importModel` for
+- **WP-7b**: `registerBuiltins` must contribute `DCC_KEYMAP`, the importers (`gltf-model` → `file.importModel` for
   `glb`/`vrm`, `vrma` → `file.importAnimation`, `ekzanim` → `file.openProject` incl. `ekzanim.json`), exporters,
   export profiles and `BUILTIN_MENU_ITEMS`. The shell's drop/pickers depend on the importer registry.
 - **WP-10**: wire the probes (contract item 5); drop the `test.fixme` gates as they stop triggering (they are inert

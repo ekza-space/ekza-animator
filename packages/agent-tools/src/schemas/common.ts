@@ -70,7 +70,7 @@ export const BODY_PARTS = [
   'all',
 ] as const;
 export const bodyPartName = z.enum(BODY_PARTS).describe('Body part of a humanoid rig, or all.');
-/** Channel Box channels: translate (metres), rotate (degrees at the tool boundary), scale (factor), @attributes. */
+/** Channels panel channels: translate (metres), rotate (degrees at the tool boundary), scale (factor), @attributes. */
 export const CHANNEL_PATTERN = /^(tx|ty|tz|rx|ry|rz|sx|sy|sz|@[A-Za-z_][A-Za-z0-9_]{0,63})$/;
 export const channelName = z
   .string()
@@ -113,7 +113,7 @@ export const direction = (description: string) =>
     ])
     .describe(description);
 
-/** x/y/z values of one Channel Box group, in the parent field's unit. */
+/** x/y/z values of one Channels panel group, in the parent field's unit. */
 export const valueXYZ = (unit: string, min: number, max: number) =>
   z
     .strictObject({

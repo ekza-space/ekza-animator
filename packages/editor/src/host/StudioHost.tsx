@@ -109,8 +109,8 @@ function boot(props: StudioHostProps, push: (href: string) => void): Boot {
   if (params.e2e) {
     app.prefs.setState({
       firstRunDone: !params.firstRun,
-      navProfile: params.nav ?? 'maya',
-      spaceBehaviour: params.space ?? 'maya',
+      navProfile: params.nav ?? 'dcc',
+      spaceBehaviour: params.space ?? 'maximize',
     });
   }
   host = createHostShell({

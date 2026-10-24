@@ -86,7 +86,7 @@ requests.
 | V-11 | `SceneSync` dims meshes for x-ray by switching material `transparent`/`opacity ×0.5`/`depthWrite` per pane and restores them after the frame; flipping `transparent` sets `needsUpdate` (three's `OPAQUE` define is a program parameter WebGLRenderer does not re-check), and both shader variants stay cached. | ADR 0006 §6, per-pane flag on one shared scene; a pixel test checks the blend. |
 | V-12 | Safe-frame masks for shot cameras (research 09 §4.4) and camera bookmarks are not implemented. | Not in the WP-5 list; `CameraRecord.aspect` is stored and can drive it later. |
 | V-13 | Mesh-click picking appends at most one `mesh` candidate (the nearest surface) after controls and joints; its node is the hit triangle's dominant joint (Σ barycentric × skin weight, ties → lower joint index), or for a rigid mesh its nearest node ancestor. Clicks only, never hover. | §4.11.16 priority manipulator > control > joint (> mesh); CPU skinned raycasts are O(triangles). |
-| V-14 | Camera radial: items are the pane's cameras (persp, top, front, side, then live shot cameras by order) clockwise from the top at 72 px; a release inside 18 px of the centre changes nothing. The radial state lives in the manager (`openRadial`/`closeRadial`, `PaneState.radial`); `view.cameraRadial` is `internal` (no menu entry). | Hold-to-pick is the Maya hotbox gesture; one radial at a time. |
+| V-14 | Camera radial: items are the pane's cameras (persp, top, front, side, then live shot cameras by order) clockwise from the top at 72 px; a release inside 18 px of the centre changes nothing. The radial state lives in the manager (`openRadial`/`closeRadial`, `PaneState.radial`); `view.cameraRadial` is `internal` (no menu entry). | Hold-to-pick is the quick-menu gesture of a leading commercial desktop DCC; one radial at a time. |
 | V-15 | Shot cameras: an orthographic camera's navigation zoom is folded into `CameraRecord.orthoHeight` on every write (gestures and framing), and a record whose projection changed gets a new three camera. | Without it, ortho shot zoom and framing were lost on the next record apply, and copying an ortho view to a perspective shot camera kept a perspective camera. |
 | V-16 | Tests that need another WP's implementation are `it.runIf(<probe>)` / `describe.runIf(<probe>)` with the blocking WP named in the title, instead of `test.fixme`. | The probe calls the stub and turns the test on by itself when the implementation lands (§8.1 intent: no weakened assertions). |
 
@@ -112,7 +112,7 @@ requests.
   click-without-move; tool lifecycle with a
   recording gesture (one gesture and one commit per drag, update per move, gimbal single channel, Esc, externally
   ended gesture); kernel gesture tests (one history step per drag, Esc cancel) gated on WP-7a.
-- `navigation.test.ts`: profile tables, Maya tumble/track/dolly, dolly-to-cursor, ortho no-tumble, trackpad
+- `navigation.test.ts`: profile tables, `dcc` tumble/track/dolly, dolly-to-cursor, ortho no-tumble, trackpad
   scroll/pinch, locked shot camera swallows and flashes, unlocked shot navigation = one non-undoable local batch,
   wheel burst commit after 120 ms, no navigation while another preview is active, Esc restores, document changes
   followed, orthographic shot zoom persisted as `orthoHeight` (wheel and framing).

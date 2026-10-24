@@ -26,7 +26,7 @@ import {
   KEYING_CHORDS,
   keyScopeChain,
   LEFT_RIG_REASON,
-  MAYA_KEYMAP,
+  DCC_KEYMAP,
   MODE_MASKS,
   PANEL,
   RIG_KEYMAP,
@@ -195,7 +195,7 @@ describe('the §7 MVP rows and their conformance', () => {
     }
     expect(keys).toEqual([]);
     expect(resolveChord(app.keymap, ch('KeyS'), rigChain(PANEL.viewport, 'skin'))?.op).toBe('rig.animateOnly');
-    expect(resolveChord(app.keymap, ch('KeyS'), rigChain(PANEL.channelBox))?.op).toBe('rig.animateOnly');
+    expect(resolveChord(app.keymap, ch('KeyS'), rigChain(PANEL.channels))?.op).toBe('rig.animateOnly');
   });
 
   it('S never keys in any Rig scope: running what it resolves to leaves the keys hash unchanged', async () => {
@@ -243,7 +243,7 @@ describe('the §7 MVP rows and their conformance', () => {
     );
     const snapshot = (): string[] =>
       chains.flatMap((chain) =>
-        MAYA_KEYMAP.map((row) => JSON.stringify(resolveChord(app.keymap, row.chord, chain) ?? null)),
+        DCC_KEYMAP.map((row) => JSON.stringify(resolveChord(app.keymap, row.chord, chain) ?? null)),
       );
     const before = snapshot();
     await app.rig.load();
@@ -274,7 +274,7 @@ describe('booting straight into Rig & Skin (M6B-C7-15: ?ws=rig, prefs.lastWorksp
     }
     expect(leaks).toEqual([]);
     expect(resolveChord(app.keymap, ch('KeyS'), rigChain(PANEL.viewport))?.op).toBe('rig.animateOnly');
-    // A manipulator drag and a typed Channel Box value write neither overrides nor keys.
+    // A manipulator drag and a typed Channels panel value write neither overrides nor keys.
     const gesture = beginChannelEditGesture(app, 'Rotate', { key: 'auto' });
     gesture.update([{ control: W.lowerArmL, channel: 'rz', value: 0.5 }]);
     gesture.commit();
@@ -372,7 +372,7 @@ describe('entering, leaving and the pose view (§5.17, §5.24)', () => {
     gesture.commit();
     expect(app.rig.testPose.values(W.character).get(W.lowerArmL)).toEqual({ rz: 0.7 });
     expect(app.session.getState().rig.poseView).toBe('test');
-    expect(app.evaluation.channelValues(W.lowerArmL).rz).toBe(0.7); // the Channel Box reads the test pose
+    expect(app.evaluation.channelValues(W.lowerArmL).rz).toBe(0.7); // the Channels panel reads the test pose
     expect(app.history.peekUndo()?.label).toBe('Test Pose');
     expect([keysHash(app), app.store.version, app.session.getState().overrides.size]).toEqual([hash, version, 0]);
     expect(services.toasts.filter((toast) => toast.text === TEST_POSE_TOAST)).toHaveLength(1);
@@ -465,7 +465,7 @@ describe('entering, leaving and the pose view (§5.17, §5.24)', () => {
     expect(app.session.getState().rig.poseView).toBe('test');
   });
 
-  it('a typed Channel Box value in Rig & Skin is a test pose (channel.setValues), never a key', async () => {
+  it('a typed Channels panel value in Rig & Skin is a test pose (channel.setValues), never a key', async () => {
     const app = await rigApp();
     app.prefs.setState({ autoKey: true });
     const hash = keysHash(app);
@@ -739,7 +739,7 @@ describe('keying is impossible in Rig & Skin (§5.17), whichever surface runs it
   /** Ids the runner refuses in Rig & Skin: keying, pose paste/mirror, curve edits. */
   const KEYING_RUNS: readonly (readonly [string, unknown])[] = [
     ['key.set', { channels: 'all' }],
-    ['key.set', { channels: 'selected' }], // the Channel Box's "Key Selected"
+    ['key.set', { channels: 'selected' }], // the Channels panel's "Key Selected"
     ['key.deleteAtFrame', undefined],
     ['pose.mirror', { mode: 'flip' }],
     ['pose.paste', undefined],

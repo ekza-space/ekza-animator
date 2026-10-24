@@ -16,7 +16,7 @@ or lockfile change. Additive public exports beyond §7: the types `CoalescingOpe
 | Contribution registries and `contribute` | `src/registries/registry.ts`, `src/app/kernel.ts` |
 | Editor history (ADR 0013) and doc-entry capture | `src/history/` (`history`, `capture`, `overrides`) |
 | Edit kernel helpers | `src/edit/channels.ts`, `src/edit/keys.ts` (+ `context`, `channelMeta`) |
-| Keymap manager, `MAYA_KEYMAP`, labels | `src/keymap/` |
+| Keymap manager, `DCC_KEYMAP`, labels | `src/keymap/` |
 | Tool registry | `src/tools/registry.ts` |
 | Character registry (async runtimes, recompile, display models, events) | `src/characters/` |
 | Evaluation service | `src/evaluation/` |
@@ -52,7 +52,7 @@ history, and asynchronous runtime creation from `seed-san.vrm` through the asset
    runner/history/playback/evaluation copies are gone, so panels tested with the fake app see production behaviour.
    Documented defaults kept (B-18): strictPut store, first character and first clips active, `firstRunDone: true`,
    platform `other`, no operators, runtimes only with a `skeleton`, `calls` recording. Changes visible to kit users:
-   - the `maya` keymap is contributed (it was an empty preset before);
+   - the `dcc` keymap is contributed (it was an empty preset before);
    - `evaluation.tick()` returns false when no pose changed (e.g. no characters) — the §4.5 contract;
    - a frame change drops override history parts (spec §4.11.0 / ADR 0013 §4), see 4.
 3. **History captures every local undoable commit.** Inside an operator's apply or a gesture commit the doc entry
@@ -81,7 +81,7 @@ history, and asynchronous runtime creation from `seed-san.vrm` through the asset
    `time.togglePlay` when `spaceBehaviour: 'play'`) > contributions (latest first); a more specific scope always
    wins. Auto-repeat fires only `time.step`, `time.prevKey/nextKey`, `view.manipulatorSize`, `edit.undo/redo`.
    `keymap.setOverrides` writes `prefs.keymapOverrides` and vice versa. Labels: US key names, macOS symbols
-   `⌃⌥⇧⌘`. `MAYA_KEYMAP` is contributed by `registerBuiltins` (WP-7b, §7): until 7b lands, `createEditorApp` has
+   `⌃⌥⇧⌘`. `DCC_KEYMAP` is contributed by `registerBuiltins` (WP-7b, §7): until 7b lands, `createEditorApp` has
    no key bindings.
 9. **Display models**: `app.services.models` is a wrapper whose loads wait for `setRenderer`; hosts must call
    `app.services.models.setRenderer(gl)` on the app's services, not on the loader they passed in.
@@ -89,10 +89,10 @@ history, and asynchronous runtime creation from `seed-san.vrm` through the asset
     - `applyChannelEdits` does not toast (it runs on every drag update); `beginChannelEditGesture` toasts skipped
       channels once on commit; operators toast from `result.skipped`. Unknown controls and non-finite values throw
       `invalid-record`; a character without an active clip throws `unsupported`.
-    - Handle "length" (`setKeyHandle`): weighted curves keep the Maya weight `3·hypot(|dt|/fps, dv·k)`
-      (weight-locked keys, the collinear opposite side); non-weighted handles keep `|dt|` (direction only matters).
-      A handle dragged across its key becomes vertical. Weighted unlocked `dt` is limited to the span by scaling the
-      handle (angle kept).
+    - Handle "length" (`setKeyHandle`): weighted curves keep the weight as a leading commercial desktop DCC defines
+      it, `3·hypot(|dt|/fps, dv·k)` (weight-locked keys, the collinear opposite side); non-weighted handles keep
+      `|dt|` (direction only matters). A handle dragged across its key becomes vertical. Weighted unlocked `dt` is
+      limited to the span by scaling the handle (angle kept).
     - `moveKeys` stops a run of moved keys as a block at a non-moved neighbour; two moved keys snapping onto one
       frame keep the one nearer the landing time (scale: the one farther from the pivot, as specified).
     - Locked curves (`CurveRecord.locked`) are skipped by move/scale/tangent/handle/delete; `insertKeyOnCurve`
@@ -113,7 +113,7 @@ history, and asynchronous runtime creation from `seed-san.vrm` through the asset
     session marked clean and the project name taken; partition batches still repair the session and re-evaluate.
     Separately, whenever the doc undo stacks become empty (e.g. a `load` that changed nothing visible and so emitted
     no batch, or `undo.clear()`), every history step loses its document part.
-16. **Coalescing operators** (runner rule 7 needs a way for an operator to coalesce, e.g. Channel Box ↑/↓ nudges
+16. **Coalescing operators** (runner rule 7 needs a way for an operator to coalesce, e.g. Channels panel ↑/↓ nudges
     through `channel.setValues`): an operator definition may carry `coalesce(args) → { key, ms } | null`
     (`CoalescingOperatorDef`, exported). The runner passes `coalesceKey`/`coalesceMs` to its transaction, so the store
     merges the document part, and records the step with that `coalesceKey`, so override-only steps merge in the
@@ -139,9 +139,9 @@ history, and asynchronous runtime creation from `seed-san.vrm` through the asset
 - **WP-7b**: build on `createKernelApp` internals from the same package — `newRecordId(app, kind)`
   (`src/app/internals.ts`) for record IDs, `writeKeyAt`/`ensureCurve` (`src/edit/keys.ts`),
   `cancelChannelEditGestures` for `edit.escape`, `activeLocation` (`src/session/location.ts`). `registerBuiltins`
-  must contribute `MAYA_KEYMAP`. `file.new`/`file.openProject` get history clearing and session repair from the
+  must contribute `DCC_KEYMAP`. `file.new`/`file.openProject` get history clearing and session repair from the
   kernel on the `load` batch. `edit.escape` runs during gestures (18) and must not write the document while a
-  preview is active; `channel.setValues` should declare `coalesce` for Channel Box nudges (16).
+  preview is active; `channel.setValues` should declare `coalesce` for Channels panel nudges (16).
 - **WP-2**: the kernel assumes the memory store records a local batch's undo entry before emitting the batch (the
   naive store does; a lazy fallback attributes the entry at the next history access otherwise), that coalescing
   keeps the entry's `txId` in a new entry object (17), and that partition batches leave the undo stacks alone (15).

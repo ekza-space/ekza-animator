@@ -1047,7 +1047,7 @@ describe('viewport mesh display', () => {
     h.render(camera, colours);
     expect(off(h.pixel(...aboveRight), hex(BACKGROUND), 1)).toBe('');
     expect(off(h.pixel(...aboveLeft), clayFront())).toBe('');
-    // F8: A shows as a surface and its hides stay (Maya: until Show All).
+    // F8: A shows as a surface and its hides stay (until Show All).
     let model = h.app.session.getState().model;
     h.app.session.setState({ model: { ...model, componentMode: 'object' } });
     expect(h.display.picker(a)).toBeNull();

@@ -1,7 +1,7 @@
 # 04 — Web tech stack & performance architecture
 
 - Date: 2026-10-17
-- Scope: the concrete web stack for Ekza Animator (working name) and the runtime architecture that keeps a Maya-class editor at 60 fps in a browser. Covers the app shell, monorepo, 3D rendering (multi-viewport, picking, gizmos, render-on-demand), the Graph Editor/Dope Sheet renderer, state and undo, workers, docking, UI kit, TypeScript and lint tooling, testing/CI, and the license.
+- Scope: the concrete web stack for Ekza Animator (working name) and the runtime architecture that keeps a professional DCC-grade editor at 60 fps in a browser (the interaction reference is a leading commercial desktop DCC, "the desktop DCC" below). Covers the app shell, monorepo, 3D rendering (multi-viewport, picking, gizmos, render-on-demand), the Graph Editor/Dope Sheet renderer, state and undo, workers, docking, UI kit, TypeScript and lint tooling, testing/CI, and the license.
 - Method: npm registry metadata pulled on 2026-10-17 (versions, release dates, peer ranges, licenses), official docs and changelogs (links in §17), and reading the published sources of `three@0.186.1`, `@react-three/fiber@9.8.1`, `@react-three/drei@10.7.9` and `dockview-core@8.4.0`. Sibling Ekza repos were read but not changed.
 - Version policy: pin **exact** versions released **at least 14 days before 2026-10-17** (cut-off 2026-10-03). Where a newer patch exists, it is listed as "next bump".
 - Status: research input. Nothing here is decided until the owner accepts it. Related: `03-ekza-reuse-audit.md` (what to reuse from Ekza code, the VRM round-trip blocker, the collab server options).
@@ -13,7 +13,7 @@
 1. **Shell: Next.js 16 (App Router) for the product site, with the editor as a client-only island.** The editor is not a Next app. It lives in framework-agnostic packages. Next provides the landing page, docs, the iframe `/embed` route for Ekza Studio, and small HTTP routes (upload proxy, auth callback). A tiny Vite 8 `playground` app proves that the editor can be embedded without Next, and it runs browser tests. Collaboration never runs inside Next, because serverless hosts cannot keep WebSockets open.
 2. **Monorepo:** pnpm 11 workspaces with `catalog:` versions, Turborepo 2.11 for cached tasks, and "just-in-time" internal TypeScript packages (no build step until we publish). Layering is enforced with dependency-cruiser: `anim-core` has zero dependencies, `doc`/`rig`/`io` have no React and no DOM, and only `editor` imports React.
 3. **3D: one WebGL canvas, many viewports.** A custom `ViewportManager` renders one shared scene through N cameras using scissor rectangles that follow the docking panels. This replaces both drei `<View>` (which gives each view its own portal scene) and multiple `<Canvas>`es (each duplicates GPU memory and costs a WebGL context). `frameloop="demand"` keeps idle cost at zero frames. The pose is evaluated **once per frame**, before all viewports render. No React state ever changes per frame.
-4. **Picking:** control curves (Maya-style rings) are picked analytically in screen space with a pixel tolerance. Skinned meshes are picked with a GPU ID buffer and an async readback (`WebGLRenderer.readRenderTargetPixelsAsync`). The CPU never raycasts a skinned mesh.
+4. **Picking:** control curves (desktop-DCC-style rings) are picked analytically in screen space with a pixel tolerance. Skinned meshes are picked with a GPU ID buffer and an async readback (`WebGLRenderer.readRenderTargetPixelsAsync`). The CPU never raycasts a skinned mesh.
 5. **Graph Editor, Dope Sheet and time slider use Canvas2D**, not SVG or WebGL. Each has layered canvases, adaptive per-pixel curve sampling, binary-search culling, batched `Path2D` drawing and hit-testing over sorted key arrays. The renderer sits behind a `CurveRenderer` interface, so a WebGL backend can replace it if the M0 benchmark fails.
 6. **State has three tiers:** (a) a custom op-log **document kernel**: immutable records, typed-array key buffers, serializable ops with inverses, transactions with gesture coalescing; (b) zustand 5 stores for session and UI state; (c) mutable "hot" buffers for per-frame data. Immer, valtio and jotai are not used for the document. Every op carries stable IDs, so a later Yjs binding translates ops instead of rewriting the store.
 7. **Workers:** IO, validation, bake and export run in a module worker. That worker holds a **replica of the document, kept in sync by the same op stream** (the shape collaboration will use later). It talks over a small typed RPC with cancellation and progress. Pose evaluation and Canvas2D drawing stay on the main thread. No SharedArrayBuffer and no COOP/COEP in the MVP.
@@ -27,7 +27,7 @@
 
 ## 1. Non-functional requirements (performance budgets)
 
-These budgets turn "as comfortable as Maya" into numbers we can test. The reference machine is a 2020-class laptop (Apple M1 or a GTX 1650-class GPU), Chrome stable, a 1440×900 CSS-pixel window at DPR 2.
+These budgets turn "as comfortable as the desktop DCC" into numbers we can test. The reference machine is a 2020-class laptop (Apple M1 or a GTX 1650-class GPU), Chrome stable, a 1440×900 CSS-pixel window at DPR 2.
 
 | Scenario | Budget | How it is measured |
 | --- | --- | --- |
@@ -143,11 +143,11 @@ anim-core  ←  doc  ←  rig  ←  io
             apps/web (Next 16) · apps/playground (Vite 8)
 ```
 
-- **anim-core:** curve and key math (Maya tangent semantics, weighted/non-weighted Hermite/Bezier), evaluation, Euler filter, resampling, key reduction. Pure TS, **zero runtime deps**, deterministic. The same code evaluates in the viewport, draws the graph and bakes in the worker, so what you see is what you export.
+- **anim-core:** curve and key math (the AnimX-compatible tangent model, weighted/non-weighted Hermite/Bezier), evaluation, Euler filter, resampling, key reduction. Pure TS, **zero runtime deps**, deterministic. The same code evaluates in the viewport, draws the graph and bakes in the worker, so what you see is what you export.
 - **doc:** document schema, records, ops, `applyOp`, transactions, undo, change sets, migrations, serialization.
 - **rig:** skeleton and humanoid model (VRM bone map), control rig, constraints, FK/IK. Uses **struct-of-arrays pose buffers** and only `three` *math* classes, never `Object3D`, so it runs in a worker.
 - **io:** glTF/GLB/VRM/VRMA import and export, bake, validation, worker entry and RPC (VRM baking is append-only; see 03 §0.2).
-- **viewport:** imperative three.js (ViewportManager, cameras with Maya navigation, picking, control shapes, manipulators, overlays) with thin R3F bindings.
+- **viewport:** imperative three.js (ViewportManager, cameras with Alt+drag navigation, picking, control shapes, manipulators, overlays) with thin R3F bindings.
 - **curve-editor:** Canvas2D Graph Editor, Dope Sheet and time slider. Renderers and interaction controllers have no React dependency; `editor` wraps them.
 
 **Internal packages are just-in-time:** `exports` points at `./src/index.ts`, and the consuming bundler (Turbopack, Vite, Vitest) compiles them. Nothing is built until we publish. Publishing (e.g. for Ekza Studio or third parties) adds `tsdown` builds via `publishConfig.exports` overrides. The npm scope is an open question (§16).
@@ -205,7 +205,7 @@ rAF tick (EditorScheduler)
 
 1. No `setState` or zustand `set` per frame. Time, playhead, hover and drag previews live in **transient stores** (plain objects plus `subscribe`). Consumers update the DOM or canvas imperatively (`ref.current.style.transform`, canvas redraw).
 2. Document-driven 3D objects (bones, control shapes, constraint helpers) are created and updated by an imperative `SceneSync` that subscribes to doc change sets. There is no React component per bone. R3F composes the app-level scene (canvas, lights, grid, camera rigs, helper toggles).
-3. React subscribes only through narrow selectors (`useStore(store, selector, shallow)`) for panels that change at human speed: channel box values *on gesture end*, outliner, attribute editor.
+3. React subscribes only through narrow selectors (`useStore(store, selector, shallow)`) for panels that change at human speed: Channels panel values *on gesture end*, outliner, attribute editor.
 4. Large lists (outliner, Dope Sheet rows, channel lists) use `@tanstack/react-virtual@3.14.13`.
 5. Handlers are stable (`useCallback` or a module-level controller). Panels never re-render because the clock ticked.
 
@@ -219,11 +219,11 @@ rAF tick (EditorScheduler)
 | Marquee selection | Project all controls and joints into screen rects (CPU) | Dozens to hundreds of items, trivially fast |
 | Static props (later) | `three-mesh-bvh@0.9.15` | BVH is not refit for skinned poses |
 
-Selection priority: manipulator > control > joint > mesh. Alt-click (Maya-style) cycles through overlapping hits.
+Selection priority: manipulator > control > joint > mesh. Alt-click (desktop-DCC convention) cycles through overlapping hits.
 
-### 4.6 Control shapes (Maya-style circles)
+### 4.6 Control shapes (DCC-style circles)
 
-- Rendered with `Line2`/`LineSegments2` + `LineMaterial` (`worldUnits: false`, 1.5–2 px × DPR). They draw in the overlay pass with `depthTest` off ("always on top"), or with a dimmed "occluded" segment pass. Colors follow Maya conventions: left = blue, right = red, center = yellow, selected = white or green.
+- Rendered with `Line2`/`LineSegments2` + `LineMaterial` (`worldUnits: false`, 1.5–2 px × DPR). They draw in the overlay pass with `depthTest` off ("always on top"), or with a dimmed "occluded" segment pass. Colors follow the usual DCC rigging conventions: left = blue, right = red, center = yellow, selected = white or green.
 - The shape is data in the document (control record: shape preset or custom polyline, size, orientation offset, color). That keeps it serializable, collaborative and exportable as extras.
 - Modeling later (splines first) reuses the same polyline/curve primitives and picking. Keep `viewport/curves` generic, not "rig-only".
 
@@ -231,9 +231,9 @@ Selection priority: manipulator > control > joint > mesh. Alt-click (Maya-style)
 
 | Option | Pros | Cons | Use |
 | --- | --- | --- | --- |
-| three `TransformControls` (addon, r186) via drei wrapper or directly | Mature; translate/rotate/scale; world/local; snapping | No **gimbal** mode (essential for Euler-curve animators), no Maya view ring/trackball parity, no rotate-mode feedback arcs | **M1** |
-| drei `PivotControls` | Nice visuals | Matrix-based, different UX, not Maya-like | No |
-| **Custom `ManipulatorKit`** (imperative three objects in `viewport/manipulators`) | Maya parity: Object/World/Gimbal/Parent modes, view-axis ring, trackball, step snap, numeric HUD, "drag along tangent" ring interaction | Costs about 2–3 weeks | **M2** |
+| three `TransformControls` (addon, r186) via drei wrapper or directly | Mature; translate/rotate/scale; world/local; snapping | No **gimbal** mode (essential for Euler-curve animators), no view ring/trackball parity with the desktop DCC, no rotate-mode feedback arcs | **M1** |
+| drei `PivotControls` | Nice visuals | Matrix-based, different UX, not desktop-DCC-like | No |
+| **Custom `ManipulatorKit`** (imperative three objects in `viewport/manipulators`) | Desktop-DCC parity: Object/World/Gimbal/Parent modes, view-axis ring, trackball, step snap, numeric HUD, "drag along tangent" ring interaction | Costs about 2–3 weeks | **M2** |
 
 ### 4.8 Skinned-mesh performance while scrubbing
 
@@ -268,13 +268,13 @@ Selection priority: manipulator > control > joint > mesh. Alt-click (Maya-style)
 ### 5.2 Rendering architecture
 
 - **Two stacked canvases per editor:** *base* (grid, infinity curves, curves, keys, tangent handles) is redrawn only when the view transform or the visible curves change. *Overlay* (playhead, hover, marquee, snapping guides, drag preview) is redrawn cheaply on pointer moves and playback. The outliner and channel list on the left are virtualized DOM.
-- **View transform:** independent time and value scales (`x = (t − t0)·sx`, `y = (v0 − v)·sy`), plus Maya modes: *Frame All (A)*, *Frame Selection (F)*, *Normalize* (per-curve min/max → [−1, 1]) and *Stacked*.
+- **View transform:** independent time and value scales (`x = (t − t0)·sx`, `y = (v0 − v)·sy`), plus the desktop DCC's modes: *Frame All (A)*, *Frame Selection (F)*, *Normalize* (per-curve min/max → [−1, 1]) and *Stacked*.
 - **Adaptive sampling:** for each visible segment `[k_i, k_{i+1}]`, use `n = clamp(ceil(Δx_px / 3), 2, 256)` samples through the **same `anim-core` evaluator** the viewport uses. Linear segments use one `lineTo`. Stepped segments use two. Weighted (2D Bezier) tangents are drawn directly with `bezierCurveTo` using the transformed control points, which is exact and needs no sampling.
 - **Culling:** keys are sorted by time per curve, so a binary search gives the visible index range `[lo, hi]`. Cached per-segment value bounds (from the Bezier hull) skip segments outside the visible value range.
-- **Batching:** one `Path2D` per (curve color × state) for lines, one `Path2D` for all unselected key squares, and one for selected keys. That is about 3 `fill`/`stroke` calls per curve instead of one per key. Each curve's base color follows Maya (X red, Y green, Z blue, others white or yellow).
+- **Batching:** one `Path2D` per (curve color × state) for lines, one `Path2D` for all unselected key squares, and one for selected keys. That is about 3 `fill`/`stroke` calls per curve instead of one per key. Each curve's base color follows the desktop DCC (X red, Y green, Z blue, others white or yellow).
 - **hi-DPI:** backing store = CSS size × DPR via `ResizeObserver` (`devicePixelContentBoxSize` where available; **Safari does not implement it**, so fall back to `contentRect × devicePixelRatio`), `ctx.setTransform(dpr, 0, 0, dpr, 0, 0)`, and 1 px lines at `x + 0.5`.
 - **Hit-testing order:** tangent handle > key > curve segment > empty (marquee). Key hits use binary search in `[t − tol, t + tol]` and then a value check. Curve hits use distance to the sampled polyline of the segment under the cursor. The marquee is a range query per visible curve.
-- **Interaction state machine** (one per editor): idle → hover → press → (drag-keys | drag-tangent | marquee | pan | zoom) → commit or cancel (Esc restores). Every drag runs inside a document **gesture** (§6.3), so one undo step covers the whole drag. Pointer capture is required. Pointer Lock is used for infinite "virtual slider" drags (Maya's middle-mouse drag in the channel box).
+- **Interaction state machine** (one per editor): idle → hover → press → (drag-keys | drag-tangent | marquee | pan | zoom) → commit or cancel (Esc restores). Every drag runs inside a document **gesture** (§6.3), so one undo step covers the whole drag. Pointer capture is required. Pointer Lock is used for infinite "virtual slider" drags (the desktop DCC's middle-mouse drag in its channels panel).
 - **Shared code:** Dope Sheet and time slider reuse the transform, culling, batching and hit-testing modules. A key tick in the time slider and a Dope Sheet cell are just different glyph painters.
 
 ---
@@ -286,7 +286,7 @@ Selection priority: manipulator > control > joint > mesh. Alt-click (Maya-style)
 | Tier | Contents | Store | Undo | Collaborative later |
 | --- | --- | --- | --- | --- |
 | **Document** | assets (by content hash), rigs, controls, constraints, clips, curves, keys, scene/characters, project settings | custom op-log kernel (`packages/doc`), exposed through a zustand vanilla store for subscriptions | yes (op inverses) | yes (op ↔ Yjs binding) |
-| **Session/UI** | selection, current time, playback, tool and manipulator mode, viewport cameras, panel layout, graph view transforms, preferences | zustand 5 slices (`subscribeWithSelector`), layout in dockview JSON | selection: optional (Maya puts selection in the undo queue; make it a preference) | presence/awareness, not the document |
+| **Session/UI** | selection, current time, playback, tool and manipulator mode, viewport cameras, panel layout, graph view transforms, preferences | zustand 5 slices (`subscribeWithSelector`), layout in dockview JSON | selection: optional (the desktop DCC puts selection in the undo queue; make it a preference) | presence/awareness, not the document |
 | **Hot/transient** | evaluated pose buffers, projected control polylines, hover, drag preview | mutable singletons and typed arrays | no | no |
 
 ### 6.2 Why not immer, mutative, valtio or jotai for the document
@@ -325,7 +325,7 @@ type Op =
 ```
 
 - **Transactions:** `doc.transact(label, tx => …)` applies ops, emits one `ChangeSet` (`{ changedRecords: Set<Id>, changedCurves: Set<Id> }`) and pushes `{label, ops, inverses}` onto the undo stack.
-- **Gestures:** `beginGesture('Move keys')` applies ops live for preview, `commitGesture()` compacts them into one entry (first `before` + last `after` per key), and `cancelGesture()` reverts. This is needed for Maya-like drags and for collaboration (one network update per gesture plus a throttled live preview).
+- **Gestures:** `beginGesture('Move keys')` applies ops live for preview, `commitGesture()` compacts them into one entry (first `before` + last `after` per key), and `cancelGesture()` reverts. This is needed for desktop-DCC-like drags and for collaboration (one network update per gesture plus a throttled live preview).
 - **Change routing:** the evaluator invalidates caches only for changed curves. The Graph Editor redraws only if a changed curve is visible. `SceneSync` updates only changed controls. React panels re-render only through their selectors.
 - **Determinism:** ops are plain data, so the same ops feed undo, the autosave journal, the worker replica (§7), tests (replay and fuzzing) and, later, Yjs.
 - **Schema versioning:** every saved document has `schemaVersion`. Migrations are pure functions in `doc/migrations`.
@@ -371,7 +371,7 @@ type Op =
 
 **Decision: dockview 8.** The MIT edition includes everything we need: dockable grid, floating groups, popouts, edge groups, maximize, save/restore, theming, keyboard navigation. Enterprise-only features (layout history, multi-row tabs, smart guides, keyboard docking) are not needed. Mitigate the open-core risk with a `WorkspaceHost` adapter (panel registry + serialized layout) so FlexLayout can replace it. `allotment` is fine *inside* a panel for fixed splits (for example the Graph Editor's outliner | curves).
 
-Panel set for M1: Viewport (N instances), Outliner, Channel Box, Attribute Editor, Graph Editor, Dope Sheet, Time Slider + Range Slider, Clip/Trax list, Script/Console (later). Presets ("Animation", "Rigging", "Graph-heavy") ship as JSON layouts. Viewports use `renderer: 'always'` so the canvas registration survives tab switches.
+Panel set for M1: Viewport (N instances), Outliner, Channels, Attribute Editor, Graph Editor, Dope Sheet, Time Slider + Range Slider, Clip/Trax list, Script/Console (later). Presets ("Animation", "Rigging", "Graph-heavy") ship as JSON layouts. Viewports use `renderer: 'always'` so the canvas registration survives tab switches.
 
 ---
 
@@ -379,9 +379,9 @@ Panel set for M1: Viewport (N instances), Outliner, Channel Box, Attribute Edito
 
 - **Tailwind CSS 4.3.3** (`@tailwindcss/postcss` in Next, `@tailwindcss/vite` in the playground). Tokens live in CSS (`@theme`: colors, 4 px spacing grid, radii, font sizes 11/12/13 px). Pro density: 22–24 px rows, 11–12 px UI text, a tabular-number monospace face for numeric fields. Dark theme first. All colors are CSS variables, so panels, the 2D canvases and 3D overlays read **the same tokens** (canvas painters read computed variables once per theme change).
 - **shadcn/ui components copied into `packages/ui`** (we own the code) on **Radix primitives** (`radix-ui@1.6.7`, unified package; 1.8.x next). Radix's Menubar, ContextMenu, DropdownMenu, Popover, Tooltip, Dialog, Slider and Toggle Group cover a DCC shell. Base UI (`@base-ui/react@1.8.0`, MUI team) is an equivalent alternative that shadcn also supports. The choice is cheap to revisit because the components are ours.
-- **CSS Modules** are allowed for bespoke widgets (channel-box virtual sliders, timeline chrome) where utility classes get noisy.
+- **CSS Modules** are allowed for bespoke widgets (Channels-panel virtual sliders, timeline chrome) where utility classes get noisy.
 - **Icons:** `lucide-react@1.50.0` (ISC) for generic actions, plus our own `ui/icons` SVG set for animation glyphs that lucide lacks: tangent types (auto, spline, clamped, linear, flat, stepped, plateau), break/unify, weighted, key/breakdown, infinity modes.
-- **Keymap:** our own context-aware keymap (focused panel > global), Maya preset first. Browser constraints: some chords cannot be intercepted (`Ctrl/Cmd+W/T/N` in Chrome). Alt+drag conflicts with window managers on some Linux desktops, so offer an alternative navigation preset (e.g. middle-mouse based). Suppress the context menu (for marking menus later) and Windows middle-click autoscroll. The Keyboard Lock API works only in fullscreen. A desktop wrapper (Tauri) is a later option for full shortcut capture.
+- **Keymap:** our own context-aware keymap (focused panel > global), the `dcc` preset first. Browser constraints: some chords cannot be intercepted (`Ctrl/Cmd+W/T/N` in Chrome). Alt+drag conflicts with window managers on some Linux desktops, so offer an alternative navigation preset (e.g. middle-mouse based). Suppress the context menu (for marking menus later) and Windows middle-click autoscroll. The Keyboard Lock API works only in fullscreen. A desktop wrapper (Tauri) is a later option for full shortcut capture.
 
 ---
 
@@ -414,7 +414,7 @@ Fallback if TS 7 blocks something critical: TS 6.0.3 + ESLint 10 + typescript-es
 
 ### 11.1 Unit and property tests (Vitest 5.0.3, Node environment)
 
-- `anim-core`: tangent math against reference values (Maya semantics documented in the anim research), Euler filter, resample/reduce round-trip error bounds. **Property-based tests with `fast-check@4.10.2`:** evaluation is continuous for smooth tangents, monotonic time is preserved, `reduce(resample(c))` stays within ε.
+- `anim-core`: tangent math against reference values (desktop-DCC semantics documented in the anim research), Euler filter, resample/reduce round-trip error bounds. **Property-based tests with `fast-check@4.10.2`:** evaluation is continuous for smooth tangents, monotonic time is preserved, `reduce(resample(c))` stays within ε.
 - `doc`: for any random op sequence, `apply(op)` followed by `apply(inverse(op))` equals the original doc; gesture compaction is equivalent to the uncompacted ops; migrations are idempotent.
 - `io`: GLB/VRM/VRMA round-trip on CC0 fixtures, comparing animation samplers within ε, with **`gltf-validator@2.0.0-dev.3.10` reporting 0 errors** on every exported file (warnings are snapshotted).
 - `vitest bench` for evaluation (ns per curve), op application and Graph Editor path building, tracked over time.
@@ -567,7 +567,7 @@ ekza-animator/
 | TS 7 has no API (7.1 pending); some tools may need it | `@typescript/typescript6` alias; fallback toolchain in §10.2 |
 | dockview open-core shift | `WorkspaceHost` adapter; FlexLayout as plan B |
 | Canvas2D cannot reach 50k-key budgets in Safari | `CurveRenderer` interface; WebGL curve layer only |
-| Browser-reserved shortcuts break the Maya muscle memory | Remappable keymap, alternative presets, desktop wrapper later |
+| Browser-reserved shortcuts break desktop-DCC muscle memory | Remappable keymap, alternative presets, desktop wrapper later |
 | Next static export cannot set headers or host APIs | The editor never depends on Next server features; uploads go direct to the Ekza API in static mode |
 | SwiftShader may be removed entirely in a future Chromium | Run e2e also on a GPU runner (self-hosted or paid) for nightly screenshot runs |
 | `gltf-validator` npm has had no release since 2024-10 | It is the Khronos reference; pin it; optionally run the CLI binary in CI |
@@ -578,7 +578,7 @@ Open questions for the owner:
 2. Hosted demo: Vercel (matches Ekza web) or a self-hosted container? Do we also want an IPFS static build for the Ekza ecosystem?
 3. MIT vs Apache-2.0: is an explicit patent grant important for expected contributors?
 4. Is a desktop wrapper (Tauri) in scope within 6 months? It changes keymap and file-system decisions.
-5. Should selection changes be in the undo queue by default (Maya behavior) or off?
+5. Should selection changes be in the undo queue by default (the desktop DCC's behavior) or off?
 
 ---
 

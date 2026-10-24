@@ -55,7 +55,7 @@ export async function clickFrame(page: Page, frame: number): Promise<void> {
   await expect.poll(async () => (await call(page, 'state')).clipFrame, { message: `frame ${frame}` }).toBe(frame);
 }
 
-/** Types a value (display units: degrees for rotations) into a Channel Box field and commits it with Enter. */
+/** Types a value (display units: degrees for rotations) into a Channels panel field and commits it with Enter. */
 export async function typeChannel(page: Page, channel: string, value: number): Promise<void> {
   const field = page.getByTestId(`cb-field-${channel}`);
   await field.fill(String(value));

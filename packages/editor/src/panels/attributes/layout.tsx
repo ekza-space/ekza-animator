@@ -1,6 +1,6 @@
 // Layout pieces of the Attributes panel: collapsible sections and label/value grids (shared by its sections).
 import { type JSX, type ReactNode, useId, useState } from 'react';
-import { ChevronIcon } from '../channel-box/kit/icons';
+import { ChevronIcon } from '../channels/kit/icons';
 
 export function Section(props: {
   readonly title: string;

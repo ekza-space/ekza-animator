@@ -8,7 +8,7 @@ export const BEVEL: MeshOpDescriptor = {
   label: 'Bevel',
   kinds: ['edge', 'face'],
   params: [
-    fraction('fraction', 'Fraction', 0.5, { primary: true, description: '× ½ the shortest adjacent edge (Maya)' }),
+    fraction('fraction', 'Fraction', 0.5, { primary: true, description: '× ½ the shortest adjacent edge' }),
     bool('offsetAsFraction', 'Offset as Fraction', true),
     distance('offset', 'Offset', 0.05, { min: 0 }),
     int('segments', 'Segments', 1, { min: 1, max: 3 }),

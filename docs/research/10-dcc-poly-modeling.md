@@ -1,45 +1,46 @@
-# 10 · Maya polygon modeling for low-poly assets and characters → Ekza feature map
+# 10 · Desktop-DCC polygon modeling for low-poly assets and characters → Ekza feature map
 
 > Research note · 2026-10-18 · input for the modeling iteration that replaces and expands ROADMAP M6.
-> Scope: how Autodesk Maya does polygonal box modeling, judged for **low-poly game assets and characters that
-> will be rigged and animated**: modes, selection, the Modeling Toolkit, every core topology tool, normals,
-> snapping, pivots, history, cleanup and the HUD. For each feature: what it does, what it is worth for low-poly,
-> a priority (BASE / NEXT / LATER), the Maya hotkey and a browser-safe Ekza binding, plus the precise geometric
-> behaviour an implementer needs (§4). Blender is cited where it does something better or where its
-> Maya-style keymap is evidence for a binding.
-> Reference versions: Maya 2027 (March 2026; 2027.1 in May 2026) and Maya 2026 help; older help pages (2015–2017)
-> are cited where the current page carries the same text or the current page is incomplete. Blender 5.2 LTS.
-> Product names are used only to describe and compare features. Ekza Animator is not affiliated with Autodesk or
-> the Blender Foundation.
+> Scope: how a leading commercial desktop DCC (below: **the desktop DCC**) does polygonal box modeling, judged for
+> **low-poly game assets and characters that will be rigged and animated**: modes, selection, the Modeling Tools panel,
+> every core topology tool, normals, snapping, pivots, history, cleanup and the HUD. For each feature: what it does,
+> what it is worth for low-poly, a priority (BASE / NEXT / LATER), the desktop DCC's hotkey and a browser-safe Ekza
+> binding, plus the precise geometric behaviour an implementer needs (§4). A popular open-source DCC (below: **the
+> open-source DCC**) is cited where it does something better or where its desktop-DCC-style keymap is evidence for a
+> binding.
+> Reference versions: the desktop DCC's 2027 release (March 2026; 2027.1 in May 2026) and its 2026 help; older help
+> pages (2015–2017) are cited where the current page carries the same text or the current page is incomplete. The
+> open-source DCC: 5.2 LTS. Reference products are named generically; Ekza is not affiliated with any DCC vendor.
 
 ---
 
 ## 0. TL;DR (decisions this note recommends)
 
-1. **Maya's interaction model is the base; Blender contributes three ideas.** Keep Maya's component modes,
-   right-click marking menus (RMB = modes, Shift+RMB = tools, Ctrl+RMB = convert), Ctrl+E extrude, smart extrude
-   (Shift+drag a manipulator), double-click loops, `B` soft selection, `>`/`<` grow/shrink, `D` pivot, `G` repeat
-   and the Multi-Cut gestures. This continues the `maya` keymap preset the animation side already ships, and it
-   matches the owner's muscle memory. Evidence that this costs Blender users little: Blender's own
-   *Industry Compatible* keymap (5.2 LTS) is Maya-flavoured for modeling (`1`–`3` selection modes, `Ctrl+E`
-   extrude, `Ctrl+B` bevel, double-click loop, `B` soft selection, `Ctrl+D`, `P`)
-   ([Blender manual](https://docs.blender.org/manual/en/latest/interface/keymap/industry_compatible.html)).
-   Take from Blender: **Adjust Last Operation** instead of construction history, **modal numeric entry** inside
-   tools, and a **live mirror** preview. A Blender keymap preset is a later data pack, not a fork of the UX.
+1. **The desktop DCC's interaction model is the base; the open-source DCC contributes three ideas.** Keep the
+   desktop DCC's component modes, right-click marking menus (RMB = modes, Shift+RMB = tools, Ctrl+RMB = convert),
+   Ctrl+E extrude, smart extrude (Shift+drag a manipulator), double-click loops, `B` soft selection, `>`/`<`
+   grow/shrink, `D` pivot, `G` repeat and the Multi-Cut gestures. This continues the `dcc` keymap preset the
+   animation side already ships, and it matches the owner's muscle memory. Evidence that this costs open-source-DCC
+   users little: the open-source DCC's own *Industry Compatible* keymap (5.2 LTS) is desktop-DCC-flavoured for
+   modeling (`1`–`3` selection modes, `Ctrl+E` extrude, `Ctrl+B` bevel, double-click loop, `B` soft selection,
+   `Ctrl+D`, `P`) (open-source DCC manual: Industry Compatible keymap).
+   Take from the open-source DCC: **Adjust Last Operation** instead of construction history, **modal numeric
+   entry** inside tools, and a **live mirror** preview. An alternative keymap preset (open-source-DCC style) is a
+   later data pack, not a fork of the UX.
 2. **Scope is polygonal box modeling for low poly**: n-gons allowed, quads where the mesh deforms. No NURBS
    surfaces, no sculpting, no subdivision-surface workflow in BASE (Smooth Mesh Preview is LATER), booleans
    LATER and optional.
-3. **No construction history.** Maya's history is what powers its In-View Editor and Channel Box INPUTS; the
-   help says the extrude manipulator (Show Manipulator Tool) appears only when Construction History is on
-   ([Maya help](https://help.autodesk.com/cloudhelp/2022/ENU/Maya-Modeling/files/GUID-20202ED3-5EC7-420E-860E-EC29D101A7A8.htm)).
+3. **No construction history.** The desktop DCC's history is what powers its In-View Editor and Channels panel
+   INPUTS; the vendor help says the extrude manipulator (Show Manipulator Tool) appears only when Construction
+   History is on.
    We replace it with (a) live primitive parameters until the first topology edit, (b) an Adjust-Last-Operation
    panel generated from operator arg schemas, (c) `G` = repeat last operator, and (d) history only for the
    curve-driven generators of note 08 §9.6. Reasons in §5.
 4. **Every topology operator is a pure function** `(mesh, selection, args) → (mesh′, selection′, provenance)`.
-   `selection′` keeps Maya's chaining (extrude → extrude again); `provenance` (which old elements each new
-   vertex/corner came from, with weights) drives **attribute propagation for UVs, colours, skin weights and morph
+   `selection′` keeps the desktop DCC's chaining (extrude → extrude again); `provenance` (which old elements each
+   new vertex/corner came from, with weights) drives **attribute propagation for UVs, colours, skin weights and morph
    deltas**. That is the bridge to animation: editing a skinned VRM or a rigged model must not break skinning or
-   expressions, which is exactly where Maya needs "Delete Non-Deformer History".
+   expressions, which is exactly where the desktop DCC needs "Delete Non-Deformer History".
 5. **BASE = 65 rows of the §3 matrix** (the six primitives count separately): object/component modes, the
    three marking menus, click/marquee/loop/ring/grow/shrink/convert/border/shell, camera-based selection,
    volume soft selection, Object/World symmetry, six
@@ -48,14 +49,15 @@
    Connect, Target Weld, Merge, Merge to Center, Collapse, Delete Edge/Vertex, Spin/Flip Edge, Combine, Separate,
    Extract, Mirror, Triangulate, Soften/Harden, Reverse/Conform normals, Cleanup lints, Freeze/Reset transforms,
    Center Pivot, Duplicate, poly-count HUD with profile budgets, Toolkit panel, Adjust Last Operation, `G`.
-6. **Browser keymap reality**: Maya's `F11` (face mode) is browser full screen, `F12` (UV mode) is dev tools,
-   `Ctrl+Tab` (multi-component) switches tabs. The **RMB marking menu is the primary mode switch** (it is in
-   Maya too); `F8`/`F9`/`F10` stay; digits `1`/`2`/`3` are added for vertex/edge/face (Blender Industry
-   Compatible, laptop-safe). `Ctrl+E` is Export in Ekza today; §6.3 resolves it.
+6. **Browser keymap reality**: the desktop DCC's `F11` (face mode) is browser full screen, `F12` (UV mode) is dev
+   tools, `Ctrl+Tab` (multi-component) switches tabs. The **RMB marking menu is the primary mode switch** (it is in
+   the desktop DCC too); `F8`/`F9`/`F10` stay; digits `1`/`2`/`3` are added for vertex/edge/face (as in the
+   open-source DCC's Industry Compatible keymap; laptop-safe). `Ctrl+E` is Export in Ekza today; §6.3 resolves it.
 7. **Low-poly specifics the tool must make easy**: a triangle counter against the export profile's budget, one
    deterministic triangulation shared by the viewport and the exporter, hard edges and an auto-smooth angle,
    Spin Edge to control triangulation, symmetry plus Mirror, lints for non-planar/concave n-gons, lamina and
-   non-manifold geometry, and primitives whose defaults are low poly (Maya's default sphere is 760 triangles).
+   non-manifold geometry, and primitives whose defaults are low poly (the desktop DCC's default sphere is 760
+   triangles).
 8. **BASE acceptance** (§7): a tester builds a symmetric low-poly humanoid (≤ 2,000 triangles) from a cube using
    only BASE tools; the mesh is closed, manifold and consistently wound; the GLB passes glTF-Validator and loads
    in three.js and Bevy 0.19; the scripted version of the same build runs as an e2e scenario through operators.
@@ -70,30 +72,30 @@
 | **NEXT** | Second iteration: speed and comfort tools, AI-mesh cleanup (decimate), live mirror |
 | **LATER** | Large or niche: subdivision preview, UV editor, booleans, retopology, topology symmetry |
 
-Key columns: **Maya** = Maya default (help pages cited in §Sources; † = widely used convention not re-verified
-against a current official table). **Ekza** = proposed binding; **M** = same as Maya, **E** = Ekza addition,
-**—** = menus only (as in Maya). Browser column (§6): ✓ safe · ⚠ needs `preventDefault` and QA per browser ·
-✗ unavailable to web pages.
+Key columns: **DCC** = the desktop DCC's default (help pages listed in §Sources; † = widely used convention not
+re-verified against a current official table). **Ekza** = proposed binding; **M** = same as the desktop DCC, **E** =
+Ekza addition, **—** = menus only (as in the desktop DCC). Browser column (§6): ✓ safe · ⚠ needs `preventDefault`
+and QA per browser · ✗ unavailable to web pages.
 
 ---
 
-## 2. Maya vs Blender: what to copy from each
+## 2. Desktop DCC vs open-source DCC: what to copy from each
 
-| Aspect | Maya | Blender | Ekza choice |
+| Aspect | Desktop DCC | Open-source DCC | Ekza choice |
 |---|---|---|---|
-| Mode switch | RMB marking menu on the mesh, `F8` object/component, `F9`–`F12` vertex/edge/face/UV, `Alt+F9` vertex-face, `F7`/`Ctrl+Tab` multi-component ([Select menu](https://help.autodesk.com/cloudhelp/ENU/MayaCRE-Basics/files/GUID-D1BBC051-0EE7-4A91-B4FF-2A369764EC8B.htm), [MTK hotkeys](https://help.autodesk.com/cloudhelp/2023/ENU/Maya-Modeling/files/GUID-DAD42E62-3E23-4A00-93E9-4F4A193F3057.htm)) | `Tab` edit mode, `1`/`2`/`3`; Industry Compatible: `1`–`3` modes, `4` object | RMB menu (primary) + `F8`/`F9`/`F10` + `1`/`2`/`3` |
-| Tool model | Persistent tools picked from Shift+RMB / Modeling Toolkit, then clicked on the mesh (Multi-Cut, Target Weld, Quad Draw) | Modal operators started by a key, finished by a mouse move + click or typed number | Both: tools are state machines (note 08 D7); modal commands accept typed numbers (`Tab` into the field, `Enter` commits) |
-| After-the-fact tweak | In-View Editor / Channel Box INPUTS on the history node | **Adjust Last Operation** panel, `F9` ([manual](https://docs.blender.org/manual/en/latest/interface/undo_redo.html)) | Adjust Last Operation (no history) |
-| Extrude | `Ctrl+E` + manipulator with in-view fields; **smart extrude**: `Shift`+drag the Move/Rotate/Scale manipulator ([help](https://help.autodesk.com/cloudhelp/2022/ENU/Maya-Modeling/files/GUID-20202ED3-5EC7-420E-860E-EC29D101A7A8.htm)) | `E` then move | Both Maya gestures; numeric entry while dragging |
-| Symmetry | Selection-based symmetry modes (Object/World X/Y/Z, Topology), Mirror command, "Instance" mirror | Mirror modifier (live, with clipping) and mesh symmetry options | Maya symmetry + Mirror in BASE; live mirror (instance preview) NEXT |
-| Loops | Multi-Cut `Ctrl`-click, Insert Edge Loop tool, double-click to select | Loop Cut and Slide, `Alt`+click to select | Maya gestures |
-| Merge | Target Weld drag, Merge, Merge to Center, Collapse | `M` merge menu | Maya tools + `M`-hold merge marking menu (E) |
-| History | Construction history on by default; "Delete by Type › History" to bake ([help](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Basics/files/GUID-C17C180D-DA3D-496B-8928-FC21C5D46379.htm)) | None for mesh edits; modifiers for live ops | None (§5); live primitives; generators only for curves |
+| Mode switch | RMB marking menu on the mesh, `F8` object/component, `F9`–`F12` vertex/edge/face/UV, `Alt+F9` vertex-face, `F7`/`Ctrl+Tab` multi-component (vendor help: Select menu, modeling-tools hotkeys) | `Tab` edit mode, `1`/`2`/`3`; Industry Compatible: `1`–`3` modes, `4` object | RMB menu (primary) + `F8`/`F9`/`F10` + `1`/`2`/`3` |
+| Tool model | Persistent tools picked from Shift+RMB / Modeling Tools, then clicked on the mesh (Multi-Cut, Target Weld, Quad Draw) | Modal operators started by a key, finished by a mouse move + click or typed number | Both: tools are state machines (note 08 D7); modal commands accept typed numbers (`Tab` into the field, `Enter` commits) |
+| After-the-fact tweak | In-View Editor / Channels panel INPUTS on the history node | **Adjust Last Operation** panel, `F9` (open-source DCC manual: Undo & Redo) | Adjust Last Operation (no history) |
+| Extrude | `Ctrl+E` + manipulator with in-view fields; **smart extrude**: `Shift`+drag the Move/Rotate/Scale manipulator (vendor help) | `E` then move | Both desktop-DCC gestures; numeric entry while dragging |
+| Symmetry | Selection-based symmetry modes (Object/World X/Y/Z, Topology), Mirror command, "Instance" mirror | Mirror modifier (live, with clipping) and mesh symmetry options | Desktop-DCC symmetry + Mirror in BASE; live mirror (instance preview) NEXT |
+| Loops | Multi-Cut `Ctrl`-click, Insert Edge Loop tool, double-click to select | Loop Cut and Slide, `Alt`+click to select | Desktop-DCC gestures |
+| Merge | Target Weld drag, Merge, Merge to Center, Collapse | `M` merge menu | Desktop-DCC tools + `M`-hold merge marking menu (E) |
+| History | Construction history on by default; "Delete by Type › History" to bake (vendor help) | None for mesh edits; modifiers for live ops | None (§5); live primitives; generators only for curves |
 
-The owner's question "Maya or maybe Blender" therefore resolves to: Maya for *where things are and which keys
-do them* (continuity with the animation side, owner's habits); Blender for *what happens after an operation*
-(adjust last, typed values, live mirror). Neither choice costs extra architecture: both sit on the operator and
-tool registries that already exist (ADR 0008).
+The owner's question "the desktop DCC, or maybe the open-source DCC?" therefore resolves to: the desktop DCC for
+*where things are and which keys do them* (continuity with the animation side, owner's habits); the open-source DCC
+for *what happens after an operation* (adjust last, typed values, live mirror). Neither choice costs extra
+architecture: both sit on the operator and tool registries that already exist (ADR 0008).
 
 ---
 
@@ -101,33 +103,33 @@ tool registries that already exist (ADR 0008).
 
 ### 3.1 Modes and menus
 
-| Feature | What it does in Maya | Low-poly value | Pri | Maya | Ekza |
+| Feature | What it does in the desktop DCC | Low-poly value | Pri | DCC | Ekza |
 |---|---|---|---|---|---|
 | Object / component toggle | Switches between object and last-used component mode | Core | BASE | `F8` | `F8` (M) + RMB "Object Mode" |
 | Vertex / edge / face mode | Component selection type | Core | BASE | `F9` / `F10` / `F11` | `F9`/`F10` (M), `1`/`2`/`3` (E), RMB menu |
 | UV mode | UV components | Needed only with a UV editor | LATER | `F12` | RMB menu only |
 | Vertex-face mode | Per-face-per-vertex components (split normals, colours) | Niche | LATER | `Alt+F9` | RMB menu only |
-| Multi-component | Vertices, edges and faces at once; marquee picks by what is selected, priority vertex → edge → face ([help](https://help.autodesk.com/cloudhelp/ENU/MayaCRE-Basics/files/GUID-ABB00438-68A6-4108-8D79-C362F690E808.htm)) | Convenience | NEXT | `F7` / `Ctrl+Tab` | RMB "Multi" |
-| RMB marking menu | On a mesh: component modes in the upper half, selection and material items below ([Marking menus](https://help.autodesk.com/cloudhelp/2025/ENU/Maya-Basics/files/GUID-8BA1A3AA-4C44-4779-8B22-0AAE3627E8EB.htm)) | Primary mode switch | BASE | RMB | RMB (§6.2) |
+| Multi-component | Vertices, edges and faces at once; marquee picks by what is selected, priority vertex → edge → face (vendor help) | Convenience | NEXT | `F7` / `Ctrl+Tab` | RMB "Multi" |
+| RMB marking menu | On a mesh: component modes in the upper half, selection and material items below (vendor help: Marking menus) | Primary mode switch | BASE | RMB | RMB (§6.2) |
 | Shift+RMB marking menu | Context tools: nothing selected → primitives; object → mesh tools; vertex/edge/face → tools for that type (same page) | Primary tool access | BASE | `Shift`+RMB | same (§6.2) |
-| Ctrl+RMB marking menu | Convert selection (+ Contiguous Edges, perimeters) ([help](https://help.autodesk.com/cloudhelp/ENU/MayaCRE-Basics/files/GUID-DCE04BA9-A2CF-44AA-8045-FFF2392B6796.htm)) | Fast conversions | BASE | `Ctrl`+RMB | same |
-| Ctrl+Shift+RMB | Settings of the active tool: smart extrude, preserve UVs, tweak mode, symmetry, soft select; Insert Edge Loop options ([Marking menus](https://help.autodesk.com/cloudhelp/2025/ENU/Maya-Basics/files/GUID-8BA1A3AA-4C44-4779-8B22-0AAE3627E8EB.htm), [Insert Edge Loop](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Modeling/files/GUID-33D62F72-8E72-4685-A7DC-73C45206F732.htm)) | Tool options without a panel | NEXT | `Ctrl+Shift`+RMB | same |
-| Modeling Toolkit | Docked panel: selection modes, symmetry, soft select, pick styles, tool buttons with their options | Discoverability | BASE | panel | "Toolkit" panel in the Model workspace |
-| Tweak mode | Click-drag an unselected component moves it at once | Fast vertex pushing | BASE (v0.2) | `` ` `` | `` ` `` (M), Move tool option, off by default. *Corrected: MMB-drag does **not** already move the selection in the shipped viewport (plain MMB runs the Channel Box virtual slider when channels are selected and does nothing otherwise); Maya's "middle drag anywhere … to move" is added in M6a B12a (MODELING-PLAN v0.2 §3.7)* |
+| Ctrl+RMB marking menu | Convert selection (+ Contiguous Edges, perimeters) (vendor help) | Fast conversions | BASE | `Ctrl`+RMB | same |
+| Ctrl+Shift+RMB | Settings of the active tool: smart extrude, preserve UVs, tweak mode, symmetry, soft select; Insert Edge Loop options (vendor help: Marking menus, Insert Edge Loop) | Tool options without a panel | NEXT | `Ctrl+Shift`+RMB | same |
+| Modeling Tools | Docked panel: selection modes, symmetry, soft select, pick styles, tool buttons with their options | Discoverability | BASE | panel | "Toolkit" panel in the Model workspace |
+| Tweak mode | Click-drag an unselected component moves it at once | Fast vertex pushing | BASE (v0.2) | `` ` `` | `` ` `` (M), Move tool option, off by default. *Corrected: MMB-drag does **not** already move the selection in the shipped viewport (plain MMB runs the Channels panel virtual slider when channels are selected and does nothing otherwise); the desktop DCC's "middle drag anywhere … to move" is added in M6a B12a (MODELING-PLAN v0.2 §3.7)* |
 
 ### 3.2 Selection
 
-| Feature | What it does in Maya | Low-poly value | Pri | Maya | Ekza |
+| Feature | What it does in the desktop DCC | Low-poly value | Pri | DCC | Ekza |
 |---|---|---|---|---|---|
-| Click / marquee | Shift toggles, Ctrl removes, Ctrl+Shift adds; Marquee or Drag style ([Select Tool](https://help.autodesk.com/cloudhelp/2024/ENU/Maya-Basics/files/GUID-60FD5F79-AC1D-46DE-B66D-2FBE73E15A30.htm)) | Core | BASE | LMB | same as note 09 §6.1 |
+| Click / marquee | Shift toggles, Ctrl removes, Ctrl+Shift adds; Marquee or Drag style (vendor help: Select Tool) | Core | BASE | LMB | same as note 09 §6.1 |
 | Preselection highlight | Highlights the nearest component under the cursor (on by default in the Toolkit) | Precision on dense areas | BASE | — | hover highlight |
 | Camera-based selection | Only components not hidden from the camera; automatic in shaded, off in wireframe/X-ray | Marquee without grabbing the back side | BASE | option | on in shaded, off in X-ray (`Alt+X`) |
-| Edge loop | Double-click an edge: loop both ways, stops at non-quads ([help](https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-EB713BC6-3402-4BE6-8475-BB9FF53439AA.htm)) | Core | BASE | double-click | M |
+| Edge loop | Double-click an edge: loop both ways, stops at non-quads (vendor help) | Core | BASE | double-click | M |
 | Partial loop | Select an edge, `Shift`+double-click a later edge on the same loop | Core | BASE | `Shift`+double-click | M |
-| Edge ring | Select an edge, `Shift`+double-click a parallel edge in its ring ([help](https://help.autodesk.com/cloudhelp/2015/ENU/MayaLT/files/GUID-814BADD4-9D5A-4B01-ACB1-CBAD8D1026E4.htm)) | Core (ring → Connect = loop) | BASE | `Shift`+double-click | M (relation of the two edges decides loop vs ring) |
+| Edge ring | Select an edge, `Shift`+double-click a parallel edge in its ring (vendor help) | Core (ring → Connect = loop) | BASE | `Shift`+double-click | M (relation of the two edges decides loop vs ring) |
 | Face loop | Faces along a quad strip | Limbs, belts | BASE | `Shift`+double-click adjacent face † | M† |
 | Grow / shrink | Expand / contract the region | Core | BASE | `Shift+.` / `Shift+,` (`>` / `<`) | M |
-| Convert selection | To vertices/edges/faces/UVs, perimeter, contained, edge loop/ring | Core | BASE | `Ctrl+F9`–`Ctrl+F12`, Ctrl+RMB ([Modeling hotkeys](https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-0B937D23-49D1-47D4-9B81-3356BA7FD815.htm)) | Ctrl+RMB, `Ctrl+F9`/`Ctrl+F10` ⚠ |
+| Convert selection | To vertices/edges/faces/UVs, perimeter, contained, edge loop/ring | Core | BASE | `Ctrl+F9`–`Ctrl+F12`, Ctrl+RMB (vendor help: Modeling hotkeys) | Ctrl+RMB, `Ctrl+F9`/`Ctrl+F10` ⚠ |
 | Border edges | Select open-boundary edges | Fill Hole, Bridge, Mirror seams | BASE | menu | Ctrl+RMB |
 | Shell | Select the connected piece | Combined meshes | BASE | menu | Ctrl+RMB; double-click a face in face mode (E†) |
 | Select all / invert / none | | | BASE | `Ctrl+Shift+A` / `Ctrl+Shift+I` / `Alt+D` | `Ctrl+A` (E); invert and none via menu, click on empty space (`Ctrl+Shift+I`, `Alt+D` ✗ browser) |
@@ -138,28 +140,23 @@ tool registries that already exist (ADR 0008).
 
 ### 3.3 Soft selection and symmetry
 
-| Feature | What it does in Maya | Low-poly value | Pri | Maya | Ekza |
+| Feature | What it does in the desktop DCC | Low-poly value | Pri | DCC | Ekza |
 |---|---|---|---|---|---|
-| Soft selection | Falloff around the selection: **Volume** (sphere), **Surface** (follows the mesh), Global, Object; curve with Smooth interpolation by default ([Select Tool](https://help.autodesk.com/cloudhelp/2024/ENU/Maya-Basics/files/GUID-60FD5F79-AC1D-46DE-B66D-2FBE73E15A30.htm)) | Shaping heads, terrain, bellies without per-vertex pushing | BASE (Volume) / NEXT (Surface) | `B`; `B`+drag radius, `B`+MMB-drag absolute | `B`, `B`+LMB-drag (M) |
-| Symmetry modes | Off (default), Object X/Y/Z, World X/Y/Z, Topology; MMB on the status-line button toggles last mode | Characters, vehicles | BASE (Object/World) / LATER (Topology) | status line | status line + Toolkit (no default key, as Maya) |
+| Soft selection | Falloff around the selection: **Volume** (sphere), **Surface** (follows the mesh), Global, Object; curve with Smooth interpolation by default (vendor help: Select Tool) | Shaping heads, terrain, bellies without per-vertex pushing | BASE (Volume) / NEXT (Surface) | `B`; `B`+drag radius, `B`+MMB-drag absolute | `B`, `B`+LMB-drag (M) |
+| Symmetry modes | Off (default), Object X/Y/Z, World X/Y/Z, Topology; MMB on the status-line button toggles last mode | Characters, vehicles | BASE (Object/World) / LATER (Topology) | status line | status line + Toolkit (no default key, as in the desktop DCC) |
 | Symmetry tolerance | How close a mirror partner must be; ignored while soft selection is on; keep it a small fraction of vertex spacing (e.g. 0.001 for 0.1 spacing) | Robust pairing | BASE | option | option, default **0.001 m** (in metres, shown in scene units; *revised in MODELING-PLAN v0.2 §3.14, was 0.001 × bbox diagonal*) |
 | Preserve seam | Seam vertices cannot leave the plane, may slide along it; Seam tolerance + falloff | Keeps the centre line closed | BASE | option | on by default |
-| Topology symmetry | Pairs components by connectivity from a picked seam edge; works on posed meshes; partial symmetry allowed ([help](https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-68206E61-CFF0-4C83-9254-B761C51FED98.htm)) | Editing posed or skinned avatars | LATER | option | — |
-| Flip / Symmetrize | Swap with mirror partners / move components to the mirrored position ([Edit Mesh](https://help.autodesk.com/cloudhelp/ENU/MayaCRE-Modeling/files/GUID-8FF5F5FC-2065-438A-AFC8-65A17FA7842F.htm)) | Repair drift between halves | NEXT | menu | menu |
+| Topology symmetry | Pairs components by connectivity from a picked seam edge; works on posed meshes; partial symmetry allowed (vendor help) | Editing posed or skinned avatars | LATER | option | — |
+| Flip / Symmetrize | Swap with mirror partners / move components to the mirrored position (vendor help: Edit Mesh) | Repair drift between halves | NEXT | menu | menu |
 
 ### 3.4 Primitives
 
-Maya command defaults, from the 2026 command reference: cube 1×1×1, 1×1×1 subdivisions; sphere radius 0.5,
-20×20; cylinder radius 1, height 2, 20 axis × 1 height, 0 cap subdivisions (n-gon caps); cone radius 1, height 2,
+The desktop DCC's command defaults, from its 2026 command reference: cube 1×1×1, 1×1×1 subdivisions; sphere radius
+0.5, 20×20; cylinder radius 1, height 2, 20 axis × 1 height, 0 cap subdivisions (n-gon caps); cone radius 1, height 2,
 20 × 1, 0 caps; plane 1×1, 10 width subdivisions (10 height †); torus radius 1, section 0.5, 20×20
-([polyCube](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Commands/polyCube.html),
-[polySphere](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Commands/polySphere.html),
-[polyCylinder](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Commands/polyCylinder.html),
-[polyCone](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Commands/polyCone.html),
-[polyPlane](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Commands/polyPlane.html),
-[polyTorus](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Commands/polyTorus.html)).
+(vendor command reference: `polyCube`, `polySphere`, `polyCylinder`, `polyCone`, `polyPlane`, `polyTorus`).
 
-| Primitive | Maya default → triangles | Ekza low-poly default → triangles | Pri |
+| Primitive | Desktop-DCC default → triangles | Ekza low-poly default → triangles | Pri |
 |---|---|---|---|
 | Cube | 1 subdiv → 12 | same → 12 | BASE |
 | Sphere (UV) | 20×20 → 760 | 12 axis × 8 height → 168 | BASE |
@@ -170,51 +167,52 @@ Maya command defaults, from the 2026 command reference: cube 1×1×1, 1×1×1 su
 | Pipe, prism, disc, platonic solids, helix | various | — | LATER |
 
 - A primitive stays **live** (its parameters editable in Attributes and Adjust Last Operation) until the first
-  topology edit; then it becomes a plain mesh. This is the part of Maya history low-poly modelers use most
+  topology edit; then it becomes a plain mesh. This is the part of desktop-DCC history low-poly modelers use most
   (changing subdivisions on a fresh cylinder) without the rest of history.
-- A preference "Primitive defaults: Low poly | Maya" keeps parity for those who want it.
+- A preference "Primitive defaults: Low poly | DCC" (`primitiveDefaults: 'dcc'`) keeps parity with the desktop DCC for
+  those who want it.
 - Interactive creation (click-drag on the grid) is NEXT; BASE creates at the origin or at the pivot of the
   selection, sized to the grid unit.
 
 ### 3.5 Component transforms, pivots and snapping
 
-| Feature | What it does in Maya | Low-poly value | Pri | Maya | Ekza |
+| Feature | What it does in the desktop DCC | Low-poly value | Pri | DCC | Ekza |
 |---|---|---|---|---|---|
 | W/E/R on components | Move/rotate/scale about the selection centre; axis orientation World / Object / **Component (normal)** | Pushing faces along normals is daily work | BASE | `W`/`E`/`R`, hold + LMB for orientation | M; orientation `Normal` added to the `W`/`E` hold menus |
 | Smart extrude | `Shift`+drag the Move/Rotate/Scale manipulator extrudes then transforms | Fastest extrude | BASE | `Shift`+drag | M |
-| Numeric entry | Channel Box / In-View Editor values | Exact dimensions | BASE | fields | status-line fields + type-while-dragging |
-| Snap to grid / curve / point | Hold `X` grid, `C` curve, `V` vertex/CV/pivot; status line also has face centres, view planes, projected centre, Make Live ([status line](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Basics/files/GUID-86E5CEDA-4100-40AE-8F95-346206CF8456.htm)) | Grid for props, vertex for welding | BASE (grid, vertex) / NEXT (edge, face, live surface) | `X` / `C` / `V` | `X` / `V` hold (M); `C` LATER |
+| Numeric entry | Channels panel / In-View Editor values | Exact dimensions | BASE | fields | status-line fields + type-while-dragging |
+| Snap to grid / curve / point | Hold `X` grid, `C` curve, `V` vertex/CV/pivot; status line also has face centres, view planes, projected centre, Make Live (vendor help: status line) | Grid for props, vertex for welding | BASE (grid, vertex) / NEXT (edge, face, live surface) | `X` / `C` / `V` | `X` / `V` hold (M); `C` LATER |
 | Edit pivot | Custom pivot editing mode | Rotating doors, wheels, limbs | BASE | `D` hold; `Insert`/`Home` toggle (older docs) | `D` hold (M); `Insert` where it exists |
-| Center / Zero / Bake pivot | Pivot to bbox centre / origin; bake custom orientation into the transform ([Modify menu](https://help.autodesk.com/cloudhelp/ENU/MayaCRE-Basics/files/GUID-378D7FF6-492F-4DA4-A468-507E6ABF8B58.htm)) | Clean transforms before export | BASE (Center) / NEXT (Bake) | menu | menu |
+| Center / Zero / Bake pivot | Pivot to bbox centre / origin; bake custom orientation into the transform (vendor help: Modify menu) | Clean transforms before export | BASE (Center) / NEXT (Bake) | menu | menu |
 | Freeze / Reset transformations | Freeze: current transform becomes zero (baked into vertices); Reset: back to zero/last freeze | Mandatory before skinning (§4.19) | BASE | menu (`A`-hold menu has Freeze) | menu; `A`-hold menu NEXT |
 | Slide edge / vertex | Move along adjacent edges | Topology tuning without shape change | NEXT | tool | tool |
 | Average vertices / relax | Smooth positions without new geometry | Organic shapes | NEXT | menu | menu |
 
 ### 3.6 Topology tools
 
-| Feature | What it does in Maya | Low-poly value | Pri | Maya | Ekza |
+| Feature | What it does in the desktop DCC | Low-poly value | Pri | DCC | Ekza |
 |---|---|---|---|---|---|
-| **Extrude** faces | New side faces; options Keep Faces Together (default on), Offset, Thickness, Divisions (1), Local Translate (Z = normal), Curve, Taper, Twist, Smoothing angle 30° ([options](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Modeling/files/GUID-0026EDC2-E6F7-4C57-A22F-CA6D440CE4AD.htm), [polyExtrudeFacet](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Commands/polyExtrudeFacet.html)) | The primary low-poly tool | BASE | `Ctrl+E`; `Ctrl+Shift`+RMB toggles Keep Faces Together | `Ctrl+E` (§6.3), toggle in the in-view fields |
-| Extrude edges | New faces off edges; thickness along connected face normals ([polyExtrudeEdge](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Commands/polyExtrudeEdge.html)); interior edges can produce non-manifold geometry | Skirts, wings, hair cards, extending planes | BASE (border edges) | `Ctrl+E` | M |
+| **Extrude** faces | New side faces; options Keep Faces Together (default on), Offset, Thickness, Divisions (1), Local Translate (Z = normal), Curve, Taper, Twist, Smoothing angle 30° (vendor help: options, `polyExtrudeFacet`) | The primary low-poly tool | BASE | `Ctrl+E`; `Ctrl+Shift`+RMB toggles Keep Faces Together | `Ctrl+E` (§6.3), toggle in the in-view fields |
+| Extrude edges | New faces off edges; thickness along connected face normals (vendor help: `polyExtrudeEdge`); interior edges can produce non-manifold geometry | Skirts, wings, hair cards, extending planes | BASE (border edges) | `Ctrl+E` | M |
 | Extrude vertices | Spike along the vertex normal: Width, Length, Divisions | Horns, spikes | NEXT | `Ctrl+E` | M |
 | Extrude along curve | Uses a path curve (Selected/Generated), Taper, Twist | Tails, tentacles; needs splines | LATER | option | with M6 splines |
-| **Bevel** edges | Offset type Fractional (default) or Absolute, Width, Segments (1), Depth (1), Mitering Auto/Uniform/Patch/Radial/None, Miter Along, Chamfer (on), Smoothing angle 30° ([options](https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-A1C5EC72-AD48-4A7D-8577-1823B3832E14.htm), [polyBevel3](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Commands/polyBevel3.html)) | Chamfers that catch light on props; 1–2 segments | BASE (edges, ≤ 3 segments) | none verified; `Ctrl+B` in Blender's Industry Compatible keymap | `Ctrl+B` (E) ⚠ |
+| **Bevel** edges | Offset type Fractional (default) or Absolute, Width, Segments (1), Depth (1), Mitering Auto/Uniform/Patch/Radial/None, Miter Along, Chamfer (on), Smoothing angle 30° (vendor help: options, `polyBevel3`) | Chamfers that catch light on props; 1–2 segments | BASE (edges, ≤ 3 segments) | none verified; `Ctrl+B` in the open-source DCC's Industry Compatible keymap | `Ctrl+B` (E) ⚠ |
 | Bevel faces | Bevels the boundary of a face region | Panels | NEXT | menu | menu |
-| Smart Bevel (Maya 2027) | Bevel that follows surface shape rather than topology, for meshes after booleans; non-destructive; refined in 2027.1 ([Digital Production](https://digitalproduction.com/2026/03/26/autodesk-ships-maya-2027/), [80.lv](https://80.lv/articles/maya-2027-3ds-max-2027-add-smart-bevel-tool/)) | Only matters with booleans | LATER | menu | — |
-| **Bridge** | Faces between two sets of border edges: Divisions (rows = divisions + 1), Linear / Blend / Curve, Twist, Taper, Bridge offset, start vertices ([polyBridgeEdge](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Commands/polyBridgeEdge.html)) | Joining arms to torsos, closing gaps after Combine | BASE (equal counts, faces variant) | menu | — (Shift+RMB) |
-| Append to Polygon | Click a border edge, then place points to grow a face; Divisions 1, Keep new faces planar on ([help](https://help.autodesk.com/cloudhelp/2015/ENU/MayaLT/files/Append_to_Polygon_Tool.htm)) | Manual patching | NEXT | tool | tool |
-| **Fill Hole** | One n-sided face over a hole fully enclosed by border edges ([help](https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-83ECB78E-950F-455D-B43E-47D76F3F9912.htm)) | Caps, mirror halves | BASE | menu | — |
-| **Multi-Cut** | Click edges/vertices to cut faces; `Ctrl`-click edge loop; `Ctrl`+MMB centred loop; `Ctrl+Shift` snap to Snap Step %; `Shift`-click snaps on an edge; MMB-drag quick slice; RMB completes; `Backspace` removes points; `Esc` cancels ([hotkeys](https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-21E402B5-1ABF-4DD3-A9CE-8B7957F6DF2B.htm)). Successor of the older Split Polygon / Cut Faces tools † | "Split": the owner's second named tool | BASE (edge/vertex points, loops, snap) / NEXT (in-face points, slice plane) | tool | tool, `Enter` also completes |
-| **Insert Edge Loop** | Splits faces across a full or partial edge ring; Relative (default) / Equal distance / Multiple loops (2); Auto complete on; Fix Quads off; Smoothing angle 180; edge flow off ([options](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Modeling/files/GUID-226AECD6-F2C0-48D7-BE16-39E52EE7F075.htm), [polySplitRing](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Commands/polySplitRing.html)); a triangle stops the loop | Joint loops for deformation | BASE (relative, equal, multiple) / LATER (edge flow, profile) | tool | tool; also Multi-Cut `Ctrl`-click |
-| Offset Edge Loop | Two new loops either side of selected edges; end triangles optionally converted to quads ([polyDuplicateEdge](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Commands/polyDuplicateEdge.html)) | Support loops at joints, sharp borders | NEXT | tool | tool |
-| **Connect** | Edges between selected vertices or across selected edges; Connect tool: click edge = loop, `Shift`-click = connect components ([MTK hotkeys](https://help.autodesk.com/cloudhelp/2023/ENU/Maya-Modeling/files/GUID-DAD42E62-3E23-4A00-93E9-4F4A193F3057.htm)) | Precise vertex-to-vertex cuts | BASE | menu/tool | menu/tool |
-| **Target Weld** | Drag one vertex/edge onto another: merges at the target (default) or, with MMB, at the centre; same mesh only ([options](https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-FD1D82F9-7F99-4375-98DB-98D71758CCBD.htm)) | Cleaning up, closing seams | BASE | tool | tool |
-| **Merge** | Merges vertices within a distance; `distance` 0 = coincident only; "always merge two vertices" option ([polyMergeVertex](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Commands/polyMergeVertex.html)) | Seams after Mirror/Combine | BASE | menu | `M`-hold menu (E) |
+| Smart Bevel (2027 release) | Bevel that follows surface shape rather than topology, for meshes after booleans; non-destructive; refined in 2027.1 (release news: Digital Production 2026-03-26; 80.lv) | Only matters with booleans | LATER | menu | — |
+| **Bridge** | Faces between two sets of border edges: Divisions (rows = divisions + 1), Linear / Blend / Curve, Twist, Taper, Bridge offset, start vertices (vendor help: `polyBridgeEdge`) | Joining arms to torsos, closing gaps after Combine | BASE (equal counts, faces variant) | menu | — (Shift+RMB) |
+| Append to Polygon | Click a border edge, then place points to grow a face; Divisions 1, Keep new faces planar on (vendor help) | Manual patching | NEXT | tool | tool |
+| **Fill Hole** | One n-sided face over a hole fully enclosed by border edges (vendor help) | Caps, mirror halves | BASE | menu | — |
+| **Multi-Cut** | Click edges/vertices to cut faces; `Ctrl`-click edge loop; `Ctrl`+MMB centred loop; `Ctrl+Shift` snap to Snap Step %; `Shift`-click snaps on an edge; MMB-drag quick slice; RMB completes; `Backspace` removes points; `Esc` cancels (vendor help: hotkeys). Successor of the older Split Polygon / Cut Faces tools † | "Split": the owner's second named tool | BASE (edge/vertex points, loops, snap) / NEXT (in-face points, slice plane) | tool | tool, `Enter` also completes |
+| **Insert Edge Loop** | Splits faces across a full or partial edge ring; Relative (default) / Equal distance / Multiple loops (2); Auto complete on; Fix Quads off; Smoothing angle 180; edge flow off (vendor help: options, `polySplitRing`); a triangle stops the loop | Joint loops for deformation | BASE (relative, equal, multiple) / LATER (edge flow, profile) | tool | tool; also Multi-Cut `Ctrl`-click |
+| Offset Edge Loop | Two new loops either side of selected edges; end triangles optionally converted to quads (vendor help: `polyDuplicateEdge`) | Support loops at joints, sharp borders | NEXT | tool | tool |
+| **Connect** | Edges between selected vertices or across selected edges; Connect tool: click edge = loop, `Shift`-click = connect components (vendor help: modeling-tools hotkeys) | Precise vertex-to-vertex cuts | BASE | menu/tool | menu/tool |
+| **Target Weld** | Drag one vertex/edge onto another: merges at the target (default) or, with MMB, at the centre; same mesh only (vendor help: options) | Cleaning up, closing seams | BASE | tool | tool |
+| **Merge** | Merges vertices within a distance; `distance` 0 = coincident only; "always merge two vertices" option (vendor help: `polyMergeVertex`) | Seams after Mirror/Combine | BASE | menu | `M`-hold menu (E) |
 | **Merge to Center** | All selected vertices → one at the selection centre | Poles, tips | BASE | menu | `M`-hold menu |
-| **Collapse** | Each selected edge (or face †) collapses to its centre ([Edit Mesh](https://help.autodesk.com/cloudhelp/ENU/MayaCRE-Modeling/files/GUID-8FF5F5FC-2065-438A-AFC8-65A17FA7842F.htm)) | Fast poly reduction | BASE | Shift+RMB | `M`-hold menu |
-| **Delete Edge/Vertex** | Removes edges/vertices and their now-redundant vertices; plain `Delete` on edges keeps the end vertices ([delete edges](https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-689C75D9-88C8-4F55-91B9-02E5C60DF6AC.htm), [delete vertices](https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-935E168B-0392-4E40-B2D8-E0ED18215B1C.htm)) | Removing loops, simplifying | BASE | `Ctrl+Delete` / `Ctrl+Backspace`; `Delete` | M |
+| **Collapse** | Each selected edge (or face †) collapses to its centre (vendor help: Edit Mesh) | Fast poly reduction | BASE | Shift+RMB | `M`-hold menu |
+| **Delete Edge/Vertex** | Removes edges/vertices and their now-redundant vertices; plain `Delete` on edges keeps the end vertices (vendor help: delete edges, delete vertices) | Removing loops, simplifying | BASE | `Ctrl+Delete` / `Ctrl+Backspace`; `Delete` | M |
 | Delete faces | Removes faces (and unused vertices/edges) | Halving for symmetry | BASE | `Delete` | M |
-| **Spin Edge** | Rotates an edge shared by two faces one vertex along its winding; one edge per face; IDs unchanged ([help](https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-FD6D260E-9673-4663-8207-9011D47ED0F5.htm)) | **Controls triangulation and silhouette** | BASE | `Ctrl+Alt+→` / `Ctrl+Alt+←` | M ⚠ (some Windows graphics drivers rotate the screen) |
+| **Spin Edge** | Rotates an edge shared by two faces one vertex along its winding; one edge per face; IDs unchanged (vendor help) | **Controls triangulation and silhouette** | BASE | `Ctrl+Alt+→` / `Ctrl+Alt+←` | M ⚠ (some Windows graphics drivers rotate the screen) |
 | Flip Triangle Edge | Reconnects the diagonal of two triangles | Same, for triangles | BASE | Shift+RMB | Shift+RMB |
 | Add Divisions | Subdivides edges or faces | Quick density | NEXT | menu | menu |
 | Poke / Wedge / Chamfer Vertex / Circularize | Centre vertex; arc extrude; vertex → face; make circular | Stylised details | NEXT (Poke, Chamfer) / LATER | menu | menu |
@@ -223,42 +221,42 @@ Maya command defaults, from the 2026 command reference: cube 1×1×1, 1×1×1 su
 
 ### 3.7 Mesh-level operations
 
-| Feature | What it does in Maya | Low-poly value | Pri | Maya | Ekza |
+| Feature | What it does in the desktop DCC | Low-poly value | Pri | DCC | Ekza |
 |---|---|---|---|---|---|
-| **Combine** | Objects → one mesh; UV sets: No merge / By name / By UV links; pivot Center / Last object / World origin ([options](https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-37FE06C7-0681-4F77-B6C6-B47DE6386178.htm)); skinned variant `polyUniteSkinned` | One mesh per character before binding | BASE | menu | menu |
+| **Combine** | Objects → one mesh; UV sets: No merge / By name / By UV links; pivot Center / Last object / World origin (vendor help: options); skinned variant `polyUniteSkinned` | One mesh per character before binding | BASE | menu | menu |
 | **Separate** | Mesh → one object per shell | Undo a Combine, split parts | BASE | menu | menu |
-| **Extract** | Detach faces; "Separate extracted faces" on by default; Offset ([options](https://help.autodesk.com/cloudhelp/2016/ENU/Maya/files/GUID-885D930E-20B8-4AB9-96D1-91DD0FAE1FDE.htm)) | Armour pieces, accessories | BASE | menu | menu |
-| Duplicate Face | Copy faces as a new shell/object, Offset ([options](https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-8A9AD59F-C12D-4F16-85F0-DA44392B4489.htm)) | Shells, armour from body faces | NEXT | menu | menu |
-| **Mirror** | Cut Geometry; type Copy (default) / Instance / Flip; axis position World (default) / Object / Bounding box; axis X, direction +; Border: Merge border vertices (default) / Bridge border edges / Do not merge; threshold Automatic; Combine with original on; Smoothing angle 30; Flip UVs off ([options](https://help.autodesk.com/cloudhelp/ENU/MayaCRE-Modeling/files/GUID-E66AE3D8-3B9C-4D4E-9A3E-5BDAFCD67F1D.htm)) | Model half, mirror once | BASE (Copy + merge) / NEXT (Instance = live mirror) | menu | menu |
+| **Extract** | Detach faces; "Separate extracted faces" on by default; Offset (vendor help: options) | Armour pieces, accessories | BASE | menu | menu |
+| Duplicate Face | Copy faces as a new shell/object, Offset (vendor help: options) | Shells, armour from body faces | NEXT | menu | menu |
+| **Mirror** | Cut Geometry; type Copy (default) / Instance / Flip; axis position World (default) / Object / Bounding box; axis X, direction +; Border: Merge border vertices (default) / Bridge border edges / Do not merge; threshold Automatic; Combine with original on; Smoothing angle 30; Flip UVs off (vendor help: options) | Model half, mirror once | BASE (Copy + merge) / NEXT (Instance = live mirror) | menu | menu |
 | **Triangulate** | Faces → triangles | Export control, "show tris" | BASE | menu | menu |
-| Quadrangulate | Merge triangle pairs under an angle threshold (30°) keeping group borders, hard edges, texture borders ([polyQuad](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Commands/polyQuad.html)) | Cleaning imported/AI meshes | NEXT | menu | menu |
-| **Cleanup** | Cleanup or *select* matching: fix by tessellation (4-sided, > 4-sided, concave, holed, non-planar); remove lamina, non-manifold (normals+geometry / geometry only), zero-length edges, zero-area faces, zero-map-area faces, invalid components; tolerances ([options](https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-AB60C982-C96E-4947-8CF3-5152406B6A40.htm)) | Export safety, AI meshes | BASE (lint subset, §4.17) | menu | Cleanup panel + export lint |
+| Quadrangulate | Merge triangle pairs under an angle threshold (30°) keeping group borders, hard edges, texture borders (vendor help: `polyQuad`) | Cleaning imported/AI meshes | NEXT | menu | menu |
+| **Cleanup** | Cleanup or *select* matching: fix by tessellation (4-sided, > 4-sided, concave, holed, non-planar); remove lamina, non-manifold (normals+geometry / geometry only), zero-length edges, zero-area faces, zero-map-area faces, invalid components; tolerances (vendor help: options) | Export safety, AI meshes | BASE (lint subset, §4.17) | menu | Cleanup panel + export lint |
 | Reduce | Decimate to a target | **AI-generated meshes** | NEXT | menu | menu (meshoptimizer, §8) |
 | Smooth (apply) | Subdivide the mesh | Stylised "low-poly cage → smooth" | NEXT | menu | menu |
 | Booleans | Union/difference/intersection | Hard-surface props; produces n-gons and T-junctions | LATER | menu | menu (manifold-3d / three-bvh-csg, §8) |
-| Retopologize | Automatic remesh on a duplicate, `polyRetopo` node, target face count ([help](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Modeling/files/GUID-083D2387-5553-4C03-BCB1-9231293626AD.htm)) | AI meshes → animatable topology | LATER | menu | — |
-| Quad Draw | Retopology on a live surface: `Shift`-drag relax / fill, `Ctrl`-click loop, `Tab`-drag extend strips, `Ctrl+Shift`-click delete ([hotkeys](https://help.autodesk.com/cloudhelp/2016/ENU/Maya/files/GUID-ED28E6BC-6141-491C-8C1B-2AE6FC813284.htm)) | Manual retopo of AI meshes | LATER | tool | tool |
+| Retopologize | Automatic remesh on a duplicate, `polyRetopo` node, target face count (vendor help) | AI meshes → animatable topology | LATER | menu | — |
+| Quad Draw | Retopology on a live surface: `Shift`-drag relax / fill, `Ctrl`-click loop, `Tab`-drag extend strips, `Ctrl+Shift`-click delete (vendor help: hotkeys) | Manual retopo of AI meshes | LATER | tool | tool |
 
 ### 3.8 Normals, display and HUD
 
-| Feature | What it does in Maya | Low-poly value | Pri | Maya | Ekza |
+| Feature | What it does in the desktop DCC | Low-poly value | Pri | DCC | Ekza |
 |---|---|---|---|---|---|
-| **Soften / Harden edge** | Normal angle 180 / 0 on selected edges; **Set Normal Angle**: angles above the value render hard; locked normals unaffected ([Mesh Display](https://help.autodesk.com/cloudhelp/2018/ENU/Maya-Modeling/files/GUID-57FBF97C-F60F-4D8A-8801-852B8B56D4EF.htm)) | Faceted look vs smooth groups | BASE | Shift+RMB (edge) | Shift+RMB |
-| **Reverse / Conform** | `polyNormal` modes reverse, propagate, conform, reverse-and-cut, reverse-and-propagate ([polyNormal](https://help.autodesk.com/cloudhelp/ENU/MayaCRE-Tech-Docs/Commands/polyNormal.html)) | Fix flipped faces (imports, AI) | BASE | menu | menu |
+| **Soften / Harden edge** | Normal angle 180 / 0 on selected edges; **Set Normal Angle**: angles above the value render hard; locked normals unaffected (vendor help: Mesh Display) | Faceted look vs smooth groups | BASE | Shift+RMB (edge) | Shift+RMB |
+| **Reverse / Conform** | `polyNormal` modes reverse, propagate, conform, reverse-and-cut, reverse-and-propagate (vendor help: `polyNormal`) | Fix flipped faces (imports, AI) | BASE | menu | menu |
 | Vertex normal edit / lock | Per-vertex custom normals | Foliage, stylised shading | LATER | tool | — |
-| Smooth Mesh Preview | `1` cage only, `2` cage + smooth, `3` smooth; `Page Up`/`Page Down` levels; display only ([overview](https://help.autodesk.com/cloudhelp/2022/ENU/Maya-Modeling/files/GUID-4863E5AE-0EA0-4596-B1AE-10C19603838E.htm)) | Subdiv workflow only | LATER | `1`/`2`/`3` | `Shift+1`/`2`/`3` (digits are component modes) |
-| **Poly Count HUD** | Verts, edges, faces, tris, UVs; columns: visible totals / selected objects / selected components ([help](https://help.autodesk.com/cloudhelp/2017/ENU/MayaLT/files/GUID-53E46D0C-4B7B-4404-AEB0-3BDD1FF8608A.htm)) | **The low-poly budget** | BASE | Display › HUD | HUD row + export-profile budget |
+| Smooth Mesh Preview | `1` cage only, `2` cage + smooth, `3` smooth; `Page Up`/`Page Down` levels; display only (vendor help: overview) | Subdiv workflow only | LATER | `1`/`2`/`3` | `Shift+1`/`2`/`3` (digits are component modes) |
+| **Poly Count HUD** | Verts, edges, faces, tris, UVs; columns: visible totals / selected objects / selected components (vendor help) | **The low-poly budget** | BASE | Display › HUD | HUD row + export-profile budget |
 | Show triangulation / backfaces / wire on shaded | Display options | Judge silhouette and triangulation | BASE | menu | `Show ▾` layers |
 | Face centres / normals display | Display options | Picking in wireframe, debugging normals | NEXT | menu | `Show ▾` layers |
 
 ### 3.9 Object operations and history
 
-| Feature | What it does in Maya | Low-poly value | Pri | Maya | Ekza |
+| Feature | What it does in the desktop DCC | Low-poly value | Pri | DCC | Ekza |
 |---|---|---|---|---|---|
 | Duplicate / duplicate with transform | Copy; repeat the last offset | Fences, teeth, bolts | BASE / NEXT | `Ctrl+D` / `Shift+D` † | `Ctrl+D` (M) / `Shift+D` (M†) |
 | Group / parent / unparent | Hierarchy edits | Props with parts | BASE | `Ctrl+G` / `P` / `Shift+P` | M (Model workspace) |
 | Repeat last / last tool | `G` repeats last command, `Y` reactivates last tool | Extrude-extrude-extrude | BASE | `G` / `Y` | M |
-| Adjust last operation | Maya: In-View Editor / Channel Box INPUTS on the history node; Blender: Adjust Last Operation panel, `F9` | Change segments, offset, divisions after the fact | BASE | (history) | panel generated from the operator's arg schema (§5) |
+| Adjust last operation | Desktop DCC: In-View Editor / Channels panel INPUTS on the history node; open-source DCC: Adjust Last Operation panel, `F9` | Change segments, offset, divisions after the fact | BASE | (history) | panel generated from the operator's arg schema (§5) |
 | Construction history | Upstream poly* nodes, editable until deleted | — | **skipped** (§5) | toggle | — |
 | Delete history | Bakes history | — | n/a | menu, `A`-hold menu | — |
 
@@ -266,8 +264,8 @@ Maya command defaults, from the 2026 command reference: cube 1×1×1, 1×1×1 su
 
 Full UV editing is LATER. BASE keeps low-poly assets shippable without it:
 
-- Primitives generate UVs; every operator propagates UVs by provenance (§4.0), as Maya's "Preserve UVs" does
-  for transforms (NEXT for component transforms).
+- Primitives generate UVs; every operator propagates UVs by provenance (§4.0), as the desktop DCC's "Preserve UVs"
+  does for transforms (NEXT for component transforms).
 - Per-face material slots (glTF primitives per material) and per-face colour by **palette swatch**: a face
   assignment collapses its UVs onto one texel of a small palette texture (the common low-poly "colour atlas"
   workflow), or writes `COLOR_0` vertex colours. glTF clamps `COLOR_0` to [0, 1]
@@ -278,8 +276,8 @@ Full UV editing is LATER. BASE keeps low-poly assets shippable without it:
 
 ## 4. Geometric behaviour notes (implementation spec)
 
-These are the behaviours Ekza should implement. Where Maya's exact internal rule is undocumented, the text says
-"our rule" and gives the behaviour we choose; tests in §9 pin it.
+These are the behaviours Ekza should implement. Where the desktop DCC's exact internal rule is undocumented, the text
+says "our rule" and gives the behaviour we choose; tests in §9 pin it.
 
 ### 4.0 Mesh conventions every operator obeys
 
@@ -291,9 +289,9 @@ These are the behaviours Ekza should implement. Where Maya's exact internal rule
 - **Winding**: counter-clockwise when the face normal points at the viewer (glTF front face). A face normal is the
   Newell normal (robust for non-planar n-gons). Two faces sharing an edge must traverse it in opposite directions
   ("consistent winding").
-- **Component identity**: indices, as in Maya. Every topology operator returns `selection′` in index space of the
-  new mesh (what Maya leaves selected after the operation), and `provenance`, from which callers remap anything
-  else (symmetry maps, lints).
+- **Component identity**: indices, as in the desktop DCC. Every topology operator returns `selection′` in index space
+  of the new mesh (what the desktop DCC leaves selected after the operation), and `provenance`, from which callers
+  remap anything else (symmetry maps, lints).
 - **Attribute propagation by provenance**:
 
 | New element arises by | Positions | UVs, colours (corner) | Skin weights | Morph deltas |
@@ -312,16 +310,17 @@ These are the behaviours Ekza should implement. Where Maya's exact internal rule
 - **Edge loop** from edge `e = (a→b)`: at vertex `b`, continue through the edge opposite `e` in `b`'s edge fan
   (skip two edges in the cyclic fan) **only if `b` is interior with valence 4 and its four faces are quads**.
   Stop otherwise (pole, triangle, n-gon), or when the loop closes. On a border edge, continue along the next
-  border edge (border loop). Run both directions from `e`. Maya's loop likewise stops at faces that are not four-sided.
+  border edge (border loop). Run both directions from `e`. The desktop DCC's loop likewise stops at faces that are not
+  four-sided.
 - **Partial loop / ring**: compute the full loop/ring through the first edge; if the second edge is on it, take
   the shorter arc between them. The relation decides the gesture: same loop → partial loop; same ring → ring
-  (Maya uses `Shift`+double-click for both).
+  (the desktop DCC uses `Shift`+double-click for both).
 - **Edge ring** from `e`: in each adjacent **quad**, step to the opposite edge; stop at border or non-quad.
 - **Face loop**: the faces crossed by an edge ring (the ring through the edge shared by the two clicked faces).
-- **Grow**: add every component that shares a vertex with the selection (faces across corners included, as Maya
-  and Blender do by default). **Shrink**: remove components that touch an unselected neighbour.
-- **Convert**: "To X" selects touching components (Maya default); "To contained X" selects only those fully
-  inside (edges with both ends selected, faces with all corners selected). Perimeters: boundary edges/vertices
+- **Grow**: add every component that shares a vertex with the selection (faces across corners included, as both
+  DCCs do by default). **Shrink**: remove components that touch an unselected neighbour.
+- **Convert**: "To X" selects touching components (the desktop DCC's default); "To contained X" selects only those
+  fully inside (edges with both ends selected, faces with all corners selected). Perimeters: boundary edges/vertices
   of the selected region.
 - **Border**: edges with exactly one face. **Shell**: flood fill over shared vertices.
 - **Picking**: vertex = nearest projected vertex within 8 CSS px; edge = nearest projected segment within 6 px
@@ -331,7 +330,7 @@ These are the behaviours Ekza should implement. Where Maya's exact internal rule
   scale-up path.
 - **Soft selection weights**: Volume = `f(d/r)` with `d` the Euclidean distance to the nearest selected vertex;
   Surface = Dijkstra geodesic distance over edges from the selected set (cut at `r`). Default falloff curve:
-  smoothstep (Maya's "Smooth" interpolation). Weights scale the transform delta per vertex.
+  smoothstep (the desktop DCC's "Smooth" interpolation). Weights scale the transform delta per vertex.
 - **Symmetry map** (Object/World axis): reflect every vertex, look its reflection up in a spatial hash with the
   tolerance; unmatched vertices get no partner (partial symmetry). Seam vertices (`|x| < tol`) are their own
   partner; with Preserve Seam their delta's normal component is zeroed. Selections expand to partners before an
@@ -366,8 +365,8 @@ side quads on all its edges, offset along its own normal. With Thickness 0 and O
 for panels and eyes.
 
 **Edges.** Allowed on border edges by default; on an interior edge it creates a fin (non-manifold) and needs an
-explicit option, which Maya allows with a Cleanup warning. Connected selected edges share new vertices
-(together). Default frame per edge: X along the edge, Z = average of adjacent face normals, Y = in-plane,
+explicit option, which the desktop DCC allows with a Cleanup warning. Connected selected edges share new
+vertices (together). Default frame per edge: X along the edge, Z = average of adjacent face normals, Y = in-plane,
 pointing away from the adjacent face. `selection′` = new outer edges.
 
 **Vertices** (NEXT): chamfer the vertex into a small polygon of `width` on its incident edges, then pull a new
@@ -380,42 +379,43 @@ recorded as `localTranslate`/`localScale`/`localRotate`, so the card is titled "
 
 **Extrude session (v0.2).** After `Ctrl+E` the extrude manipulator stays up; its own drags and `W`/`E`/`R` drags on
 the cap are absorbed into the extrude's `local*` arguments (one undo step, card live) until the selection changes or
-a non-transform operator runs — Maya's `polyExtrudeFace` flow without construction history.
+a non-transform operator runs — the desktop DCC's `polyExtrudeFace` flow without construction history.
 
 **Cancel and zero moves (our rule).** `Esc` during the first drag cancels the whole extrude (no geometry left);
 **RMB never cancels** (*corrected*, ADR 0016 D8). A session that **ends** with zero translate, rotate, scale,
-thickness and offset is dropped with a hint, because Maya leaves coincident duplicate faces in that case and they are
-invisible until export (lamina/zero-area lints catch any that slip through).
+thickness and offset is dropped with a hint, because the desktop DCC leaves coincident duplicate faces in that case
+and they are invisible until export (lamina/zero-area lints catch any that slip through).
 
 ### 4.3 Bevel (edges)
 
 - **Width**: Fractional mode (default) slides each new vertex along the adjacent unselected edge by
   `fraction × length(edge)`, clamped to 0.5 of the shortest adjacent edge so bevels from both ends never cross
-  (Maya: a fractional width of 1 is the largest distance, based on the shortest edge, that does not turn the
-  bevel inside out). Absolute mode
+  (in the desktop DCC, a fractional width of 1 is the largest distance, based on the shortest edge, that does not
+  turn the bevel inside out). Absolute mode
   uses scene units and may invert; we clamp and warn.
 - **Valence cases at an endpoint `v`** (selected edges meeting at `v`):
   - 1 selected edge: `v` splits into two vertices on the two neighbouring edges; the face opposite the bevel
-    gains a corner (quad → pentagon), which is Maya's Uniform mitering. One cube edge: V 8→10, E 12→15, F 6→7.
+    gains a corner (quad → pentagon), which is the desktop DCC's Uniform mitering. One cube edge: V 8→10, E 12→15,
+    F 6→7.
   - 2 selected edges: the new vertices follow the bisector between the two bevel strips (Miter Along = Center).
   - 3+ selected edges: fill the corner with one polygon whose corners are the new vertices (segments = 1);
     all 12 cube edges: V 24, E 48, F 26 (6 shrunken quads, 12 strips, 8 corner triangles).
 - **Segments `n`**: `n − 1` intermediate rows on a profile between the two offset lines; roundness 0.5 gives a
-  circular arc (Maya `roundness` 0.5 when auto-fit is off). BASE supports `n ≤ 3` and fills 3+-edge corners with
-  a fan (a warning names the corner); Patch/Radial corner grids are LATER.
-- **Normals**: new edges hard when the dihedral angle exceeds the smoothing angle (Maya UI default 30°; *v0.2:
-  the default resolves to 0°, all hard, on meshes flagged `faceted`, MODELING-PLAN §3.2*).
+  circular arc (the desktop DCC's `roundness` 0.5 when auto-fit is off). BASE supports `n ≤ 3` and fills 3+-edge
+  corners with a fan (a warning names the corner); Patch/Radial corner grids are LATER.
+- **Normals**: new edges hard when the dihedral angle exceeds the smoothing angle (the desktop DCC's UI default 30°;
+  *v0.2: the default resolves to 0°, all hard, on meshes flagged `faceted`, MODELING-PLAN §3.2*).
   `selection′` = the new bevel faces.
 
 ### 4.4 Bridge
 
-- Input: two chains of border edges (open or closed) on **one** mesh (Combine first, as Maya requires), or two
-  faces (delete them, then bridge their boundaries).
+- Input: two chains of border edges (open or closed) on **one** mesh (Combine first, as the desktop DCC requires), or
+  two faces (delete them, then bridge their boundaries).
 - Pair vertices: for closed loops pick the start offset and direction that minimise the sum of squared distances;
   the direction must also make each new face traverse the border edge opposite to its existing face (correct
   winding). `twist` rotates the pairing by whole steps; `taper` scales intermediate rings.
-- Divisions: rows = `divisions + 1` (Maya's definition); interpolation Linear, or Blend using the adjacent faces'
-  tangents (cubic Hermite).
+- Divisions: rows = `divisions + 1` (the desktop DCC's definition); interpolation Linear, or Blend using the adjacent
+  faces' tangents (cubic Hermite).
 - Unequal counts (our rule): BASE refuses with "Bridge needs the same number of edges on both sides (12 vs 10)";
   NEXT adds a zipper (pair greedily by shortest diagonal, emitting triangles where counts differ).
 
@@ -431,8 +431,8 @@ invisible until export (lamina/zero-area lints catch any that slip through).
 - Points snap to vertices or to edges (parameter `t`, `Shift` snaps `t` to the Snap Step %); BASE does not allow
   points inside a face. Consecutive points must share a face; that face is split along the chord between them.
 - Splitting an edge inserts the new vertex into **both** adjacent faces, so the neighbour of a cut becomes an
-  `n+1`-gon (Maya does the same; its `fixQuads` option exists for this). Our rule: no automatic fix in BASE, the
-  n-gon lint shows it.
+  `n+1`-gon (the desktop DCC does the same; its `fixQuads` option exists for this). Our rule: no automatic fix in
+  BASE, the n-gon lint shows it.
 - `Ctrl`-click/drag on an edge = Insert Edge Loop at the cursor `t`; `Ctrl`+MMB = loop at `t = 0.5`;
   `Ctrl+Shift` = loop at the nearest snap step.
 - Completion: RMB or `Enter`; `Backspace` removes the last point; `Esc` cancels. `selection′` = new edges.
@@ -443,12 +443,12 @@ invisible until export (lamina/zero-area lints catch any that slip through).
   consistent side: entering quad `(a, b, c, d)` across edge `a→b`, the opposite edge is `d→c` and `t` measured
   from `a` maps to `t` measured from `d`.
 - **Termination**: border edge, closed ring, or a non-quad face. At a non-quad the shared edge is split and the
-  new vertex is added to that face (triangle → quad, n-gon → (n+1)-gon), which is where Maya's loop "stops"
-  (a triangle "stops the edge loop from forming all the way around the neck",
-  [help](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Modeling/files/GUID-33D62F72-8E72-4685-A7DC-73C45206F732.htm)).
-  Fix Quads (off by default, as Maya): split such a face from the new vertex to the opposite vertex.
+  new vertex is added to that face (triangle → quad, n-gon → (n+1)-gon), which is where the desktop DCC's loop
+  "stops" (in the vendor help's words, a triangle "stops the edge loop from forming all the way around the neck").
+  Fix Quads (off by default, as the desktop DCC): split such a face from the new vertex to the opposite vertex.
 - Placement: **Relative** = same `t` on every ring edge; **Equal distance** = same absolute distance from the
-  side the cursor was on, clamped to each edge length; **Multiple** = `n` loops at `i/(n+1)` (Maya default 2).
+  side the cursor was on, clamped to each edge length; **Multiple** = `n` loops at `i/(n+1)` (the desktop DCC's
+  default 2).
 - Preview the whole loop while hovering; commit on release. `selection′` = the new loop edges.
 
 ### 4.8 Offset Edge Loop (NEXT)
@@ -470,7 +470,7 @@ an interior vertex the ends become triangles; the `deleteEdge` option of `polyDu
 
 - **Merge (distance)**: cluster selected vertices with a union-find over a spatial hash (threshold `d`; `d = 0`
   means coincident); each cluster becomes its first-selected vertex at the cluster centroid. With exactly two
-  vertices and "always merge two" the threshold is ignored (Maya's `alwaysMergeTwoVertices`).
+  vertices and "always merge two" the threshold is ignored (the desktop DCC's `alwaysMergeTwoVertices`).
 - **Merge to Center**: every selected vertex → one vertex at the selection's centroid. Top face of a cube →
   pyramid (V 5, E 8, F 5).
 - **Target Weld**: source → target position (or midpoint with MMB); edges weld endpoint to endpoint by
@@ -482,7 +482,8 @@ an interior vertex the ends become triangles; the `deleteEdge` option of `polyDu
 
 ### 4.11 Delete
 
-- **Edges, plain `Delete`** (Maya): remove the edge and merge its two faces into one polygon; end vertices stay.
+- **Edges, plain `Delete`** (desktop-DCC behaviour): remove the edge and merge its two faces into one polygon; end
+  vertices stay.
   A cube edge: V 8, E 11, F 5 (one hexagon).
 - **Delete Edge/Vertex** (`Ctrl+Delete`): additionally delete vertices left with valence 2 by this deletion,
   joining their two edges. Note that this can change the shape: one cube edge becomes a triangular prism
@@ -497,14 +498,14 @@ an interior vertex the ends become triangles; the `deleteEdge` option of `polyDu
 ### 4.12 Spin and flip
 
 Spin: for an edge shared by faces `F1`, `F2`, detach it and reattach each end one vertex further along the
-winding of the joined quad/polygon; reject edges with < 2 faces and selections with two edges in one face (Maya's
-rules). Flip Triangle Edge is the same move on two triangles. Vertex and edge counts never change, which makes
-these the cheapest way to fix a bad triangulation in a low-poly silhouette.
+winding of the joined quad/polygon; reject edges with < 2 faces and selections with two edges in one face (the
+desktop DCC's rules). Flip Triangle Edge is the same move on two triangles. Vertex and edge counts never change,
+which makes these the cheapest way to fix a bad triangulation in a low-poly silhouette.
 
 ### 4.13 Combine, Separate, Extract, Duplicate
 
 - Combine: transform vertices into the new object's space (pivot Center by default), concatenate layers, union
-  material slots, keep each source's skin if all sources are bound to the same skeleton (Maya's
+  material slots, keep each source's skin if all sources are bound to the same skeleton (the desktop DCC's
   `polyUniteSkinned`), otherwise warn.
 - Separate: one object per shell (flood fill over shared vertices), each keeping the original transform.
 - Extract = detach faces (duplicate the boundary vertices of the face set so it becomes its own shell) and, by
@@ -521,7 +522,7 @@ these the cheapest way to fix a bad triangulation in a low-poly silhouette.
    border edge length), or bridge the borders, or keep them apart.
 5. Propagate layers: UVs copied (optional U flip), skin joints swapped by side, morph deltas reflected (§4.0).
 6. Instance type (NEXT): a live, read-only mirrored copy that redraws from the source each frame and is applied
-   on export or on demand. This is the "live mirror" Blender users expect from its Mirror modifier.
+   on export or on demand. This is the "live mirror" open-source-DCC users expect from its Mirror modifier.
 
 ### 4.15 Normals
 
@@ -544,7 +545,7 @@ these the cheapest way to fix a bad triangulation in a low-poly silhouette.
   `earcut` with its refine step).
 - Triangulate (the command) writes those triangles as faces. Quadrangulate (NEXT) greedily pairs triangles whose
   dihedral angle is below 30° and whose union is the most rectangular, keeping hard edges and material borders
-  (Maya's `polyQuad` defaults).
+  (the desktop DCC's `polyQuad` defaults).
 
 ### 4.17 Cleanup lints (BASE subset)
 
@@ -560,7 +561,7 @@ these the cheapest way to fix a bad triangulation in a low-poly silhouette.
 | Open borders on a mesh meant to be closed | border edges exist | select border |
 | Triangle budget | tris > profile budget | HUD turns red; export lint |
 
-"Select matching" (Maya's Cleanup operation) is the default action; fixes are explicit.
+"Select matching" (the desktop DCC's Cleanup operation) is the default action; fixes are explicit.
 
 ### 4.18 Primitives
 
@@ -579,13 +580,13 @@ meshes.
 
 ---
 
-## 5. Construction history: what Maya does and why Ekza skips it
+## 5. Construction history: what the desktop DCC does and why Ekza skips it
 
-**What it is.** Each modeling command in Maya adds a node (`polyExtrudeFacet`, `polyBevel3`, `polySplitRing`, …)
-upstream of the mesh shape. The node's attributes stay editable in the Channel Box INPUTS and the In-View Editor
-until history is deleted (Edit › Delete by Type › History bakes it, which the help credits with better
-performance and smaller files), and "Non-Deformer History" exists to remove modeling nodes from under skin clusters and blend shapes
-([help](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Basics/files/GUID-C17C180D-DA3D-496B-8928-FC21C5D46379.htm)).
+**What it is.** Each modeling command in the desktop DCC adds a node (`polyExtrudeFacet`, `polyBevel3`,
+`polySplitRing`, …) upstream of the mesh shape. The node's attributes stay editable in the Channels panel INPUTS and the
+In-View Editor until history is deleted (Edit › Delete by Type › History bakes it, which the help credits with better
+performance and smaller files), and "Non-Deformer History" exists to remove modeling nodes from under skin clusters
+and blend shapes (vendor help).
 
 **Why we skip it.**
 
@@ -609,7 +610,7 @@ Operation panel and `G` are generated from them) and must be deterministic given
 
 ### 6.1 Bindings (Model workspace, viewport scope unless noted)
 
-| Action | Maya | Ekza | Browser |
+| Action | DCC | Ekza | Browser |
 |---|---|---|---|
 | Object / component toggle | `F8` | `F8` | ✓ |
 | Vertex / edge / face | `F9` / `F10` / `F11` | `F9` / `F10` (M), `1` / `2` / `3` (E) | `F9` ✓, `F10` ⚠ (Windows menu focus), `F11` ✗ (full screen) |
@@ -621,7 +622,7 @@ Operation panel and `G` are generated from them) and must be deterministic given
 | Snap grid / point (hold) | `X` / `V` | same | ✓ |
 | Edit pivot | `D` hold, `Insert` | same | ✓ |
 | Extrude | `Ctrl+E` | `Ctrl+E` (§6.3) | ⚠ (address-bar search in Chrome Win/Linux; already intercepted for Export) |
-| Bevel | — | `Ctrl+B` (E, Blender Industry Compatible) | ⚠ (Firefox bookmarks sidebar) |
+| Bevel | — | `Ctrl+B` (E, as in the open-source DCC's Industry Compatible keymap) | ⚠ (Firefox bookmarks sidebar) |
 | Merge menu (hold) | — | `M` hold: N Center · E Target/Last · S By distance · W Collapse (E) | ✓ |
 | Delete / Delete Edge/Vertex | `Delete` / `Ctrl+Delete`, `Ctrl+Backspace` | same | ✓ |
 | Spin edge forward / back | `Ctrl+Alt+→` / `Ctrl+Alt+←` | same | ⚠ (screen rotation hotkeys on some Windows drivers) |
@@ -635,21 +636,20 @@ Operation panel and `G` are generated from them) and must be deterministic given
 
 | Trigger | Slots |
 |---|---|
-| RMB on a mesh | N Edge · W Vertex · S Face · E UV · NE Object Mode · NW Multi · SW Vertex Face · SE Select Shell (believed Maya layout †; calibrate on a real Maya, Q-MOD-10-1) |
+| RMB on a mesh | N Edge · W Vertex · S Face · E UV · NE Object Mode · NW Multi · SW Vertex Face · SE Select Shell (believed desktop-DCC layout †; calibrate on a real desktop-DCC install, Q-MOD-10-1) |
 | Shift+RMB, nothing selected | N Cube · NE Sphere · E Cylinder · SE Cone · S Plane · SW Torus · W Primitive options… · NW Last primitive |
 | Shift+RMB, mesh object | N Extrude (all faces) · NE Multi-Cut · E Mirror · SE Combine · S Separate · SW Normals ▸ · W Cleanup… · NW Insert Edge Loop; list: Triangulate, Quadrangulate, Fill Hole, Freeze Transformations, Center Pivot |
-| Shift+RMB, components (same slot = same family in every mode) | N Extrude · NE Multi-Cut · E Bevel (vertex: Chamfer, NEXT) · SE Bridge (vertex: Connect) · S Delete Edge/Vertex (face: Delete) · SW Normals ▸ (Soften, Harden, Set Angle, Reverse, Conform) · W Merge ▸ (Center, Target Weld, Collapse, By distance) · NW Insert Edge Loop; list per mode as Maya's menu: edge Spin ▸, Flip, Fill Hole, Connect, Offset Edge Loop; face Extract, Duplicate, Poke, Triangulate/Quadrangulate, Assign palette colour |
+| Shift+RMB, components (same slot = same family in every mode) | N Extrude · NE Multi-Cut · E Bevel (vertex: Chamfer, NEXT) · SE Bridge (vertex: Connect) · S Delete Edge/Vertex (face: Delete) · SW Normals ▸ (Soften, Harden, Set Angle, Reverse, Conform) · W Merge ▸ (Center, Target Weld, Collapse, By distance) · NW Insert Edge Loop; list per mode as in the desktop DCC's menu: edge Spin ▸, Flip, Fill Hole, Connect, Offset Edge Loop; face Extract, Duplicate, Poke, Triangulate/Quadrangulate, Assign palette colour |
 | Ctrl+RMB | N To Edges · W To Vertices · S To Faces · E To UVs · NE Edge Loop · NW Edge Ring · SE Edge Perimeter · SW Vertex Perimeter; list: Border Edges, Shell, Contained Edges, Contained Faces, Grow, Shrink |
 | Ctrl+Shift+RMB | N Symmetry ▸ · E Soft Select ▸ · S Smart Extrude ✓ · W Tweak Mode ✓ · NE Camera-based Selection ✓ · SE Snap ▸ · NW Orientation ▸ (World, Object, Normal) · SW Tool options… |
 
-Maya's own item sets per component mode (vertex adds Average Vertices, Chamfer Vertex; edge adds Flip/Spin, Bevel,
-Soften/Harden, Offset Edge Loop, Insert Edge Loop, Slide Edge, Edit Edge Flow, Add Divisions, Bridge, Fill Hole;
-face adds Poke, Bevel, Wedge, Smooth, Invisible faces, Add Divisions, Triangulate, Quadrangulate, Reduce, Bridge,
-Extract, Duplicate, Target Weld, Mapping) are listed on the
-[Marking menus](https://help.autodesk.com/cloudhelp/2025/ENU/Maya-Basics/files/GUID-8BA1A3AA-4C44-4779-8B22-0AAE3627E8EB.htm)
-page; the table above keeps those items and fixes their positions for gesture memory.
+The desktop DCC's own item sets per component mode (vertex adds Average Vertices, Chamfer Vertex; edge adds
+Flip/Spin, Bevel, Soften/Harden, Offset Edge Loop, Insert Edge Loop, Slide Edge, Edit Edge Flow, Add Divisions,
+Bridge, Fill Hole; face adds Poke, Bevel, Wedge, Smooth, Invisible faces, Add Divisions, Triangulate, Quadrangulate,
+Reduce, Bridge, Extract, Duplicate, Target Weld, Mapping) are listed on the vendor help's Marking menus page; the
+table above keeps those items and fixes their positions for gesture memory.
 
-### 6.3 Conflicts with today's Ekza keymap (`packages/editor-core/src/keymap/maya.ts`)
+### 6.3 Conflicts with today's Ekza keymap (`packages/editor-core/src/keymap/dcc.ts`)
 
 | Binding | Today | Proposal |
 |---|---|---|
@@ -735,8 +735,8 @@ consistent winding, no non-manifold edges, and the counts below.
 | Triangulate cube | 8 / 18 / 12 |
 | Half cube (centre loop, −X faces deleted) → Mirror with merge | 8 / 12 / 5 → 12 / 20 / 10 |
 | Open 8-sided cylinder → Fill Hole ×2 | 16 / 24 / 8 → 16 / 24 / 10 |
-| Maya default sphere 20×20 | 382 / 780 / 400 (760 tris) |
-| Maya default cylinder 20 × 1, n-gon caps | 40 / 60 / 22 (76 tris) |
+| Desktop-DCC default sphere 20×20 | 382 / 780 / 400 (760 tris) |
+| Desktop-DCC default cylinder 20 × 1, n-gon caps | 40 / 60 / 22 (76 tris) |
 | Spin any edge | counts unchanged; both faces keep their sides |
 
 Property tests: random sequences of BASE operators on random low-poly meshes never produce non-manifold edges
@@ -749,75 +749,75 @@ Property tests: random sequences of BASE operators on random low-poly meshes nev
 
 | ID | Question | Default proposed |
 |---|---|---|
-| Q-MOD-10-1 | Exact slot positions of Maya's RMB component menu on your Maya: confirm or correct §6.2 row 1 | as in §6.2 |
+| Q-MOD-10-1 | Exact slot positions of the desktop DCC's RMB component menu in your install: confirm or correct §6.2 row 1 | as in §6.2 |
 | Q-MOD-10-2 | `Ctrl+E`: Extrude in the Model viewport and Export moves to `Ctrl+Shift+E` (Export keeps `Ctrl+E` elsewhere)? | yes |
-| Q-MOD-10-3 | Digits `1`/`2`/`3` for vertex/edge/face (Blender Industry Compatible) while Maya's smooth preview moves to `Shift+1/2/3`? | yes |
-| Q-MOD-10-4 | Primitive defaults low poly (sphere 12×8, cylinder 8) with a "Maya defaults" preference? | yes |
-| Q-MOD-10-5 | Plain `Delete` on edges keeps vertices (Maya) and `Ctrl+Delete` cleans, or clean by default? | Maya behaviour + stray-vertex lint |
-| Q-MOD-10-6 | Live mirror (instance preview) in BASE instead of NEXT, given it is Blender users' main habit? | NEXT |
+| Q-MOD-10-3 | Digits `1`/`2`/`3` for vertex/edge/face (as in the open-source DCC's Industry Compatible keymap) while the desktop DCC's smooth preview moves to `Shift+1/2/3`? | yes |
+| Q-MOD-10-4 | Primitive defaults low poly (sphere 12×8, cylinder 8) with a "DCC defaults" preference (`primitiveDefaults: 'dcc'`)? | yes |
+| Q-MOD-10-5 | Plain `Delete` on edges keeps vertices (desktop-DCC behaviour) and `Ctrl+Delete` cleans, or clean by default? | desktop-DCC behaviour + stray-vertex lint |
+| Q-MOD-10-6 | Live mirror (instance preview) in BASE instead of NEXT, given it is open-source-DCC users' main habit? | NEXT |
 | Q-MOD-10-7 | Triangle budget source: per export profile (OMOBA, Space) or a user target in the HUD? | both: profile budget when an Ekza profile is chosen, user target otherwise |
 
 ---
 
 ## Sources
 
-Autodesk Maya help (help.autodesk.com):
+Desktop DCC help (vendor documentation; page titles kept, URLs omitted):
 
-- Select menu (component modes, Grow): https://help.autodesk.com/cloudhelp/ENU/MayaCRE-Basics/files/GUID-D1BBC051-0EE7-4A91-B4FF-2A369764EC8B.htm
-- Modeling Toolkit hotkeys: https://help.autodesk.com/cloudhelp/2023/ENU/Maya-Modeling/files/GUID-DAD42E62-3E23-4A00-93E9-4F4A193F3057.htm
-- Modeling hotkeys (1/2/3, Ctrl+F9–F12, Page Up/Down): https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-0B937D23-49D1-47D4-9B81-3356BA7FD815.htm
-- Marking menus (RMB, Shift+RMB per mode, Ctrl+RMB, Ctrl+Shift+RMB): https://help.autodesk.com/cloudhelp/2025/ENU/Maya-Basics/files/GUID-8BA1A3AA-4C44-4779-8B22-0AAE3627E8EB.htm
-- Select Tool settings (soft selection, symmetry, camera-based selection): https://help.autodesk.com/cloudhelp/2024/ENU/Maya-Basics/files/GUID-60FD5F79-AC1D-46DE-B66D-2FBE73E15A30.htm
-- Symmetrical editing: https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-68206E61-CFF0-4C83-9254-B761C51FED98.htm
-- Multi-component selection: https://help.autodesk.com/cloudhelp/ENU/MayaCRE-Basics/files/GUID-ABB00438-68A6-4108-8D79-C362F690E808.htm
-- Select an edge loop: https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-EB713BC6-3402-4BE6-8475-BB9FF53439AA.htm
-- Select an edge ring: https://help.autodesk.com/cloudhelp/2015/ENU/MayaLT/files/GUID-814BADD4-9D5A-4B01-ACB1-CBAD8D1026E4.htm
-- Convert selection (perimeters, Ctrl+RMB): https://help.autodesk.com/cloudhelp/ENU/MayaCRE-Basics/files/GUID-DCE04BA9-A2CF-44AA-8045-FFF2392B6796.htm
-- Primitive commands (2026): https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Commands/polyCube.html, …/polySphere.html, …/polyCylinder.html, …/polyCone.html, …/polyPlane.html, …/polyTorus.html
-- Extrude a polygon face, edge or vertex: https://help.autodesk.com/cloudhelp/2022/ENU/Maya-Modeling/files/GUID-20202ED3-5EC7-420E-860E-EC29D101A7A8.htm
-- Extrude Options (2026): https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Modeling/files/GUID-0026EDC2-E6F7-4C57-A22F-CA6D440CE4AD.htm
-- polyExtrudeFacet / polyExtrudeEdge (2026): https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Commands/polyExtrudeFacet.html, https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Commands/polyExtrudeEdge.html
-- Edit Mesh menu: https://help.autodesk.com/cloudhelp/ENU/MayaCRE-Modeling/files/GUID-8FF5F5FC-2065-438A-AFC8-65A17FA7842F.htm
-- Bevel Options: https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-A1C5EC72-AD48-4A7D-8577-1823B3832E14.htm
-- polyBevel3 (2026): https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Commands/polyBevel3.html
-- polyBridgeEdge (2026): https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Commands/polyBridgeEdge.html
-- Fill holes: https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-83ECB78E-950F-455D-B43E-47D76F3F9912.htm
-- Append to Polygon Tool: https://help.autodesk.com/cloudhelp/2015/ENU/MayaLT/files/Append_to_Polygon_Tool.htm
-- Multi-Cut Tool hotkeys: https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-21E402B5-1ABF-4DD3-A9CE-8B7957F6DF2B.htm
-- Insert Edge Loop Tool Options (2026): https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Modeling/files/GUID-226AECD6-F2C0-48D7-BE16-39E52EE7F075.htm
-- Insert an edge loop (2026): https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Modeling/files/GUID-33D62F72-8E72-4685-A7DC-73C45206F732.htm
-- polySplitRing (2026): https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Commands/polySplitRing.html
-- polyDuplicateEdge (2026): https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Commands/polyDuplicateEdge.html
-- Target Weld Tool Options: https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-FD1D82F9-7F99-4375-98DB-98D71758CCBD.htm
-- polyMergeVertex (2026): https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Commands/polyMergeVertex.html
-- Delete edges / Delete vertices: https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-689C75D9-88C8-4F55-91B9-02E5C60DF6AC.htm, https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-935E168B-0392-4E40-B2D8-E0ED18215B1C.htm
-- polyDelEdge node (2027): https://help.autodesk.com/cloudhelp/2027/ENU/Maya-Tech-Docs/Nodes/polyDelEdge.html
-- Spin polygonal edges: https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-FD6D260E-9673-4663-8207-9011D47ED0F5.htm
-- Combine / Extract / Duplicate Faces options: https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-37FE06C7-0681-4F77-B6C6-B47DE6386178.htm, https://help.autodesk.com/cloudhelp/2016/ENU/Maya/files/GUID-885D930E-20B8-4AB9-96D1-91DD0FAE1FDE.htm, https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-8A9AD59F-C12D-4F16-85F0-DA44392B4489.htm
-- Mirror Options: https://help.autodesk.com/cloudhelp/ENU/MayaCRE-Modeling/files/GUID-E66AE3D8-3B9C-4D4E-9A3E-5BDAFCD67F1D.htm
-- polyMirrorFace (2026): https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Commands/polyMirrorFace.html
-- Smooth mesh preview overview: https://help.autodesk.com/cloudhelp/2022/ENU/Maya-Modeling/files/GUID-4863E5AE-0EA0-4596-B1AE-10C19603838E.htm
-- Mesh Display (soften/harden, normal angle): https://help.autodesk.com/cloudhelp/2018/ENU/Maya-Modeling/files/GUID-57FBF97C-F60F-4D8A-8801-852B8B56D4EF.htm
-- polyNormal: https://help.autodesk.com/cloudhelp/ENU/MayaCRE-Tech-Docs/Commands/polyNormal.html
-- Status line (snapping): https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Basics/files/GUID-86E5CEDA-4100-40AE-8F95-346206CF8456.htm
-- Modify menu (freeze, reset, pivots): https://help.autodesk.com/cloudhelp/ENU/MayaCRE-Basics/files/GUID-378D7FF6-492F-4DA4-A468-507E6ABF8B58.htm
-- Delete by Type (history): https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Basics/files/GUID-C17C180D-DA3D-496B-8928-FC21C5D46379.htm
-- Quad Draw hotkeys: https://help.autodesk.com/cloudhelp/2016/ENU/Maya/files/GUID-ED28E6BC-6141-491C-8C1B-2AE6FC813284.htm
-- polyQuad (2026): https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Commands/polyQuad.html
-- Cleanup Options: https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-AB60C982-C96E-4947-8CF3-5152406B6A40.htm
-- Poly count in the scene view: https://help.autodesk.com/cloudhelp/2017/ENU/MayaLT/files/GUID-53E46D0C-4B7B-4404-AEB0-3BDD1FF8608A.htm
-- Automatically retopologize (2026): https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Modeling/files/GUID-083D2387-5553-4C03-BCB1-9231293626AD.htm
-- polySmartBevel node (2027): https://help.autodesk.com/cloudhelp/2027/ENU/Maya-Tech-Docs/Nodes/polySmartBevel.html
+- Select menu (component modes, Grow)
+- Modeling Tools hotkeys
+- Modeling hotkeys (1/2/3, Ctrl+F9–F12, Page Up/Down)
+- Marking menus (RMB, Shift+RMB per mode, Ctrl+RMB, Ctrl+Shift+RMB)
+- Select Tool settings (soft selection, symmetry, camera-based selection)
+- Symmetrical editing
+- Multi-component selection
+- Select an edge loop
+- Select an edge ring
+- Convert selection (perimeters, Ctrl+RMB)
+- Primitive commands (2026): `polyCube`, `polySphere`, `polyCylinder`, `polyCone`, `polyPlane`, `polyTorus`
+- Extrude a polygon face, edge or vertex
+- Extrude Options (2026)
+- `polyExtrudeFacet` / `polyExtrudeEdge` (2026)
+- Edit Mesh menu
+- Bevel Options
+- `polyBevel3` (2026)
+- `polyBridgeEdge` (2026)
+- Fill holes
+- Append to Polygon Tool
+- Multi-Cut Tool hotkeys
+- Insert Edge Loop Tool Options (2026)
+- Insert an edge loop (2026)
+- `polySplitRing` (2026)
+- `polyDuplicateEdge` (2026)
+- Target Weld Tool Options
+- `polyMergeVertex` (2026)
+- Delete edges / Delete vertices
+- `polyDelEdge` node (2027)
+- Spin polygonal edges
+- Combine / Extract / Duplicate Faces options
+- Mirror Options
+- `polyMirrorFace` (2026)
+- Smooth mesh preview overview
+- Mesh Display (soften/harden, normal angle)
+- `polyNormal`
+- Status line (snapping)
+- Modify menu (freeze, reset, pivots)
+- Delete by Type (history)
+- Quad Draw hotkeys
+- `polyQuad` (2026)
+- Cleanup Options
+- Poly count in the scene view
+- Automatically retopologize (2026)
+- `polySmartBevel` node (2027)
 
-Release news:
+Release news (URLs omitted):
 
-- Autodesk ships Maya 2027 (Digital Production, 2026-03-26): https://digitalproduction.com/2026/03/26/autodesk-ships-maya-2027/
-- Maya 2027 and 3ds Max 2027 add Smart Bevel (80.lv): https://80.lv/articles/maya-2027-3ds-max-2027-add-smart-bevel-tool/
+- Desktop DCC 2027 release report (Digital Production, 2026-03-26)
+- Smart Bevel in the vendor's 2027 releases (80.lv)
 
-Blender (5.2 LTS manual):
+Open-source DCC (5.2 LTS manual; URLs omitted):
 
-- Industry Compatible keymap: https://docs.blender.org/manual/en/latest/interface/keymap/industry_compatible.html
-- Undo & Redo, Adjust Last Operation: https://docs.blender.org/manual/en/latest/interface/undo_redo.html
+- Industry Compatible keymap
+- Undo & Redo, Adjust Last Operation
 
 Formats and libraries:
 

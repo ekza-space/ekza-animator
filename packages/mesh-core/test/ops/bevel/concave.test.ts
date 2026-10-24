@@ -7,8 +7,8 @@
 // - convex-edge-only bevels never add material (signed volume), concave-edge-only bevels never remove it;
 // - every rebuilt face's corners lie inside (or on) its original polygon;
 // - with one width everywhere, the chamfer strips of a rectilinear prism (every corner 90° or 270°) are planar.
-// The Maya slide rule (§5.9 valence 1: new vertices on the neighbouring edges) is only defined for a slide out of a
-// convex face corner, so the edge sets keep every reflex corner with both or neither of its edges selected.
+// The desktop-DCC slide rule (§5.9 valence 1: new vertices on the neighbouring edges) is only defined for a slide out
+// of a convex face corner, so the edge sets keep every reflex corner with both or neither of its edges selected.
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {
@@ -443,7 +443,7 @@ describe('clamp and P1–P4 on concave prisms', () => {
         const volume = signedVolume(m);
         const result = runOk(bevel, m, selectionOf('face', caps, m.counts), { fraction });
         expect(signedVolume(m)).toBeLessThanOrEqual(volume * (1 + 1e-6));
-        // The shrunk caps are part of selection′ (Maya): each must lie inside its original cap.
+        // The shrunk caps are part of selection′ (desktop-DCC convention): each must lie inside its original cap.
         const shrunk = Array.from(result.selection.faces.toArray()).filter((f) => m.faceLen(f) === shape.poly.length);
         expect(shrunk).toHaveLength(caps.length);
         const originals = caps.map((f) => facePoints(data, f));

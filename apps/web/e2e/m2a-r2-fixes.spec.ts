@@ -114,7 +114,7 @@ test('fix round 2: a single or Space-maximized pane fills the Viewport panel', a
   await expectFillsPanel(page, 'pane-single');
 });
 
-test('fix round 2: the Graph Editor and the Dope Sheet name and order IK attributes like the Channel Box', async ({
+test('fix round 2: the Graph Editor and the Dope Sheet name and order IK attributes like the Channels panel', async ({
   page,
 }) => {
   await openEditor(page, '&platform=mac');
@@ -141,16 +141,16 @@ test('fix round 2: the Graph Editor and the Dope Sheet name and order IK attribu
     key: 'force',
   });
 
-  // The Channel Box's rows of those channels, in its order (the IK/FK proxy row shows `@ikFk`).
+  // The Channels panel's rows of those channels, in its order (the IK/FK proxy row shows `@ikFk`).
   await expect(page.getByTestId('cb-ikfk-row')).toBeVisible();
-  const channelBox = (
+  const channelRows = (
     await page
-      .locator('[data-testid="channel-box-panel"] tr[data-channel]')
+      .locator('[data-testid="channels-panel"] tr[data-channel]')
       .evaluateAll((rows) =>
         rows.map((row) => [row.getAttribute('data-channel') ?? '', row.querySelector('th')?.textContent?.trim() ?? '']),
       )
   ).filter(([channel]) => Object.hasOwn(values, channel as string));
-  expect(channelBox).toEqual([
+  expect(channelRows).toEqual([
     ['tz', 'Translate Z'],
     ['rx', 'Rotate X'],
     ['@soft', 'Soft'],
@@ -168,7 +168,7 @@ test('fix round 2: the Graph Editor and the Dope Sheet name and order IK attribu
   await expect(page.getByTestId('ge-channel-list')).toBeVisible();
   await page.getByTestId('ge-only-animated').check();
   const prefix = `ge-row-${leg}/`;
-  await expect(page.locator(`[data-testid^="${prefix}"]`)).toHaveCount(channelBox.length);
+  await expect(page.locator(`[data-testid^="${prefix}"]`)).toHaveCount(channelRows.length);
   const graph = await page.locator(`[data-testid^="${prefix}"]`).evaluateAll(
     (rows, cut) =>
       rows
@@ -181,18 +181,18 @@ test('fix round 2: the Graph Editor and the Dope Sheet name and order IK attribu
         .map((row) => [row.channel, row.label]),
     prefix.length,
   );
-  expect(graph).toEqual(channelBox);
+  expect(graph).toEqual(channelRows);
 
   // Dope Sheet channel rows of the expanded control: the same again.
   await showDopeSheet(page);
   await page.getByTestId(`ds-expand-${leg}`).click();
   await expect
     .poll(async () => ((await call(page, 'dopeSheet'))?.rows ?? []).filter((row) => row.kind === 'channel').length)
-    .toBe(channelBox.length);
+    .toBe(channelRows.length);
   const dope = ((await call(page, 'dopeSheet'))?.rows ?? [])
     .filter((row) => row.kind === 'channel')
     .map((row) => [row.id.slice(`${leg}/`.length), row.label]);
-  expect(dope).toEqual(channelBox);
+  expect(dope).toEqual(channelRows);
   // The row labels on screen say the same.
   await expect(page.getByTestId(`ds-row-${leg}/@soft`)).toHaveText('Soft');
 });

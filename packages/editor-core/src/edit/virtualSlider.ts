@@ -1,4 +1,4 @@
-// Channel Box virtual slider (M2A-SPEC §5.18, FR-CB-05; A2): a horizontal drag that changes channel values by a rate
+// Channels panel virtual slider (M2A-SPEC §5.18, FR-CB-05; A2): a horizontal drag that changes channel values by a rate
 // per pixel, as one channel-edit gesture (preview, coalesced updates, ONE history step, auto-key on release by the
 // M1 rules). The DOM side (Pointer Lock or pointer capture, `movementX`, Esc) lives with the panels; this kernel
 // part only integrates pixel increments.

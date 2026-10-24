@@ -1,5 +1,5 @@
 // Registration of the built-in contributions (MVP-SPEC §7 WP-7b, ADR 0008): every §4.9 operator owned by WP-7b,
-// importers, exporters, export profiles, menu items and the maya keymap; robustness of polls against untyped args.
+// importers, exporters, export profiles, menu items and the `dcc` keymap; robustness of polls against untyped args.
 import { EkzaError } from '@ekza-studio/anim-core';
 import { BUILTIN_EXPORT_PROFILES } from '@ekza-studio/io';
 import { MESH_OP_DESCRIPTORS, MESH_SET_OP_DESCRIPTORS } from '@ekza-studio/mesh-core/descriptors';
@@ -10,7 +10,7 @@ import {
   BUILTIN_MENU_ITEMS,
   loadModelOperators,
   MODEL_MENU_ITEMS,
-  MAYA_KEYMAP,
+  DCC_KEYMAP,
   RIG_SHADOW_KEYMAP,
   registerBuiltinOperators,
   registerBuiltins,
@@ -380,7 +380,7 @@ describe('built-in operators', () => {
 });
 
 describe('registerBuiltins', () => {
-  it('contributes operators, importers, exporters, profiles, menu items and the maya keymap', async () => {
+  it('contributes operators, importers, exporters, profiles, menu items and the dcc keymap', async () => {
     // The Model menu items register once the Model operators chunk has loaded (M6A-INT-13).
     await loadModelOperators();
     const app = kernelApp({ snapshot: waveDoc() });
@@ -392,7 +392,7 @@ describe('registerBuiltins', () => {
     expect(app.exportProfiles.list().map((def) => def.id)).toEqual(BUILTIN_EXPORT_PROFILES.map((def) => def.id));
     expect(app.menus.list()).toHaveLength(ALL_MENU_ITEMS.length);
     // M6b C7 (M6B-C7-15): the Rig & Skin shadow rows come with the preset.
-    expect(app.keymap.bindings().length).toBe(before + MAYA_KEYMAP.length + RIG_SHADOW_KEYMAP.length);
+    expect(app.keymap.bindings().length).toBe(before + DCC_KEYMAP.length + RIG_SHADOW_KEYMAP.length);
     dispose();
     expect(app.operators.list()).toEqual([]);
     expect(app.importers.list()).toEqual([]);
@@ -437,7 +437,7 @@ describe('registerBuiltins', () => {
 
   it('binds keys only to registered operators or to the ones of other packages', () => {
     const ids = new Set(BUILTIN_OPERATORS.map((def) => def.id));
-    for (const binding of MAYA_KEYMAP) {
+    for (const binding of DCC_KEYMAP) {
       expect([binding.op, ids.has(binding.op) || OTHERS.has(binding.op)]).toEqual([binding.op, true]);
     }
   });

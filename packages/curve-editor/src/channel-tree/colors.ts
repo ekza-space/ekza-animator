@@ -26,7 +26,7 @@ export function channelColor(channel: ChannelId): string {
 }
 
 /**
- * The Channel Box's name of a channel (§5.1 rule 5): 'Translate X', 'Rotate Z', 'Scale Y'; an attribute of `control`
+ * The Channels panel's name of a channel (§5.1 rule 5): 'Translate X', 'Rotate Z', 'Scale Y'; an attribute of `control`
  * by its `AttrDef.label` or title-cased name ('@heelTwist' → 'Heel Twist', `@ikFk` → 'IK/FK'). Before acceptance fix
  * round 2 (M2A-INT-35) attributes showed their raw name ('heelTwist').
  */

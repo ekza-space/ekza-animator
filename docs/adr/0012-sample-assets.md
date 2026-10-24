@@ -16,9 +16,10 @@ allowRedistribution: false, modification: "prohibited", commercialUsage: "person
 avatarPermission: "onlyAuthor", creditNotation: "required"
 ```
 
-It also carries an embedded Mixamo clip (`Armature|mixamo.com|Layer0`), which is not redistributable as a
-standalone animation, and its meta `name`/`authors` are the literal string `undefined`, which suggests converter
-defaults rather than the author's intent. The file's own licence metadata wins over a collection listing.
+It also carries an embedded clip from a web auto-rigging service (its name carries the service's domain), which is
+not redistributable as a standalone animation, and its meta `name`/`authors` are the literal string `undefined`,
+which suggests converter defaults rather than the author's intent. The file's own licence metadata wins over a
+collection listing.
 
 **Erratum to research 03** (research files are read-only inputs and stay unchanged): research 03 §2.1 and §4
 describe `ekza-avatar-renderer/test/fixtures/vrm1-sample.vrm` as CC0 and "safe to vendor". That is wrong for this

@@ -1,6 +1,6 @@
-// Typed values and display text of operator parameters (M6A-SPEC §1, §5.10, §8.6; B11): the Last-op card, Channel Box
-// INPUTS, option boxes and the numeric capture window read and write `ParamDef` values through these helpers, so a
-// typed `30%` means the same everywhere. Not in the eager route (§5.27): the capture engine and the lazy views import
+// Typed values and display text of operator parameters (M6A-SPEC §1, §5.10, §8.6; B11): the Last-op card, Channels
+// panel INPUTS, option boxes and the numeric capture window read and write `ParamDef` values through these helpers, so
+// a typed `30%` means the same everywhere. Not in the eager route (§5.27): the capture engine and the lazy views import
 // it; which fields show (`visibleParams`, `numericParams`) is ./capture.ts.
 //
 // `parseParamInput` wraps the shipped numeric-field grammar (`parseNumericInput`, research 09 §6.4: `[=]expr`,
@@ -117,7 +117,7 @@ const fixed3 = (value: number): string => {
 };
 
 /**
- * Display text of a stored value (§8.6): distances `0.500 m`, fractions as fractions `0.300` (Maya), angles in degrees
+ * Display text of a stored value (§8.6): distances `0.500 m`, fractions as fractions `0.300`, angles in degrees
  * `30.000°`, plain numbers `1.000`, ints `2`, booleans on/off, enum and axis options by label, null "auto".
  * `unit: false` drops the unit suffix (editable field text).
  */

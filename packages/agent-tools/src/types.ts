@@ -6,7 +6,7 @@ import type { CharacterId, ClipId, ControlId, CurveId } from '@ekza-studio/doc';
 import type { AgentAccess, EditorApp, OperatorResult, RunActor, RunScope } from '@ekza-studio/editor-core';
 import type { z } from 'zod';
 
-export const AGENT_TOOLSET_VERSION = '1.0.0-mvp.1'; // semver; bumped by every manifest change (§5.21; MAI-D0-12, MAI-P2-1)
+export const AGENT_TOOLSET_VERSION = '1.0.0-mvp.3'; // semver; bumped by every manifest change (§5.21; MAI-D0-12, MAI-P2-1)
 export type AgentHostMode = 'live' | 'headless';
 export type Grant = 'read' | 'edit' | 'files' | 'view';
 export interface Grants {

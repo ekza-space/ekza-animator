@@ -114,7 +114,7 @@ export function GraphPanel({ app, instanceId }: PanelProps): JSX.Element {
     (refs: readonly ChannelRef[], e: ModifierEvent) => {
       const state = app.session.getState();
       const mode = selectModeFor(modifiers(app, e));
-      // Channel selection has no operator (MVP-SPEC §4.9): it is U state shared with the Channel Box.
+      // Channel selection has no operator (MVP-SPEC §4.9): it is U state shared with the Channels panel.
       app.session.setState({
         selection: { ...state.selection, channels: applyChannelSelection(state.selection.channels, refs, mode) },
       });

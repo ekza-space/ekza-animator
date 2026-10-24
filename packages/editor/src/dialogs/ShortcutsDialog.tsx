@@ -20,7 +20,7 @@ const SCOPE_LABEL: Readonly<Record<string, string>> = {
   graph: 'Graph Editor',
   timeline: 'Time slider',
   outliner: 'Outliner',
-  channelBox: 'Channel Box',
+  channels: 'Channels',
   clips: 'Clips',
   attributes: 'Attributes',
   [MODEL_SCOPE.model]: 'Model',
@@ -104,7 +104,7 @@ export function ShortcutsDialog(): JSX.Element {
     >
       <DialogContent
         title="Keyboard shortcuts"
-        description="Keys follow Maya and use physical key positions, so they work on any keyboard layout."
+        description="Keys follow the industry-standard DCC layout and use physical key positions, so they work on any keyboard layout."
         width="lg"
         data-testid="shortcuts-dialog"
       >

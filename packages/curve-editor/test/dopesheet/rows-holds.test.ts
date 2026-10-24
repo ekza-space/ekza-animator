@@ -158,8 +158,8 @@ describe('rows (§5.10)', () => {
   });
 });
 
-describe('channel rows like the Channel Box (M2A-INT-35)', () => {
-  it('names IK attribute channels by their Channel Box label, in its row order', async () => {
+describe('channel rows like the Channels panel (M2A-INT-35)', () => {
+  it('names IK attribute channels by their Channels panel label, in its row order', async () => {
     // A leg IK control: `attrs` in the rig's order ikFk, soft, twist, roll, bank, heelTwist, toeTwist (§5.2).
     const app = createFakeEditorApp({ snapshot: withLimbIkRecords(await waveSnapshot(), { limbs: ['leg.L'] }) });
     mounted = mountSheet(app);

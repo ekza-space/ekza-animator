@@ -133,9 +133,9 @@ describe('navigation per profile (MVP-SPEC §4.11.18)', () => {
     expect(yToValue(after, 300, y)).toBeCloseTo(yToValue(before, 300, y), 6);
   };
 
-  it('Maya: the wheel zooms around the cursor; Shift zooms values only, Alt time only', async () => {
+  it('dcc profile: the wheel zooms around the cursor; Shift zooms values only, Alt time only', async () => {
     const app = await waveApp();
-    app.prefs.setState({ navProfile: 'maya' });
+    app.prefs.setState({ navProfile: 'dcc' });
     mounted = mount(app);
     const { controller } = mounted;
     let before = controller.view;
@@ -213,9 +213,9 @@ describe('navigation per profile (MVP-SPEC §4.11.18)', () => {
     expect(controller.busy).toBe(false);
   });
 
-  it('Maya one-button profile: Option+Cmd+LMB pans, Option+Ctrl+LMB zooms', async () => {
+  it('one-button profile: Option+Cmd+LMB pans, Option+Ctrl+LMB zooms', async () => {
     const app = await waveApp({ platform: 'mac' });
-    app.prefs.setState({ navProfile: 'mayaOneButton' });
+    app.prefs.setState({ navProfile: 'oneButton' });
     mounted = mount(app);
     const { controller } = mounted;
     const before = controller.view;
@@ -229,7 +229,7 @@ describe('navigation per profile (MVP-SPEC §4.11.18)', () => {
 });
 
 describe('selection gestures', () => {
-  it('clicks select keys and handles with Maya modifiers through select.keys', async () => {
+  it('clicks select keys and handles with the click modifiers through select.keys', async () => {
     const app = await waveApp();
     mounted = mount(app);
     const { controller } = mounted;

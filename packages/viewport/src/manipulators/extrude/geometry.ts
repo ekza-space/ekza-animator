@@ -1,5 +1,5 @@
 // The extrude manipulator's handle layout and picking (M6A-SPEC §5.8, §4.7; B12b), pure functions of the manipulator
-// frame and a pane's projector: Maya's polyExtrude manipulator — translate arrows X/Y/Z on the cap's axes (or world
+// frame and a pane's projector: the DCC's polyExtrude manipulator — translate arrows X/Y/Z on the cap's axes (or world
 // axes with the local/world toggle), rotate rings, scale cubes on the cap's axes, a centre cube for uniform scale and
 // the local/world toggle — at a constant pixel size. Handle ids are the `ManipHandle`s of the W/E/R manipulators, so
 // `screenOfManipulator` addresses them the same way (§4.7); the toggle is `space`.

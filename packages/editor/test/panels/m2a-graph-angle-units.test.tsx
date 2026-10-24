@@ -1,5 +1,5 @@
 // M2A-SPEC §5.1 rule 5 in the Graph Editor (browser mode; hand-off M2A-A4-12, resolved at integration): an angle
-// attribute (`@roll`, `unit: 'angle'`) shows and takes degrees in the key fields like the Channel Box and the curve
+// attribute (`@roll`, `unit: 'angle'`) shows and takes degrees in the key fields like the Channels panel and the curve
 // axis — a key at 20° reads 20.000 in both, typing 30 writes 30°, and the in/out angle fields match the slope the
 // canvas draws (measured on screen from the key and its handle).
 import { DEG2RAD, RAD2DEG } from '@ekza-studio/anim-core';
@@ -9,7 +9,7 @@ import { type FakeEditorApp, loadOperatorBodies } from '@ekza-studio/editor-core
 import { act } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
-import { ChannelBoxPanel } from '../../src/panels/channel-box/ChannelBoxPanel';
+import { ChannelsPanel } from '../../src/panels/channels/ChannelsPanel';
 import { GraphPanel, graphTestHooks } from '../../src/panels/graph';
 import { CLIP, cleanup, control, input, loadFixtures, mount, setClipFrame, setSession, waveApp } from './helpers';
 
@@ -58,7 +58,7 @@ async function mountBoth(app: FakeEditorApp, controls: readonly ControlId[]): Pr
     app,
     <div style={{ display: 'flex', width: 1400, height: 480 }}>
       <div style={{ width: 300, height: 480, display: 'flex', flexDirection: 'column' }}>
-        <ChannelBoxPanel app={app} instanceId="cb#1" />
+        <ChannelsPanel app={app} instanceId="cb#1" />
       </div>
       <div style={{ width: 1100, height: 480 }}>
         <GraphPanel app={app} instanceId="graph#1" />
@@ -87,7 +87,7 @@ function selectKey(app: FakeEditorApp, key: KeyId): Promise<void> {
   });
 }
 
-/** Maya angle of a handle as the canvas draws it: atan(Δvalue display / Δseconds), from screen pixels. */
+/** Tangent angle of a handle as the canvas draws it: atan(Δvalue display / Δseconds), from screen pixels. */
 function drawnAngle(app: FakeEditorApp, key: KeyId, side: 'in' | 'out'): number {
   const hooks = graphTestHooks(app);
   const view = hooks.graph()?.view;
@@ -100,7 +100,7 @@ function drawnAngle(app: FakeEditorApp, key: KeyId, side: 'in' | 'out'): number 
 }
 
 describe('Graph Editor key fields on an angle attribute (§5.1 rule 5, M2A-A4-12)', () => {
-  it('show degrees like the Channel Box; typing 30 writes 30°; the angle fields match the drawn slopes', async () => {
+  it('show degrees like the Channels panel; typing 30 writes 30°; the angle fields match the drawn slopes', async () => {
     const { app, curve, keys } = await rollApp();
     await mountBoth(app, [HAND]);
     await setClipFrame(app, 10);

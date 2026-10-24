@@ -55,7 +55,7 @@ describe('mesh operator registration (§6.1)', () => {
     expect(byId.get('mesh.extrude')?.tool).toBeUndefined(); // §5.7 rule 1: the extrude declares no tool
   });
 
-  it('aliases: Blender names for the command palette', () => {
+  it('aliases: common alternative names for the command palette', () => {
     expect(byId.get('mesh.insertLoop')?.aliases).toContain('Loop Cut');
     expect(byId.get('mesh.cut')?.aliases).toContain('Knife');
     expect(byId.get('mesh.mergeByDistance')?.aliases).toContain('Remove Doubles');

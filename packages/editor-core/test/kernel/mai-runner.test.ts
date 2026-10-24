@@ -54,7 +54,7 @@ function registerRename(app: EditorApp): void {
   });
 }
 
-/** A Channel Box style nudge (coalescing) that writes a static value (unkeyed channel) or an override. */
+/** A Channels panel style nudge (coalescing) that writes a static value (unkeyed channel) or an override. */
 function registerNudge(app: EditorApp): void {
   const nudge: CoalescingOperatorDef<{
     readonly control: ControlId;
@@ -64,7 +64,7 @@ function registerNudge(app: EditorApp): void {
     id: 'test.nudge',
     label: 'Nudge',
     category: 'channel',
-    scope: 'channelBox',
+    scope: 'channels',
     flags: { undo: true },
     coalesce: (args) => ({ key: `nudge:${args.control}.rz`, ms: 60_000 }),
     apply: (ctx, args) => {

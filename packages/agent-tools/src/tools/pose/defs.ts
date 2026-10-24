@@ -46,7 +46,7 @@ export const poseRead = defineTool({
   name: 'pose_read',
   title: 'Read the pose',
   description:
-    'Read the pose at frames or sampled over a range, as Channel Box values (in pose_set’s shape) or as bone positions and orientations in character space. ' +
+    'Read the pose at frames or sampled over a range, as Channels panel values (in pose_set’s shape) or as bone positions and orientations in character space. ' +
     'channels (default): per control rotateDeg, translateM, scaleFactor and attrs as {x, y, z} with its rotateOrder ' +
     '— change values and pass the item to pose_set as it is. world: per bone positionM, direction (unit vector along ' +
     'the bone) and orientDeg {pitchDeg (tip up +), yawDeg (toward the character’s left +), rollDeg} relative to rest, ' +
@@ -65,7 +65,7 @@ export const poseRead = defineTool({
       space: z
         .enum(['channels', 'world', 'both'])
         .default('channels')
-        .describe('channels: Channel Box values; world: bone positions and orientations in character space.'),
+        .describe('channels: Channels panel values; world: bone positions and orientations in character space.'),
       targets: targets.optional().describe('Default: every control (channels) / the humanoid bones (world).'),
       bones: z.array(boneRef).min(1).max(64).optional().describe('world: which bones (default: the targets’ bones).'),
       withUserOverrides: z
@@ -142,11 +142,11 @@ export const poseSet = defineTool({
   name: 'pose_set',
   title: 'Set a pose',
   description:
-    'Set Channel Box values (degrees, metres) of one or more controls at one clip frame and key them ' +
+    'Set Channels panel values (degrees, metres) of one or more controls at one clip frame and key them ' +
     '(pose-to-pose blocking). set: [{control, rotateDeg {x,y,z}, translateM, scaleFactor, attrs}] in ' +
-    "pose_read's shape (≤ 100 controls); rotations are the control's Channel Box rotations in its rotate " +
+    "pose_read's shape (≤ 100 controls); rotations are the control's Channels panel rotations in its rotate " +
     'order, zero = rest. key: key (default) always keys every edited channel, and syncRotation (default ' +
-    "true) keys all rotation axes of a control, like Maya's S; static sets clip-wide values on channels " +
+    'true) keys all rotation axes of a control, as the S key (Set Key) does; static sets clip-wide values on channels ' +
     "without keys; pose_only proposes an unkeyed pose at the user's current frame (needs the View " +
     'grant). mode relative adds to the keyed values. Prefer pose_aim and pose_ik_target for limbs.',
   group: 'pose',
@@ -168,7 +168,7 @@ export const poseSet = defineTool({
     syncRotation: z
       .boolean()
       .default(true)
-      .describe('Also key the other rotation axes of each control, like Maya’s S.'),
+      .describe('Also key the other rotation axes of each control, as the S key (Set Key) does.'),
     tangent: tangentName.optional(),
     extendRange: optionalExtendRange,
   }),

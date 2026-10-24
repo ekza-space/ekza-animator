@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     template: '%s · Ekza Studio',
   },
   description:
-    'Open-source, browser-based 3D studio for glTF and VRM characters: modeling, rigging and animation with a Maya-grade workflow.',
+    'Open-source, browser-based 3D studio for glTF and VRM characters: modeling, rigging and animation with a professional DCC-grade workflow.',
 };
 
 export const viewport: Viewport = {

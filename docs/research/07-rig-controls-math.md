@@ -2,9 +2,11 @@
 
 Status: research and design proposal, 2026-10-17. Audience: implementers of the `rig`, `math` and `bake` packages.
 
+Reference tools are named generically: a leading commercial desktop DCC ("the desktop DCC") and a popular open-source DCC ("the open-source DCC").
+
 This document covers the following:
 
-- the control-rig data model, including Maya-style shape controls with offset (zero) transforms
+- the control-rig data model, including desktop-DCC-style shape controls with offset (zero) transforms
 - auto-rigging VRM humanoids and generic skeletons
 - picking and visibility
 - constraints and their evaluation order
@@ -24,13 +26,13 @@ Out of scope: graph-editor tangent math and UI (other research docs), container 
 | # | Decision | Reason |
 |---|---|---|
 | D1 | **Curves live only on controls. Bones are never keyed.** A model with no recognised humanoid gets an auto-generated 1:1 FK rig, so "bone mode" runs through the same pipeline. | One evaluation path. Import (bones → controls) and export (controls → bones) are symmetric. |
-| D2 | **Zero pose = rest pose.** Every control has an offset (zero) transform, so default channel values reproduce the rest/bind pose exactly. | Maya offset groups / `offsetParentMatrix`. Makes reset, mirroring, pasting and retargeting trivial. |
-| D3 | **Evaluation is a pure, stateless function** `pose = f(rigDoc, curves, t)`. Nothing depends on history: no Maya "No Flip" orient caches, no IK seeded by the previous frame. Spring bones are preview-only. | Random-access scrubbing, deterministic baking, the same result for every collaborator, safe to run in a worker. |
+| D2 | **Zero pose = rest pose.** Every control has an offset (zero) transform, so default channel values reproduce the rest/bind pose exactly. | Desktop-DCC offset groups / `offsetParentMatrix`. Makes reset, mirroring, pasting and retargeting trivial. |
+| D3 | **Evaluation is a pure, stateless function** `pose = f(rigDoc, curves, t)`. Nothing depends on history: no desktop-DCC "No Flip" orient caches, no IK seeded by the previous frame. Spring bones are preview-only. | Random-access scrubbing, deterministic baking, the same result for every collaborator, safe to run in a worker. |
 | D4 | A rig is **compiled** into a flat, topologically sorted schedule of ops over typed-array buffers. The kernel is framework-free TypeScript: no React, no `Object3D` graph. | A humanoid has ≈70 controls (≪1 ms). The kernel runs in workers and Node tests. |
 | D5 | Humanoid rigs evaluate in **VRM normalized space**: world-aligned rest frames, +Z forward. Raw-node output uses three-vrm's own formula `R = P⁻¹·N·P·B`. | This is the space of VRMA, the Ekza shared clip library and OMOBA motion. Mirroring becomes a sign flip. It agrees with 03 §5.2. |
-| D6 | **Rotation curves are Euler per control, each with its own rotate order** (Maya semantics). The editor provides an Euler filter, continuity-aware keying and a gimbal display. Evaluation and every export use quaternions. | Graph-editor tangents need scalar curves. "Independent Euler" is Maya's default. |
+| D6 | **Rotation curves are Euler per control, each with its own rotate order** (desktop-DCC semantics). The editor provides an Euler filter, continuity-aware keying and a gimbal display. Evaluation and every export use quaternions. | Graph-editor tangents need scalar curves. "Independent Euler" is the desktop DCC's default. |
 | D7 | IK uses our own **analytic two-bone solver** (hinge axis, pole vector, soft IK) and our own FABRIK/CCD for chains. three.js `CCDIKSolver` is not used in the rig core. | `CCDIKSolver` addresses `SkinnedMesh` bones by index, mutates them in place and applies absolute (not rest-relative) Euler limits (§9.6). |
-| D8 | MVP constraints are parent, point, orient and aim, plus the pole vector (an IK input). They support multiple weighted targets and use deterministic quaternion averaging. | Covers the 90% case of Maya usage. |
+| D8 | MVP constraints are parent, point, orient and aim, plus the pole vector (an IK input). They support multiple weighted targets and use deterministic quaternion averaging. | Covers the 90% case of desktop-DCC usage. |
 | D9 | **Bake** samples integer frames at the document fps (default 30). It enforces quaternion hemisphere continuity and writes `LINEAR` (`STEP` for blocked clips), with optional key reduction. Each export target has its own channel set. | glTF 2.0, VRMA and OMOBA rules (§15). |
 | D10 | **Rig definition JSON** uses flat id-keyed maps and parent pointers. The auto-rig produces deterministic ids, and values are small and atomic, so it maps onto CRDTs (Yjs). Curves live in a separate document, keyed `controlId/channel`. | Ready for collaboration. Rig edits are rare and curve edits frequent. |
 
@@ -43,7 +45,7 @@ Out of scope: graph-editor tangent math and UI (other research docs), container 
 - glTF 2.0: *"glTF uses a right-handed coordinate system. glTF defines +Y as up; the front side of a glTF asset faces +Z, the left side of a glTF asset faces +X. The units for all linear distances are meters. All angles are in radians."* ([glTF 2.0 §3.4](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units)). three.js uses the same handedness and up axis, so the app needs no axis conversion internally. Z-up or centimetre sources (FBX, BVH) are converted at the import boundary only.
 - **Canonical character space** is VRM 1.0: +Y up, the model faces +Z, its left is +X. The [VRM T-pose spec](https://github.com/vrm-c/vrm-specification/blob/master/specification/VRMC_vrm-1.0/tpose.md) says the body is "oriented along the +Z axis, symmetrical on the X axis", arms are "parallel to the X axis", palms face −Y, feet are parallel to Z, and the model is grounded at Y = 0.
 - **VRM 0.x faces −Z.** We apply a π yaw on the *character root*, never on bones. That is exactly what three-vrm's `VRMUtils.rotateVRM0` does: `vrm.scene.rotation.y = Math.PI` when `metaVersion === "0"`. Exports for VRM 0.x targets conjugate by that yaw (`x → −x, z → −z` on quaternion and position), which is Ekza's `flipYawQuaternion` / `flipYawPosition` in `ekza-avatar-renderer`.
-- Data stores radians. The UI shows degrees, as Maya does.
+- Data stores radians. The UI shows degrees, as the desktop DCC does.
 - **Scale.** VRM requires that *"All node transforms must be in a positive uniform scale"*, and OMOBA rejects non-uniform or negative scale (see 03 §2.4). The rig kernel therefore uses **similarity transforms** (translation, quaternion, uniform scale). Generic glTF rigs with non-uniform bone scale still display, but rig bindings over them raise a warning. A general `Matrix4` path is deferred.
 - **Rest rotations are arbitrary.** Inspecting the VRM 1.0 test fixture in `ekza-avatar-renderer` shows **51 of its 52 humanoid bones have non-identity rest rotations**. Four CC0 VRM 0.x samples from the opensourceavatars set have **0**, because VRM 0.x exporters forced identity rest rotations. The rig must never assume identity rest rotations.
 
@@ -57,11 +59,11 @@ Out of scope: graph-editor tangent math and UI (other research docs), container 
 - `signedAngle(u, v, k) = atan2(k·(u×v), u·v)`.
 - `W_x` is the world transform of `x` (always in **character space**: the character instance's local space). The superscript `⁰` marks rest (zero pose).
 
-### 1.3 Rotation order: Maya/Blender vs three.js
+### 1.3 Rotation order: common DCCs vs three.js
 
-Maya defines `R = RX * RY * RZ` for rotate order `xyz` with row vectors (`P' = P × WM`, "matrices are post-multiplied in Maya"), so **X is applied first** ([MTransformationMatrix](https://help.autodesk.com/cloudhelp/2016/ENU/Maya-SDK/cpp_ref/class_m_transformation_matrix.html)). three.js `Matrix4.makeRotationFromEuler` for order `'XYZ'` builds `Rx·Ry·Rz` for column vectors (verified in source: `te[8] = sin(y)`, `te[9] = −sin(x)cos(y)`), so **Z is applied first**.
+The desktop DCC defines `R = RX * RY * RZ` for rotate order `xyz` with row vectors (`P' = P × WM`; its SDK documents that matrices are post-multiplied), so **X is applied first** (the SDK's `MTransformationMatrix` class reference). three.js `Matrix4.makeRotationFromEuler` for order `'XYZ'` builds `Rx·Ry·Rz` for column vectors (verified in source: `te[8] = sin(y)`, `te[9] = −sin(x)cos(y)`), so **Z is applied first**.
 
-The rule is therefore: **DCC (Maya/Blender) order `"xyz"` ≡ three.js `'ZYX'`**:
+The rule is therefore: **DCC order `"xyz"` (both reference DCCs) ≡ three.js `'ZYX'`**:
 
 ```ts
 const toThreeOrder = (dcc: DccRotateOrder) =>
@@ -114,7 +116,7 @@ This layering mirrors Ekza Space's `src/engine` boundary in the `core` repo (a p
 
 ## 3. Control transform model (offset / zero groups)
 
-Maya background: animators expect a fresh control to read `0, 0, 0` while sitting on the bone. Riggers get this with *offset groups*, or since Maya 2020 with the transform's `offsetParentMatrix` ([transform node](https://help.autodesk.com/cloudhelp/2025/ENU/Maya-Tech-Docs/Nodes/transform.html)). Joints do the same with `jointOrient`: the joint matrix is `[S]·[RO]·[R]·[JO]·[IS]·[T]` ([MFnIkJoint](https://help.autodesk.com/cloudhelp/2016/ENU/Maya-SDK/cpp_ref/class_m_fn_ik_joint.html)). These formulas use Maya's row-vector order.
+Desktop-DCC background: animators expect a fresh control to read `0, 0, 0` while sitting on the bone. Riggers get this with *offset groups*, or since the desktop DCC's 2020 release with the transform's `offsetParentMatrix` (transform node reference). Joints do the same with `jointOrient`: the joint matrix is `[S]·[RO]·[R]·[JO]·[IS]·[T]` (the SDK's `MFnIkJoint` class reference). These formulas use the desktop DCC's row-vector order.
 
 Our model, per control `c`, in column-vector order:
 
@@ -129,7 +131,7 @@ L_b    = (W_parent(b))⁻¹ · W_b                 // bone local → three.js Bo
 
 **Invariant.** When all channels are at their defaults, `W_c = W_c⁰`, so `W_b = W_b⁰` and `L_b` equals the rest local exactly. A unit test asserts this for every auto-rig, with tolerance 1e-9.
 
-**What is stored vs derived.** `RigDoc` stores each control's **rest world transform `W_c⁰`** in character space, not `O`. Re-parenting a control then keeps it where it is (Maya's "preserve position" parenting) without rewriting numbers. Concurrent edits to different controls never conflict.
+**What is stored vs derived.** `RigDoc` stores each control's **rest world transform `W_c⁰`** in character space, not `O`. Re-parenting a control then keeps it where it is (the desktop DCC's "preserve position" parenting) without rewriting numbers. Concurrent edits to different controls never conflict.
 
 **Binding modes**
 
@@ -144,9 +146,9 @@ L_b    = (W_parent(b))⁻¹ · W_b                 // bone local → three.js Bo
 | Frame | `W_c⁰.q` | What `rx/ry/rz` mean | Default for |
 |---|---|---|---|
 | **world-aligned** (normalized) | identity in character space | Character axes at rest (X = character left, Y = up, Z = forward). Same meaning on every avatar. | All VRM humanoid controls, IK controls, root, COG |
-| bone-aligned | `W_b⁰.q` | The bone's own rest axes (Blender pose-bone / Maya joint feel) | 1:1 generic FK rigs |
+| bone-aligned | `W_b⁰.q` | The bone's own rest axes (open-source-DCC pose-bone / desktop-DCC joint feel) | 1:1 generic FK rigs |
 | custom | arbitrary, e.g. a relaxed A-pose for arms | An idle pose sits near zero, which keeps Euler values away from gimbal lock | Optional per control |
-| behavior-mirrored (right side) | `q_R⁰ = q_X(π) · q_L⁰`, with position mirrored | The same channel values give a mirrored pose. Translation values must be negated, as in Maya behavior mirroring. | Later option |
+| behavior-mirrored (right side) | `q_R⁰ = q_X(π) · q_L⁰`, with position mirrored | The same channel values give a mirrored pose. Translation values must be negated, as in desktop-DCC behavior mirroring. | Later option |
 
 Derivation of the behavior frame: the mirror is `M = diag(−1, 1, 1)`. The reflected left frame `M·Q_L` is left-handed. Negating all its axes gives `−M·Q_L = R_X(π)·Q_L`, a proper rotation. Conjugating any local rotation by `R_X(π)` maps the quaternion `(x, y, z, w) → (x, −y, −z, w)`, which is the mirror of a rotation (§16).
 
@@ -157,7 +159,7 @@ Derivation of the behavior frame: the mirror is `M = diag(−1, 1, 1)`. The refl
 Three equivalent ways to apply a rest-relative rotation to a bone:
 
 ```
-// (a) bone-local delta (Blender pose bone, Maya joint rotate after jointOrient)
+// (a) bone-local delta (open-source-DCC pose bone, desktop-DCC joint rotate after jointOrient)
 q_local = q_restLocal · Δ                         // Δ is expressed in the bone's rest frame
 
 // (b) world-aligned / VRM normalized local rotation N
@@ -255,9 +257,9 @@ The VRM T-pose has straight limbs, so the hinge cannot be inferred from the rest
 
 ### 5.4 Shapes, sizes, colours, rendering
 
-- **Shape data.** Each shape is a set of polylines in control-local space; the Maya equivalent is degree-1 or degree-3 NURBS CVs. Library: `circle` (48 segments), `square`, `cube`, `sphere` (3 circles), `diamond`, `arrow4`, `star`, `foot` (footprint), `cross`, `custom`. A shape has its own `offset` transform, so it can be moved without moving the pivot. Example: limb circles are drawn `0.25·ℓ` down the bone, so consecutive joints don't overlap.
-- **Radius.** `r_b = clamp(1.25 · P90{ dist(v, segment_b) : w_b(v) ≥ 0.5 }, 0.02 H, 0.25 H)`. The fallback is `0.15·ℓ_b`. Circle normal: `n = normalize(p_child⁰ − p_b⁰)`, which gives the Maya-style circle around the bone.
-- **Colours.** Conventions vary between studios. For example, [one rigging course](https://courses.cs.washington.edu/courses/cse458/07au/projects/project6/rigging_tutorial/controls.htm) uses left red, right blue, centre green. We default to what the owner asked for, which matches the common Maya index colours blue (6), red (13) and yellow (17). The palette is a theme token map:
+- **Shape data.** Each shape is a set of polylines in control-local space; the desktop-DCC equivalent is degree-1 or degree-3 NURBS CVs. Library: `circle` (48 segments), `square`, `cube`, `sphere` (3 circles), `diamond`, `arrow4`, `star`, `foot` (footprint), `cross`, `custom`. A shape has its own `offset` transform, so it can be moved without moving the pivot. Example: limb circles are drawn `0.25·ℓ` down the bone, so consecutive joints don't overlap.
+- **Radius.** `r_b = clamp(1.25 · P90{ dist(v, segment_b) : w_b(v) ≥ 0.5 }, 0.02 H, 0.25 H)`. The fallback is `0.15·ℓ_b`. Circle normal: `n = normalize(p_child⁰ − p_b⁰)`, which gives the usual DCC-style circle around the bone.
+- **Colours.** Conventions vary between studios. For example, [one rigging course](https://courses.cs.washington.edu/courses/cse458/07au/projects/project6/rigging_tutorial/controls.htm) uses left red, right blue, centre green. We default to what the owner asked for, which matches the common desktop-DCC index colours blue (6), red (13) and yellow (17). The palette is a theme token map:
 
   | Role | Left | Right | Centre |
   |---|---|---|---|
@@ -266,11 +268,11 @@ The VRM T-pose has straight limbs, so the hinge cannot be inferred from the rest
   | selected / hover | `#FFFFFF` / primary +30% lightness | ← | ← |
 
 - **Rendering.** Use `Line2`/`LineSegments2` with `LineMaterial` from three.js `examples/jsm/lines`, because WebGL line width is effectively 1 px. Defaults: 2 px, 3 px when selected.
-  - `LineMaterial.resolution` must be set for **each viewport** before it renders, because the Maya-like split view has several viewports.
+  - `LineMaterial.resolution` must be set for **each viewport** before it renders, because the DCC-style split view has several viewports.
   - Two passes give an x-ray that stays depth-cued:
     1. depth-tested at 100% opacity
     2. occluded parts (`depthFunc = GreaterDepth`, `depthWrite = false`) at 30% opacity
-  - Pole vectors draw a dashed annotation line from the mid joint to the pole, as Maya does.
+  - Pole vectors draw a dashed annotation line from the mid joint to the pole, as the desktop DCC does.
   - Controls live on a dedicated layer (three.js `Layers`) in an overlay scene, so the fixed camera view can hide them.
 
 ---
@@ -281,17 +283,17 @@ The VRM T-pose has straight limbs, so the hinge cannot be inferred from the rest
 |---|---|
 | Click-pick controls | **GPU id picking.** Render the overlay scene into a small render target (e.g. 9×9 px) around the cursor using `camera.setViewOffset`, encoding each control's index as a flat colour, with lines widened by +4 px. Read the pixels and pick the non-zero id nearest the centre. Fallback: `Raycaster` with `params.Line2.threshold` (supported by `LineSegments2.raycast`). |
 | Click the mesh → control | Raycast the `SkinnedMesh`. three.js applies skinning in `SkinnedMesh.raycast` via `applyBoneTransform`. For the hit face, sum `skinWeight × barycentric` per bone over its 3 vertices, then take the dominant bone. Map it through the inverse binding (bone → FK control, or → IK control when the limb's `ikFk > 0.5`). This is fast and forgiving for dense hands. |
-| Marquee | Project each control's shape sample points to screen space. A control is selected if any point is inside the rectangle (Maya selects curves the marquee crosses). Shift adds, Ctrl toggles. |
-| Pickwalk | Arrow keys move along the control hierarchy (up = parent, down = first child, left/right = mirror pair or sibling), as Maya `pickWalk` does. |
+| Marquee | Project each control's shape sample points to screen space. A control is selected if any point is inside the rectangle (the desktop DCC selects curves the marquee crosses). Shift adds, Ctrl toggles. |
+| Pickwalk | Arrow keys move along the control hierarchy (up = parent, down = first child, left/right = mirror pair or sibling), as the desktop DCC's `pickWalk` does. |
 | Selection sets | `RigDoc.selectionSets`, e.g. "left arm", "all fingers", "body". Shown in a quick picker panel. |
 | Visibility | Bones are **hidden by default** (no `SkeletonHelper`). Toggles: show joints (debug), show FK/IK/both, show by group (body / fingers / face / secondary), isolate selection. With a rig present, bones are never pickable. |
-| Channel box | Shows the selected controls' keyable channels and custom attributes. Locked or non-keyable channels are hidden. Editing several controls at once is relative per control. |
+| Channels panel | Shows the selected controls' keyable channels and custom attributes. Locked or non-keyable channels are hidden. Editing several controls at once is relative per control. |
 
 ---
 
 ## 7. Constraints
 
-**Design rule.** A constraint on a *control* drives that control's **space** (its offset parent), not its channels. The control therefore stays animatable on top of the constraint, which is Maya best practice for constraining the offset group. A constraint can also drive a bone directly; generic rigs use this for prop attachment.
+**Design rule.** A constraint on a *control* drives that control's **space** (its offset parent), not its channels. The control therefore stays animatable on top of the constraint, which is desktop-DCC best practice for constraining the offset group. A constraint can also drive a bone directly; generic rigs use this for prop attachment.
 
 | Type | Output | Formula (targets `i`, normalized weights `ŵ_i = w_i / Σw`) |
 |---|---|---|
@@ -303,9 +305,9 @@ The VRM T-pose has straight limbs, so the hinge cannot be inferred from the rest
 | scale (later) | s | `s = Π s_i^{ŵ_i}` (geometric mean) |
 
 - `Off_i = (W_ti⁰)⁻¹ · W_x⁰` when `maintainOffset` is on. It is computed **from the rest pose at compile time**, which keeps it deterministic. If the user creates the constraint while posed, the captured offset is stored explicitly in the doc.
-- `σ_i = sign(q(C_0) · q(C_i))` aligns hemispheres to the first target. That makes the weighted average equal to Maya's "Average" interpolation. For exactly two targets, use `slerp(q_0, q_1, ŵ_1)` (Maya "Shortest").
-- **Excluded:** Maya's `No Flip` and `Cache` interp types. Maya's docs say No Flip "is dependent on the previous frame, it requires a runup … or a cache" ([orientConstraint](https://help.autodesk.com/cloudhelp/ENU/MayaCRE-Tech-Docs/Nodes/orientConstraint.html)). That violates D3.
-- **Blend with own animation:** `W = interp(W_unconstrained, W_constrained, blend)`, with lerp for `t` and slerp for `q`. `blend` is an animatable attribute (Maya's `blendParent`). If `Σw = 0`, the constraint is ignored.
+- `σ_i = sign(q(C_0) · q(C_i))` aligns hemispheres to the first target. That makes the weighted average equal to the desktop DCC's "Average" interpolation. For exactly two targets, use `slerp(q_0, q_1, ŵ_1)` (its "Shortest").
+- **Excluded:** the desktop DCC's `No Flip` and `Cache` interp types. Its docs say No Flip "is dependent on the previous frame, it requires a runup … or a cache" (orientConstraint node reference). That violates D3.
+- **Blend with own animation:** `W = interp(W_unconstrained, W_constrained, blend)`, with lerp for `t` and slerp for `q`. `blend` is an animatable attribute (the desktop DCC's `blendParent`). If `Σw = 0`, the constraint is ignored.
 
 **Aim constraint math.** Inputs:
 
@@ -406,7 +408,7 @@ function solveTwoBone():
   φ = (|m| > 1e-9 && |n| > 1e-9) ? atan2(x̂·(m × n), m·n) : 0
   qT = axisAngle(x̂, φ + τ);   qU = qT · qU;  qM = qT · qM
 
-  // 6. End effector orientation follows the IK control (Maya "orient to IK handle")
+  // 6. End effector orientation follows the IK control (desktop DCC: "orient to IK handle")
   qE = (W_ikCtrl.q) · K_end.q
 
   // 7. Locals for the blend/output stage
@@ -421,7 +423,7 @@ Properties:
 - The result depends only on the current inputs.
 - Near full extension `|m|` is small but its direction is still defined by the hinge, because the ε clamp keeps `β1 > 0`.
 
-Step 5 is the classic Maya rotate-plane (RP) solver decomposition. Steps 3–4 are the law-of-cosines solver described by [D. Holden, "Simple Two Joint IK"](https://theorangeduck.com/page/simple-two-joint), but with a fixed hinge axis instead of a cross product, which removes the straight-leg instability Holden mentions.
+Step 5 is the classic desktop-DCC rotate-plane (RP) solver decomposition. Steps 3–4 are the law-of-cosines solver described by [D. Holden, "Simple Two Joint IK"](https://theorangeduck.com/page/simple-two-joint), but with a fixed hinge axis instead of a cross product, which removes the straight-leg instability Holden mentions.
 
 - **Soft IK** (`soft` > 0) removes the "pop" near full extension. It follows the same idea as Softimage soft IK and [Spine's IK softness](https://en.esotericsoftware.com/spine-ik-constraints). The exponential form above is the common formulation.
 - **Stretch** (later, generic glTF only): `σ = max(1, dRaw/L)` scales `tM0` and `tE0`. This produces translation tracks on non-hips bones, which VRMA forbids, so it is disabled for humanoid export profiles.
@@ -453,7 +455,7 @@ CCD rotates each joint `j`, from the end towards the root, by `shortestArc(e −
 
 ### 9.4 Joint limits
 
-- MVP: hinge-only knees and elbows (above), plus optional soft UI clamps per channel, like Maya's transform limits.
+- MVP: hinge-only knees and elbows (above), plus optional soft UI clamps per channel, like the desktop DCC's transform limits.
 - Later: swing–twist cones expressed in the *rest-relative* frame (`Δ = q_restLocal⁻¹ · q_local`, split into swing and twist about the bone axis).
 
 ### 9.5 Why not three.js `CCDIKSolver` for the rig core
@@ -583,20 +585,20 @@ W_toes        = W_ik · Bank · Heel · Toe · K_toes        // ball excluded �
 
 ### 14.1 Options
 
-| Representation | Graph editor | Gimbal and flips | Maya equivalent | Verdict |
+| Representation | Graph editor | Gimbal and flips | Desktop-DCC equivalent | Verdict |
 |---|---|---|---|---|
 | **Independent Euler curves** (3 scalar curves, own keys) | Natural: per-axis tangents (flat, linear, stepped, auto) | Gimbal lock at middle ±90°; ±2π wraps | Default "Independent Euler-Angle Curves" | **MVP default** |
 | Synchronized Euler (keys locked across x/y/z) | Same, with shared key times | Same | "Synchronized Euler-Angle Curves" | Option (cheap: a key-time lock flag) |
-| Quaternion curves (slerp/squad between keys) | No per-axis editing; Maya's quaternion modes ignore tangents | No gimbal, shortest path | "Synchronized Quaternion" (Slerp / Cubic / Tangent Dependent) | Later, per-control opt-in for problem controls |
+| Quaternion curves (slerp/squad between keys) | No per-axis editing; the desktop DCC's quaternion modes ignore tangents | No gimbal, shortest path | "Synchronized Quaternion" (Slerp / Cubic / Tangent Dependent) | Later, per-control opt-in for problem controls |
 | Rotation vector / log-map curves | Editable scalars, but unintuitive axes | No gimbal below π | – | No |
 
-Sources: Maya's [animated rotation](https://help.autodesk.com/cloudhelp/2023/ENU/Maya-Animation/files/GUID-CBD30A0A-1166-4076-A564-1ADC946A15F3.htm) and [animation settings preferences](https://help.autodesk.com/cloudhelp/2016/ENU/MayaLT/files/GUID-0817C74B-C95C-4E5F-BCFA-26DEE1D7747F.htm).
+Sources: the desktop DCC's help pages *Animated rotation* and *Animation settings preferences* (see Sources).
 
 **Recommendation.** Use Euler curves per control with a per-control `rotateOrder` (DCC semantics). Curve values are in radians, displayed as degrees. Evaluation converts each Euler triple to a quaternion right after sampling. Every downstream stage (constraints, IK, blending, bake, export) uses quaternions only. Euler is an *authoring* representation and never leaves the project file.
 
-### 14.2 Euler filter (Maya Graph Editor → Curves → Euler Filter)
+### 14.2 Euler filter (desktop DCC: Graph Editor → Curves → Euler Filter)
 
-Maya applies it to whole curves, to fix mangled rotation curves after mocap import ([Maya: fix corrupted curves](https://help.autodesk.com/cloudhelp/2016/ENU/Maya/files/GUID-10782D86-F2BC-418B-8076-DE02725AFED8.htm), [Curves menu](https://help.autodesk.com/cloudhelp/2023/ENU/Maya-Animation/files/GUID-619CAE9C-107D-4504-A769-227DDC847153.htm)).
+The desktop DCC applies it to whole curves, to fix mangled rotation curves after mocap import (vendor help: *Fix corrupted curves*, *Curves menu*).
 
 The identity behind it holds for **every** Tait–Bryan order (`i, j, k` distinct). Proof: conjugating by `R_i(π)` flips `R_j`, and `R_i(π)R_k(π) = R_j(±π)`.
 
@@ -604,7 +606,7 @@ The identity behind it holds for **every** Tait–Bryan order (`i, j, k` distinc
 R_i(a)·R_j(b)·R_k(c) = R_i(a + π)·R_j(π − b)·R_k(c + π)
 ```
 
-So every rotation has two Euler triples (plus 2π multiples). The filter picks, key by key, the variant nearest the previous key. This is also Blender's "two solutions, pick the one with minimal difference" approach ([Blender commit](https://projects.blender.org/archive/blender-archive/commit/fbca69c6)).
+So every rotation has two Euler triples (plus 2π multiples). The filter picks, key by key, the variant nearest the previous key. This is also the open-source DCC's "two solutions, pick the one with minimal difference" approach (commit `fbca69c6` in its source archive).
 
 ```ts
 const TAU = 2 * Math.PI;
@@ -760,7 +762,7 @@ Mirroring the *delta* rather than the absolute orientation keeps the result corr
 **Two modes.**
 
 - **World mirror** (the formula above) makes the counterpart symmetric in character space. Use it for IK controls, root and COG, and full-body flips.
-- **Local mirror** mirrors each control relative to its own parent: `L_c' = M·L_c·M` in world-aligned frames. Use it for FK controls when only part of the body is selected. For example, with a twisted torso a mirrored FK arm should keep its relation to the chest. This is what most Maya pose tools do, and it is the default for partial FK selections.
+- **Local mirror** mirrors each control relative to its own parent: `L_c' = M·L_c·M` in world-aligned frames. Use it for FK controls when only part of the body is selected. For example, with a twisted torso a mirrored FK arm should keep its relation to the chest. This is what most desktop-DCC pose tools do, and it is the default for partial FK selections.
 
 **Fast path for world-aligned (normalized) controls (local mode):** `W_c⁰.q = I` on both sides, so the mirror is a pure channel transform. Swap the pair, map the local quaternion as `(x, −y, −z, w)` and the translation as `(−x, y, z)`. For Euler values this is `rx' = rx, ry' = −ry, rz' = −rz`, independent of rotate order. Proof: `M·(A·B·C)·M = (MAM)(MBM)(MCM)`, and the elementary rotations reflect to `R_x(a)`, `R_y(−b)`, `R_z(−c)`. For a full-body flip, local and world modes agree, because every parent is mirrored too.
 
@@ -780,7 +782,7 @@ Mirroring the *delta* rather than the absolute orientation keeps the result corr
    - suffix `.L/.R`, `_L/_R`, `-L/-R`
    - suffix `_l/_r` (Unreal style, e.g. `upperarm_l`)
    - prefix `L_`/`R_`, `l_`/`r_`
-   - word `Left`/`Right` anywhere (Mixamo `mixamorig:LeftArm`)
+   - word `Left`/`Right` anywhere (common auto-rigger skeleton names such as `…rig:LeftArm`)
 3. Spatial fallback: the bone nearest `M·p⁰` within `0.01 H` with the same depth and child count.
 
 `RigDoc.mirror.pairs` stores the result explicitly, both directions, so users can fix it.
@@ -818,7 +820,7 @@ Clipboard payload (JSON in `text/plain` via `navigator.clipboard.writeText`, plu
 |---|---|
 | Ghost pool | Clone the model once per ghost with `SkeletonUtils.clone` (three.js `examples/jsm/utils/SkeletonUtils.js`; it rebinds the skeleton and shares `BufferGeometry`). Swap materials for one shared unlit, transparent material per ghost (`depthWrite = false`), with an optional fresnel-silhouette shader later. |
 | Poses | Evaluate the rig at `t ± k·step` into a per-frame pose cache (`Float32Array`, bone count × 10), keyed by the animation document revision. Recompute on edit, debounced to idle time. Cost per ghost is one evaluation plus one skinned draw. |
-| Modes | Relative (`±k` frames, step `n`), keyed (previous and next `N` keys of the selection), pinned frames (Maya-style "ghost at frames") |
+| Modes | Relative (`±k` frames, step `n`), keyed (previous and next `N` keys of the selection), pinned frames (desktop-DCC-style "ghost at frames") |
 | Look | Past frames cool-tinted, future frames warm. Opacity `0.35·(1 − k/(N+1))`. Morphs and spring bones are skipped on ghosts. |
 | Motion trail | For selected controls, sample `W_c` positions over `[t − a, t + b]` into a `Line2` with dots at keyed frames. Editable trails (drag a point to re-key) come later. |
 | Viewports | Onion skin is a per-viewport toggle. For example, off in the fixed "camera" view and on in the free view. |
@@ -1070,7 +1072,7 @@ Nothing in the existing repos implements controls, constraints or IK. Those are 
 
 1. Defaults: arms FK and legs IK? Arm IK space defaulting to `root`, or `world`?
 2. Colour convention: keep left blue / right red / centre yellow (the request) as the default theme?
-3. Should right-side controls be *behavior-mirrored* (same values ⇒ mirrored pose, Maya style) or world-aligned (consistent axes, mirror via the tool)? This doc proposes world-aligned for the MVP.
+3. Should right-side controls be *behavior-mirrored* (same values ⇒ mirrored pose, desktop-DCC style) or world-aligned (consistent axes, mirror via the tool)? This doc proposes world-aligned for the MVP.
 4. Default root-motion mode per export target: `hips` for Space and VRMA, `in-place` for OMOBA?
 5. Should rigs become a registry asset kind (a shared rig per avatar template), or stay inside project files only?
 6. Should exported GLBs embed the rig and curves (`extras.ekzaAnimator`) for round-tripping, or should the project file be the only editable source?
@@ -1092,17 +1094,17 @@ Nothing in the existing repos implements controls, constraints or IK. Those are 
 - three-vrm `rotateVRM0`: https://github.com/pixiv/three-vrm/blob/dev/packages/three-vrm/src/VRMUtils/rotateVRM0.ts
 - three.js `CCDIKSolver` docs: https://threejs.org/docs/pages/CCDIKSolver.html; source: https://github.com/mrdoob/three.js/blob/dev/examples/jsm/animation/CCDIKSolver.js
 - three.js `Matrix4.makeRotationFromEuler`: https://github.com/mrdoob/three.js/blob/dev/src/math/Matrix4.js
-- Maya `MTransformationMatrix`: https://help.autodesk.com/cloudhelp/2016/ENU/Maya-SDK/cpp_ref/class_m_transformation_matrix.html
-- Maya `MFnIkJoint` (joint matrix with jointOrient): https://help.autodesk.com/cloudhelp/2016/ENU/Maya-SDK/cpp_ref/class_m_fn_ik_joint.html
-- Maya transform node (`offsetParentMatrix`): https://help.autodesk.com/cloudhelp/2025/ENU/Maya-Tech-Docs/Nodes/transform.html
-- Maya orientConstraint node (interp types, No Flip needs run-up/cache): https://help.autodesk.com/cloudhelp/ENU/MayaCRE-Tech-Docs/Nodes/orientConstraint.html
-- Maya animated rotation (Euler vs quaternion): https://help.autodesk.com/cloudhelp/2023/ENU/Maya-Animation/files/GUID-CBD30A0A-1166-4076-A564-1ADC946A15F3.htm
-- Maya animation settings (rotation interpolation modes): https://help.autodesk.com/cloudhelp/2016/ENU/MayaLT/files/GUID-0817C74B-C95C-4E5F-BCFA-26DEE1D7747F.htm
-- Maya Graph Editor Curves menu (Euler Filter): https://help.autodesk.com/cloudhelp/2023/ENU/Maya-Animation/files/GUID-619CAE9C-107D-4504-A769-227DDC847153.htm
-- Maya "Fix corrupted curves": https://help.autodesk.com/cloudhelp/2016/ENU/Maya/files/GUID-10782D86-F2BC-418B-8076-DE02725AFED8.htm
+- Desktop DCC `MTransformationMatrix` (2016 SDK C++ reference; vendor URL omitted)
+- Desktop DCC `MFnIkJoint` (joint matrix with jointOrient; 2016 SDK C++ reference; vendor URL omitted)
+- Desktop DCC transform node (`offsetParentMatrix`; 2025 node reference; vendor URL omitted)
+- Desktop DCC orientConstraint node (interp types, No Flip needs run-up/cache; node reference; vendor URL omitted)
+- Desktop DCC animated rotation (Euler vs quaternion; 2023 help; vendor URL omitted)
+- Desktop DCC animation settings (rotation interpolation modes; 2016 help of the LT edition; vendor URL omitted)
+- Desktop DCC Graph Editor Curves menu (Euler Filter; 2023 help; vendor URL omitted)
+- Desktop DCC "Fix corrupted curves" (2016 help; vendor URL omitted)
 - D. Holden, "Simple Two Joint IK": https://theorangeduck.com/page/simple-two-joint
 - A. Aristidou, J. Lasenby, "FABRIK: A fast, iterative solver for the Inverse Kinematics problem", Graphical Models 73(5), 2011: https://www.andreasaristidou.com/FABRIK
-- Blender: two Euler solutions, pick nearest (`mat3_normalized_to_compatible_eulO`): https://projects.blender.org/archive/blender-archive/commit/fbca69c6
+- Open-source DCC: two Euler solutions, pick nearest (`mat3_normalized_to_compatible_eulO`), commit `fbca69c6` in its source archive (vendor URL omitted)
 - Spine IK softness: https://en.esotericsoftware.com/spine-ik-constraints
 - Rig colour convention example (varies by studio): https://courses.cs.washington.edu/courses/cse458/07au/projects/project6/rigging_tutorial/controls.htm
 - Sibling research: `03-ekza-reuse-audit.md` (containers, VRM append-only bake, Ekza conventions)

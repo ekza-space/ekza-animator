@@ -1,4 +1,4 @@
-// Numeric entry and display (Channel Box, Graph Editor fields): internal units are radians and metres, the UI shows
+// Numeric entry and display (Channels, Graph Editor fields): internal units are radians and metres, the UI shows
 // degrees for rotation channels (MVP-SPEC §3 convention 4) and for attributes with `unit: 'angle'` (M2A-SPEC §5.1
 // rule 5: callers that know the control pass `channelUnit(control, channel)`).
 import { DEG2RAD, RAD2DEG } from '@ekza-studio/anim-core';
@@ -8,7 +8,7 @@ import { isRotation } from './channelMeta';
 
 /**
  * Parses a typed value in display units against the field's `current` display value, with the shared numeric-field
- * grammar of research 09 §6.4 (v0.3 integration: one parser for the Channel Box, the Graph Editor fields and the
+ * grammar of research 09 §6.4 (v0.3 integration: one parser for the Channels panel, the Graph Editor fields and the
  * other numeric fields): `[=]expr` sets, `+=`/`-=` add, `*=`/`/=` (and the short `*x`/`/x`) scale.
  *
  * - `expr` has `+ - * / ( )`, decimals and exponents, one optional sign per operand (`2 * -3`, not `--5`);

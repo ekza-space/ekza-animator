@@ -64,7 +64,7 @@ export async function screenOf(
 }
 
 /**
- * A click modifier of §5.6 (unchanged from Animate, as in Maya): no modifier replaces, `Shift` toggles, `Mod` removes
+ * A click modifier of §5.6 (unchanged from Animate): no modifier replaces, `Shift` toggles, `Mod` removes
  * and `Mod` + `Shift` adds. `Mod` is the key the editor reads as Mod: Cmd on macOS, Ctrl elsewhere (`modKey`).
  */
 export type ClickModifier = 'Shift' | 'Mod';

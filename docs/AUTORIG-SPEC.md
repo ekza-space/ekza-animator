@@ -13,9 +13,9 @@ made the packages disjoint (§10) and the acceptance concrete (§11 AS-AR-1, AS-
 contract change needs a PR that updates this file first.
 
 Owner request (2026-10-22, translated): *"Can we make a minimalist Studio interface so that on opening you choose
-either the full interface or a simplified auto-rig built on the interfaces we already have — like Mixamo: just an
-interface to rig, get a ready model, put animations on it, see it in motion, and e.g. prepare it for use in OMOBA.
-Studio must become a universal combine."*
+either the full interface or a simplified auto-rig built on the interfaces we already have — like a web auto-rigging
+service: just an interface to rig, get a ready model, put animations on it, see it in motion, and e.g. prepare it for
+use in OMOBA. Studio must become a universal combine."*
 
 Inputs: [M6B-SPEC](M6B-SPEC.md) v1.5 **§0 MVP cut** (merged on `dev`, released as `v0.4.0`; decision record
 [ADR 0020](adr/0020-m6b-mvp-cut.md)), its §0.10 (CR-AR-1…6), §0.11 (integration record), its deferred A-pose text
@@ -26,8 +26,8 @@ Inputs: [M6B-SPEC](M6B-SPEC.md) v1.5 **§0 MVP cut** (merged on `dev`, released 
 `rig/src/quickrig/**`, `io/src/character/**`, `apps/web/scripts/check-size.mjs`); [LAYOUT-PRESETS](LAYOUT-PRESETS.md);
 the shipped shell (`packages/editor`: `EditorRoot`, `EditorShell`, `gl/GLHost`, `panels/viewport/PaneView`,
 `FirstRunDialog`, autosave and recovery), the workspace switch (`editor-core/src/workspaces/`), the routes of `apps/web`; research
-[05](research/05-landscape.md) (Mixamo, Cascadeur), [14](research/14-skinning-own-models.md),
-[17](research/17-maya-rigging-basics.md), [19](research/19-rig-workspace-ui.md); OMOBA's runtime rules and local import
+[05](research/05-landscape.md) (the auto-rigging service, Cascadeur), [14](research/14-skinning-own-models.md),
+[17](research/17-dcc-rigging-basics.md), [19](research/19-rig-workspace-ui.md); OMOBA's runtime rules and local import
 flow (`omoba-bevy`: `passport/src/humanoid.rs`, `docs/humanoid-motion.md`, `client/assets/avatars/manifest.json`; read
 only); the market survey of §2.
 
@@ -72,11 +72,11 @@ from `operators/builtin/rig/wizard/`. Code, greps and rule tests of this milesto
 | ID | Goal | Measure |
 |---|---|---|
 | FR-AR-01 | **Choose on opening**: the landing page offers *Auto-Rig* and *Studio*; the choice can be remembered and switched at any time | §3; AS-AR-8 |
-| FR-AR-02 | **Mixamo-simple flow**: model → markers → rig → animations → export, five steps, one primary button per step | §5; AS-AR-1 |
+| FR-AR-02 | **Simple five-step wizard flow**: model → markers → rig → animations → export, five steps, one primary button per step | §5; AS-AR-1 |
 | FR-AR-03 | **Rig a static humanoid**, **T- or A-posed** (GLB, or a model from Studio) with the M6b Quick Rig markers, One-Click guess, X symmetry and the front/side axis rule; skeleton detail (fingers) chosen on the markers step | §5.3 |
 | FR-AR-04 | **Auto-rig in one click**: Create Skeleton + Bind Skin (auto-lowpoly) with a progress display, then the character **moves at once** (motion test) | §5.4 |
 | FR-AR-05 | **Fix when needed**: adjust joints and paint weights with the M6b tools, without leaving the wizard | §5.4 |
-| FR-AR-06 | **Animations grid**: search, preview on the character, Mixamo-style parameters (speed, trim, mirror, in place, arm space), add several clips to the character | §5.5 |
+| FR-AR-06 | **Animations grid**: search, preview on the character, per-clip parameters (speed, trim, mirror, in place, arm space), add several clips to the character | §5.5 |
 | FR-AR-07 | **Export** an OMOBA- and Space-ready VRM 1.0 with an in-browser checklist, a GLB with the clips, the clips as VRMA, and an OMOBA local test kit | §5.6 |
 | FR-AR-08 | **One document**: "Open in Studio" continues with the full document (and, on the same page, with its undo history); Studio can send its model to Auto-Rig | §4.4 |
 | FR-AR-09 | **Already rigged VRM → straight to animations** | §6 |
@@ -100,7 +100,7 @@ model → avatar" shell after M7) cheap, because they too only compose operators
 - Decimation of heavy meshes (Q-AR-11), texture painting, UV editing.
 - Server processing, accounts, cloud storage; "Publish to Hub" is specified (§5.6.5) but hidden until M4a T3 ships.
 - Collaboration in Auto-Rig (the document is the same, so M3 applies later without Auto-Rig changes).
-- Bundling or importing Mixamo files (their licence forbids redistribution; research 05).
+- Bundling or importing files from the auto-rigging service (its licence forbids redistribution; research 05).
 
 ---
 
@@ -108,7 +108,7 @@ model → avatar" shell after M7) cheap, because they too only compose operators
 
 | Tool | Flow | Inputs / outputs | What we take | What we avoid |
 |---|---|---|---|---|
-| **Mixamo** (Adobe, web, maintenance mode) | Upload → orient (rotate buttons) → markers: chin, wrists, elbows, knees, groin, *Use Symmetry*, *Skeleton LOD* (full fingers … no fingers) → server auto-rig (≈ 1–2 min, progress) → review with a default motion → Animations: search grid, click to preview on the character, per-clip sliders (*Overdrive* = speed, *Character Arm-Space*, *Trim*) and checkboxes (*In Place*, *Mirror*) → Download dialog: format (FBX binary, FBX for Unity, DAE), skin with/without, fps, keyframe reduction | FBX/OBJ/ZIP in, FBX/DAE out; Adobe ID | the five-screen rhythm; markers with symmetry; skeleton LOD on the markers screen; instant motion review; the per-clip parameters incl. **arm space** (vital for blocky low-poly bodies); one download dialog | server dependency, account, opaque failures, FBX only, no fixing tools, unredistributable clips |
+| **Web auto-rigging service** (web, maintenance mode) | Upload → orient (rotate buttons) → markers: chin, wrists, elbows, knees, groin, *Use Symmetry*, *Skeleton LOD* (full fingers … no fingers) → server auto-rig (≈ 1–2 min, progress) → review with a default motion → Animations: search grid, click to preview on the character, per-clip sliders (*Overdrive* = speed, *Character Arm-Space*, *Trim*) and checkboxes (*In Place*, *Mirror*) → Download dialog: format (FBX binary, FBX for Unity, DAE), skin with/without, fps, keyframe reduction | FBX/OBJ/ZIP in, FBX/DAE out; vendor account | the five-screen rhythm; markers with symmetry; skeleton LOD on the markers screen; instant motion review; the per-clip parameters incl. **arm space** (vital for blocky low-poly bodies); one download dialog | server dependency, account, opaque failures, FBX only, no fixing tools, unredistributable clips |
 | **ActorCore AccuRIG** (Reallusion, desktop, free) | Import → *Rig Body* (auto markers, drag to adjust, symmetry) → *Rig Hand* (choose the finger count, hand markers) → preview with stock motions, *Pose Offset* sliders per body part → export (FBX/USD with target profiles; 2.0 also exports retargeted motion) | OBJ/FBX in; FBX/USD/iAvatar out | auto-placed markers the user only corrects; finger count as an explicit choice; per-target export profiles | desktop install; pose offsets that silently do not reach some exports |
 | **Cascadeur** Quick Rigging Tool (desktop) | Rig mode → Quick Rigging Tool → template (Humanoid/Quadruped) → map joints onto a body diagram (tabs Body, Hands, Twists) → *Add rig elements* (controllers, symmetry axis, rigid-body weights) | its own scene | a body diagram that names what each point means; generated controls | mapping every joint by hand |
 | **Tripo** / **Meshy** (AI generators, web) | Generate or upload → one-click server auto-rig (humanoid; Tripo also quadruped/creature; T- or A-pose recommended, non-standard bodies may fail) → preset motion library (Meshy ≈ 500+) → export animated GLB/FBX, in-place option | own models; GLB/FBX out; paid credits | "rig → it moves immediately"; library-first; in-place | credits per action, opaque failure, no manual correction |
@@ -152,8 +152,8 @@ the layout), which the size tooling reads; D0 makes `check:size` route-group-awa
 │  │                                  │  │                                  │  │
 │  │  Upload a model, place a few     │  │  Model, rig & skin, animate with │  │
 │  │  markers, get a skinned skeleton,│  │  the Graph Editor, export glTF,  │  │
-│  │  try animations, export a VRM    │  │  VRM and VRMA. Maya-style keys   │  │
-│  │  for OMOBA and Ekza Space.       │  │  and docked panels.              │  │
+│  │  try animations, export a VRM    │  │  VRM and VRMA. Industry-standard │  │
+│  │  for OMOBA and Ekza Space.       │  │  DCC hotkeys and docked panels.  │  │
 │  │                                  │  │                                  │  │
 │  │  [ Start Auto-Rig  → ]           │  │  [ Open Studio  → ]              │  │
 │  │  GLB · VRM · desktop and tablet  │  │  Best on a desktop               │  │
@@ -519,7 +519,7 @@ VRMA `VRMC_vrm_animation`), not only by extension:
 | `.glb` with a skin not mapped as humanoid | `rigged-other` | a choice: **Re-rig from scratch** (imports the meshes at their bind pose without the skeleton: `mesh.importStatic {dropSkin: true}`, CR-AR-6) → ②, or **Open in Studio** |
 | `.ekzanim` | `project` | `file.openProject`; subject = the only character, else the scene meshes; a project with several characters asks which one |
 | `.vrma` | animation | refused here: "This is an animation. Rig a model first, then add it in step 4." (④ accepts `.vrma`) |
-| `.fbx`, `.obj`, `.blend`, `.zip`, other | unsupported | "Auto-Rig reads GLB and VRM. In Blender: File › Export › glTF 2.0 (.glb)." (Q-AR-3) |
+| `.fbx`, `.obj`, `.blend`, `.zip`, other | unsupported | "Auto-Rig reads GLB and VRM. Export it as glTF 2.0 binary (.glb) from your 3D tool." (Q-AR-3) |
 
 A document that already holds content (a previous character) gets the shipped *New* confirm first ("Start a new
 character? Unsaved work is kept in autosave"), then `file.new`; *From Studio* never replaces anything.
@@ -581,10 +581,10 @@ Everything here is **M6B §0.2 steps 2–4 and §0.4.2**, presented differently:
   beside an Auto-Rig body pictogram that highlights where the selected marker belongs (Cascadeur's diagram, L1); the
   body's own Create Skeleton button is hidden in `compact` (D4 adds the prop `hideCommit` to the body if `compact` does
   not hide it — an owned additive edit) because *Auto-rig ▸* replaces it.
-- **Fingers** (skeleton detail, Mixamo's LOD): *None* → `core21`; *Thumb + 1* (mitten, the default) → `standard33`;
-  *All five* → `full52`; `⋯ › Minimal skeleton (no shoulders, no toes)` → `lite17`. It runs `skel.quickRig.setPreset`
-  (C3). On a re-run the select is locked to the skeleton's preset (M6b rule) with "Changing fingers rebuilds the
-  skeleton — Start over" as the tooltip.
+- **Fingers** (skeleton detail, the auto-rigging service's skeleton LOD): *None* → `core21`; *Thumb + 1* (mitten, the
+  default) → `standard33`; *All five* → `full52`; `⋯ › Minimal skeleton (no shoulders, no toes)` → `lite17`. It runs
+  `skel.quickRig.setPreset` (C3). On a re-run the select is locked to the skeleton's preset (M6b rule) with "Changing
+  fingers rebuilds the skeleton — Start over" as the tooltip.
 - **Symmetry** is always on in v1 (M6b's markers are mirrored by definition); the panel says so ("Left side mirrors the
   right") — asymmetric bodies are Q-AR-5.
 - Notices from C2/C3 (start checks, guess failure, `aPose`) render in the panel with their M6b texts and fixes. A0
@@ -732,7 +732,7 @@ definition. Optional in v1 (D5 stretch; Q-AR-7).
   (`attack → sword, punch`, `stand → idle`, `shoot → pistol`, …; i18n-ready). Filter chips map clip ids to categories
   from an Auto-Rig data table (Move: idle, walk, run, jog, jump-*; Combat: sword-attack, punch, cast, pistol-shoot;
   React: hit, death; Fun: dance); unknown ids fall into "Other", so a manifest that grows never breaks the grid.
-- No per-card animated thumbnails in v1 (the main viewport is the preview, as Mixamo's is).
+- No per-card animated thumbnails in v1 (the main viewport is the preview, as in the auto-rigging service).
 
 #### 5.5.2 Preview
 
@@ -743,15 +743,15 @@ definition. Optional in v1 (D5 stretch; Q-AR-7).
 - Rows under **On <character>** are document clips: ▶ plays them through the shipped path (`clip.setActive`,
   `time.setLoop`, `time.play` in `animate`), which also proves that what was added is what was previewed.
 
-#### 5.5.3 Parameters (Mixamo's, applied before adding — L4)
+#### 5.5.3 Parameters (applied before adding — L4)
 
 | Param | Range | Applied by | Notes |
 |---|---|---|---|
-| Speed | 0.25–3×, step 0.05 | `applyClipParams` (io, D5; reached through `deriveHumanoidVrma`, below): sample times ÷ speed | Mixamo "Overdrive" |
+| Speed | 0.25–3×, step 0.05 | `applyClipParams` (io, D5; reached through `deriveHumanoidVrma`, below): sample times ÷ speed | the auto-rigging service's "Overdrive" |
 | Trim | start/end within the source duration | `applyClipParams`: keeps samples in the window, re-zeroes time | loop clips keep `loop` only when the trim is the full clip |
-| Arm space | −10…+30° | `applyClipParams`: adds the angle to `leftUpperArm`/`rightUpperArm` abduction (mirror-signed) on every sample | Mixamo "Character Arm-Space"; stops blocky arms cutting the torso |
+| Arm space | −10…+30° | `applyClipParams`: adds the angle to `leftUpperArm`/`rightUpperArm` abduction (mirror-signed) on every sample | the auto-rigging service's "Character Arm-Space"; stops blocky arms cutting the torso |
 | Mirror | on/off | `applyClipParams`: swaps left/right humanoid bones and reflects across the YZ plane (`q → (x, −y, −z, w)`, hips `x → −x`) | a D5 test asserts equality (≤ 1e-4 rad) with the shipped `pose.mirrorAnimation` run on the added clip |
-| In place | on/off | `applyClipParams` removes the hips' X/Z travel with the **same** helper the exports use (`io/src/bake/bake.ts`, exported by D5, no behaviour change), so the derived bytes preview in place; Use Clip also sets the shipped clip setting `rootMotion: 'in-place'`, so exports and Studio know it (the helper is idempotent: a D5 test removes travel twice and gets equal samples) | Mixamo "In Place" |
+| In place | on/off | `applyClipParams` removes the hips' X/Z travel with the **same** helper the exports use (`io/src/bake/bake.ts`, exported by D5, no behaviour change), so the derived bytes preview in place; Use Clip also sets the shipped clip setting `rootMotion: 'in-place'`, so exports and Studio know it (the helper is idempotent: a D5 test removes travel twice and gets equal samples) | the auto-rigging service's "In Place" |
 
 `applyClipParams(data: HumanoidClipData, params: ClipParams): HumanoidClipData` is pure and deterministic; identity
 params return the input unchanged (same object).
@@ -802,7 +802,7 @@ compiled), so the parameters are applied to the bytes before that point, never t
 │ ● Ekza avatar · VRM 1.0  (recommended)   │ ✓ VRM 1.0 humanoid                │
 │   One file for OMOBA and Ekza Space      │ ✓ All 15 required bones           │
 │ ○ GLB with animations                    │ ✓ 34 of 64 bones                  │
-│   For Unity, Godot, Blender, three.js    │ ✓ Standard bone parents           │
+│   For Unity, Godot, three.js, DCC tools  │ ✓ Standard bone parents           │
 │ ○ Animations only (.vrma)                │ ✓ T-pose rest                     │
 │   2 clips → cube-lad-animations.zip      │ ✓ Plain transforms, even scale    │
 │ ▸ For developers                         │ ✓ File 0.4 / 50 MiB · JSON 61 KiB │
@@ -914,7 +914,7 @@ Under the targets: "Want to keyframe your own motion? **Continue in Studio ▸**
 | light | ≤ 20,000 | normal |
 | medium | 20,001–60,000 | ① notes "Detailed model: rigging takes a few seconds"; ③'s progress shows the fraction |
 | heavy | 60,001–200,000 | ① warns "Very detailed model (N triangles). Rigging may take a minute and painting may lag; phones may run out of memory. OMOBA files must stay under 50 MiB." *Next* asks once to confirm |
-| too-heavy | > 200,000 (`MAKE_EDITABLE_MAX_TRIANGLES`) | refused: "Reduce it to under 200,000 triangles (Blender: Decimate modifier) and try again." In-browser decimation is Q-AR-11 |
+| too-heavy | > 200,000 (`MAKE_EDITABLE_MAX_TRIANGLES`) | refused: "Reduce it to under 200,000 triangles (a decimate / reduce-polygons tool in your 3D app) and try again." In-browser decimation is Q-AR-11 |
 
 The tiers are report thresholds, not new limits: the hard limit is io's. The bind runs in C4's worker, so the page stays
 responsive; *Cancel* works in every tier.
@@ -1068,7 +1068,7 @@ D1's measurement, the D0 spike's and every later `/editor` number count only onc
 
 ## 8. Keyboard, accessibility, devices, language, privacy
 
-### 8.1 Keyboard (key scope `autorig`; the Maya preset's rig keys inside steps where they apply)
+### 8.1 Keyboard (key scope `autorig`; the `dcc` preset's rig keys inside steps where they apply)
 
 | Keys | Where | Action |
 |---|---|---|
@@ -1089,7 +1089,7 @@ D1's measurement, the D0 spike's and every later `/editor` number count only onc
 
 Navigation in panes uses the **Simple** behaviour (D3): in the persp pane a left drag on empty space orbits, a right or
 two-finger drag pans, wheel / pinch zooms; a tool that claims the press (marker, joint, brush on the mesh) wins.
-`Alt` + mouse (Maya) keeps working. Ortho panes never orbit.
+`Alt` + mouse (Alt+drag navigation) keeps working. Ortho panes never orbit.
 
 How it is built (v0.3): `pointerGesture(profile, e)` (`viewport/src/navigation/profiles.ts`) is a pure function of the
 event and returns null for any press without `Alt`, which then goes to the tool; "empty space orbits, a hit goes to the
@@ -1476,8 +1476,8 @@ choices:
   arbitration in `nav/` and its eager hook), §8.2 frame rules, §8.3 frame breakpoints, §8.4 table.
 - **DoD**: progress is a pure function (unit-tested over document fixtures, incl. an `xform.scale` error blocking ③
   and `animations.skipped`); every ① fix is one undo step; the Simple override never writes `navProfile` and is
-  removed on unmount (a test switches to Studio and drags with Maya keys); `/autorig` within its gate; `/editor`
-  measured delta ≤ 128 B; CI green.
+  removed on unmount (a test switches to Studio and drags with Alt+drag navigation); `/autorig` within its gate;
+  `/editor` measured delta ≤ 128 B; CI green.
 - **E2E owned**: E2E-AR-03 (① parts only: AS-AR-5, the ① half of AS-AR-7 — the 250k refusal and the 80k warning —,
   the ① half of AS-AR-6 — the unticked box —, and AS-AR-4's ① routing of a VRM to ④), E2E-AR-12 (frame layouts at
   1440×900, 1024×768 touch, 390×844 on ① and on stub steps; the touch run of AS-AR-1 moves to D7).
@@ -1649,7 +1649,7 @@ code. Release tag: the owner's call.
 | ID | Decision | Why |
 |---|---|---|
 | AR-D1 | Auto-Rig is a **second shell** over the same `EditorApp`; no new workspace, no new app | one document, zero duplicated logic, every Studio fix benefits both |
-| AR-D2 | Five steps: Model, Markers (incl. skeleton detail), Rig (auto + check + fix), Animations, Export | Mixamo's rhythm; skeleton LOD sits with the markers as in Mixamo |
+| AR-D2 | Five steps: Model, Markers (incl. skeleton detail), Rig (auto + check + fix), Animations, Export | the auto-rigging service's rhythm, where skeleton LOD also sits with the markers |
 | AR-D3 | *Auto-rig* = Create Skeleton then Bind Skin (two undo steps), plus *Straighten to T-Pose* (a third) only when the **input** was A-posed (`session.startPose.kind === 'a'`: the intake's pose class, or the guess's arm angle > 5° when Quick Rig started); a `skel.tpose` row on a T-posed input is shown with *Adjust joints*, never auto-baked | honest history; each step is a Studio operator unchanged; an LBS bake is the wrong fix for a misplaced joint and is lossy |
 | AR-D4 | The motion test uses the library preview (never the document) | the "it moves" proof without touching undo or keys |
 | AR-D5 | Clip params are applied before Use Clip by a pure io function; in place uses the shipped clip setting | preview = result; exports already honour `rootMotion` |
@@ -1689,7 +1689,7 @@ code. Release tag: the owner's call.
 | Q-AR-8 | OMOBA local test kit: under *For developers* (default) or visible to everyone; thumbnail as `.png` or `.jpg` (OMOBA's roster uses `.jpg`)? | under *For developers*; `.png` |
 | Q-AR-9 | Ship Russian (and Chinese) strings in v1? | English only, table ready |
 | Q-AR-10 | Phones: no weight painting — acceptable? And Auto-Rig editing below 1024 px although Studio's Rig & Skin is view-only there (AR-V1)? | yes; yes (the rule is per shell) |
-| Q-AR-11 | Models over 200k triangles: refuse with a Blender hint (default), or add in-browser decimation as a later package? | refuse; decimation later |
+| Q-AR-11 | Models over 200k triangles: refuse with a decimate-tool hint (default), or add in-browser decimation as a later package? | refuse; decimation later |
 | Q-AR-12 | Name: "Auto-Rig" (default), "Quick Rig" (M6b's tool name) or "Rig Wizard"? | Auto-Rig |
 | Q-AR-13 | Keep the undo history across the Studio switch (shared layout, more refactoring in D1) or accept a reload handoff without history (simpler)? | shared layout **when D0's spike measures ≤ 1,024 B on `/editor`**; otherwise two islands stand and D0 brings the measured number to the owner, who may accept a larger allowance instead |
 | Q-AR-14 | Offer *Re-rig from scratch* for skinned GLBs with an unknown skeleton (needs `dropSkin`, CR-AR-6)? | yes |
@@ -1704,13 +1704,12 @@ code. Release tag: the owner's call.
 
 ## 14. Sources
 
-- Mixamo auto-rigger markers and limits: CG Channel, "Mixamo makes auto-rigger free for low-poly meshes" (2012),
-  https://www.cgchannel.com/2012/06/mixamo-makes-auto-rigger-free-for-low-poly-meshes ; Tripo, "How to rig an
-  AI-generated character for Mixamo", https://www.tripo3d.ai/blog/rig-ai-generated-character-for-mixamo ; Adobe
-  community thread on marker placement and symmetry, https://community.adobe.com/t5/mixamo-discussions/mixamo-doesn-t-think-i-placed-the-markers-on-my-model/m-p/12215400
-- Mixamo download settings (skin with/without, fps, keyframe reduction): Animancer docs,
-  https://kybernetik.com.au/animancer/docs/manual/getting/mixamo ; animation parameters (in place, mirror, overdrive,
-  arm space, trim) as automated by the community `mixamo-mcp` project, https://www.remoteopenclaw.com/mcp/V1xel/mixamo-mcp
+- Auto-rigging service markers and limits: CG Channel coverage of the service's free auto-rigger for low-poly meshes
+  (2012); a Tripo blog post on rigging an AI-generated character for the service; a vendor community thread on marker
+  placement and symmetry.
+- Auto-rigging service download settings (skin with/without, fps, keyframe reduction): Animancer docs (the manual's
+  chapter on the service's clips); animation parameters (in place, mirror, overdrive, arm space, trim) as automated by
+  a community MCP project for the service.
 - AccuRIG: CG Channel 2022 and 2023 coverage, https://www.cgchannel.com/2023/10/rig-and-showcase-3d-characters-for-free-with-accurig-1-3 ;
   Digital Production on AccuRIG 2.0, https://digitalproduction.com/2025/07/21/animation-for-all-reallusion-accurig-2-0-and-friends-keep-things-moving/ ;
   Reallusion feedback tracker on motions not exported, https://www.reallusion.com/FeedBackTracker/Issue/When-I-export-animation-to-FBX-file-the-file-has-no-frame-data-It-shows-T-pos-only
@@ -1719,11 +1718,11 @@ code. Release tag: the owner's call.
 - Tripo auto-rig and animation: https://developers.tripo3d.com/en/models/animation ,
   https://www.tripo3d.ai/blog/apply-preset-animations-to-3d-character ; Meshy Animate guide,
   https://docs.meshy.ai/en/webapp/guides/animate
-- In-repo: research 05 §Mixamo/Cascadeur, M6B-SPEC v1.5 §0 and §5.7/§5.8/§5.17/§5.21 (on `dev`), DECISIONS-OPEN §L,
-  `docs/wp-notes/m6b-*.md` (CR-AR records: skeleton-kernel, skeleton-ui, auto-skin, rig-shell, character-runtime,
-  character-writer, clip-library), M2A-INT-4 attribution (`docs/wp-notes/m2a-integration.md`),
-  `apps/web/scripts/size-baseline.json`, `omoba-bevy/docs/humanoid-motion.md`, `passport/src/humanoid.rs` and
-  `client/assets/avatars/manifest.json` (read only).
+- In-repo: research 05 (auto-rigging service and Cascadeur sections), M6B-SPEC v1.5 §0 and §5.7/§5.8/§5.17/§5.21 (on
+  `dev`), DECISIONS-OPEN §L, `docs/wp-notes/m6b-*.md` (CR-AR records: skeleton-kernel, skeleton-ui, auto-skin,
+  rig-shell, character-runtime, character-writer, clip-library), M2A-INT-4 attribution
+  (`docs/wp-notes/m2a-integration.md`), `apps/web/scripts/size-baseline.json`, `omoba-bevy/docs/humanoid-motion.md`,
+  `passport/src/humanoid.rs` and `client/assets/avatars/manifest.json` (read only).
 
 ---
 
@@ -1875,7 +1874,7 @@ decisions AR-D10-1…10 in [DECISIONS-OPEN §M](DECISIONS-OPEN.md#m-auto-rig-202
   skinned* covers it (AR-D10-3). Esc in ③ review turns the motion test off; an Esc that closes a menu does not stop
   the preview (AR-D10-5). The rig's controls stay hidden on ⑤ too (AR-D10-4).
 - **§5.2 naming**: a modelling tool's default first-mesh name (`pCube10`, `polySurface1`, `Cube.001`, `Mesh.003`,
-  `Mesh 0`, after a Maya namespace) names the project after the file; the character and the header take the project's
+  `Mesh 0`, after a DCC namespace) names the project after the file; the character and the header take the project's
   name; a new VRM name renames a project named after its character (AR-D10-8).
 - **§5.6.4 OMOBA kit**: the README names the avatar file's VRM version (an imported VRM 0.x keeps 0.x); ⑤ promises
   the thumbnail only "when it has one", and the left-out note names no GLB for an imported VRM (AR-D10-9).

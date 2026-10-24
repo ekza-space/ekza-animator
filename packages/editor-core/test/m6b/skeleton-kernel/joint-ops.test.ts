@@ -111,14 +111,14 @@ describe('rest edits', () => {
 });
 
 describe('orient, mirror, flex, add missing, symmetry, selection', () => {
-  it('Orient Auto → World on humanoid joints changes nothing; Maya aims; keys never change for humanoid controls', async () => {
+  it('Orient Auto → World on humanoid joints changes nothing; xAim aims; keys never change for humanoid controls', async () => {
     const t = await rigged();
     const hash = t.keysHash();
     const joints = t.app.store.query.jointsOfSkeleton(t.skeleton);
     expect((await t.app.runUntyped('skel.joint.orient', { joints: [t.id('hips')] })).status).toBe('finished');
     expect(t.app.store.query.jointsOfSkeleton(t.skeleton)).toEqual(joints);
     expect(
-      (await t.app.runUntyped('skel.joint.orient', { joints: [t.id('leftUpperArm')], preset: 'maya' })).status,
+      (await t.app.runUntyped('skel.joint.orient', { joints: [t.id('leftUpperArm')], preset: 'xAim' })).status,
     ).toBe('finished');
     expect(t.joint('leftUpperArm')?.restRotation).not.toEqual([0, 0, 0, 1]);
     expect(t.keysHash()).toBe(hash);

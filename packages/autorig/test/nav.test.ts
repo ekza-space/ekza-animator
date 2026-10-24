@@ -33,7 +33,7 @@ describe('simpleGesture (§8.1)', () => {
     expect(simpleGesture(press(2), ortho)).toBe('track');
   });
 
-  it('Alt and the tool modifiers fall through (the profile’s Maya chords, marquee add/toggle)', () => {
+  it('Alt and the tool modifiers fall through (the profile’s Alt+drag navigation chords, marquee add/toggle)', () => {
     let asked = 0;
     const counting = {
       ortho: false,

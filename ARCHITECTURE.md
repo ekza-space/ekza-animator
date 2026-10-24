@@ -11,15 +11,15 @@ Research inputs live in [`docs/research/`](docs/research/) and are cited as `R01
 
 ## 1. What we are building
 
-A browser-based, open-source character animation editor for glTF/GLB and VRM 0.x/1.0 humanoids with a Maya-grade
-interaction model: control rig of circle controls, Channel Box, time slider with range editing, Graph Editor with
-Maya tangent semantics, split viewports (locked shot camera + free camera), keyframing, and exports that bake clips
-into the original file losslessly or write VRMA / animation-only GLB.
+A browser-based, open-source character animation editor for glTF/GLB and VRM 0.x/1.0 humanoids with a professional
+DCC-grade interaction model: control rig of circle controls, Channels, time slider with range editing, Graph Editor
+with weighted/stepped tangent semantics (AnimX-compatible), split viewports (locked shot camera + free camera),
+keyframing, and exports that bake clips into the original file losslessly or write VRMA / animation-only GLB.
 
 Design principles:
 
-1. **Copy Maya's interaction model, not its architecture** (R01 §0). A typed document plus a fixed evaluation
-   pipeline instead of a general dependency graph.
+1. **Copy the interaction model of a leading commercial desktop DCC, not its architecture** (R01 §0). A typed
+   document plus a fixed evaluation pipeline instead of a general dependency graph.
 2. **The document is ours, not three.js** (R08 D1). three.js objects are a derived view.
 3. **Every mutation is a transaction** issued by an operator or a tool gesture; one gesture = one undo step
    (R08 D3, R04 §6), including unkeyed pose tweaks (ADR 0013).
@@ -201,13 +201,13 @@ state.
 
 ### 4.5 Unkeyed pose changes
 
-Two cases, mirroring Maya ([MVP-SPEC §4.11.2](docs/MVP-SPEC.md#4112-value-edits--channel-box-manipulators-reset-paste-mirror-plant-feet)):
+Two cases, mirroring the desktop DCC ([MVP-SPEC §4.11.2](docs/MVP-SPEC.md#4112-value-edits--channels-panel-manipulators-reset-paste-mirror-plant-feet)):
 
 - A channel **without keys** (no curve, or a curve with zero keys) stores an edit as the curve's `staticValue` (D):
-  Maya's static attribute value. It is undoable, saved and exported (constant track). Static values are per clip,
-  because clips are self-contained.
+  a static (unanimated) attribute value. It is undoable, saved and exported (constant track). Static values are per
+  clip, because clips are self-contained.
 - A channel **with keys**, edited with auto-key off, gets a **session pose override** (U), shown light pink in the
-  Channel Box (R01 CB-02 "changed"). Overrides are discarded on frame change and never saved; `S` turns them into
+  Channels panel (R01 CB-02 "changed"). Overrides are discarded on frame change and never saved; `S` turns them into
   keys; they **are undoable** through the editor history, one step per gesture or typed edit (ADR 0013).
 
 ---
@@ -349,8 +349,8 @@ PoseBuffers ──► SceneSync (three Bones ← L_b; node constraints) ──�
   shown); marquee with the crossing test; mesh click → driving control is M1-stretch.
 - **Manipulators**: `ManipulatorKit` translate (object/world) and rotate (object/world/gimbal), constant pixel size;
   drags go through the editor-core gesture helper (preview, overrides, auto-key on commit, one history step).
-- **Navigation**: `camera-controls` per pane behind `NavigationProfile` (Maya / Trackpad; one-button mac is
-  stretch); locked shot cameras swallow navigation; navigating an unlocked shot camera commits once per gesture
+- **Navigation**: `camera-controls` per pane behind `NavigationProfile` (`dcc` Alt+drag / Trackpad; one-button mac
+  is stretch); locked shot cameras swallow navigation; navigating an unlocked shot camera commits once per gesture
   without an undo entry.
 
 ---
@@ -379,12 +379,12 @@ PoseBuffers ──► SceneSync (three Bones ← L_b; node constraints) ──�
   angle and length (time offset clamped inside the segment); unified keys rotate the opposite handle to stay
   collinear (own length kept); Alt while dragging breaks temporarily; on the first drag the side(s) become `fixed`
   with the resolved values.
-- Maya habits: MMB-drag anywhere moves the selection; double-click a curve selects its keys; wheel/pan/zoom follow
-  the navigation profile; Space maximizes the panel.
+- Desktop-DCC conventions: MMB-drag anywhere moves the selection; double-click a curve selects its keys;
+  wheel/pan/zoom follow the navigation profile; Space maximizes the panel.
 - Insert key on curve: shape-preserving split (Hermite: value + slope; weighted: de Casteljau with the monotonic
   correction) that freezes the neighbours' affected computed sides.
 - `TimeSliderController`: ruler, key ticks of the selected controls (summary row), playhead, scrub, playback range
-  handles, auto-key red border, and Maya range editing (Shift-select frame/range, move, scale, RMB menu).
+  handles, auto-key red border, and range editing (Shift-select frame/range, move, scale, RMB menu).
 
 ---
 
@@ -402,7 +402,7 @@ PoseBuffers ──► SceneSync (three Bones ← L_b; node constraints) ──�
 - **Workspace**: dockview 8 (MIT core) behind a `WorkspaceHost` adapter so FlexLayout can replace it. MVP Animate
   workspace: menu bar; status line (tools Q/W/E, move/rotate space incl. gimbal, selection mask, auto-key, layout
   preset; M2a: key target and the Tween bar); left dock Outliner | Clips; centre Viewport panel (pane grid); right
-  dock Channel Box | Attributes; bottom dock Graph Editor | Dope Sheet (M2a); fixed time slider + range/playback
+  dock Channels panel | Attributes; bottom dock Graph Editor | Dope Sheet (M2a); fixed time slider + range/playback
   row; help line. Layout JSON persisted per user in `localStorage` with a schema version (v2 since M2a; the v1
   layout migrates once). Panels register explicitly.
 - **Frame loop**: R3F's single rAF. `addEffect` runs the tasks scheduled before the frame
@@ -414,7 +414,7 @@ PoseBuffers ──► SceneSync (three Bones ← L_b; node constraints) ──�
   chain starts at the panel under the pointer; Space tap/hold handled with 200 ms timers; blur and
   `visibilitychange` reset held keys.
 - **React rules**: no per-frame state; panels use `useSyncExternalStore`/zustand selectors on human-speed state;
-  channel values in the Channel Box refresh on gesture end and on frame change (throttled to rAF).
+  channel values in the Channels panel refresh on gesture end and on frame change (throttled to rAF).
 
 ---
 
@@ -531,9 +531,9 @@ shared runners or SwiftShader, except the two deterministic ones: idle frames an
 | editor-core | Vitest (Node) | runner rules, history, edit kernel, every operator headless against fixture documents, keymap resolution, playback clock with scene mapping |
 | app | Playwright 1.63 (real Chrome locally, SwiftShader on CI) against `NEXT_PUBLIC_EKZA_E2E=1 next build && next start` | E2E-00…E2E-27 of [MVP-SPEC §6](docs/MVP-SPEC.md#6-acceptance-tests-and-e2e-scenarios); exported files validated in Node and re-imported |
 
-Determinism hooks: `?e2e=1` (e2e builds only) uses fresh storage, Maya navigation and Space defaults, fixes the ID
-seed, disables animations and exposes `window.__EKZA_STUDIO_TEST__`. Screenshot baselines (V1) only from the Linux
-CI container.
+Determinism hooks: `?e2e=1` (e2e builds only) uses fresh storage, `dcc` navigation and `maximize` Space defaults,
+fixes the ID seed, disables animations and exposes `window.__EKZA_STUDIO_TEST__`. Screenshot baselines (V1) only
+from the Linux CI container.
 
 ---
 
@@ -554,12 +554,12 @@ CI container.
 | # | Topic | Positions | Resolution (wins) | Why |
 |---|---|---|---|---|
 | 1 | Document store now | R06: Yjs-backed from day one; R04/R08: plain store + later binding | Plain `MemoryDocumentStore` in production + 06's interface (incl. partition lifecycle, per-field merge units, async assets) + a **test-only Yjs store running the full conformance suite in M1** (ADR 0002) | Hazards are fixed by data shape and API; the real Yjs cost is async open and debugging, not per-package cost; the risk control runs while contracts can still change |
-| 2 | Undo | R06: own patch undo; R08: Yjs `UndoManager` later | Own `PatchUndoManager` per merge unit (R06) + editor history for unkeyed edits (ADR 0013) | Measured H4 data loss in `Y.UndoManager`; Maya undoes unkeyed tweaks |
+| 2 | Undo | R06: own patch undo; R08: Yjs `UndoManager` later | Own `PatchUndoManager` per merge unit (R06) + editor history for unkeyed edits (ADR 0013) | Measured H4 data loss in `Y.UndoManager`; the desktop DCC undoes unkeyed tweaks |
 | 3 | Stored key shape | R04/R08: per-curve typed-array blocks; R06: one record per key | Records per key + compiled typed-array caches | CRDT granularity (R06 R3) and evaluation speed (R04) |
 | 4 | Time unit | R01/R02 frames; R06 flicks; R08 seconds | Float64 frames at rational clip fps + a shared scene clock (ADR 0003) | Exact integer frames, natural tangent math; fps changes are structural ops with claims in M3 |
-| 5 | Tangent encoding | R01 handles; R02 slopes+weights; R04 x/y arrays; R06 fixed-only | Per-side `{dt, dv}` handles stored only for `fixed`, types per side, per-curve `weighted`; insert freezes neighbours | Maya model, store intent (R06 R5) with one documented exception |
-| 6 | Auto tangent math | R01 AnimX; R09 Fritsch–Carlson | AnimX port | Maya parity with a C++ oracle |
-| 7 | Rotation storage | R01/R02/R07 radians, DCC order; R08 degrees; R06 capitals | Radians, DCC lowercase orders, degrees in UI | One conversion boundary, Maya interop |
+| 5 | Tangent encoding | R01 handles; R02 slopes+weights; R04 x/y arrays; R06 fixed-only | Per-side `{dt, dv}` handles stored only for `fixed`, types per side, per-curve `weighted`; insert freezes neighbours | The desktop DCC's tangent model, store intent (R06 R5) with one documented exception |
+| 6 | Auto tangent math | R01 AnimX; R09 Fritsch–Carlson | AnimX port | Parity with the AnimX C++ library as an oracle |
+| 7 | Rotation storage | R01/R02/R07 radians, DCC order; R08 degrees; R06 capitals | Radians, DCC lowercase orders, degrees in UI | One conversion boundary, DCC interop |
 | 8 | Rotate-order defaults | R01 (spine/legs `yzx`); R07 table | R07 table (torso `zxy`, legs `yzx`, arms `yxz`/`xzy`, hands `xyz`) | Gimbal analysis per joint; autotune later |
 | 9 | Multi-viewport | R01/R05/R08 drei `<View>`; R04/R09 custom single scene | Custom `ViewportManager` (ADR 0006) | `<View>` renders separate portal scenes |
 | 10 | Picking | R07 GPU ID for controls; R04/R09 analytic | Analytic for controls/joints with cycling and marquee; mesh click (CPU skinned raycast) stretch; GPU ID later if needed | Exact, deterministic, no readback |
@@ -572,10 +572,10 @@ CI container.
 | 17 | Key reduction | R02 MVP (export); R01 V1 | Curve reduction in M1 (import + Graph Editor Simplify); sampled export reducer V1 | Editing imported clips needs sparse keys; export size is not the bottleneck |
 | 18 | Constant tracks | R02 1 key; R07 2 keys | 2 keys, over every clip of the output file | Track duration and mixer safety |
 | 19 | IO threading | R04 IO worker + replica in MVP | Main-thread async export; validator worker stretch; replica M2 | Single-character MVP is far below budget |
-| 20 | Dope Sheet, marking menus, onion skin, normalize/stacked/buffer curves | R09 MVP | V1; the time slider gets Maya range editing (move/scale/delete/copy/paste/tangents) in M1 | Covers the retiming loop at ~2 agent-days |
+| 20 | Dope Sheet, marking menus, onion skin, normalize/stacked/buffer curves | R09 MVP | V1; the time slider gets range editing (move/scale/delete/copy/paste/tangents) in M1 | Covers the retiming loop at ~2 agent-days |
 | 21 | Mirror pose | R01 V1 | MVP (humanoid), scope expanded to mirror pairs | Brief; trivial in normalized space |
 | 22 | Camera lock | R09 per pane; R01 document flag | Document flag on shot cameras; unlocked shot navigation commits without undo | A locked shot is locked for every collaborator; undo stays for animation |
-| 23 | Selection & undo | R04/R09 not undoable; R08 restore with undo; R10/R11 (2026-10-18): Maya and Blender record selection in modeling | Animate: not undo steps; snapshots restored by history steps. **Amended 2026-10-19 (ADR 0016 D12, M6A-SPEC §5.6): in the Model workspace selection changes are undo steps** — session-only selection parts of `EditorHistory`, consecutive additive picks coalesced into one "Select" step, never in the document or CRDT; preference `undoSelection` per workspace (on in Model, off in Animate) | Maya feel without history noise while animating; a stray click must not lose a hand-built loop selection while modeling (Maya's default undo queue records selection) |
+| 23 | Selection & undo | R04/R09 not undoable; R08 restore with undo; R10/R11 (2026-10-18): both reference DCCs record selection in modeling | Animate: not undo steps; snapshots restored by history steps. **Amended 2026-10-19 (ADR 0016 D12, M6A-SPEC §5.6): in the Model workspace selection changes are undo steps** — session-only selection parts of `EditorHistory`, consecutive additive picks coalesced into one "Select" step, never in the document or CRDT; preference `undoSelection` per workspace (on in Model, off in Animate) | Desktop-DCC feel without history noise while animating; a stray click must not lose a hand-built loop selection while modeling (the desktop DCC's default undo queue records selection) |
 | 24 | TypeScript | R04 TS 7.0.2 | TS 6.0.3 with `types: []`-aware configs (ADR 0001) | TS 7 has no JS API (verified) |
 | 25 | Package manager / test runner | R04 pnpm 11, Vitest 5 | pnpm 10.32.1, Vitest 4.1.11 | Installed toolchain; Node 25 engine range |
 | 26 | Layering check | R04 dependency-cruiser; R06 ESLint rule | `check-deps.mjs` (deps and devDeps) + oxlint `no-restricted-imports` | Node 25 + TS API constraints |
@@ -583,6 +583,6 @@ CI container.
 | 28 | Package map | R04 vs R06 vs R07 vs R08 names | anim-core, doc, rig, io, editor-core, viewport, curve-editor, ui, editor (+ test-only doc-yjs, headless-tests) | Brief's list + a headless editor kernel to avoid viewport↔editor cycles |
 | 29 | drei | R05 depend; R04 selective | Not a dependency in the MVP | Heavy transitive deps, nothing needed |
 | 30 | Clip names | R03 lowercase slots; R09 free text ≤ 64 | Free display names; exported name = slot or sanitized name; slot lint is an error only under Ekza profiles | Both needs met (ADR 0010) |
-| 31 | Humanoid controls | R07 §5.2 (`cog` drives hips) | `cog` pure space + `fk.hips`; legs under `fk.hips`, spine under `cog` | Maya COG/hips/torso split; no counter-animation for hip sway |
+| 31 | Humanoid controls | R07 §5.2 (`cog` drives hips) | `cog` pure space + `fk.hips`; legs under `fk.hips`, spine under `cog` | Standard DCC COG/hips/torso split; no counter-animation for hip sway |
 | 32 | Control sizing | R07 §5.4 mesh radius; v0.1 bone length (mesh V1) | Mesh-based radius in M1 with per-group clamps and offsets | Fingers and thighs overlapped with bone-length sizing |
 | 33 | Registries | R08 §11 importer/exporter/profile registries, per-type versions | Shipped in M1 (ADR 0008); plugin loading later | "Cheap now, very expensive to retrofit" (R08) |

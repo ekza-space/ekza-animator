@@ -17,8 +17,8 @@ test('E2E-01: first run + sample VRM 1.0', async ({ page }) => {
 
   const dialog = page.getByTestId('firstrun-dialog');
   await expect(dialog).toBeVisible();
-  await page.getByTestId('firstrun-nav-maya').click();
-  await page.getByTestId('firstrun-space-maya').click();
+  await page.getByTestId('firstrun-nav-dcc').click();
+  await page.getByTestId('firstrun-space-maximize').click();
   await page.getByTestId('firstrun-done').click();
   await expect(dialog).toBeHidden();
   expect((await call(page, 'state')).dialog).toBeNull();

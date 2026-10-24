@@ -1,5 +1,5 @@
-// Maya's loop table (M6A-SPEC §5.6) as a pure function. `sel` is the selection **before** the gesture (the first
-// click of the double-click is not applied); the reference is its active component when `sel.kind === kind`.
+// The DCC-standard loop table (M6A-SPEC §5.6) as a pure function. `sel` is the selection **before** the gesture (the
+// first click of the double-click is not applied); the reference is its active component when `sel.kind === kind`.
 //
 // | gesture      | vertex                                   | edge                                   | face                                  |
 // |--------------|------------------------------------------|----------------------------------------|---------------------------------------|
@@ -192,7 +192,7 @@ function modDouble(
   return resultSelection(m, sel, kind, set, [], active);
 }
 
-/** Maya's loop table (§5.6) as a pure function: the selection after the gesture on `component` of `kind`. */
+/** The DCC-standard loop table (§5.6) as a pure function: the selection after the gesture on `component` of `kind`. */
 export function loopGesture(
   m: EditMesh,
   sel: ComponentSelection,

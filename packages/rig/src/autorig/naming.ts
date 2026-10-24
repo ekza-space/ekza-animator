@@ -62,7 +62,7 @@ const SIDE_PATTERNS: readonly {
       return { side, mirrored: `${swapCase(token, side === 'L' ? 'R' : 'L')}${name.slice(1)}` };
     },
   },
-  // The words Left / Right anywhere (`mixamorig:LeftArm`, `hand_left`).
+  // The words Left / Right anywhere (`Armature:LeftArm`, `hand_left`).
   {
     re: /(left|right)/i,
     swap: (m, name) => {

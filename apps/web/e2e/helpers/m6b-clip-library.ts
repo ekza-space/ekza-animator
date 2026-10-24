@@ -1,6 +1,7 @@
 // Clip Library helpers (M6B-SPEC §0.4.7, E2E-LIB-01…03; C12): open the panel from Windows, the library's requests,
 // the test API's `library()`, the PREVIEW badge, the committed starter-pack files and a VRMA import of the same bytes.
 import { readFileSync } from 'node:fs';
+import { NON_REDISTRIBUTABLE_NAME } from '@ekza-studio/io';
 import { expect, type Page } from '@playwright/test';
 import { call, run } from './test-api';
 
@@ -144,8 +145,13 @@ export async function exportClipVrma(page: Page, character: string, clip: string
   return new Uint8Array(Buffer.from(bytes, 'base64'));
 }
 
-/** Polybot's display nodes of two humanoid bones (VRM 0 node names as three.js sanitizes them). */
-export const POLYBOT_NODE = { hips: 'mixamorigHips', leftHand: 'mixamorigLeftHand' } as const;
+/**
+ * Polybot's display nodes of two humanoid bones (VRM 0 node names as three.js sanitizes them). Its skeleton was made
+ * by a web auto-rigging service, so the names carry that service's `<marker>rig` prefix (the marker is spelled once,
+ * in @ekza-studio/io).
+ */
+const POLYBOT_RIG = `${NON_REDISTRIBUTABLE_NAME.source}rig`;
+export const POLYBOT_NODE = { hips: `${POLYBOT_RIG}Hips`, leftHand: `${POLYBOT_RIG}LeftHand` } as const;
 
 /** World position of a node of the character's displayed (rendered) model: what the viewport shows, preview included. */
 export async function displayed(page: Page, character: string, node: string): Promise<[number, number, number]> {

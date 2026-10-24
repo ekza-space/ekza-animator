@@ -212,7 +212,7 @@ async function mount(params: Partial<EditorParams> = {}): Promise<{ app: FakeEdi
 }
 
 const kindsOf = (shell: Shell): string[] => [...shell.workspace.kinds()].sort();
-const ANIMATE_KINDS = ['attributes', 'channelBox', 'clips', 'dopeSheet', 'graph', 'outliner', 'viewport'];
+const ANIMATE_KINDS = ['attributes', 'channels', 'clips', 'dopeSheet', 'graph', 'outliner', 'viewport'];
 
 async function runOk(app: FakeEditorApp, op: string, args?: unknown): Promise<unknown> {
   const result = await app.runUntyped(op, args);

@@ -5,6 +5,7 @@
 > can later grow into spline/NURBS modeling, mesh editing, scripting, third-party plugins and real-time
 > collaboration **without rewriting the core**. Other research notes own the graph editor UX, file formats,
 > rigging math and collaboration transport in depth; this note fixes the *shape* of the core that they plug into.
+> Naming: "the desktop DCC" is a leading commercial desktop DCC; "the open-source DCC" is a popular open-source DCC.
 
 ---
 
@@ -15,14 +16,14 @@
 | D1 | **The document is ours, not three.js.** A flat, normalized record store (`Record<NodeId, NodeRecord>`) with typed node schemas is the single source of truth. three.js objects are a *view* derived from it. | three.js binds animation by node **name** (`PropertyBinding.findNode` matches `name` or `uuid`), names are not unique in glTF, and Object3D trees have no undo, schema, migration or CRDT story. |
 | D2 | **Stable, client-generated IDs** (UUIDv7 or nanoid, type-prefixed for debugging) for every node, channel, clip and key. Imported glTF nodes get deterministic IDs and we persist them in `extras.ekza.id` on export. | Undo patches, collaboration, constraints, selection and re-import all need identity that survives renames and reloads. |
 | D3 | **Every mutation goes through a transaction** that records forward/inverse patches. Undo/redo is patch replay. Operators never touch the store directly. | One choke point gives undo, change events, dirty propagation, collaboration ops, plugin attribution and macro recording for free. |
-| D4 | **Operator registry** (Blender-style `poll / invoke / execute / modal`, JSON-schema args, undo flag) is the *only* way UI surfaces do work: menus, hotkeys, marking/pie menus, command palette, toolbar, scripting, tests, AI agents. Built-in features register through the same registry. | Maya's "everything is a command" and Blender's operators are what make those tools scriptable and customizable; retro-fitting this later is the most expensive rewrite. |
-| D5 | **Pure, re-entrant evaluator.** `evaluate(doc, time, out)` with explicit time and output buffer; schedule built from *declared* dependencies; forward (push) evaluation in topological order; fine-grained dirty bits only for expensive caches. | Onion skin, motion trails, baking and two viewports at different times all need evaluation that is not tied to a global "current frame". Maya moved from pull to forward evaluation for exactly this kind of scheduling reason. |
+| D4 | **Operator registry** (`poll / invoke / execute / modal` as in the open-source DCC, JSON-schema args, undo flag) is the *only* way UI surfaces do work: menus, hotkeys, marking/pie menus, command palette, toolbar, scripting, tests, AI agents. Built-in features register through the same registry. | The desktop DCC's "everything is a command" and the open-source DCC's operators are what make those tools scriptable and customizable; retro-fitting this later is the most expensive rewrite. |
+| D5 | **Pure, re-entrant evaluator.** `evaluate(doc, time, out)` with explicit time and output buffer; schedule built from *declared* dependencies; forward (push) evaluation in topological order; fine-grained dirty bits only for expensive caches. | Onion skin, motion trails, baking and two viewports at different times all need evaluation that is not tied to a global "current frame". The desktop DCC moved from pull to forward evaluation for exactly this kind of scheduling reason. |
 | D6 | **View sync is imperative.** One `SceneView` maps `NodeId → Object3D` and copies evaluated matrices each frame. React (R3F) renders editor chrome, gizmos and structure changes only, never per-frame values. | Avoids React reconciliation on every scrub/drag; loaded glTF scenes are imperative trees anyway. |
 | D7 | **Tools are hierarchical state machines** (tldraw `StateNode`-style) scoped per editor; manipulators (gizmos) are separate from tools; tools commit through interactive transactions. | Same pattern serves move/rotate/scale today and CV-draw / pen / sculpt later. |
 | D8 | **Selection has components from day one**: `{ node, component? }` where component ∈ key, tangent handle, CV, edit point, (later) vertex/edge/face. Selection is per-user session state, not document state. | Graph-editor keys and tangent handles *are* curve components; the same model later serves CVs and mesh components; per-user selection is mandatory for collaboration. |
-| D9 | **Curves are a first-class data type in the MVP**, because Maya-style control circles *are* NURBS curve shapes. Spline modeling later = make those curve shapes editable + add draw tools + add generators. | The owner's favourite controls give us the modeling foundation at near-zero extra cost. |
-| D10 | **Editors, importers, exporters, node types, tools, keymaps and menus all have registries** with a common `contribute()` shape. The public plugin API is *those registries*, frozen later. | VS Code / Blender pattern: built-ins are extensions; plugins are not second-class. |
-| D11 | **No third-party code plugins in the MVP.** Ship (a) data-only packs (keymaps, control-shape libraries, rig templates, export presets) and (b) trusted local "developer mode" extensions. Design the sandboxed tier (opaque-origin iframe + async RPC + capability manifest; QuickJS-WASM if hard CPU limits are needed) but build it after 1.0 of the core API. | In-process JS cannot be sandboxed; Blender itself states it "cannot prevent third-party add-ons" from violating its rules; Figma's first sandbox (Realms shim) had escapes. |
+| D9 | **Curves are a first-class data type in the MVP**, because classic rig control circles *are* NURBS curve shapes. Spline modeling later = make those curve shapes editable + add draw tools + add generators. | The owner's favourite controls give us the modeling foundation at near-zero extra cost. |
+| D10 | **Editors, importers, exporters, node types, tools, keymaps and menus all have registries** with a common `contribute()` shape. The public plugin API is *those registries*, frozen later. | VS Code / open-source-DCC pattern: built-ins are extensions; plugins are not second-class. |
+| D11 | **No third-party code plugins in the MVP.** Ship (a) data-only packs (keymaps, control-shape libraries, rig templates, export presets) and (b) trusted local "developer mode" extensions. Design the sandboxed tier (opaque-origin iframe + async RPC + capability manifest; QuickJS-WASM if hard CPU limits are needed) but build it after 1.0 of the core API. | In-process JS cannot be sandboxed; the open-source DCC itself states it "cannot prevent third-party add-ons" from violating its rules; Figma's first sandbox (Realms shim) had escapes. |
 | D12 | **Project document ≠ export.** The project file keeps full authoring data (controls, constraints, tangents, curves, IDs). GLB/VRMA exports are lossy *targets* chosen by **export profiles** (authoring GLB with an `EKZA_*` extension vs. clean runtime GLB that passes an Ekza registry profile). | Runtime consumers (OMOBA on Bevy 0.19) do not read `KHR_animation_pointer` or curves; authoring data must not leak into game assets. |
 
 ---
@@ -33,8 +34,8 @@
 
 | Tool | Document model | Commands / undo | Interaction | Extension model & security | Take | Avoid |
 |------|----------------|-----------------|-------------|----------------------------|------|-------|
-| **Maya** | DAG (transforms + shapes) inside a Dependency Graph of nodes with typed attributes (plugs) and connections; animation = `animCurveTL/TA/TU/TT` nodes connected to attributes; construction history = upstream generator nodes. | Every action is a MEL/Python command; plug-in commands implement `doIt` / `undoIt` / `redoIt` / `isUndoable` and the undo manager keeps undoable instances. | Tools (contexts) + manipulators; marking menus/hotbox; Channel Box shows *keyable* attributes. | C++/Python plug-ins in-process, full trust. | Transform-vs-shape split; keyable flag; construction history; `offsetParentMatrix` (Maya 2020+) to zero controls; Evaluation Manager: build a forward schedule from dirty propagation, then evaluate in order (parallel where independent). | Generic plug-level connection graph for *everything* (too heavy for an MVP); hand-written undo per command. |
-| **Blender** | ID data-blocks (Object, Armature, Action, Mesh…); RNA reflection gives every property a path (`pose.bones["arm.L"].rotation_quaternion` + `array_index`); F-Curves address RNA paths; Actions are data-blocks, and since 4.4 "slotted actions" let one Action animate several data-blocks. | Operators: `bl_idname`, `bl_label`, `bl_options` (`REGISTER`, `UNDO`, …), `poll()`, `invoke()`, `execute()`, `modal()`, returning `FINISHED / CANCELLED / RUNNING_MODAL / PASS_THROUGH`; undo is a global memfile/undo-step system around operators. | Modal operators double as tools; keymaps per editor; pie menus; F3 operator search. | Python add-ons / Extensions (4.2+, `blender_manifest.toml` with `permissions = files, network, clipboard, camera, microphone`) — **declarative only**: "Blender cannot prevent third-party add-ons from violating this rule." | Original vs. evaluated data (depsgraph copy-on-evaluation; render engines never touch original data); RNA paths; poll/invoke/execute/modal; Actions as reusable data-blocks. | Full-trust in-process plugins in a web app. |
+| **Desktop DCC** | DAG (transforms + shapes) inside a Dependency Graph of nodes with typed attributes (plugs) and connections; animation = `animCurveTL/TA/TU/TT` nodes connected to attributes; construction history = upstream generator nodes. | Every action is a MEL/Python command; plug-in commands implement `doIt` / `undoIt` / `redoIt` / `isUndoable` and the undo manager keeps undoable instances. | Tools (contexts) + manipulators; marking menus and a quick menu; Channels panel shows *keyable* attributes. | C++/Python plug-ins in-process, full trust. | Transform-vs-shape split; keyable flag; construction history; `offsetParentMatrix` (2020+ releases) to zero controls; Evaluation Manager: build a forward schedule from dirty propagation, then evaluate in order (parallel where independent). | Generic plug-level connection graph for *everything* (too heavy for an MVP); hand-written undo per command. |
+| **Open-source DCC** | ID data-blocks (Object, Armature, Action, Mesh…); RNA reflection gives every property a path (`pose.bones["arm.L"].rotation_quaternion` + `array_index`); F-Curves address RNA paths; Actions are data-blocks, and since 4.4 "slotted actions" let one Action animate several data-blocks. | Operators: `bl_idname`, `bl_label`, `bl_options` (`REGISTER`, `UNDO`, …), `poll()`, `invoke()`, `execute()`, `modal()`, returning `FINISHED / CANCELLED / RUNNING_MODAL / PASS_THROUGH`; undo is a global memfile/undo-step system around operators. | Modal operators double as tools; keymaps per editor; pie menus; F3 operator search. | Python add-ons / Extensions (4.2+, a TOML extension manifest with `permissions = files, network, clipboard, camera, microphone`) — **declarative only**: "[The DCC] cannot prevent third-party add-ons from violating this rule." | Original vs. evaluated data (depsgraph copy-on-evaluation; render engines never touch original data); RNA paths; poll/invoke/execute/modal; Actions as reusable data-blocks. | Full-trust in-process plugins in a web app. |
 | **Houdini** | Node networks per context (OBJ/SOP/…); KineFX rigs; **APEX** (Houdini 20+) separates rig *logic* (graphs) from rig *evaluation*; HDAs as shareable units. | Parameter changes + network edits; undo blocks. | Viewer states (Python) for custom interaction. | HDAs/Python, full trust. | "Rig as a graph that is data" is the long-term form of our constraint system; evaluation separated from authoring. | Exposing node networks to animators in an MVP. |
 | **Figma** | Scene tree of typed nodes with stable IDs, multiplayer. | Host-owned undo; plugin edits are grouped. | Host tools only. | Plugin logic runs on the main thread **in a minimal JS sandbox without browser APIs**; UI in an `<iframe>`; the two talk by message passing; manifest declares `networkAccess.allowedDomains`, `permissions` (`currentuser`, `activeusers`, `payments`, …). After 2019 Realms-shim escapes, Figma moved to a separate JS engine (QuickJS) compiled to WASM. | Split "document access (sandboxed, no network)" from "UI/network (iframe)"; manifest-declared network allowlist; plugin edits go through host API. | Rolling our own JS-in-JS sandbox. |
 | **tldraw** | Flat record store with typed IDs (`shape:…`), parent IDs + fractional indices, schema migrations. | History marks; `bailToMark` style cancel. | Tools are `StateNode` subclasses with child states (`idle → pointing → dragging`) and `onPointerDown/Move/Up` handlers; registering a tool adds it to the state chart, toolbar is separate. | In-process customization only. **Licence: proprietary "tldraw license"; production use needs a licence key** — study, do not depend. | Record store shape, migrations, tool state charts. | Taking it as a dependency. |
@@ -45,10 +46,10 @@
 
 ### 1.2 Synthesis
 
-1. **Two graphs, not one.** Maya's DAG (hierarchy) + DG (data flow) and Blender's ID tree + depsgraph both separate *what the user edits* from *how it is computed*. We do the same: document records (hierarchy + attributes) and a derived evaluation schedule.
-2. **Original vs. evaluated.** Blender's rule "render engines … are never touching original DNA" is the right rule for us: the three.js view, exporters and gizmos read evaluated buffers, never mutate the document.
-3. **Commands are the API.** Maya (commands), Blender (operators), VS Code (command IDs), Excalidraw (actions) converge: a registry of named, parameterized, undoable actions that every UI surface calls.
-4. **Modal tools are state machines.** Blender modal operators and tldraw StateNodes are the same idea; we take tldraw's explicit hierarchy because it is easier to test.
+1. **Two graphs, not one.** The desktop DCC's DAG (hierarchy) + DG (data flow) and the open-source DCC's ID tree + depsgraph both separate *what the user edits* from *how it is computed*. We do the same: document records (hierarchy + attributes) and a derived evaluation schedule.
+2. **Original vs. evaluated.** The open-source DCC's rule "render engines … are never touching original DNA" is the right rule for us: the three.js view, exporters and gizmos read evaluated buffers, never mutate the document.
+3. **Commands are the API.** The desktop DCC (commands), the open-source DCC (operators), VS Code (command IDs), Excalidraw (actions) converge: a registry of named, parameterized, undoable actions that every UI surface calls.
+4. **Modal tools are state machines.** The open-source DCC's modal operators and tldraw StateNodes are the same idea; we take tldraw's explicit hierarchy because it is easier to test.
 5. **Plugin trust is the hard part.** Desktop tools accept full trust. Web tools that host third-party code (Figma) isolate it hard. We start with data-only packs and trusted extensions and design the sandbox before opening a marketplace.
 
 ---
@@ -90,7 +91,7 @@ Rule: `core`, `anim`, `rig`, `geo`, `io-gltf` run in Node under Vitest with no D
 
 - **Flat and normalized.** `nodes: Record<NodeId, NodeRecord>`; hierarchy via `parent: NodeId | null` + `order: string` (fractional index, e.g. `fractional-indexing`, CC0). No nested child arrays (they conflict under collaboration and make patches large).
 - **Typed by schema.** Each record has `type` (namespaced, e.g. `ekza.joint`, `acme.springChain`) and `v` (schema version of that type). Attributes are declared, not ad hoc.
-- **Assets are referenced, not exploded.** Imported GLB/VRM bytes are an immutable *asset* (content hash). The document holds a `Character` node that references the asset plus `Joint` nodes for animatable bones. Meshes stay inside the asset until modeling exists (then "Make editable" converts). This is Maya's *file reference* idea: re-importing an updated avatar keeps animation, matched by joint name / VRM humanoid bone.
+- **Assets are referenced, not exploded.** Imported GLB/VRM bytes are an immutable *asset* (content hash). The document holds a `Character` node that references the asset plus `Joint` nodes for animatable bones. Meshes stay inside the asset until modeling exists (then "Make editable" converts). This is the desktop DCC's *file reference* idea: re-importing an updated avatar keeps animation, matched by joint name / VRM humanoid bone.
 - **Unknown types survive.** A record whose `type` has no registered schema is kept verbatim, shown as "missing extension", and written back unchanged.
 
 ### 3.2 IDs
@@ -128,7 +129,7 @@ type AttrValue =
   | { refs: NodeId[] }
   | { blob: string };                            // content hash of binary data (curves/meshes later)
 
-interface ClipRecord {          // a data-block, like a Blender Action
+interface ClipRecord {          // a data-block, like an Action in the open-source DCC
   id: string; name: string; v: number;
   range: [number, number];      // seconds; fps is a display/bake setting, not storage
   channels: Record<string, ChannelRecord>;
@@ -157,7 +158,7 @@ interface KeyBlock {           // one scalar curve; tangent model owned by the a
 }
 ```
 
-Channel targets are **scalar** (Maya `rotateX`, Blender `rotation_euler[0]`): that is what the Graph Editor draws and what animators key. Vector attributes are split into component channels.
+Channel targets are **scalar** (the desktop DCC's `rotateX`, the open-source DCC's `rotation_euler[0]`): that is what the Graph Editor draws and what animators key. Vector attributes are split into component channels.
 
 `kind: 'humanoid'` targets let one clip drive any VRM humanoid (the same idea as `SerializedHumanoidClip` in ekza-avatar-renderer: per-human-bone, rest-relative rotation local to the driven parent). They are what VRMA export and the Ekza shared clip library need. `kind: 'node'` targets are for everything else.
 
@@ -169,11 +170,11 @@ Channel targets are **scalar** (Maya `rotateX`, Blender `rotation_euler[0]`): th
 | `ekza.transform` | yes | `translate`, `rotate` (Euler), `rotateOrder`, `scale`, `offsetParentMatrix`, `visibility` | groups, nulls |
 | `ekza.character` | yes | `asset {blob}`, `humanoid` mapping, `restPose` | references imported GLB/VRM |
 | `ekza.joint` | yes | rest TRS (read-only, from asset), `translate`, `rotate`, `rotateOrder`, `scale`, `humanoidBone?` | animatable bone proxy; deterministic ID |
-| `ekza.control` | yes | transform attrs + `offsetParentMatrix`, `shape {ref → curveShape}`, `color`, `lockedChannels`, `keyable[]` | Maya-style control; zeroed at bind pose |
+| `ekza.control` | yes | transform attrs + `offsetParentMatrix`, `shape {ref → curveShape}`, `color`, `lockedChannels`, `keyable[]` | classic animator control (desktop-DCC convention); zeroed at bind pose |
 | `ekza.curveShape` | yes (display) | `curve: CurveData`, `lineWidth`, `renderable=false` | the circle under a control; becomes modeling curve later (§9) |
-| `ekza.constraint.*` | yes: parent, point, orient; later: aim, scale, IK, spline-IK, motion-path | `targets {refs}`, `weights[]`, `offsets[]` (maintain offset), `driven {ref}`, `channels` mask | constraints are nodes, like Maya; they declare eval deps |
+| `ekza.constraint.*` | yes: parent, point, orient; later: aim, scale, IK, spline-IK, motion-path | `targets {refs}`, `weights[]`, `offsets[]` (maintain offset), `driven {ref}`, `channels` mask | constraints are nodes (desktop-DCC convention); they declare eval deps |
 | `ekza.camera` | yes | `fov` (deg, vertical), `near`, `far`, `filmFit`, transform attrs | **shot cameras** only; free viewport cameras are per-user view state (§7.4) |
-| `ekza.selectionSet` | later | `members {refs}` | Maya quick-select sets / character sets |
+| `ekza.selectionSet` | later | `members {refs}` | the desktop DCC's quick-select sets / character sets |
 | `ekza.animLayer` | later | `mode: additive/override`, `weight`, `mute`, `members` | also a collaboration tool (§10) |
 | `ekza.curve` | later | renderable `CurveData` | spline modeling |
 | `ekza.mesh` | later | `mesh {blob}` editable `MeshData` | mesh modeling |
@@ -182,7 +183,7 @@ Channel targets are **scalar** (Maya `rotateX`, Blender `rotation_euler[0]`): th
 
 ### 3.5 Attribute schema
 
-Every node type declares attributes once; the declaration drives the Channel Box, Attribute Editor, validation, serialization, migrations, collaboration encoding and plugin introspection (the role Blender's RNA plays).
+Every node type declares attributes once; the declaration drives the Channels panel, Attribute Editor, validation, serialization, migrations, collaboration encoding and plugin introspection (the role RNA plays in the open-source DCC).
 
 ```ts
 interface AttrDef {
@@ -191,7 +192,7 @@ interface AttrDef {
   default: AttrValue;
   unit?: 'm' | 'deg' | 'rad' | 's' | 'none';
   animatable: boolean;                  // can have channels
-  keyable?: boolean;                    // shown in Channel Box & keyed by "Set Key" (Maya distinction)
+  keyable?: boolean;                    // shown in Channels panel & keyed by "Set Key" (desktop-DCC distinction)
   min?: number; max?: number; softMin?: number; softMax?: number;
   enumValues?: readonly string[];
   readOnly?: boolean;                   // e.g. joint rest pose
@@ -208,7 +209,7 @@ interface NodeTypeDef<A extends Record<string, AttrDef> = any> {
 }
 ```
 
-Rotation decision (needs confirmation with the graph-editor note): **controls and joints store rotation as Euler + `rotateOrder`** in degrees, because animators edit per-axis curves (Maya default). Imported quaternion tracks are converted with an Euler filter (unwrap ±180°) on import; export converts back to quaternions (glTF/VRMA require `rotation` as quaternion). A raw `quat` attribute type remains for data that should not be edited per axis.
+Rotation decision (needs confirmation with the graph-editor note): **controls and joints store rotation as Euler + `rotateOrder`** in degrees, because animators edit per-axis curves (the desktop DCC's default). Imported quaternion tracks are converted with an Euler filter (unwrap ±180°) on import; export converts back to quaternions (glTF/VRMA require `rotation` as quaternion). A raw `quat` attribute type remains for data that should not be edited per axis.
 
 ### 3.6 Property paths
 
@@ -271,14 +272,14 @@ Consequence: **runtime export profiles only emit core TRS/weights channels**; po
 Formulas (column vectors, glTF convention):
 
 - World: `W(n) = W(parent(n)) · L(n)`.
-- Control local with offset parent matrix: `L = OPM · T · R · S` → a control can sit exactly on a joint while its channels read zero (Maya 2020 `offsetParentMatrix` idiom). "Zero out" operator: `OPM ← OPM · T · R · S; T,R ← 0; S ← 1`.
+- Control local with offset parent matrix: `L = OPM · T · R · S` → a control can sit exactly on a joint while its channels read zero (the desktop DCC's `offsetParentMatrix` idiom, 2020+). "Zero out" operator: `OPM ← OPM · T · R · S; T,R ← 0; S ← 1`.
 - Parent constraint, maintain offset: at creation `O = W(target)₀⁻¹ · W(driven)₀`; at eval `W(driven) = W(target) · O`. Multiple targets: blend translations linearly by normalized weights, rotations by weighted quaternion average (nlerp with hemisphere alignment; slerp for 2 targets).
 - Writing back to a joint: `L(joint) = W(parentJoint)⁻¹ · W(driven)`, decompose to TRS, then convert R to the joint's Euler with the previous frame as unwrap hint.
 - Point/orient constraints: the T or R part only of the above.
 
 ### 4.2 Evaluation graph
 
-Ops are finer than nodes (Blender depsgraph "components"): a node may contribute `transform`, `world`, `constraint`, (later) `geometry`, `display` ops.
+Ops are finer than nodes (the open-source DCC's depsgraph "components"): a node may contribute `transform`, `world`, `constraint`, (later) `geometry`, `display` ops.
 
 ```ts
 interface EvalBuilder {
@@ -289,8 +290,8 @@ type OpKey = `${NodeId}/${'local' | 'world' | 'constraint' | 'geometry' | 'displ
 ```
 
 - Build: each node type's `evalOps` declares ops + deps → Kahn topological sort → **schedule** (array of op indices). Rebuilt only on *structural* changes (node added/removed, reparent, constraint retarget). O(V+E), trivially fast at character scale.
-- Cycles: detected during sort; ops in a cycle are evaluated once in arbitrary order and the UI flags them (Maya prints a cycle warning; silently "fixing" cycles hides rig bugs).
-- Execute: forward evaluation over the schedule (Maya's Evaluation Manager model — build the schedule once, then evaluate in order; independent ops could later run in parallel or in a Worker).
+- Cycles: detected during sort; ops in a cycle are evaluated once in arbitrary order and the UI flags them (the desktop DCC prints a cycle warning; silently "fixing" cycles hides rig bugs).
+- Execute: forward evaluation over the schedule (the desktop DCC's Evaluation Manager model — build the schedule once, then evaluate in order; independent ops could later run in parallel or in a Worker).
 
 ### 4.3 Dirty propagation (what actually needs it)
 
@@ -349,7 +350,7 @@ interface InteractiveTx { update(fn: (tx: Tx) => void): void; commit(): void; ca
 ```
 
 - Each transaction yields `Patch[]` = `{ op, id, path, before, after }`; undo applies inverses. Hand-rolled patches are simpler and faster than Immer/Mutative here because records are flat and key blocks are typed arrays replaced wholesale.
-- **Interactive transactions** (dragging a control, a key, a tangent): updates go to a transient overlay that the evaluator reads (`ctx.overrides`) — no document writes, no undo entries, no collaboration traffic per mouse-move. `commit()` writes one transaction (one undo step); `cancel()` (Esc / right-click) drops the overlay. This mirrors Blender modal cancel and tldraw's bail-to-mark.
+- **Interactive transactions** (dragging a control, a key, a tangent): updates go to a transient overlay that the evaluator reads (`ctx.overrides`) — no document writes, no undo entries, no collaboration traffic per mouse-move. `commit()` writes one transaction (one undo step); `cancel()` (Esc / right-click) drops the overlay. This mirrors the open-source DCC's modal cancel and tldraw's bail-to-mark.
 - Undo entries carry `meta.selectionBefore/After` so undo restores selection (the Yjs UndoManager offers `stackItem.meta` for exactly this).
 - Collaboration: the same `Tx` API is implemented over a Yjs binding later; undo then becomes **per-origin** (Yjs `UndoManager` with `trackedOrigins`) so you never undo a collaborator's work.
 
@@ -377,7 +378,7 @@ interface OpContext {
 }
 ```
 
-Lifecycle: `poll → invoke (UI) | execute (script) → [modal loop] → commit/cancel`. `execute` wraps itself in one transaction when `flags.undo` is set (Blender's `UNDO` option); operators that call other operators produce one undo step (nested transactions merge).
+Lifecycle: `poll → invoke (UI) | execute (script) → [modal loop] → commit/cancel`. `execute` wraps itself in one transaction when `flags.undo` is set (the open-source DCC's `UNDO` option); operators that call other operators produce one undo step (nested transactions merge).
 
 Naming: `<area>.<object>.<verb>` — `anim.key.insert`, `anim.key.delete`, `anim.tangent.set` (`{type:'auto'|'flat'|'linear'|'stepped'|...}`), `anim.tangent.break`, `anim.tangent.unify`, `anim.bake`, `rig.control.create`, `rig.constraint.parent`, `rig.control.zero`, `view.frame.selected`, `io.export` (`{profile}`), `ekza.upload` (host-owned, always confirms).
 
@@ -387,10 +388,10 @@ Consumers of the registry (all MVP except where noted):
 |---|---|
 | Menus / context menus | `menus.contribute({ menu: 'graph.key', op: 'anim.tangent.set', args: {type:'flat'}, group, order, when })` |
 | Hotkeys | keymap entries `{ code: 'KeyS', mods: [], op: 'anim.key.insert', context: 'viewport' }` |
-| Marking / pie menus (Maya-style) | data layouts of `{ direction: 'N'|'NE'|…, op, args }` |
-| Command palette (Blender F3 / Maya Find Menu) | all registered, non-internal operators with `poll` state |
-| Channel Box / Attribute Editor buttons | operators with args |
-| Operator log (Maya Script Editor echo, Blender Info) | every `register` operator call printed as `ops.run('anim.key.insert', {…})` → copy as macro |
+| Marking / pie menus | data layouts of `{ direction: 'N'|'NE'|…, op, args }` |
+| Command palette (F3 operator search / Find Menu in common DCCs) | all registered, non-internal operators with `poll` state |
+| Channels panel / Attribute Editor buttons | operators with args |
+| Operator log (Script Editor echo / Info log in common DCCs) | every `register` operator call printed as `ops.run('anim.key.insert', {…})` → copy as macro |
 | Scripting console (later) | same `ops.run` API |
 | AI agent / MCP bridge (later) | operators with `args` JSON schema map 1:1 to tool definitions |
 | Tests | headless `ops.run` against fixture documents |
@@ -398,8 +399,8 @@ Consumers of the registry (all MVP except where noted):
 ### 5.3 Keymaps
 
 - Resolution order on keydown: active modal operator/tool keymap → active editor context (`viewport`, `graph`, `dopesheet`, `outliner`…) → global. Contexts are simple predicates for built-ins; VS Code-style `when` strings only when third-party keymaps arrive.
-- **Bind by `KeyboardEvent.code` (physical key), not `key`.** With a Russian (ЙЦУКЕН) layout `key` for the W/E/R position is "ц/у/к"; Maya's W/E/R/S muscle memory must work regardless of layout. Show labels via `navigator.keyboard.getLayoutMap()` where available (Chromium-only Keyboard Map API; fall back to Latin labels).
-- Presets as data: `maya` (W/E/R move/rotate/scale, S set key, Alt+LMB/MMB/RMB tumble/track/dolly, F frame selected, `,`/`.` prev/next key), `blender`, user overrides on top.
+- **Bind by `KeyboardEvent.code` (physical key), not `key`.** With a Russian (ЙЦУКЕН) layout `key` for the W/E/R position is "ц/у/к"; the industry-standard DCC W/E/R/S muscle memory must work regardless of layout. Show labels via `navigator.keyboard.getLayoutMap()` where available (Chromium-only Keyboard Map API; fall back to Latin labels).
+- Presets as data: `dcc` (industry-standard DCC hotkeys: W/E/R move/rotate/scale, S set key, Alt+LMB/MMB/RMB tumble/track/dolly, F frame selected, `,`/`.` prev/next key), an alternative keymap preset (open-source-DCC style), user overrides on top.
 - Browser-reserved shortcuts cannot be captured (e.g. Ctrl/Cmd+W, Ctrl/Cmd+T, Ctrl/Cmd+N); never put essential operators on them. Desktop wrappers (later) lift that limit.
 
 ---
@@ -438,7 +439,7 @@ interface ToolDef {
 }
 ```
 
-Event routing inside an editor: active modal operator → active tool's current state → editor default (camera navigation on Alt+drag in viewport, pan/zoom in graph editor) → pass-through. Camera navigation is not a tool (Maya: works under any tool with Alt).
+Event routing inside an editor: active modal operator → active tool's current state → editor default (camera navigation on Alt+drag in viewport, pan/zoom in graph editor) → pass-through. Camera navigation is not a tool (DCC convention: works under any tool with Alt).
 
 ### 6.3 Tool catalog
 
@@ -461,7 +462,7 @@ type SelectionItem =
   | { clip: string; channel: string; key: string; part?: 'key' | 'inTan' | 'outTan' };  // graph/dope sheet
 
 interface SelectionState {
-  objects: SelectionItem[];         // ordered; last = active (Maya "lead object")
+  objects: SelectionItem[];         // ordered; last = active (the desktop DCC's "lead object")
   components: SelectionItem[];      // current component mode
   keys: SelectionItem[];            // graph editor / dope sheet
   mode: 'object' | 'component';
@@ -501,17 +502,17 @@ Editor view state (camera of a free viewport, graph-editor framing, outliner exp
 | Graph Editor | yes | curves of selected channels; normalize/stack views; tangent tools |
 | Dope Sheet | yes (simple) | key ticks per channel/node; retime |
 | Timeline / Time Slider | yes | playback, range, key ticks of selection, fps |
-| Channel Box | yes | keyable attrs of selection; right-click → key/lock/mute operators |
+| Channels | yes | keyable attrs of selection; right-click → key/lock/mute operators |
 | Attribute Editor | yes (generated) | all attrs from schema, grouped |
 | Operator Log / Script | log in MVP | macro copy; console later |
-| Control Picker | later | 2D button layout per character (Maya picker tools) |
+| Control Picker | later | 2D button layout per character (picker tools as in the desktop DCC) |
 | Curve / Modeling tool settings | later | tool options for CV/EP/pen, rebuild, generators |
 | Node Editor | maybe never | only if generators/APEX-like rigs need it |
 
 ### 7.3 Layout
 
 - Docking via a serializable layout library; **dockview** (MIT, 8.6.0) supports React, floating groups and popout windows; FlexLayout (MIT) is the alternative. Named workspaces: *Animate*, *Graph*, *Rig*, later *Model*.
-- Trap: a popout window is a separate document → a viewport there needs **its own WebGL context** (geometry/textures re-uploaded); drei `View` (scissor-split single canvas) cannot span windows. Allow popouts for 2D editors first (graph editor on the second monitor is the common Maya setup); popout viewports later.
+- Trap: a popout window is a separate document → a viewport there needs **its own WebGL context** (geometry/textures re-uploaded); drei `View` (scissor-split single canvas) cannot span windows. Allow popouts for 2D editors first (graph editor on the second monitor is the common desktop-DCC setup); popout viewports later.
 
 ### 7.4 Viewports and cameras (the split-screen requirement)
 
@@ -519,7 +520,7 @@ Editor view state (camera of a free viewport, graph-editor framing, outliner exp
 - Two camera kinds:
   - **Shot cameras** — `ekza.camera` document nodes; animatable, exportable, shared with collaborators. The "fixed camera" pane locks to one.
   - **View cameras** — per-viewport, per-user orbit/pan state; never in the document, so two collaborators tumbling do not fight.
-- "Look through selected" = assign a shot camera to a viewport instance (editor state), Maya-style.
+- "Look through selected" = assign a shot camera to a viewport instance (editor state; desktop-DCC convention).
 
 ---
 
@@ -574,7 +575,7 @@ Rules independent of tier:
 | Tier | What | Isolation | When |
 |---|---|---|---|
 | **T0 data packs** | JSON validated by schema: keymaps, marking menus, control shapes, rig templates, humanoid maps, export presets, themes | none needed (no code) | **MVP** |
-| **T2 trusted extensions** | npm-style ES modules in-process: built-ins, self-hosted forks, and "developer mode" loading from a local dev server with a persistent warning banner | none (full trust, like Blender add-ons / Maya plug-ins) | **MVP (internal + dev mode only)** |
+| **T2 trusted extensions** | npm-style ES modules in-process: built-ins, self-hosted forks, and "developer mode" loading from a local dev server with a persistent warning banner | none (full trust, like add-ons / plug-ins in common DCCs) | **MVP (internal + dev mode only)** |
 | **T1 sandboxed plugins** | third-party code from a catalog | opaque-origin iframe (`sandbox="allow-scripts"` without `allow-same-origin`), CSP from manifest (`default-src 'none'`, `connect-src` = declared origins), async RPC over `MessageChannel`, capability-checked host API, watchdog | after core API 1.0 |
 | T1+ (optional) | CPU-bounded logic | QuickJS compiled to WASM (`quickjs-emscripten`, MIT, 0.32.0) with interrupt handler, inside the T1 iframe | if catalog plugins need deterministic limits |
 
@@ -602,7 +603,7 @@ The Ekza registry already runs a typed-asset lifecycle (upload → processing �
 
 | Need | Phase | Uses `CurveData` as |
 |---|---|---|
-| Control shapes (circles, squares, arrows) | MVP | display-only shape under a control transform (Maya `nurbsCurve` shape) |
+| Control shapes (circles, squares, arrows) | MVP | display-only shape under a control transform (the desktop DCC's `nurbsCurve` shape) |
 | Motion paths (object follows curve) | later anim | constraint input |
 | Spline IK (spine, tail, tentacle) | later rig | IK solver input |
 | Motion trail editing | later anim | evaluated output, editable handles |
@@ -617,9 +618,9 @@ interface Spline {
   kind: SplineKind;
   closed: boolean;                 // periodic
   points: Float32Array;            // xyz per CV/anchor (local space of the shape node)
-  // bezier only (Blender/Illustrator model): per-anchor handles + handle types
+  // bezier only (open-source-DCC/Illustrator model): per-anchor handles + handle types
   handlesIn?: Float32Array; handlesOut?: Float32Array; handleTypes?: Uint8Array; // auto, autoClamped, aligned, vector, free
-  // nurbs only (Maya model)
+  // nurbs only (desktop-DCC model)
   degree?: number;                 // 1..7; 3 typical
   knots?: Float64Array;            // length = points + degree + 1 (open) — validated
   weights?: Float32Array;          // rational NURBS; default 1
@@ -635,7 +636,7 @@ interface CurveData { splines: Spline[]; v: 1 }
 
 An animation curve is a 2D Bezier path in (time, value); a 3D spline is a 3D Bezier/NURBS path. Shared kernel: component selection (anchor / in-handle / out-handle), handle-type rules, break/unify, weighted vs. unweighted handles, insert-anchor-on-curve (de Casteljau split), delete-and-refit, flatten, align.
 
-| Concept | Maya graph editor | Blender handles | Kernel |
+| Concept | Desktop-DCC graph editor | Open-source-DCC handles | Kernel |
 |---|---|---|---|
 | automatic smooth | auto / spline / clamped | auto / auto-clamped | `auto`, `autoClamped` |
 | linear | linear | vector | `vector` |
@@ -652,12 +653,12 @@ CV-curve tool (place CVs, degree 1/3), EP tool (interpolate through points), Bez
 ### 9.5 Display
 
 - Screen-space-width lines via three.js `Line2` / `LineSegments2` (addons) — WebGL `gl.lineWidth` is effectively 1 px on most platforms.
-- Adaptive tessellation by chord error; CV hull and knot/EP markers in component mode; colour per control (Maya override colours).
+- Adaptive tessellation by chord error; CV hull and knot/EP markers in component mode; colour per control (desktop-DCC override colours).
 - Picking: project tessellated polyline, distance-to-segment in screen pixels (threshold ~6 px), then refine parameter `u` by Newton on the true curve for CV insertion.
 
 ### 9.6 Construction history (generators)
 
-`ekza.generator.sweep(profile, path) → MeshData`, `loft(curves[])`, `revolve(curve, axis)`, `extrude(curve, vector)`, `tube(path, radius)`. Generators are document nodes whose `geometry` op depends on input curves' `geometry` ops — this is where per-op dirty propagation (§4.3) starts to matter. "Delete history / Freeze" operator bakes the output into an `ekza.mesh` and removes the generator (Maya semantics).
+`ekza.generator.sweep(profile, path) → MeshData`, `loft(curves[])`, `revolve(curve, axis)`, `extrude(curve, vector)`, `tube(path, radius)`. Generators are document nodes whose `geometry` op depends on input curves' `geometry` ops — this is where per-op dirty propagation (§4.3) starts to matter. "Delete history / Freeze" operator bakes the output into an `ekza.mesh` and removes the generator (desktop-DCC semantics).
 
 ### 9.7 Export of curves — options
 
@@ -667,7 +668,7 @@ glTF 2.0 has no curve primitive (only point/line/triangle topologies), and no ra
 |---|---|---|---|
 | Tessellated `LINE_STRIP` (mode 3) / `LINES` primitives | no | three: `Line`; Bevy 0.19 `bevy_gltf` maps `LineStrip`/`Lines` topologies | **fallback geometry** inside any curve export |
 | Custom vendor extension `EKZA_curves` on nodes: accessor-backed `points`, `knots`, `weights`, handles; plus a `LINE_STRIP` fallback mesh so other viewers show something; listed in `extensionsUsed`, not `extensionsRequired` | yes | needs our GLTFLoader plugin (`parser.register`) and glTF-Transform `Extension` | **authoring/web exports** |
-| Adopt `UTSUBO_curve_extension` (community, MIT; Blender exporter + three loader; node-level `splines` with inline JSON points/handles/knots; last commit 2025-10) | yes | three via its loader; Godot importer exists | evaluate for interop; inline JSON points do not scale — prefer accessors, or propose a joint `EXT_` |
+| Adopt `UTSUBO_curve_extension` (community, MIT; open-source-DCC exporter + three loader; node-level `splines` with inline JSON points/handles/knots; last commit 2025-10) | yes | three via its loader; Godot importer exists | evaluate for interop; inline JSON points do not scale — prefer accessors, or propose a joint `EXT_` |
 | `extras` | partially | ignored | only for small metadata (IDs) |
 | Bake to mesh (tube/ribbon/sweep) | no | everywhere | **runtime/game exports** |
 | USD `BasisCurves` / `NurbsCurves` | yes | not glTF | later USD exporter |
@@ -678,7 +679,7 @@ Vendor prefixes are registered by opening an issue in the KhronosGroup/glTF repo
 
 - `MeshData` = n-gon faces + attribute layers in typed arrays, stored as a content-addressed blob; triangulated for display; `three-mesh-bvh` (MIT) for component picking.
 - **Do not plan per-vertex CRDT collaboration**: mesh edits are coarse (per-mesh lock or whole-blob last-writer-wins with an operation log for undo).
-- Component IDs are indices (Maya does the same); selections are invalidated by topology-changing operators, which must remap or clear them.
+- Component IDs are indices (the desktop DCC does the same); selections are invalidated by topology-changing operators, which must remap or clear them.
 - Skinning weights editing (paint weights) belongs here too and is the first "modeling" feature animators will actually ask for.
 
 ---
@@ -708,7 +709,7 @@ Vendor prefixes are registered by opening an issue in the KhronosGroup/glTF repo
 4. Operator registry with `poll/invoke/execute/modal`, JSON-schema args, operator log; all built-in UI calls operators.
 5. Property-path addressing + mapping table to glTF core channels (and pointer channels behind a flag); humanoid channel targets.
 6. Pure re-entrant evaluator (explicit time + buffers) with declared-dependency schedule; imperative `SceneView` sync.
-7. Tool state machines per editor + manipulators; event routing order; `event.code` keymaps with Maya preset.
+7. Tool state machines per editor + manipulators; event routing order; `event.code` keymaps with the `dcc` preset.
 8. Selection model with components (keys/tangents now), per-user.
 9. Editor registry + docking layout with named workspaces; multi-viewport with shot vs. view cameras.
 10. `CurveData` type used for control shapes; shared Bezier editing kernel for the graph editor.
@@ -732,7 +733,7 @@ Vendor prefixes are registered by opening an issue in the KhronosGroup/glTF repo
 ## 12. Traps
 
 1. **Using three.js as the document** (Object3D tree, `AnimationClip`, `AnimationMixer` as source of truth): name-based binding, no undo/schema/IDs; fine only as a preview of exported clips.
-2. **Over-building a Maya-style plug/connection DG for the MVP.** Typed node attributes + declared eval deps + typed refs cover constraints; generic connections (drivers, set-driven keys) can be an op type later.
+2. **Over-building a desktop-DCC-style plug/connection DG for the MVP.** Typed node attributes + declared eval deps + typed refs cover constraints; generic connections (drivers, set-driven keys) can be an op type later.
 3. **Global current time/pose in the evaluator** — breaks onion skin, trails, bake, multi-view.
 4. **React state for per-frame values** — re-render storms while scrubbing/dragging.
 5. **Euler/quaternion confusion** — store Euler + order for editable rotations, Euler-filter on import, quaternions only at export; document units (degrees in UI, radians in glTF `yfov`).
@@ -743,7 +744,7 @@ Vendor prefixes are registered by opening an issue in the KhronosGroup/glTF repo
 10. **Fine-grained CRDT for keys or vertices** — memory blow-up; use channel/blob granularity + soft locks.
 11. **Dropping unknown plugin data** on save — breaks trust in an open ecosystem.
 12. **Licence contamination**: tldraw (proprietary licence, production key required) and `@theatre/studio` (AGPL-3.0, last release 2024-05) — read their designs, do not depend on them.
-13. **Treating plugin "permissions" as security** without an isolation boundary (Blender's own docs say they cannot be enforced in-process).
+13. **Treating plugin "permissions" as security** without an isolation boundary (the open-source DCC's own docs say they cannot be enforced in-process).
 14. **Popout windows with WebGL** — need separate contexts; start with 2D editors.
 15. **Peer-range drift with sibling packages**: ekza-avatar-renderer declares `three >=0.137 <0.186` while current three is 0.186.1 — reuse its *ideas* (humanoid rest-relative clip format, retarget conventions) or bump its range in a coordinated release before importing it.
 
@@ -762,7 +763,7 @@ Vendor prefixes are registered by opening an issue in the KhronosGroup/glTF repo
 
 ## 14. Open questions
 
-1. Licence of Ekza Animator (MIT / Apache-2.0 vs. GPL-style like Blender) — affects whether proprietary plugins are allowed and which dependencies are acceptable.
+1. Licence of Ekza Animator (MIT / Apache-2.0 vs. GPL-style like the open-source DCC) — affects whether proprietary plugins are allowed and which dependencies are acceptable.
 2. Project container: standalone `.ekzanim` (zip of JSON + blobs) vs. "authoring GLB" carrying an `EKZA_animator` extension (opens in any glTF viewer).
 3. Confirm Euler + `rotateOrder` storage for controls/joints (graph-editor note) and the tangent encoding inside `KeyBlock` (anim note).
 4. Plain store + later Yjs adapter (recommended) vs. Yjs-native store from day one.
@@ -784,15 +785,15 @@ Vendor prefixes are registered by opening an issue in the KhronosGroup/glTF repo
 - glTF-Transform extensions index: https://github.com/donmccurdy/glTF-Transform/blob/main/packages/extensions/src/index.ts
 - Bevy `bevy_gltf` 0.19.1 crate docs (extension support table): https://docs.rs/bevy_gltf/0.19.1/bevy_gltf/
 - VRMC_vrm_animation 1.0: https://github.com/vrm-c/vrm-specification/blob/master/specification/VRMC_vrm_animation-1.0/README.md
-- UTSUBO curve extension: https://github.com/utsuboco/gltf_curve_exporter and https://discourse.threejs.org/t/gltfcurveextension-and-blender-gltf-exporter-curve-extension/67141
+- UTSUBO curve extension: https://github.com/utsuboco/gltf_curve_exporter (and its announcement thread on the three.js forum)
 - OpenUSD BasisCurves: https://openusd.org/release/api/class_usd_geom_basis_curves.html
-- Blender `bpy.types.Operator`: https://docs.blender.org/api/current/bpy.types.Operator.html
-- Blender depsgraph design: https://developer.blender.org/docs/features/core/depsgraph/
-- Blender extensions manifest & permissions: https://docs.blender.org/manual/en/latest/advanced/extensions/getting_started.html ; add-on online-access policy: https://docs.blender.org/manual/en/latest/advanced/extensions/addons.html
-- Blender 4.4 slotted actions: https://devtalk.blender.org/t/blender-4-4-slotted-actions-feedback/38906
-- Maya Evaluation Manager: https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Customizing/files/GUID-190D97E7-9AC0-4D67-8A07-1AF3A9DBAF15.htm ; Using Parallel Maya: https://damassets.autodesk.net/content/dam/autodesk/www/html/using-parallel-maya/2025/UsingParallelMaya.html
-- Maya `MPxCommand`: https://help.autodesk.com/cloudhelp/2025/ENU/MAYA-API-REF/cpp_ref/class_m_px_command.html
-- Maya `animCurve` node: https://help.autodesk.com/cloudhelp/2027/ENU/Maya-Tech-Docs/Nodes/animCurve.html ; transform node (`offsetParentMatrix`): https://help.autodesk.com/cloudhelp/2025/CHS/Maya-Tech-Docs/Nodes/transform.html
+- Open-source DCC Python API reference: `bpy.types.Operator` (current)
+- Open-source DCC developer docs: depsgraph design
+- Open-source DCC manual: extensions manifest & permissions; add-on online-access policy (latest)
+- Open-source DCC 4.4 slotted actions: developer-forum feedback thread
+- Desktop DCC vendor documentation: Evaluation Manager (2026); vendor white paper on parallel evaluation (2025)
+- Desktop DCC API reference: `MPxCommand` (2025)
+- Desktop DCC node reference: `animCurve` (2027); transform node (`offsetParentMatrix`, 2025)
 - Houdini APEX graphs: https://sidefx.com/docs/houdini/character/kinefx/apexgraphs.html ; KineFX overview: https://sidefx.com/docs/houdini/character/kinefx/overview.html
 - Figma how plugins run: https://developers.figma.com/docs/plugins/how-plugins-run/ ; manifest: https://developers.figma.com/docs/plugins/manifest/ ; plugin security update: https://www.figma.com/blog/an-update-on-plugin-security/ ; plugin system design: https://www.figma.com/blog/how-we-built-the-figma-plugin-system/
 - tldraw tools: https://tldraw.dev/docs/tools ; tldraw licence: https://github.com/tldraw/tldraw/blob/main/LICENSE.md

@@ -33,6 +33,7 @@ import type { CaptureOutcome, DocCapture } from '../history/capture';
 import type { KernelHistory } from '../history/history';
 import { type OverrideLocation, overrideDelta, sameLocation } from '../history/overrides';
 import { runSeedOf } from '../mesh/seed';
+import { migrateLegacyArgs } from '../prefs/legacy';
 import { ownerOfControl } from '../session/location';
 import { selectionSnapshot } from '../session/selection';
 import type {
@@ -66,7 +67,7 @@ function aborted(signal: AbortSignal | undefined): boolean {
   return signal?.aborted === true;
 }
 
-/** Consecutive runs with the same `key` within `ms` merge into one undo step (Channel Box ↑/↓ nudges). */
+/** Consecutive runs with the same `key` within `ms` merge into one undo step (Channels panel ↑/↓ nudges). */
 export interface OperatorCoalescing {
   readonly key: string;
   readonly ms: number;
@@ -128,12 +129,15 @@ function actionOf(details: unknown): OperatorAction | undefined {
  * and selection-bound values, the primitives' `prefs.modeling.primitiveDefaults` set; M6A-B11-2).
  */
 export function coerceRunArgs(app: EditorApp, def: AnyOperatorDef, raw: unknown, ctx: RunContext | undefined): unknown {
-  if (def.params === undefined) return raw;
+  if (def.params === undefined) return migrateLegacyArgs(def.id, raw);
   const source = ctx?.source;
   const defaults =
     source !== undefined && UI_SOURCES.has(source) ? app.prefs.getState().modeling.optionDefaults[def.id] : undefined;
   const given: Readonly<Record<string, unknown>> = isPlainRecord(raw) ? raw : {};
-  const input: Readonly<Record<string, unknown>> = defaults === undefined ? given : { ...defaults, ...given };
+  // Renamed enum ids (DECISIONS-OPEN TM-1) in the given args or the saved option box read as their current ids.
+  const input = migrateLegacyArgs(def.id, defaults === undefined ? given : { ...defaults, ...given }) as Readonly<
+    Record<string, unknown>
+  >;
   const coerced = coerceArgs(def.params, input, { passThrough: def.extraArgs ?? [] }).args;
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(coerced)) {

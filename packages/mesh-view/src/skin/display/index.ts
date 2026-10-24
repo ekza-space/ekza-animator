@@ -1,9 +1,9 @@
 // The weight display of a bound mesh in Skin mode (M6B-SPEC §5.12, §8.3; C6): greyscale (`--weight-0` black →
-// `--weight-1` white, Maya's colour feedback), a colour-blind-safe ramp (`--weight-ramp-0…4`) or influence colours
-// (each joint its golden-angle hue, the vertex colour `Σ w_i·c_i`), with the clay light rig's shading; unweighted points
-// read `--danger`; problem points (`|Σ − 1| > 1e-6`, imports) get a `--lint-error` dot (the faces around the point,
-// within a fifth of the way to their other corners; > 4 influences cannot reach the GPU's four slots, so the skin's
-// own check reports those).
+// `--weight-1` white, the classic DCC colour feedback), a colour-blind-safe ramp (`--weight-ramp-0…4`) or influence
+// colours (each joint its golden-angle hue, the vertex colour `Σ w_i·c_i`), with the clay light rig's shading;
+// unweighted points read `--danger`; problem points (`|Σ − 1| > 1e-6`, imports) get a `--lint-error` dot (the faces
+// around the point, within a fifth of the way to their other corners; > 4 influences cannot reach the GPU's four slots,
+// so the skin's own check reports those).
 //
 // It is a second draw of the `SkinnedSurface`'s geometry (the posed positions and the `skinIndex`/`skinWeight`
 // attributes C1 uploads per corner) with its own material, added to the surface's root just in front of it. The shader

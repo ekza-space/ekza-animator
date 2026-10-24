@@ -191,7 +191,7 @@ export function cubeLadTruth() {
   };
 }
 
-/** The 8 corners of a box and its 6 quads in Maya's side order (front +Z, top +Y, back −Z, bottom −Y, +X, −X). */
+/** The 8 corners of a box and its 6 quads in the usual DCC side order (front +Z, top +Y, back −Z, bottom −Y, ±X). */
 function boxGeometry(box) {
   const [cx, cy, cz] = box.center;
   const [hx, hy, hz] = box.size.map((s) => s / 2);

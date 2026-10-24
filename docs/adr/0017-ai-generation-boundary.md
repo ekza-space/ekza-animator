@@ -53,7 +53,7 @@ Generated meshes are dense, often non-manifold, mis-oriented and unrigged; the E
    (retention is 1–7 days), cap size, SHA-256, `AssetStore.put`, `io` input budgets and structural checks, validator,
    the existing GLB importer. Clients never send URLs (no SSRF); the gateway uploads its own stored bytes to providers.
    No special "AI asset" format.
-5. **The post-processing chain is the modeling toolkit**: normalize (+Z forward, metres, origin at bottom centre),
+5. **The post-processing chain is built from the modeling tools**: normalize (+Z forward, metres, origin at bottom centre),
    merge by distance, cleanup, reduce (meshoptimizer, index-only so UVs and weights stay valid), quadrangulate,
    symmetrize, normals, palette bake to per-face palette slots, then the M6b rig/skin or a provider rig imported through
    `char.makeEditable`. Every step is an undoable, adjustable `mesh.*`/`skin.*` operator usable by hand, by presets and
@@ -79,8 +79,8 @@ Generated meshes are dense, often non-manifold, mis-oriented and unrigged; the E
    days, attribution and territory exclusions (`GenTerms`). Open-weight deployments: weights are downloaded at deploy
    time under their own licences and never vendored; the GPU worker image carries an SBOM and CI fails on a
    non-commercial licence in a commercial profile; Hunyuan3D open weights only as an operator opt-in with a geo-gate
-   and the licence NOTICE; GPL tools (ComfyUI, Blender's `bpy`) only as separate processes, never linked into MIT
-   packages.
+   and the licence NOTICE; GPL tools (ComfyUI, the Python API of a popular open-source DCC) only as separate
+   processes, never linked into MIT packages.
 10. **Cost and abuse controls**: quote before submit and refuse above the request's `maxCostUsd`; client idempotency
     keys; never re-POST after a create timeout (look the task up instead); per-provider concurrency below provider
     limits with a fair per-user queue; Tripo webhooks verified by HMAC over `t + "." + rawBody` with a 5-minute window

@@ -40,8 +40,8 @@
           "status": "shipped"
         },
         {
-          "name": "Maya-style keys and marking menus",
-          "description": "Maya hotkeys, radial marking menus and three navigation profiles (mouse, trackpad, one-button).",
+          "name": "Industry-standard DCC hotkeys and marking menus",
+          "description": "Industry-standard DCC hotkeys, radial marking menus and three navigation profiles (mouse, trackpad, one-button).",
           "status": "shipped"
         },
         {
@@ -206,7 +206,7 @@
         },
         {
           "name": "Keying, breakdowns and tweens",
-          "description": "Maya keying, auto-key, breakdown keys and the tween family with overshoot.",
+          "description": "Hotkey keying (S, Shift+W/E/R), auto-key, breakdown keys and the tween family with overshoot.",
           "status": "shipped"
         },
         {
@@ -216,7 +216,7 @@
         },
         {
           "name": "Graph Editor",
-          "description": "Maya tangent model, weighted handles, buffer curves, normalized/stacked views, Euler filter, Simplify.",
+          "description": "Weighted/stepped tangent model (AnimX-compatible), weighted handles, buffer curves, normalized/stacked views, Euler filter, Simplify.",
           "status": "shipped"
         },
         {
@@ -280,7 +280,7 @@
           "status": "experimental"
         },
         {
-          "name": "FBX, BVH and Mixamo import",
+          "name": "FBX and BVH import (incl. common auto-rigger skeletons)",
           "description": "Import and retarget from common animation formats.",
           "status": "planned"
         }

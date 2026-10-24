@@ -10,7 +10,7 @@ labels: enhancement
 
 ## Proposal
 
-<!-- What would you like to happen? How does Maya, Blender or another tool handle it, if relevant? -->
+<!-- What would you like to happen? How do other tools handle it, if relevant? -->
 
 ## Roadmap
 

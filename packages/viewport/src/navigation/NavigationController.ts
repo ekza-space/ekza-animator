@@ -27,7 +27,7 @@ function ensureInstalled(): void {
   installed = true;
 }
 
-/** Radians of tumble per pane height of drag (Maya feel: half a turn). */
+/** Radians of tumble per pane height of drag (DCC feel: half a turn). */
 const TUMBLE_PER_HEIGHT = Math.PI;
 const MIN_DISTANCE = 0.02;
 const MAX_DISTANCE = 5000;
@@ -48,7 +48,7 @@ const v3 = new Vector3();
 export class NavigationController {
   readonly camera: NavCamera;
   private readonly controls: CameraControls;
-  /** Orthographic views do not tumble (Maya default). */
+  /** Orthographic views do not tumble (the DCC default). */
   readonly canTumble: boolean;
 
   constructor(camera: NavCamera, opts: { readonly canTumble: boolean }) {

@@ -9,7 +9,7 @@ import { romVrma } from '@ekza-studio/io';
 import { expect, type Page, test } from '@playwright/test';
 import { animationsWithVrm, clipNamed, clipsOf, exportedMeta, libraryPreview } from './helpers/ar-animations';
 import { autorig, history } from './helpers/autorig';
-import { starterPackFile } from './helpers/m6b-clip-library';
+import { POLYBOT_NODE, starterPackFile } from './helpers/m6b-clip-library';
 import { call, run } from './helpers/test-api';
 
 test.describe.configure({ timeout: 120_000 });
@@ -168,7 +168,7 @@ test('the range-of-motion clip previews by the byte route; the document is untou
   await expect.poll(async () => (await libraryPreview(page))?.clip).toBe('Range test');
   await expect(page.locator('[data-testid^="hud-badge-preview-"]').first()).toHaveText('PREVIEW Range test');
   // the displayed avatar moves (the left hand) over half a second
-  const hand = () => call(page, 'displayNodeWorld', character, 'mixamorigLeftHand');
+  const hand = () => call(page, 'displayNodeWorld', character, POLYBOT_NODE.leftHand);
   const a = await hand();
   await page.waitForTimeout(500);
   const b = await hand();

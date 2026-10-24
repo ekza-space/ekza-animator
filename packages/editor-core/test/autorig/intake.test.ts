@@ -259,7 +259,9 @@ describe('autorig.intake (§5.2)', () => {
       status: 'failed',
       error: { message: tooHeavyMessage(250_000) },
     });
-    expect(tooHeavyMessage(250_000)).toContain('Reduce it to under 200,000 triangles (Blender: Decimate modifier)');
+    expect(tooHeavyMessage(250_000)).toContain(
+      "Reduce it to under 200,000 triangles (your 3D tool's decimate or reduce-polygons command)",
+    );
     expect(app.store.list('meshes')).toHaveLength(0);
     expect(undoLabels(app)).toEqual([]);
     expect(app.operators.poll('autorig.intake', undefined, { name: 'x.glb' })).toEqual({

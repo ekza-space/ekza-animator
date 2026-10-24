@@ -2,7 +2,14 @@
 // clip selection defaults, shot-camera framing, project file names; the export download gate (§4.11.10 step 5).
 import { quatRotateVec3 } from '@ekza-studio/anim-core';
 import type { CharacterId } from '@ekza-studio/doc';
-import type { ExportArtifact, ExportRequest, GlbContainer, ReadBackReport, VrmLicenseInfo } from '@ekza-studio/io';
+import {
+  type ExportArtifact,
+  type ExportRequest,
+  type GlbContainer,
+  NON_REDISTRIBUTABLE_NAME,
+  type ReadBackReport,
+  type VrmLicenseInfo,
+} from '@ekza-studio/io';
 import { DEFAULT_REDUCE } from '@ekza-studio/rig';
 import { describe, expect, it } from 'vitest';
 import type { ExporterDef } from '../../src/types';
@@ -26,11 +33,14 @@ import {
   animationAndNodeNames,
   clipProvenance,
   embeddedEkzaProvenance,
-  isMixamo,
+  isNonRedistributableSource,
   isRestrictedLicense,
   sourceProvenance,
 } from '../../src/workflows/provenance';
 import { SAMPLES } from '../../src/workflows/samples';
+
+/** The auto-rigging service's marker in clip and node names (spelled once, in @ekza-studio/io). */
+const MARK = NON_REDISTRIBUTABLE_NAME.source;
 import { glbOf, opsApp, opsAppWith, WAVE } from './support';
 
 const SHA = 'a'.repeat(64);
@@ -70,7 +80,7 @@ describe('clip names', () => {
   });
 
   it('sanitizes, uniquifies (ignoring case) and numbers names', () => {
-    expect(sanitizeClipName('Armature|mixamo.com|Layer0')).toBe('Armature_mixamo.com_Layer0');
+    expect(sanitizeClipName('Armature|example.com|Layer0')).toBe('Armature_example.com_Layer0');
     expect(sanitizeClipName('  //  ')).toBe('_');
     expect(sanitizeClipName('')).toBe('clip');
     expect(sanitizeClipName('a'.repeat(80))).toHaveLength(64);
@@ -149,21 +159,21 @@ describe('provenance', () => {
     });
   });
 
-  it('forces Mixamo clips to non-redistributable', () => {
+  it("forces the auto-rigging service's clips to non-redistributable", () => {
     const source = sourceProvenance({ fileTitle: 'x', sha256: SHA, license: null, known: SAMPLES.polybot.license });
-    expect(isMixamo(['Armature|mixamo.com|Layer0'])).toBe(true);
-    expect(isMixamo(['Idle', 'mixamorig:Hips'])).toBe(true);
-    expect(isMixamo(['Idle'])).toBe(false);
-    expect(clipProvenance(source, ['Walk', 'mixamorig:Spine']).redistributable).toBe('no');
+    expect(isNonRedistributableSource([`Armature|${MARK}.com|Layer0`])).toBe(true);
+    expect(isNonRedistributableSource(['Idle', `${MARK}rig:Hips`])).toBe(true);
+    expect(isNonRedistributableSource(['Idle'])).toBe(false);
+    expect(clipProvenance(source, ['Walk', `${MARK}rig:Spine`]).redistributable).toBe('no');
     expect(clipProvenance(source, ['Walk'])).toBe(source);
   });
 
-  it('lists every animation and node name of a file for the Mixamo rule (VRMA import)', () => {
+  it('lists every animation and node name of a file for the auto-rigging-service rule (VRMA import)', () => {
     const file = container({
-      animations: [{ name: 'Armature|mixamo.com|Layer0' }, {}],
-      nodes: [{ name: 'Hips' }, { name: 'mixamorig:Spine' }, { mesh: 0 }],
+      animations: [{ name: `Armature|${MARK}.com|Layer0` }, {}],
+      nodes: [{ name: 'Hips' }, { name: `${MARK}rig:Spine` }, { mesh: 0 }],
     });
-    expect(animationAndNodeNames(file)).toEqual(['Armature|mixamo.com|Layer0', 'Hips', 'mixamorig:Spine']);
+    expect(animationAndNodeNames(file)).toEqual([`Armature|${MARK}.com|Layer0`, 'Hips', `${MARK}rig:Spine`]);
     expect(animationAndNodeNames(container({ animations: 'bad', nodes: [null, 3] }))).toEqual([]);
     const unknown = sourceProvenance({ fileTitle: 'clip', sha256: SHA, license: null });
     expect(clipProvenance(unknown, ['clip', ...animationAndNodeNames(file)]).redistributable).toBe('no');

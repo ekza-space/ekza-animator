@@ -31,7 +31,7 @@ describe('createFakeEditorApp (test kit)', () => {
     expect(state.dirty).toBe(false);
     expect(app.characters.list().map((runtime) => runtime.id)).toEqual([WAVE.character]);
     expect(app.evaluation.clipFrame(WAVE.character)).toBe(0);
-    expect(app.prefs.getState()).toMatchObject({ navProfile: 'maya', autoKey: false, firstRunDone: true });
+    expect(app.prefs.getState()).toMatchObject({ navProfile: 'dcc', autoKey: false, firstRunDone: true });
     expect(createFakeEditorApp({ platform: 'mac' }).prefs.getState().navProfile).toBe('trackpad');
   });
 
@@ -325,7 +325,7 @@ describe('createFakeEditorApp (test kit)', () => {
 
     const input = { code: 'KeyS', ctrlKey: true, metaKey: false, shiftKey: false, altKey: false, repeat: false };
     expect(app.keymap.resolve(input, ['graph', 'global'], 'press')?.op).toBe('file.save');
-    // The fake app carries the maya preset; the contribution shadows nothing here.
+    // The fake app carries the `dcc` preset; the contribution shadows nothing here.
     expect(app.keymap.resolve({ ...input, shiftKey: true }, ['global'], 'press')?.op).toBe('file.saveAs');
     expect(app.keymap.resolve({ ...input, code: 'KeyP' }, ['global'], 'press')).toBeNull();
     expect(app.keymap.label({ code: 'KeyS', mod: true, shift: true })).toBe('Ctrl+Shift+S');

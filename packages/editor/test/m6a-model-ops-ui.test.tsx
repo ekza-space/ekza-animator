@@ -1,9 +1,9 @@
 // M6A-SPEC §8.4–§8.6, §5.7, §5.10 (B11) in the browser: the Last-op card (pane choice, pill and expansion, typed
 // values with the §5.10 grammar adjusting in place, Reset, ✕ and `T`, the closed reason, label virtual sliders with
 // the capture window armed on the dragged field), the option box (defaults for the next run, Apply), B11's marking
-// menus, the capture bridge (pointer slop, "Entry discarded"), the Modeling Toolkit (poll reasons, ⋯, sections,
-// narrow, empty state) and the Channel Box of a mesh (TRS rows, the INPUTS primitive and last-op entries, the selected
-// INPUTS field), plus the B11 test-API group.
+// menus, the capture bridge (pointer slop, "Entry discarded"), the Modeling Tools panel (poll reasons, ⋯, sections,
+// narrow, empty state) and the Channels panel of a mesh (TRS rows, the INPUTS primitive and last-op entries, the
+// selected INPUTS field), plus the B11 test-API group.
 import type { ParamDef } from '@ekza-studio/anim-core';
 import type { MeshId } from '@ekza-studio/doc';
 import {
@@ -24,7 +24,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorAppProvider } from '../src/hooks';
 import { bridgeCapture, ModelOpsShellOverlay, openOptionBox, optionBoxStore } from '../src/overlays/menus/optionBox';
 import { MODEL_OPS_MARKING_MENUS, registerModelOpsMenus } from '../src/overlays/menus/tools';
-import { ChannelBoxPanel } from '../src/panels/channel-box/ChannelBoxPanel';
+import { ChannelsPanel } from '../src/panels/channels/ChannelsPanel';
 import { CLOSED_CARD_MS } from '../src/panels/toolkit/LastOpCardView';
 import { ModelOpsSlot } from '../src/panels/toolkit/ModelOpsSlot';
 import ToolkitView from '../src/panels/toolkit/ToolkitView';
@@ -444,7 +444,7 @@ describe('marking menus and the capture bridge', () => {
   });
 });
 
-describe('the Modeling Toolkit (§8.5)', () => {
+describe('the Modeling Tools panel (§8.5)', () => {
   it('buttons run with source toolkit; disabled ones show their poll reason; ⋯ opens the option box', async () => {
     const { app } = await modelApp();
     await mount(app, <ToolkitView app={app} instanceId="toolkit" />, { width: 300, height: 900 });
@@ -523,10 +523,10 @@ describe('the Modeling Toolkit (§8.5)', () => {
   });
 });
 
-describe('the Channel Box of a mesh (§8.6)', () => {
+describe('the Channels panel of a mesh (§8.6)', () => {
   it('TRS rows edit placement through scene.object.transform; INPUTS shows the primitive entry', async () => {
     const { app, cube } = await modelApp();
-    await mount(app, <ChannelBoxPanel app={app} instanceId="cb" />);
+    await mount(app, <ChannelsPanel app={app} instanceId="cb" />);
     await waitFor(() => maybe('cb-field-ty') !== null);
     expect(input('cb-field-ty').value).toBe('0.000');
     expect(input('cb-field-sx').value).toBe('1.000');
@@ -549,7 +549,7 @@ describe('the Channel Box of a mesh (§8.6)', () => {
   it('the last-op entry follows a live operation on this mesh; its names select the INPUTS field', async () => {
     const { app, cube } = await modelApp();
     await app.run('test.weight' as never, { weight: 0.25 } as never, { source: 'menu' });
-    await mount(app, <ChannelBoxPanel app={app} instanceId="cb" />);
+    await mount(app, <ChannelsPanel app={app} instanceId="cb" />);
     await waitFor(() => maybe('cb-inputs-field-weight') !== null);
     expect(by('cb-lastop-title').textContent).toBe('weight (last operation)');
     expect(by('cb-inputs').textContent).toContain('weight (last operation)');

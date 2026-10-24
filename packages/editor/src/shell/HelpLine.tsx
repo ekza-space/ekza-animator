@@ -1,4 +1,4 @@
-// Help line (research 09 §6.5, Maya help line): transient messages (cancelled commands, hints), otherwise the
+// Help line (research 09 §6.5, the DCC help line): transient messages (cancelled commands, hints), otherwise the
 // navigation and tool hints; busy state and the selection on the right. Human-speed state only, never per frame.
 // M6a (M6A-SPEC §5.17, §8.2; B9): in Model the hints are the mode and the resolved meaning of the modeling keys under
 // the pointer (`⌘E Extrude` on macOS, `Ctrl+E Extrude` elsewhere), and the selection counts objects.
@@ -17,9 +17,9 @@ const MODE_LABEL: Readonly<Record<ComponentMode, string>> = {
 };
 
 const NAV_HINT = {
-  maya: 'Alt+LMB tumble · Alt+MMB track · Alt+RMB dolly · wheel zoom',
+  dcc: 'Alt+LMB tumble · Alt+MMB track · Alt+RMB dolly · wheel zoom',
   trackpad: 'Two-finger scroll tumble · Shift+scroll track · pinch dolly',
-  mayaOneButton: 'Option+drag tumble · Option+Cmd+drag track · Option+Ctrl+drag dolly',
+  oneButton: 'Option+drag tumble · Option+Cmd+drag track · Option+Ctrl+drag dolly',
 } as const;
 
 export const GL_LOST_TEXT = 'Graphics context lost — restoring the 3D view…';

@@ -1,8 +1,8 @@
 // Kernel ops of `ops/delete/` (M6A-SPEC §6.1, §5.12; B3): the delete family.
-// - `mesh.delete` (Maya plain Delete): vertex mode deletes only winged vertices (valence 2; each dissolved into the
-//   edge joining its neighbours) and refuses `delete.not-winged` otherwise; edge mode removes each edge and merges its
-//   two faces into one polygon, end vertices stay (cube edge → 8/11/5), a border edge goes with its face; face mode
-//   removes the faces and the edges and vertices only they used.
+// - `mesh.delete` (the desktop DCC's plain Delete): vertex mode deletes only winged vertices (valence 2; each dissolved
+//   into the edge joining its neighbours) and refuses `delete.not-winged` otherwise; edge mode removes each edge and
+//   merges its two faces into one polygon, end vertices stay (cube edge → 8/11/5), a border edge goes with its face;
+//   face mode removes the faces and the edges and vertices only they used.
 // - `mesh.deleteEdgeVertex` (Delete Edge/Vertex, Mod+Delete): edge mode as plain Delete, then every vertex the deletion
 //   left with valence 2 is dissolved (cube edge → 6/9/5); border edges refuse `delete.border-edge`; vertex mode removes
 //   each vertex with its edges and merges its faces into one n-gon (cube corner → 7/9/4; a border vertex joins its
@@ -218,8 +218,8 @@ function applyDeletion(
 /**
  * The valence-2 vertices Delete Edge/Vertex dissolves, decided on one state for all of them (so a symmetric state
  * gives a symmetric decision, §5.14): neighbours not already joined, no other candidate next to it, and every face
- * through it keeping three corners after every candidate in it is gone (Maya keeps a vertex whose dissolve would
- * collapse a face).
+ * through it keeping three corners after every candidate in it is gone (a vertex whose dissolve would collapse a
+ * face is kept, as desktop DCCs do).
  */
 function dissolvable(m: EditMesh, candidates: readonly number[]): number[] {
   const set = new Set(candidates);

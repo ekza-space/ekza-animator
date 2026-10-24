@@ -1,5 +1,5 @@
 // The extrude manipulator tool (`VIEWPORT_TOOL.extrude`; M6A-SPEC §5.8, §5.9, §5.10; B12b). While an extrude
-// session is open it draws Maya's polyExtrude manipulator on the cap: every handle drag goes through
+// session is open it draws a desktop DCC's polyExtrude manipulator on the cap: every handle drag goes through
 // `app.extrude.beginAbsorb` (the drag's world-space delta becomes the extrude's `local*` args, previewed from the
 // pre-op mesh and committed with one `edit.adjustLast`), `Shift` held at the start of a handle drag is smart extrude
 // (a new extrude from the drag, `beginSmartExtrude`), `Shift` pressed after the drag started is the fine adjustment
@@ -120,9 +120,9 @@ export class ExtrudeTool implements ToolInstance {
   private drag: Drag | null = null;
   private readonly select: SelectBehaviour;
   /**
-   * An MMB drag while a Channel Box INPUTS field name is selected (§5.15 MMB rule, step 2): the field's virtual slider
-   * runs through B12a's transform runtime, as with W/E/R active (E2E-MOD-23: the session's manipulator tool is the
-   * active one after `Mod+E`; M6A-INT-9).
+   * An MMB drag while a Channels panel INPUTS field name is selected (§5.15 MMB rule, step 2): the field's virtual
+   * slider runs through B12a's transform runtime, as with W/E/R active (E2E-MOD-23: the session's manipulator tool is
+   * the active one after `Mod+E`; M6A-INT-9).
    */
   private inputs: ModelTransformBehaviour | null = null;
 

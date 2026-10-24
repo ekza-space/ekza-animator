@@ -685,7 +685,7 @@ describe('locked channels (acceptance: locked ring drags)', () => {
         expect({ space, top: rig.app.history.peekUndo()?.id ?? null }).toEqual({ space, top });
         expect(rig.app.store.preview).toBeNull();
         expect(toasts.slice(toastCount)).toEqual([
-          { kind: 'warning', text: 'Rotate X is locked. Unlock it in the Channel Box to drag this handle.' },
+          { kind: 'warning', text: 'Rotate X is locked. Unlock it in the Channels panel to drag this handle.' },
         ]);
         expect(rig.app.calls.filter((c) => c.id === 'select.controls')).toEqual([]);
         expect(rig.app.session.getState().selection.controls).toEqual([arm.id]);
@@ -717,7 +717,7 @@ describe('locked channels (acceptance: locked ring drags)', () => {
     expect([rec.labels, rec.updates.length, rec.commits]).toEqual([[], 0, 0]);
     expect((r.app.services as FakeServices).toasts.at(-1)).toEqual({
       kind: 'warning',
-      text: 'Translate X is locked. Unlock it in the Channel Box to drag this handle.',
+      text: 'Translate X is locked. Unlock it in the Channels panel to drag this handle.',
     });
     expect(r.app.calls.filter((c) => c.id === 'select.controls')).toEqual([]);
   });

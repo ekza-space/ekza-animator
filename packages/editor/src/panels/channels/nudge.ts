@@ -1,4 +1,4 @@
-// ↑/↓ value nudges in a Channel Box field (FR-CB-03, research 09 §4.5): ±step (Shift ×10, Alt ×0.1) on every
+// ↑/↓ value nudges in a Channels panel field (FR-CB-03, research 09 §4.5): ±step (Shift ×10, Alt ×0.1) on every
 // selected control, relative to each control's own value. A burst — key presses and auto-repeat until the arrow is
 // released, Enter, Tab, blur or Esc — is ONE interactive edit: a `beginChannelEditGesture` (live preview, one
 // history step, auto-key on commit). M2a: attribute rows nudge in their display unit (1° on `angle` attributes).

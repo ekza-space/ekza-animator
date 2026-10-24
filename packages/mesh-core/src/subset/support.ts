@@ -188,8 +188,8 @@ const isHidden = (set: { has(i: number): boolean } | undefined, i: number): bool
 
 /**
  * The faces an op acts on, ascending: object mode (`sel` null) — every visible face; face mode — the selected visible
- * faces; edge and vertex modes — the visible faces whose every edge (vertex) is selected (Maya converts a selection to
- * the op's component kind; "contained" keeps the op on what the user can see selected).
+ * faces; edge and vertex modes — the visible faces whose every edge (vertex) is selected (desktop DCCs convert a
+ * selection to the op's component kind; "contained" keeps the op on what the user can see selected).
  */
 export function scopeFaces(m: EditMesh, sel: ComponentSelection | null, hidden: HiddenSet | null): number[] {
   const F = m.counts.faces;

@@ -84,7 +84,7 @@ export function PlaybackControls(props: { readonly app: EditorApp }): JSX.Elemen
       </button>
     );
   };
-  // While playing in a direction, that direction's button stops playback (Maya); the other one reverses.
+  // While playing in a direction, that direction's button stops playback; the other one reverses.
   const play = (dir: 1 | -1): JSX.Element => {
     const stops = playing && direction === dir;
     const label = stops ? 'Stop' : dir === 1 ? 'Play forwards' : 'Play backwards';
@@ -151,7 +151,7 @@ export function LoopSpeedControls(props: { readonly app: EditorApp }): JSX.Eleme
   );
 }
 
-/** Auto-key toggle; on, it shows a red dot and the time slider gets a red border (Maya). */
+/** Auto-key toggle; on, it shows a red dot and the time slider gets a red border. */
 export function AutoKeyToggle(props: { readonly app: EditorApp }): JSX.Element {
   const { app } = props;
   const on = usePrefs(selectAutoKey);

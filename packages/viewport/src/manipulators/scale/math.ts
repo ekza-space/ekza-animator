@@ -1,6 +1,6 @@
 // Scale drag maths (M6A-SPEC §4.7, §6.2; B9): the viewport Scale tool (`R`) on controls (Animate: `sx/sy/sz`
 // channels) and on scene objects (Model object mode: mesh and group placements). Axis handles scale along one object
-// axis by the ratio of the pointer's position along the axis to the grab position (Maya: crossing the pivot mirrors);
+// axis by the ratio of the pointer's position along the axis to the grab position (crossing the pivot mirrors);
 // the centre handle scales uniformly by the horizontal-minus-vertical pointer travel in units of the manipulator
 // size (right or up grows). Pure functions of the drag start and the pointer, so a drag never accumulates error.
 import { quatRotateVec3, type ReadonlyVec3, type ReadonlyXf, type Vec3, type Xf } from '@ekza-studio/anim-core';

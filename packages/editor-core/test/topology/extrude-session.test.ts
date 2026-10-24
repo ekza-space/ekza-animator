@@ -420,7 +420,7 @@ describe.skipIf(!READY.b3)('the extrude session (§5.8; READY.b3)', () => {
       expect(counts(t, t.id)).toBe('8/12/6');
     });
 
-    it('a component-mode switch ends it without the zero-drop (Maya users press 1 to pull cap vertices)', async () => {
+    it('a component-mode switch ends it without the zero-drop (DCC users press 1 to pull cap vertices)', async () => {
       const t = await extruded();
       await t.app.run('select.mode', { mode: 'vertex' });
       expect(t.app.extrude.state).toBeNull();

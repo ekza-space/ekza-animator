@@ -4,7 +4,7 @@
 import { expect, type Page, test } from '@playwright/test';
 import { typeCb } from './helpers/m2a-a2';
 import { clickComponent, createPrimitive, enterModel, MODEL_PANE, modKey, openModel } from './helpers/m6a-model';
-import { hoverPane, runMenuItem, showChannelBox, topFace } from './helpers/m6a-model-ops-ui';
+import { hoverPane, runMenuItem, showChannelsPanel, topFace } from './helpers/m6a-model-ops-ui';
 import { dragFrom, keyOver, type Vec3 } from './helpers/m6a-model-topology-tools';
 import { seedSample } from './helpers/seed';
 import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
@@ -86,7 +86,7 @@ test('F frames a selected group by its meshes (M6A-INT-53)', async ({ page }) =>
   const near = await createPrimitive(page, 'cube');
   const far = await createPrimitive(page, 'cube');
   await runOk(page, 'select.objects', { ids: [far], mode: 'replace' });
-  await showChannelBox(page);
+  await showChannelsPanel(page);
   await typeCb(page, 'cb-field-tx', '12');
   const { group } = await runOk<{ group: string }>(page, 'scene.group', { ids: [near] });
   const frame = async (ids: string[]): Promise<number[]> => {

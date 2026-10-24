@@ -182,7 +182,7 @@ function move(element: HTMLElement, movementX: number, init?: PointerEventInit):
 }
 
 describe('virtual slider through a plain MMB drag in a pane (§5.18)', () => {
-  it('with Channel Box channels selected: 40 px right = +20°, one history step, no other channel changes', async () => {
+  it('with channels selected in the Channels panel: 40 px right = +20°, one history step, no other channel changes', async () => {
     const r = await ikRig();
     r.vm.setPointerLockAllowed(false);
     select(r, ['fk.lowerArm.L'], [['fk.lowerArm.L', 'rz']]);

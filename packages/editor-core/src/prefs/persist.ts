@@ -1,7 +1,10 @@
 // Preference persistence through `services.storage` (ARCHITECTURE §4.1): versioned JSON, every access in try/catch,
 // every field validated on load (an invalid field falls back to its default, an unknown version to all defaults).
+// Enum ids renamed since (DECISIONS-OPEN TM-1) are mapped to their current ids on load (`./legacy`); the next save
+// writes the current ids.
 import type { TangentType } from '@ekza-studio/anim-core';
 import type { KeyBinding, KeyTrigger, Prefs, PrefsStorage } from '../types';
+import { migrateLegacyPrefs } from './legacy';
 
 /** Kept from the Ekza Animator name (DECISIONS-OPEN NAME-1) so saved preferences survive the rename. */
 export const PREFS_STORAGE_KEY = 'ekza-animator.prefs';
@@ -52,7 +55,8 @@ export function savePrefs(storage: PrefsStorage | null, prefs: Prefs): void {
 }
 
 /** Validates an untrusted preferences value field by field against `defaults`. */
-export function sanitizePrefs(raw: unknown, defaults: Prefs): Prefs {
+export function sanitizePrefs(stored: unknown, defaults: Prefs): Prefs {
+  const raw = migrateLegacyPrefs(stored);
   if (!isRecord(raw) || raw['version'] !== PREFS_VERSION) return defaults;
   const pick = <T>(field: string, valid: (value: unknown) => value is T, fallback: T): T => {
     const value = raw[field];
@@ -62,8 +66,8 @@ export function sanitizePrefs(raw: unknown, defaults: Prefs): Prefs {
   return {
     version: 1,
     firstRunDone: pick('firstRunDone', isBoolean, defaults.firstRunDone),
-    navProfile: pick('navProfile', oneOf(['maya', 'trackpad', 'mayaOneButton'] as const), defaults.navProfile),
-    spaceBehaviour: pick('spaceBehaviour', oneOf(['maya', 'play'] as const), defaults.spaceBehaviour),
+    navProfile: pick('navProfile', oneOf(['dcc', 'trackpad', 'oneButton'] as const), defaults.navProfile),
+    spaceBehaviour: pick('spaceBehaviour', oneOf(['maximize', 'play'] as const), defaults.spaceBehaviour),
     keymapOverrides: Array.isArray(raw['keymapOverrides'])
       ? (raw['keymapOverrides'] as unknown[]).filter(isKeyBinding)
       : defaults.keymapOverrides,
@@ -126,7 +130,7 @@ function sanitizeRigging(raw: unknown, defaults: Prefs['rigging']): Prefs['riggi
     influenceSort: oneOf(['alpha', 'hierarchy', 'flat'] as const),
     influenceColours: isStringRecord,
     optionDefaults: isOptionDefaults,
-    orientPreset: oneOf(['world', 'maya', 'blender'] as const),
+    orientPreset: oneOf(['world', 'xAim', 'yAim'] as const),
     holds: isHolds,
   });
   return {
@@ -169,7 +173,7 @@ function isOptionDefaults(value: unknown): value is Prefs['modeling']['optionDef
 function sanitizeModeling(raw: unknown, defaults: Prefs['modeling']): Prefs['modeling'] {
   if (!isRecord(raw)) return defaults;
   const shaped = pickShape(raw, defaults, {
-    primitiveDefaults: oneOf(['low-poly', 'maya'] as const),
+    primitiveDefaults: oneOf(['low-poly', 'dcc'] as const),
     numericCapture: oneOf(['auto', 'explicit'] as const),
     undoSelection: isBooleanRecord,
     undoBudgetMB: isPositive,

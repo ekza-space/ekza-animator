@@ -13,7 +13,7 @@ import {
   EDGE_HARD,
   type EditMesh,
   editMeshFrom,
-  MAYA_PRIMITIVE_DEFAULTS,
+  DCC_PRIMITIVE_DEFAULTS,
   type MeshData,
   type PrimitiveKind,
   primitive,
@@ -35,14 +35,14 @@ describe('count oracles (§5.29) with both default sets (§6.3)', () => {
     ['cone', 'low-poly', '9/16/9', 14],
     ['plane', 'low-poly', '4/4/1', 2],
     ['torus', 'low-poly', '72/144/72', 144],
-    ['cube', 'maya', '8/12/6', 12],
-    ['sphere', 'maya', '382/780/400', 760],
-    ['cylinder', 'maya', '40/60/22', 76],
-    ['cone', 'maya', '21/40/21', 38],
-    ['plane', 'maya', '121/220/100', 200],
-    ['torus', 'maya', '400/800/400', 800],
+    ['cube', 'dcc', '8/12/6', 12],
+    ['sphere', 'dcc', '382/780/400', 760],
+    ['cylinder', 'dcc', '40/60/22', 76],
+    ['cone', 'dcc', '21/40/21', 38],
+    ['plane', 'dcc', '121/220/100', 200],
+    ['torus', 'dcc', '400/800/400', 800],
   ] as const)('%s (%s): %s, %i triangles', (kind, set, counts, tris) => {
-    const data = primitive(kind, set === 'maya' ? (MAYA_PRIMITIVE_DEFAULTS[kind] as Record<string, number>) : {});
+    const data = primitive(kind, set === 'dcc' ? (DCC_PRIMITIVE_DEFAULTS[kind] as Record<string, number>) : {});
     expect(vef(data)).toBe(counts);
     expect(topologyStats(data).triangles).toBe(tris);
     expect(triangulate(data).triFace.length).toBe(tris);
@@ -61,8 +61,8 @@ describe('count oracles (§5.29) with both default sets (§6.3)', () => {
 const CASE_LIST: [string, MeshData][] = [
   ...KINDS.map((kind): [string, MeshData] => [kind, primitive(kind, {})]),
   ...KINDS.map((kind): [string, MeshData] => [
-    `${kind}-maya`,
-    primitive(kind, MAYA_PRIMITIVE_DEFAULTS[kind] as Record<string, number>),
+    `${kind}-dcc`,
+    primitive(kind, DCC_PRIMITIVE_DEFAULTS[kind] as Record<string, number>),
   ]),
   ['cube-2x3x1', primitive('cube', { subdivisionsWidth: 2, subdivisionsHeight: 3, width: 2, depth: 0.5 })],
   ['cylinder-caps2', primitive('cylinder', { subdivisionsCaps: 2, subdivisionsHeight: 2 })],

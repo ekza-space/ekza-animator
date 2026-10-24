@@ -300,7 +300,7 @@ export class ViewportManager {
   private layerPointer: { readonly paneId: string; readonly pointerId: number } | null = null;
   /** AUTORIG-SPEC §8.1: the mounted shell's navigation override, asked before the profile on every press. */
   private navOverride: NavigationOverride | null = null;
-  /** M2a §5.18: a plain MMB drag running the Channel Box virtual slider on the selected channels. */
+  /** M2a §5.18: a plain MMB drag running the Channels panel virtual slider on the selected channels. */
   private virtualDrag: VirtualSliderDrag | null = null;
   /** Pointer Lock for the virtual slider (the e2e URL switch `pointerLock=off` turns it off). */
   private pointerLockAllowed = true;
@@ -1371,7 +1371,7 @@ export class ViewportManager {
     if (provided !== null) return provided;
     const selection = this.app.session.getState().selection.controls;
     if (what === 'selection' && selection.length > 0) {
-      // Like a Maya transform's bounding box, a selected control frames with the visible controls below it: F on a
+      // Like a DCC transform's bounding box, a selected control frames with the visible controls below it: F on a
       // hand shows its fingers (acceptance round 1: the distal fingers ended up off-screen).
       const selected = new Set(selection);
       const below = new Map<ControlId, boolean>();
@@ -1539,8 +1539,8 @@ export class ViewportManager {
     if (standIn) e.preventDefault();
     const button = standIn ? 1 : e.button;
     const alt = standIn ? false : e.altKey;
-    // M2a §5.18: a plain MMB drag (no Alt) with Channel Box channels selected runs the virtual slider; Alt+MMB stays
-    // navigation, and without selected channels a plain MMB drag does nothing (M1).
+    // M2a §5.18: a plain MMB drag (no Alt) with channels selected in the Channels panel runs the virtual slider;
+    // Alt+MMB stays navigation, and without selected channels a plain MMB drag does nothing (M1).
     if (button === 1 && !alt && this.startVirtualSlider(pane, e, standIn)) {
       this.standIn = null;
       return;
@@ -1904,7 +1904,7 @@ export class ViewportManager {
     shot.preview.update((tx) => tx.patch('cameras', shot.cameraId, fields));
   }
 
-  /** One commit per gesture, never on the undo stack (Maya keeps camera moves out of undo). */
+  /** One commit per gesture, never on the undo stack (desktop DCCs keep camera moves out of undo too). */
   private finishShotNav(shot: ShotNav, cancelled: boolean): void {
     if (!shot.preview.active) return;
     if (cancelled) shot.preview.cancel();

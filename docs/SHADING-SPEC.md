@@ -1,7 +1,7 @@
 # SHADING-SPEC — Basic shading without UVs (Lambert and Blinn)
 
 - Status: v1.0 (2026-10-21), built on `feat/shading` (from `dev` d748932). Owner request in [TODO](../TODO.md)
-  ("Basic shading without UVs"): Maya Hypershade-lite — Lambert and Blinn materials, no UVs, assigned to objects or
+  ("Basic shading without UVs"): a lite shader editor — Lambert and Blinn materials, no UVs, assigned to objects or
   selected faces, flat/smooth; export Lambert → roughness 1 / metallic 0, Blinn → roughness from glossiness plus
   `KHR_materials_specular`.
 - Decision record: [ADR 0019](adr/0019-swatch-shaders.md) (a swatch is the shader; swatches table version 2 instead of
@@ -12,10 +12,11 @@
 ## 1. Model: every swatch is a shader
 
 The per-face colour truth stays the palette **slot** (`paint` face layer → `SwatchRecord`). A swatch now also carries
-its shading model, so a swatch is what Maya calls a material with its shading group: every face painted with the slot
-shares it. Assigning a material to faces or objects is painting them with a swatch, so every existing flow works
-unchanged — Apply in the Palette panel (selected faces, or every face of the selected objects), the Paint Colour tool,
-Fill Shell, Select by Swatch, Replace Swatch, palette variants (`palette.duplicate` copies shaders too).
+its shading model, so a swatch is what a leading commercial desktop DCC calls a material with its shading group:
+every face painted with the slot shares it. Assigning a material to faces or objects is painting them with a swatch,
+so every existing flow works unchanged — Apply in the Palette panel (selected faces, or every face of the selected
+objects), the Paint Colour tool, Fill Shell, Select by Swatch, Replace Swatch, palette variants (`palette.duplicate`
+copies shaders too).
 
 | field | type | default | meaning |
 | --- | --- | --- | --- |
@@ -87,21 +88,21 @@ Static GLB (`file.exportModel`, io author writer). The mesh's material preset de
 | `palette.setSwatch` | `+ shader?, glossiness?, specular?` | one undo step per edit |
 | `palette.assignMaterial` (**Assign New Material**) | `{shader, meshes?, srgb?, name?}` | new; one transaction, one undo step |
 
-`palette.assignMaterial` (Maya's Assign New Material): targets are the hilited meshes with selected faces in face mode,
-else the selected mesh objects (or `meshes`); all must be authored and paint with one palette. It adds a swatch
-(`Lambert n`/`Blinn n`, the next free name in the palette; colour = `srgb`, else the colour of the first target face's
-swatch, so switching the shader keeps the look) and paints it on the selected faces (face mode) or every face of the
-objects; meshes whose preset is `unlit` become `lit` (assigning a shading material asks for shading); the new swatch
-becomes active. Refusals: "Select faces or a mesh first", "Imported meshes keep their materials", "The selected meshes
-paint with different palettes", "The palette has no free slot left".
+`palette.assignMaterial` (the desktop DCC's Assign New Material): targets are the hilited meshes with selected faces
+in face mode, else the selected mesh objects (or `meshes`); all must be authored and paint with one palette. It adds a
+swatch (`Lambert n`/`Blinn n`, the next free name in the palette; colour = `srgb`, else the colour of the first target
+face's swatch, so switching the shader keeps the look) and paints it on the selected faces (face mode) or every face
+of the objects; meshes whose preset is `unlit` become `lit` (assigning a shading material asks for shading); the new
+swatch becomes active. Refusals: "Select faces or a mesh first", "Imported meshes keep their materials", "The selected
+meshes paint with different palettes", "The palette has no free slot left".
 
 UI:
 - Palette panel: the active swatch row gets a **Shader** section — Lambert/Blinn choice, Glossiness (slider and number,
   committed on release/Enter, one step each), Specular colour; Blinn swatches show a highlight dot in the grid.
   Buttons **New Lambert** and **New Blinn** run Assign New Material on the selection.
 - Menus: Edit Mesh › Assign New Material › Lambert / Blinn, and the same sub-menu next to Assign Colour in the
-  component and face marking-menu lists; the command palette finds it (aliases "Lambert", "Blinn", "Hypershade", "New
-  Material"). No default key (Maya has none).
+  component and face marking-menu lists; the command palette finds it (aliases "Lambert", "Blinn", "Shader Editor", "New
+  Material"). No default key (the desktop DCC has none).
 - Like the mesh operators, the poll does not start the mesh kernel (menus poll every item): it says "Mesh tools are
   loading" until Model entry has loaded it.
 

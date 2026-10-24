@@ -32,7 +32,7 @@
 | L9 | **Budgets are advisory presets, not registry rules.** Technical limits that break a runtime are errors. | The registry has no triangle limits. Bevy truncates to `JOINTS_0`/`WEIGHTS_0` and caps skins at 256 joints. The handheld profile rejects any extension other than `KHR_materials_unlit`/`KHR_texture_transform`, wherever it appears in the JSON. |
 | L10 | **No LODs in this iteration.** A generic "Reduce" operator (meshoptimizer) is a later item that also serves AI-generated meshes. | At 1.5–3k triangles a character needs no LOD. No Ekza consumer reads glTF LODs: `MSFT_lod` is absent from the three r186 `GLTFLoader` list and from the Bevy 0.19.1 extension table. |
 | L11 | **Validation is part of the workflow, not a final step**: a live budget HUD and a "game-ready" checklist per target profile, then glTF-Validator, VRM validator and Ekza profile lints at export. | Extends the existing lint system (ADR 0010 §4) with `mesh.*`, `vrm.tpose.*` and `ekza.handheld.*` codes (§10.3). |
-| L12 | **Interaction vocabulary follows Maya, with Blender's best low-poly ideas** (modal numeric extrude, adjust-last-operation panel, smooth-by-angle, rotate edge, select similar). | It matches the animation side and the owner's muscle memory. Low-poly needs no Maya-only feature, so nothing is lost by borrowing Blender's faster modal ideas (§12). |
+| L12 | **Interaction vocabulary follows a leading commercial desktop DCC ("the desktop DCC"), with the best low-poly ideas of a popular open-source DCC ("the open-source DCC")** (modal numeric extrude, adjust-last-operation panel, smooth-by-angle, rotate edge, select similar). | It matches the animation side and the owner's muscle memory. Low-poly needs no feature that only the desktop DCC has, so nothing is lost by borrowing the open-source DCC's faster modal ideas (§12). |
 
 ---
 
@@ -190,8 +190,8 @@ Consequences:
 | Derived at export | corner UV (from `paint` or `uvOverride`), corner normal (from hard edges), `COLOR_0` (option C), primitive grouping (option D) | never stored as authoring data |
 
 Operators the paint data needs: *Paint face* (click/drag over faces), *Fill* (connected faces of the same swatch),
-*Select by swatch* (Blender's "select similar"), *Replace swatch*, *Palette swap* (map swatch → swatch for a variant),
-*Sample* (eyedropper from a face). All are ordinary undoable operators (08 D4).
+*Select by swatch* (the open-source DCC's "select similar"), *Replace swatch*, *Palette swap* (map swatch → swatch
+for a variant), *Sample* (eyedropper from a face). All are ordinary undoable operators (08 D4).
 
 ### 4.3 Palette sheet specification (proposed `ekza-palette-v1`)
 
@@ -241,10 +241,11 @@ because the handheld validator rejects it.
 
 ### 5.1 Authoring model
 
-- **Edge flag `hard`** (Maya *Harden/Soften Edge*, Blender *Mark Sharp*). New primitives in the low-poly template
-  start **all hard** (faceted). *Soften/Harden by angle* (Maya *Set Normal Angle*, Blender *Smooth by Angle*) sets
-  flags from the dihedral angle (default 30°). It is a one-shot operator, not a live modifier: Blender 4.1 moved
-  auto-smooth into a modifier, and users reported the friction of re-applying it after edits.
+- **Edge flag `hard`** (desktop DCC *Harden/Soften Edge*, open-source DCC *Mark Sharp*). New primitives in the
+  low-poly template start **all hard** (faceted). *Soften/Harden by angle* (desktop DCC *Set Normal Angle*,
+  open-source DCC *Smooth by Angle*) sets flags from the dihedral angle (default 30°). It is a one-shot operator, not
+  a live modifier: the open-source DCC's 4.1 release moved auto-smooth into a modifier, and users reported the
+  friction of re-applying it after edits.
 - Smooth normals are area- and angle-weighted averages over the faces around a vertex inside each smoothing region
   bounded by hard edges.
 - The viewport derives normals the same way the exporter does: **WYSIWYG**. There is no separate "flat shading"
@@ -267,7 +268,7 @@ because the handheld validator rejects it.
 
 | Pitfall | Effect | Tool response |
 |---|---|---|
-| Non-planar quad on a faceted mesh | the hidden diagonal shows as a crease, and changing triangulation changes the look | *Show triangulation* overlay; *Flip/Spin triangle edge* (Maya *Flip Triangle Edge*, Blender *Rotate Edge*) stored as a per-face diagonal choice; deterministic triangulation so the export matches the viewport; lint `mesh.nonplanar-faceted` (info, > 2°) |
+| Non-planar quad on a faceted mesh | the hidden diagonal shows as a crease, and changing triangulation changes the look | *Show triangulation* overlay; *Flip/Spin triangle edge* (desktop DCC *Flip Triangle Edge*, open-source DCC *Rotate Edge*) stored as a per-face diagonal choice; deterministic triangulation so the export matches the viewport; lint `mesh.nonplanar-faceted` (info, > 2°) |
 | Concave n-gons | ear-clipping may produce slivers | lint `mesh.ngon-concave` (warning); *Triangulate* operator |
 | MToon outline on hard edges | outline extrudes along split normals, leaving gaps at every hard edge | lint `mtoon.outline-hard-edges` (warning); outline off in the presets |
 | Collapsed UVs and tangents | MikkTSpace tangents degenerate with zero UV area | harmless without normal maps; the low-poly presets never write `normalTexture` or `TANGENT` |
@@ -357,9 +358,9 @@ both a "smooth" and a "segmented" body.
 | Mode | Method | Use |
 |---|---|---|
 | **Rigid by part** | each connected shell → the joint whose bone segment is nearest its centroid (user can reassign) | segmented style |
-| **Rigid by nearest bone** | each vertex → nearest bone segment, restricted to the hierarchy side (Maya *Closest in Hierarchy* idea) | quick start for smooth meshes |
-| **Smooth** | distance-falloff or heat-diffusion weights (Maya *Heat Map*, Blender bone heat; Baran and Popović 2007), pruned to ≤ 4 influences and normalized | default for smooth style |
-| Later | geodesic voxel binding (Maya; robust on messy or AI meshes) | AI-generated meshes |
+| **Rigid by nearest bone** | each vertex → nearest bone segment, restricted to the hierarchy side (the desktop DCC's *Closest in Hierarchy* idea) | quick start for smooth meshes |
+| **Smooth** | distance-falloff or heat-diffusion weights (desktop DCC *Heat Map*, open-source DCC bone heat; Baran and Popović 2007), pruned to ≤ 4 influences and normalized | default for smooth style |
+| Later | geodesic voxel binding (as in the desktop DCC; robust on messy or AI meshes) | AI-generated meshes |
 
 ### 8.3 Weight tools (minimum set)
 
@@ -380,7 +381,7 @@ weight-heat display. Every stroke is one undo step.
 
 A built-in clip on any humanoid (generated, not stored): arms down/forward/up, elbows 0–140°, knees 0–120°,
 hip flexion, spine twist ±30°, head turn ±60°, 4 s at 30 fps. Artists scrub it while painting weights. It reuses the
-animation evaluator, so it costs little. It is how Maya artists test deformation and the most useful single
+animation evaluator, so it costs little. It is how desktop-DCC artists test deformation and the most useful single
 skinning aid.
 
 ---
@@ -470,7 +471,7 @@ from the documented contract, not copied (03 §2.3).
 | 1 Start | New → *Low-poly humanoid* / *Prop* / *Handheld* | templates with metres, Y-up, ground grid at Y = 0, +Z facing arrow, X symmetry plane, height guide, budget HUD | **iteration (must)** |
 | 2 Reference | load front/side concept PNGs | image planes in ortho views | iteration (should) |
 | 3 Block out | primitives (cube, N-sided cylinder, low sphere, plane) with editable creation parameters | primitives + adjust-last-operation panel | **must** |
-| 4 Shape | component modes (Maya F9/F10/F11, Ctrl+Tab), tweak (`` ` ``), soft select (`b`), snapping (`x`/`v`), symmetry | selection model with components (08 D8), soft selection, snapping providers | **must** |
+| 4 Shape | component modes (desktop DCC F9/F10/F11, Ctrl+Tab), tweak (`` ` ``), soft select (`b`), snapping (`x`/`v`), symmetry | selection model with components (08 D8), soft selection, snapping providers | **must** |
 | 5 Topology | extrude, inset, bevel (1–2 segments), insert edge loop, multi-cut/connect, bridge, merge/target weld/collapse, delete/dissolve, fill hole, mirror + merge seam, separate/combine, flip triangle edge, triangulate | mesh operators (tool-map note) | **must** |
 | 6 Shade | harden/soften, by angle, triangulation overlay | §5 | **must** |
 | 7 Colour | palette editor, paint/fill/select-by/replace swatch, palette variants | §4 | **must**; ramps, decal region should |
@@ -487,26 +488,27 @@ Exit criterion for "turnkey": steps 1–14 complete inside the editor, with no o
 
 ---
 
-## 12. Maya or Blender, seen from low-poly work
+## 12. Desktop DCC or open-source DCC, seen from low-poly work
 
-The full comparison is in [research 11](11-blender-vs-maya-modeling-ux.md). This section only records what the low-poly workflow needs from it. The low-poly operation set is the same in both tools. What differs is the interaction, and that favours a hybrid:
+The full comparison is in [research 11](11-modeling-ux-comparison.md). This section only records what the low-poly workflow needs from it. The low-poly operation set is the same in both tools. What differs is the interaction, and that favours a hybrid:
 
-- **From Maya** (vocabulary, keys, consistency with the animation side): component modes F9/F10/F11 and
+- **From the desktop DCC** (vocabulary, keys, consistency with the animation side): component modes F9/F10/F11 and
   Ctrl+Tab multi-component, tweak mode, soft select on `b`, snapping on `x`/`c`/`v`, custom pivot on `d`,
   Multi-Cut (Ctrl+click inserts an edge loop), Connect, Target Weld (drag to merge, middle-drag to centre),
   Harden/Soften Edge, Set Normal Angle, RMB marking menus for component switching, construction-history-style
   editable creation parameters.
-- **From Blender** (speed): modal extrude/inset/bevel with typed numeric input and axis keys, the *Adjust Last
-  Operation* panel, symmetry as a mode, Smooth by Angle, Rotate Edge, Select Similar (by swatch/material), the
-  palette/UV-collapse colouring trick.
-- **Low-poly needs nothing that only one of them has.** Choosing Maya vocabulary costs nothing here. A Blender
-  keymap preset can come later through the existing keymap registry (01 MN-07).
+- **From the open-source DCC** (speed): modal extrude/inset/bevel with typed numeric input and axis keys, the
+  *Adjust Last Operation* panel, symmetry as a mode, Smooth by Angle, Rotate Edge, Select Similar (by
+  swatch/material), the palette/UV-collapse colouring trick.
+- **Low-poly needs nothing that only one of them has.** Choosing the desktop DCC's vocabulary costs nothing here.
+  An alternative keymap preset (open-source-DCC style) can come later through the existing keymap registry
+  (01 MN-07).
 
 ---
 
 ## 13. Acceptance scenario AS-LP — "Lowpoly Lad and his sword"
 
-Run by a Maya-experienced tester in Chrome on a fresh profile with only built-ins (template, palette preset). A
+Run by a desktop-DCC-experienced tester in Chrome on a fresh profile with only built-ins (template, palette preset). A
 scripted twin (AS-LP-S) replays the same operator log headlessly in CI. Times are recorded, not gating:
 character ≤ 90 min, prop ≤ 15 min, rig + skin ≤ 30 min, walk ≤ 30 min.
 
@@ -587,7 +589,7 @@ Space does play embedded `idle`/`walk`.
 
 **Later**
 1. UV editor, projections, xatlas unwrap, texture painting.
-2. Reduce/remesh, LOD export, retopology over a reference mesh (Maya Quad Draw-style), geodesic voxel binding:
+2. Reduce/remesh, LOD export, retopology over a reference mesh (Quad Draw-style), geodesic voxel binding:
    the toolset AI-generated meshes need.
 3. VRM expressions via texture transforms, blendshapes.
 4. Runtime palette swap in OMOBA (game-side), registry budget fields for mobile profiles.
@@ -673,15 +675,13 @@ Budgets and practice
   source: https://github.com/vrchat-community/creator-docs/blob/main/Docs/docs/avatars/avatar-performance-ranking-system.md
 - Polycount wiki, Limb Topology: http://wiki.polycount.com/wiki/Limb_Topology ; Shoulder Topology:
   http://wiki.polycount.com/wiki/ShoulderTopology
-- Palette texturing practice: https://www.blendernation.com/2020/05/21/texturing-low-poly-art-with-color-palettes/ ;
+- Palette texturing practice: community news article "Texturing low-poly art with color palettes" (2020-05-21) ;
   swatch size and smearing: https://cgcookie.com/community/10156-help-with-texturing-a-low-poly-model-with-a-colour-pallette ;
   colour shift from mip-mapping small islands: https://discussions.unity.com/t/using-one-material-for-nearly-the-whole-world/682877
 - Missing-normal handling in other importers: https://github.com/CesiumGS/cesium/issues/6506
-- Blender 4.1 modeling release notes (Smooth by Angle, sharpness attributes):
-  https://developer.blender.org/docs/release_notes/4.1/modeling/
-- Maya Modeling Toolkit hotkeys: https://help.autodesk.com/cloudhelp/2023/ENU/Maya-Modeling/files/GUID-DAD42E62-3E23-4A00-93E9-4F4A193F3057.htm
-- Maya smooth-skin bind methods: https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-EEFC3BE1-B386-4664-BD19-8688C58D1618.htm ;
-  Geodesic Voxel binding: https://help.autodesk.com/cloudhelp/2018/ENU/MayaLT-CharacterAnimation/files/GUID-5EFDB81B-E332-4D6C-B1BB-0B989AD2F2C7.htm
+- Open-source DCC 4.1 modeling release notes (Smooth by Angle, sharpness attributes).
+- Desktop DCC reference: Modeling Tools hotkeys (2023 help).
+- Desktop DCC reference: smooth-skin bind methods (2017 help); Geodesic Voxel binding (2018 help).
 - Baran and Popović, "Automatic Rigging and Animation of 3D Characters" (SIGGRAPH 2007):
   https://people.csail.mit.edu/ibaran/papers/2007-SIGGRAPH-Pinocchio.pdf
 

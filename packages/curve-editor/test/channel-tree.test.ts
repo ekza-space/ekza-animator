@@ -46,7 +46,7 @@ describe('buildChannelTree', () => {
     expect(tree[0]?.children.map((node) => node.id)).toEqual([UPPER_ARM, WAVE.control, ROOT]);
     const upper = tree[0]?.children[0];
     expect(upper?.children.map((node) => node.channel)).toEqual(['rx', 'ry', 'rz', '@curl']);
-    // An attribute the control does not define is named like the Channel Box names attributes (title case).
+    // An attribute the control does not define is named like the Channels panel names attributes (title case).
     expect(upper?.children.at(-1)).toMatchObject({ label: 'Curl', color: CHANNEL_COLORS.other });
     expect(tree[0]?.children[2]?.children.map((node) => node.channel)).toEqual(['tx', 'ty', 'tz', 'rx', 'ry', 'rz']);
     app.dispose();
@@ -79,7 +79,7 @@ describe('buildChannelTree', () => {
     app.dispose();
   });
 
-  it('names and orders IK attribute channels like the Channel Box (M2A-INT-35)', async () => {
+  it('names and orders IK attribute channels like the Channels panel (M2A-INT-35)', async () => {
     // A leg IK control: `attrs` in the rig's order ikFk, soft, twist, roll, bank, heelTwist, toeTwist (§5.2).
     const app = createFakeEditorApp({ snapshot: withLimbIkRecords(await waveDoc(), { limbs: ['leg.L'] }) });
     const ik = 'rig_SyntheticWave001:ik.leg.L' as ControlId;
@@ -101,7 +101,7 @@ describe('buildChannelTree', () => {
       ['@bank', 'Bank'],
       ['@heelTwist', 'Heel Twist'],
       ['@toeTwist', 'Toe Twist'],
-      ['@ikFk', 'IK/FK'], // the Channel Box's IK/FK row is its last row
+      ['@ikFk', 'IK/FK'], // the Channels panel's IK/FK row is its last row
       ['@zLeft', 'Z Left'], // a curve of an attribute the control does not define
     ]);
     // The filter matches the shown name.

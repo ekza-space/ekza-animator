@@ -76,8 +76,8 @@ export function selectedObjects(app: Pick<EditorApp, 'store' | 'session'>): read
 
 /**
  * The selected objects a transform applies to (selection order kept, the lead last): every selected object except
- * those with a selected ancestor, which follow that ancestor's placement instead of being transformed twice (Maya
- * and Blender transform only the topmost selected objects). The ancestor chain is `objectWorld`'s: same owner, a
+ * those with a selected ancestor, which follow that ancestor's placement instead of being transformed twice (common
+ * DCCs transform only the topmost selected objects). The ancestor chain is `objectWorld`'s: same owner, a
  * missing, deleted, cross-owner or cyclic parent ends it; an object on a parent cycle (which the document's repair
  * breaks on load) counts as a root, so a cycle never drops all of its selected members.
  */

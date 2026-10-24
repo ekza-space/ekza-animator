@@ -33,7 +33,7 @@ prefix verbatim and never re-serializes it; every writer is deterministic (byte-
 
 | Export | Why |
 |---|---|
-| `importProvenance(license, { sourceSha256, names, known? })` | §4.11.6 step 7 as a pure function for `file.importModel` (WP-7b): VRM meta → `DerivedFrom`, `/mixamo/i` → `'no'`, unknown → `'unknown'`, bundled samples pass their licence. |
+| `importProvenance(license, { sourceSha256, names, known? })` | §4.11.6 step 7 as a pure function for `file.importModel` (WP-7b): VRM meta → `DerivedFrom`, names carrying the auto-rigging service's marker → `'no'`, unknown → `'unknown'`, bundled samples pass their licence. |
 | `inspectVrma(c)` → `{ data, warnings }` | `readVrma` plus the import-summary warnings (ignored eye/scale/non-hips tracks, draft spec version, intermediate rest rotations). `readVrma` returns `inspectVrma(c).data`. |
 | `setGltfValidator(module)`, `GltfValidatorModule` | `io` never imports `gltf-validator` (dev dependency only; the app worker is stretch). Tests install it in their setup; `validateGltf` throws `unsupported` until one is installed. |
 | `LINT_RULES`, `LintRuleDef`, `ruleSeverity(id, profile)` | The ADR 0010 table as data (codes, local/Ekza severities, descriptions) for the export dialog and for profiles. |

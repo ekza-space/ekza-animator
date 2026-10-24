@@ -68,7 +68,8 @@ function maxKeys(data: HumanoidClipData): number {
 
 /**
  * A VRMA's provenance (§4.11.6 step 7, ADR 0010 §3): the editor's own metadata when present, else unknown — forced
- * to 'no' when the clip, any animation or any node of the file is named like Mixamo's (`mixamo.com`, `mixamorig:*`).
+ * to 'no' when the clip, any animation or any node of the file carries a web auto-rigging service's marker
+ * (`isNonRedistributableSource`).
  */
 function vrmaProvenance(container: GlbContainer, clipName: string, title: string): ClipProvenance {
   return (

@@ -12,7 +12,7 @@ async function dockTabs(page: Page): Promise<string[]> {
   );
 }
 
-const ANIMATE_TABS = ['Attributes', 'Channel Box', 'Clips', 'Dope Sheet', 'Graph Editor', 'Outliner', 'Viewport'];
+const ANIMATE_TABS = ['Attributes', 'Channels', 'Clips', 'Dope Sheet', 'Graph Editor', 'Outliner', 'Viewport'];
 
 async function hoverViewport(page: Page): Promise<void> {
   const pane = (await call(page, 'panes'))[0];

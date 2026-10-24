@@ -34,7 +34,7 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | FR-IO-08 | Enforce avatar-scale input budgets (file ≤ 256 MiB, JSON ≤ 8 MiB, Σ `accessor.count` ≤ 16 M, any accessor ≤ 4 M, decoded ≤ 512 MiB) plus structural checks, and report parse errors without crashing. | MVP | M1 | The three fixtures and a synthetic 300k-vertex / 60-morph VRM-like file pass; a synthetic hostile GLB is rejected with a dialog; the editor stays usable. |
 | FR-IO-09 | Read and show VRM licence meta (redistribution, modification, commercial use, credit). | MVP | M1 | Import summary shows `Redistribution: … · Modification: …`. |
 | FR-IO-10 | Import an animation-only GLB onto a character by node name (`remapRawClipByName`). | MVP-S | M1 | Re-import of an E2E-18 export reproduces channel values within 1e-4 rad. |
-| FR-IO-11 | Import FBX (Mixamo) and BVH with a humanoid bone-map retarget (R02 §8). | V1 | M2b | A Mixamo walk plays on Polybot without foot inversion. |
+| FR-IO-11 | Import FBX (incl. common auto-rigger skeletons) and BVH with a humanoid bone-map retarget (R02 §8). | V1 | M2b | A walk clip on a common auto-rigger skeleton plays on Polybot without foot inversion. |
 | FR-IO-12 | Import `.gltf` with external buffers/images (multi-file drop) and convert to GLB. | V1 | M2b | A `.gltf` + `.bin` + textures drop opens. |
 | FR-IO-13 | Infer a humanoid map for generic rigs (name patterns + topology) with a confirmation dialog. | V1 | M2b | Quaternius `DEF-*` rig maps to ≥ 15 required VRM bones after confirmation. |
 | FR-IO-14 | Import with Bézier curve fitting (beyond M1's key reduction) within a tolerance. | V1 | M2b | Mocap clip fitted with max error ≤ tolerance and fewer keys than reduction alone. |
@@ -46,8 +46,8 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 |---|---|---|---|---|
 | FR-RIG-01 | Auto-generate an FK control rig for VRM humanoids on the bones present: `root`, `cog` (pure space), `fk.hips` (pelvis), spine chain parented to `cog`, neck, head, jaw, shoulders, arms, hands, fingers, legs parented to `fk.hips`, feet, toes. | MVP | M1 | Seed-san: ≥ 50 controls; rotating `fk.hips` leaves the spine's world rotation unchanged; missing optional bones collapse to the nearest ancestor. |
 | FR-RIG-02 | Zero pose = rest pose: each control has an offset ("zero group"); default channels reproduce the rest pose. | MVP | M1 | All fixtures: bone locals equal rest within 1e-9 at default channels. |
-| FR-RIG-03 | Maya-style circle controls around bones (shape registry), sized from the skinned mesh (1.25 × P90 vertex distance, bone-length fallback) with per-group clamps and offsets (fingers as lollipops), coloured by side (L blue, R red, centre yellow) with hover/selected/lead highlight tokens. | MVP | M1 | No control below its group minimum; in a framed hand view on Seed-san and Polybot every finger control has a pick point ≥ 6 px from every other control's polyline. |
-| FR-RIG-04 | `root` (floor placement) and `cog` (pure space) are translate+rotate keyable; `fk.hips` and FK controls rotate-only; imports put hips motion on `cog`. | MVP | M1 | Channel Box shows t+r for root/cog, r for `fk.hips` and FK. |
+| FR-RIG-03 | DCC-style circle controls around bones (shape registry), sized from the skinned mesh (1.25 × P90 vertex distance, bone-length fallback) with per-group clamps and offsets (fingers as lollipops), coloured by side (L blue, R red, centre yellow) with hover/selected/lead highlight tokens. | MVP | M1 | No control below its group minimum; in a framed hand view on Seed-san and Polybot every finger control has a pick point ≥ 6 px from every other control's polyline. |
+| FR-RIG-04 | `root` (floor placement) and `cog` (pure space) are translate+rotate keyable; `fk.hips` and FK controls rotate-only; imports put hips motion on `cog`. | MVP | M1 | Channels panel shows t+r for root/cog, r for `fk.hips` and FK. |
 | FR-RIG-05 | Bones hidden and not pickable by default; secondary controls for non-humanoid joints (excluding spring-bone joints and node-constraint destinations) hidden by default with a toggle. | MVP | M1 | Seed-san hair spring joints have no controls. |
 | FR-RIG-06 | Humanoid controls are world-aligned in canonical space; VRM 0.x and 1.0 controls mean the same thing; normalized rotations are computed from bone world deltas. | MVP | M1 | The same channel values give the same `humanLocal` on Polybot and Seed-san (< 1e-6); three-vrm parity with `flipYaw` for VRM 0.x (1e-6). |
 | FR-RIG-07 | Generic skinned GLBs get a 1:1 bone-aligned FK rig (t, r, s keyable). | MVP | M1 | Quaternius: one control per skin joint. |
@@ -69,7 +69,7 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 |---|---|---|---|---|
 | FR-VP-01 | One WebGL canvas renders N panes of one shared scene; layouts single, split (shot + persp), quad (top/persp/front/side). | MVP | M1 | `panes()` count per layout; character not cloned. |
 | FR-VP-02 | Shot cameras are document records; a locked shot camera cannot be navigated from any pane; `LOCKED` badge. | MVP | M1 | E2E-05 left camera unchanged after Alt+drag. |
-| FR-VP-03 | Maya navigation: Alt+LMB tumble, Alt+MMB track, Alt+RMB / wheel dolly, dolly to cursor. | MVP | M1 | Camera changes per gesture in the free pane. |
+| FR-VP-03 | Alt+drag navigation (industry-standard DCC): Alt+LMB tumble, Alt+MMB track, Alt+RMB / wheel dolly, dolly to cursor. | MVP | M1 | Camera changes per gesture in the free pane. |
 | FR-VP-04 | Trackpad profile (two-finger orbit, Shift pan, pinch dolly) (MVP); the one-button macOS fallback profile (MVP-S). | MVP | M1 | E2E-22. |
 | FR-VP-05 | `F` frames the selection, `A` frames all, in the hovered pane. | MVP | M1 | Selected control projects inside the central 50 % of the pane. |
 | FR-VP-06 | Space tap maximizes/restores the hovered pane (or the hovered panel's dockview group); preference "Space plays" (MVP); Space hold opens a pane-camera radial (MVP-S). | MVP | M1 | E2E-05 Space steps. |
@@ -92,16 +92,16 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 |---|---|---|---|---|
 | FR-OUT-01 | Tree: character → Rig (control hierarchy), Skeleton (read-only bones with VRM humanoid names), Clips. | MVP | M1 | Seed-san rows match the rig records. |
 | FR-OUT-02 | Filter by name and humanoid bone name. | MVP | M1 | "leftHand" shows `fk.hand.L`. |
-| FR-OUT-03 | Selection synced both ways with the viewport and Channel Box; hover pre-highlights in viewports. | MVP | M1 | US-05. |
+| FR-OUT-03 | Selection synced both ways with the viewport and Channels panel; hover pre-highlights in viewports. | MVP | M1 | US-05. |
 | FR-OUT-04 | Rename clips inline; controls rename in V1. | MVP | M1 | Clip rename undoable. |
 | FR-OUT-05 | Pick-walk with arrow keys over the control hierarchy. | V1 | M2a ✓ | ↑ selects the parent control. |
 
-### FR-CB — Channel Box
+### FR-CB — Channels panel
 
 | ID | Requirement | Pri | M | Acceptance criterion |
 |---|---|---|---|---|
 | FR-CB-01 | Show keyable channels of the lead selection (degrees for rotations); edits apply to all selected controls; mixed values shown as `—`. | MVP | M1 | Two controls selected → typed value applied to both. |
-| FR-CB-02 | Maya colour states: keyed on this frame, keyed elsewhere, changed (override), locked; never colour alone (bar shapes, tooltip). | MVP | M1 | State mapping unit test against `channelState`. |
+| FR-CB-02 | Standard DCC channel colour states: keyed on this frame, keyed elsewhere, changed (override), locked; never colour alone (bar shapes, tooltip). | MVP | M1 | State mapping unit test against `channelState`. |
 | FR-CB-03 | Numeric entry with relative expressions (`+=`, `-=`, `*`, `/`, `deg`/`rad` suffix), Tab navigation, ↑/↓ nudge. | MVP | M1 | US-11. |
 | FR-CB-04 | Context menu: key selected channels, reset to default, lock/unlock. | MVP | M1 | Locked channels reject edits with a toast. |
 | FR-CB-05 | Virtual slider (MMB drag / drag channel name) with Pointer Lock. | V1 | M2a ✓ | Drag changes value at the documented rate. |
@@ -113,9 +113,9 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 |---|---|---|---|---|
 | FR-KEY-01 | `S` keys all keyable channels of the selected controls (or the whole character by key target) at the current frame. | MVP | M1 | Keys created per MVP-SPEC §4.11.1. |
 | FR-KEY-02 | `Shift+W/E/R` key translate/rotate/scale only; rotation keys are synchronized across rx/ry/rz. | MVP | M1 | `Shift+E` creates 3 rotation keys only. |
-| FR-KEY-03 | Key selected Channel Box channels. | MVP | M1 | Only highlighted channels keyed (rotation triple rule applies). |
-| FR-KEY-04 | Auto-key toggle (red time-slider border); Maya rule (only channels with curves) with a preference to key all. | MVP | M1 | E2E-21. |
-| FR-KEY-05 | Delete keys at the current frame (viewport/Channel Box) and selected keys (Graph Editor and time-slider band). | MVP | M1 | Undoable. |
+| FR-KEY-03 | Key channels selected in the Channels panel. | MVP | M1 | Only highlighted channels keyed (rotation triple rule applies). |
+| FR-KEY-04 | Auto-key toggle (red time-slider border); default rule (only channels with curves) with a preference to key all. | MVP | M1 | E2E-21. |
+| FR-KEY-05 | Delete keys at the current frame (viewport/Channels) and selected keys (Graph Editor and time-slider band). | MVP | M1 | Undoable. |
 | FR-KEY-06 | Default tangent types for new keys as a preference (default auto/auto). | MVP | M1 | Changing the preference affects new keys only. |
 | FR-KEY-07 | Unkeyed edits: static values on key-less channels (document, undoable); session overrides on keyed channels (discarded on frame change, undoable through the editor history). | MVP | M1 | MVP-SPEC §4.11.2 table tests; E2E-24. |
 | FR-KEY-08 | Breakdown keys with proportional retiming. | V1 | M2a ✓ | Moving neighbours keeps the ratio. |
@@ -132,7 +132,7 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | FR-TIME-04 | Play/stop, loop/once/oscillate, real-time (drops frames) vs every-frame, half/double speed; snap to integer frames. | MVP | M1 | Clock unit tests with a fake time source. |
 | FR-TIME-05 | Per-clip frame rate 24/25/30/48/50/60/custom (rational); changing it offers keep-seconds or keep-frames. | MVP | M1 | Keep-seconds rescales key times by `new/old`. |
 | FR-TIME-06 | Previous/next key, previous/next frame, go to start/end. | MVP | M1 | `,`/`.` jump between key times. |
-| FR-TIME-07 | Maya range editing on the slider: Shift+click/drag selects a frame or range band with its keys; drag the middle to move, an end to scale; RMB delete/copy/paste/tangent type (MVP). Mod+drag copy and ripple (V1, shipped in M2a ✓). | MVP | M1 | E2E-23: keys at 10 on three controls move to 14; one `Mod+Z` restores. |
+| FR-TIME-07 | DCC-style range editing on the slider: Shift+click/drag selects a frame or range band with its keys; drag the middle to move, an end to scale; RMB delete/copy/paste/tangent type (MVP). Mod+drag copy and ripple (V1, shipped in M2a ✓). | MVP | M1 | E2E-23: keys at 10 on three controls move to 14; one `Mod+Z` restores. |
 | FR-TIME-08 | Time bookmarks (named coloured ranges), exportable as clips. | V1 | M2c | Bookmark → named glTF animation. |
 | FR-TIME-09 | Audio track with waveform and scrubbing. | V1 | M2c | Waveform aligned with frames. |
 | FR-TIME-10 | MMB-drag on the slider changes time without evaluation (carry a pose). | V1 | M2a ✓ | `S` after MMB-drag keys the held pose. |
@@ -144,7 +144,7 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 |---|---|---|---|---|
 | FR-GE-01 | Channel list (character → control → channel) with X/Y/Z colour swatches, visibility and lock per curve, filter, "only animated". | MVP | M1 | Rows match curves of the selected controls. |
 | FR-GE-02 | Curves drawn exactly (Bézier per segment) from the shared curve engine; infinity drawn dotted. | MVP | M1 | Pixel probe at a known value (browser test). |
-| FR-GE-03 | Pan, zoom (both/axis), frame all (`A`) and frame selection (`F`); wheel/pan/zoom gestures per navigation profile (Maya: wheel zoom, Alt+MMB pan; Trackpad: scroll pan, pinch zoom). | MVP | M1 | View transform and gesture tests. |
+| FR-GE-03 | Pan, zoom (both/axis), frame all (`A`) and frame selection (`F`); wheel/pan/zoom gestures per navigation profile (DCC: wheel zoom, Alt+MMB pan; Trackpad: scroll pan, pinch zoom). | MVP | M1 | View transform and gesture tests. |
 | FR-GE-04 | Click, box and double-click (whole curve) selection of keys and tangent handles with Shift/Mod modifiers. | MVP | M1 | Hit priority: selected handle > key > handle > curve; double-click selects all keys of the curve. |
 | FR-GE-05 | Move keys by LMB drag on the selection or MMB drag anywhere (axis lock with Shift, integer-frame snap) and numerically; collisions resolved on commit. | MVP | M1 | MVP-SPEC §4.11.3. |
 | FR-GE-06 | Tangent types auto, spline, clamped, linear, flat (toolbar, menu, keys `1`–`5`) with AnimX span rules (linear only if both sides linear; auto end keys flat). | MVP | M1 | E2E-08 (all keys selected): linear → v(7.5) = mean(v0, v15). |
@@ -154,7 +154,7 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | FR-GE-10 | Weighted curves with lock/free tangent weight. | MVP | M1 | E2E-10. |
 | FR-GE-11 | Pen-like handle dragging (angle only for non-weighted or locked; angle + length for free weights; unified keys stay collinear). | MVP | M1 | MVP-SPEC §4.11.4 tests. |
 | FR-GE-12 | Insert a key on a curve preserving its shape (insert tool), freezing the neighbours' affected computed tangents. | MVP | M1 | E2E-11; anim-core property test 1e-12 for every tangent type, weighted and not. |
-| FR-GE-13 | Numeric fields: frame, value, in/out angle (Maya convention; in-angle on the forward-pointing vector), in/out weight (weighted curves). | MVP | M1 | E2E-12 incl. an in-angle of 30° on a rising curve. |
+| FR-GE-13 | Numeric fields: frame, value, in/out angle (convention of a leading commercial desktop DCC; in-angle on the forward-pointing vector), in/out weight (weighted curves). | MVP | M1 | E2E-12 incl. an in-angle of 30° on a rising curve. |
 | FR-GE-14 | Pre/post infinity: constant, linear, cycle, cycle with offset, oscillate. | MVP | M1 | Values at negative and multi-cycle times match the oracle. |
 | FR-GE-15 | Euler filter on selected rotation curves (also run on import). | MVP | M1 | No jumps > π after filtering a flipped clip. |
 | FR-GE-16 | Copy/paste keys at the current frame (merge/replace) with handles, broken/weight state and weighted-curve conversion. | MVP | M1 | Relative timing and curve shape preserved. |
@@ -185,7 +185,7 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | FR-CLIP-06 | Animation layers UI and evaluation (additive/override, weight, mute/solo, merge). | V2 | M5 | R01 NL-02. |
 | FR-CLIP-07 | Non-linear clip sequencing (time editor). | V2 | M5 | Clip instances on tracks. |
 | FR-CLIP-08 | Multi-character clips (one clip animates two characters). | V2 | M5 | Interaction shots export per character. |
-| FR-CLIP-09 | Clip provenance: `derivedFrom` (title, author, licence, source hash) and `redistributable`, filled on import (VRM meta, Mixamo names, unknown sources) and editable. | MVP | M1 | Seed-san/UAL/VRMA imports record the expected provenance; exported `ekza_animation_v1` carries it per clip. |
+| FR-CLIP-09 | Clip provenance: `derivedFrom` (title, author, licence, source hash) and `redistributable`, filled on import (VRM meta, auto-rigging-service names, unknown sources) and editable. | MVP | M1 | Seed-san/UAL/VRMA imports record the expected provenance; exported `ekza_animation_v1` carries it per clip. |
 
 ### FR-POSE — Pose tools
 
@@ -226,7 +226,7 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | FR-EXP-10 | Integer-frame LINEAR sampling with hemisphere continuity, STEP only for fully stepped tracks, loop closure option and root-motion modes (in-place removes the travel in canonical space and keeps the sway; generic rigs on the topmost driven translating joint). | MVP | M1 | `dot(q_i, q_{i−1}) ≥ 0` for all samples; > 90° steps produce a warning lint. |
 | FR-EXP-11 | Licence gate for baking avatars whose VRM meta forbids modification or redistribution. | MVP | M1 | Export blocked until acknowledged; VRMA always allowed. |
 | FR-EXP-12 | Error-bounded reduction of sampled export tracks. | V1 | M2a (partial) | Hand-keyed clips shrink 3–10× within tolerances (R02 §6.4). *M2a (partial):* every sample within the per-node tolerances and never more samples or bytes (fix round 1); ≥ 3× only on linear blocking — smooth 30 fps motion keeps (nearly) every sample at these tolerances. Owner item M2A-A5-3 / M2A-INT-3 in [DECISIONS-OPEN §F](DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18): accept, or change the tolerances or the criterion. |
-| FR-EXP-13 | BVH and FBX export behind an exporter interface. | V2 | M5 | Blender/Maya round-trip tests. |
+| FR-EXP-13 | BVH and FBX export behind an exporter interface. | V2 | M5 | Round-trip tests with common DCCs. |
 | FR-EXP-14 | CUBICSPLINE "compact" GLB mode. | LATER | M6+ | Exact for non-weighted, non-rotation channels. |
 | FR-EXP-15 | Optional embedded editable curve source in exported GLBs (`extras.ekza_animator_curves_v1`). | V1 | M2c | Re-import restores curves when hashes match. |
 
@@ -252,7 +252,7 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | FR-SHELL-05 | Import and export dialogs (MVP-SPEC §4.11.6, §4.11.10) with clip checklist, source fps, reduction option, licence badge, export profile, lints and interop warnings. | MVP | M1 | E2E-03, E2E-04, E2E-16. |
 | FR-SHELL-06 | Toasts for batch operations with an Undo action. | MVP | M1 | "Deleted N keys · Undo" works. |
 | FR-SHELL-07 | About dialog with licences, sample credits and generated third-party notices. | MVP | M1 | Seed-san credit shown; notices file linked. |
-| FR-SHELL-08 | Command palette (`Mod+K`) over all operators, with Blender names as aliases. | V1 | M6a (moved from M2c) | Search runs operators; aliases find Maya-named operators (M6A-SPEC §5.18). |
+| FR-SHELL-08 | Command palette (`Mod+K`) over all operators, with names used by other DCCs as aliases. | V1 | M6a (moved from M2c) | Search runs operators; aliases find operators by their alternative names (M6A-SPEC §5.18). |
 | FR-SHELL-09 | Marking menus (W/E/Q/Shift+S/RMB, and the Model RMB/Shift+RMB/Ctrl+RMB/Ctrl+Shift+RMB menus) with flick selection. | V1 | M6a (moved from M2c) | Flick within 250 ms triggers without drawing; slots never move between modes. |
 | FR-SHELL-10 | Hotkey editor with conflict detection. | V1 | M2c | Overrides stored as a diff. |
 | FR-SHELL-11 | Workspace tabs `Model › Rig & Skin › Animate › Review` with status glyphs (Model and Animate in M6a, Rig & Skin in M6b, Review in V1). | V1 | M6a (moved from M2c); Rig & Skin ✓ (M6b MVP) | Workspace switch keeps document, object selection, time and pane cameras (M6A-SPEC §5.17). |
@@ -263,7 +263,7 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 |---|---|---|---|---|
 | FR-HK-01 | Bindings on `KeyboardEvent.code`; labels from the layout map when available. | MVP | M1 | E2E-20. |
 | FR-HK-02 | Panel-under-pointer scopes; text inputs swallow hotkeys except Esc/Enter/Tab and `Mod+S`/`Mod+Z` outside text editors. | MVP | M1 | `S` while typing in a field does not key. |
-| FR-HK-03 | Maya preset per MVP-SPEC §4.10; browser/OS reserved chords never bound; MMB autoscroll and canvas context menu suppressed. | MVP | M1 | Keymap table test. |
+| FR-HK-03 | `dcc` preset per MVP-SPEC §4.10; browser/OS reserved chords never bound; MMB autoscroll and canvas context menu suppressed. | MVP | M1 | Keymap table test. |
 | FR-HK-04 | Tap/hold handling for Space with blur/visibility reset. | MVP | M1 | Alt-Tab during hold does not leave Space stuck. |
 | FR-HK-05 | Shortcut cheat sheet (`?`) generated from the keymap. | MVP | M1 | Lists every bound operator. |
 
@@ -346,19 +346,19 @@ below. Acceptance criteria name the M6a e2e scenarios (`E2E-MOD-NN`) and gates. 
 | FR-MOD-04 | `EKZA_curves` glTF extension (registered prefix) with a `LINE_STRIP` fallback. | LATER | M8 | Validator passes; three plugin loads it. |
 | FR-MOD-05 | *Withdrawn 2026-10-19: split into FR-MOD-06…30 (M6a) and FR-MOD-31…36 (M6b, M6c, M7).* | — | — | — |
 | FR-MOD-06 | Model workspace with its layout, menus (Mesh, Edit Mesh, Mesh Tools, Mesh Display), status-line groups and hidden timeline; workspace tabs as pipeline steps. | V1 | M6a ✓ | E2E-MOD-01…32 run in the Model workspace; switching keeps the document (M6A-SPEC §5.17). |
-| FR-MOD-07 | Component modes (`F8`, `F9`/`1`, `F10`/`2`, `3`, RMB menu) with hilite, per-mode selection memory, click/marquee with Maya modifiers, hover pre-selection, camera-based selection and Maya's loop table (loop, partial loop, ring, deselect) for vertices, edges and faces; grow/shrink/convert/border/shell. | V1 | M6a ✓ | E2E-MOD-02, E2E-MOD-26. |
+| FR-MOD-07 | Component modes (`F8`, `F9`/`1`, `F10`/`2`, `3`, RMB menu) with hilite, per-mode selection memory, click/marquee with the desktop DCC's modifiers, hover pre-selection, camera-based selection and the desktop DCC's loop table (loop, partial loop, ring, deselect) for vertices, edges and faces; grow/shrink/convert/border/shell. | V1 | M6a ✓ | E2E-MOD-02, E2E-MOD-26. |
 | FR-MOD-08 | Selection changes are undo steps in the Model workspace (every discrete gesture its own step; auto-repeated keys and drags coalesce, M6A-SPEC S3), off in Animate. | V1 | M6a ✓ | E2E-MOD-26. |
 | FR-MOD-09 | Hide selected/unselected and show all for components and objects; isolate per pane. | V1 | M6a ✓ | E2E-MOD-25. |
 | FR-MOD-10 | Soft selection (Volume/Surface, falloff presets, `B`/`B`+drag). | V1 | M6a ✓ | E2E-MOD-10. |
 | FR-MOD-11 | Symmetry Object/World X/Y/Z remembered per mesh, with vertex/edge/face partner maps; every base tool mirrors by the per-tool table, one symmetric result at the seam. | V1 | M6a ✓ | E2E-MOD-04, -20, -21, -22; property P10. |
-| FR-MOD-12 | Six primitives with low-poly defaults (and a Maya preference) and live parameters until the first component edit; templates prop, handheld, humanoid guides and a humanoid body mesh generator. | V1 | M6a ✓ | E2E-MOD-27; AS-LP-A′; AS-LP-S part A. |
-| FR-MOD-13 | Component W/E/R (new Scale tool) in World/Object/Component space (Maya's per-component Normal is M6a-stretch, S21); MMB-drag moves the selection (Maya rule); Tweak style; grid/vertex/increment snapping across meshes; pivot editing; Freeze/Reset Transformations. | V1 | M6a ✓ | E2E-MOD-23, -28. |
+| FR-MOD-12 | Six primitives with low-poly defaults (and a preference for the desktop DCC's defaults) and live parameters until the first component edit; templates prop, handheld, humanoid guides and a humanoid body mesh generator. | V1 | M6a ✓ | E2E-MOD-27; AS-LP-A′; AS-LP-S part A. |
+| FR-MOD-13 | Component W/E/R (new Scale tool) in World/Object/Component space (the per-component Normal space is M6a-stretch, S21); MMB-drag anywhere moves the selection; Tweak style; grid/vertex/increment snapping across meshes; pivot editing; Freeze/Reset Transformations. | V1 | M6a ✓ | E2E-MOD-23, -28. |
 | FR-MOD-14 | Extrude faces and border edges as an adjustable session (`Ctrl+E`, then the extrude manipulator or `W`/`E`/`R` on the cap, then Divisions — one history step with an args undo stack inside the session, S18), and Shift+drag smart extrude. | V1 | M6a ✓ | E2E-MOD-01, -17, -18. |
 | FR-MOD-15 | Inset; Bevel edges (fraction/absolute, 1–3 segments, clamp, fan corners with a warning). | V1 | M6a ✓ | E2E-MOD-07; count oracles. |
 | FR-MOD-16 | Insert Edge Loop (relative, equal distance, multiple), Offset Edge Loop, Connect and Multi-Cut (points on edges/vertices, Ctrl loop, snap, RMB/Enter completes, Esc cancels with no step). | V1 | M6a ✓ | E2E-MOD-05, -06. |
 | FR-MOD-17 | Slide Edge/Vertex along rails; Average Vertices with pinned borders and seam. | V1 | M6a ✓ | E2E-MOD-24. |
 | FR-MOD-18 | Bridge (equal counts, two faces; divisions, twist, offset) and Fill Hole. | V1 | M6a ✓ | E2E-MOD-28; count oracles. |
-| FR-MOD-19 | Merge (distance), Merge to Center, Target Weld, Collapse, Merge by Distance; Maya plain Delete and Delete Edge/Vertex. | V1 | M6a ✓ | E2E-MOD-08; count oracles. |
+| FR-MOD-19 | Merge (distance), Merge to Center, Target Weld, Collapse, Merge by Distance; plain Delete and Delete Edge/Vertex with desktop-DCC semantics. | V1 | M6a ✓ | E2E-MOD-08; count oracles. |
 | FR-MOD-20 | Spin Edge, Flip Triangle Edge, Triangulate, Quadrangulate. | V1 | M6a ✓ | Count oracles; E2E-MOD-32. |
 | FR-MOD-21 | Combine, Separate, Extract, Duplicate Faces as mesh-set operations in one undo step; Mirror (cut, merge, reversed winding) and Symmetrize; Group/Parent/Unparent/Duplicate. | V1 | M6a ✓ | E2E-MOD-09, -28. |
 | FR-MOD-22 | Per-edge hard flags with one propagation rule, faceted new meshes, Soften/Harden/Set Normal Angle/Reverse/Conform; one triangulation and normal function for viewport, picking, HUD and export (WYSIWYG). | V1 | M6a ✓ | E2E-MOD-32; property P7-hard. |
@@ -366,7 +366,7 @@ below. Acceptance criteria name the M6a e2e scenarios (`E2E-MOD-NN`) and gates. 
 | FR-MOD-24 | Planar, box and cylindrical UV projections; UVs propagated by every op. | V1 | M6a ✓ | Projection goldens (M6A-SPEC §5.28). |
 | FR-MOD-25 | Reference image planes per ortho camera (offset, size, opacity, depth, lock), never picked or exported, saved in the project. | V1 | M6a ✓ | E2E-MOD-29. |
 | FR-MOD-26 | Poly Count HUD with a triangle budget bar; Mesh Check panel and overlay with "select matching" and explicit fixes. | V1 | M6a ✓ | E2E-MOD-09, -25; HUD counts equal the kernel's. |
-| FR-MOD-27 | Adjust Last Operation (Last-op card and Channel Box INPUTS, `T`), Repeat Last (`G`), last tool (`Y`), numeric input in the narrow capture window; Modeling Toolkit with option boxes. | V1 | M6a ✓ | E2E-MOD-06, -07, -19. |
+| FR-MOD-27 | Adjust Last Operation (Last-op card and Channels panel INPUTS, `T`), Repeat Last (`G`), last tool (`Y`), numeric input in the narrow capture window; Modeling Tools with option boxes. | V1 | M6a ✓ | E2E-MOD-06, -07, -19. |
 | FR-MOD-28 | Mesh storage as revision refs over content-addressed chunks (schema v3), autosave and `.ekzanim` with mesh blobs, byte-bounded undo; bit-exact undo and deterministic revisions. | V1 | M6a ✓ | E2E-MOD-14; properties P5, P6, P8; B7 memory bench. |
 | FR-MOD-29 | Make editable for imported meshes (licence-gated) keeping skin weights, morph targets, UVs and colours; export through the surgeon's "replace primitives" step with bake marker v2; edited characters keep MToon outlines and expressions. | V1 | M6a ✓ | E2E-MOD-12, -30, -31. |
 | FR-MOD-30 | Static GLB export (author writer) with the `ekza/omoba-handheld-v1` profile, `mesh.*`/`ekza.*` lints and the `ekza_model_v1` provenance block. | V1 | M6a ✓ | E2E-MOD-13; AS-LP-B. |
@@ -379,16 +379,16 @@ below. Acceptance criteria name the M6a e2e scenarios (`E2E-MOD-NN`) and gates. 
 
 ### FR-JNT — Skeletons, joints and the Rig & Skin workspace (M6b)
 
-Added 2026-10-19 with [M6B-SPEC](M6B-SPEC.md) (research [17](research/17-maya-rigging-basics.md),
+Added 2026-10-19 with [M6B-SPEC](M6B-SPEC.md) (research [17](research/17-dcc-rigging-basics.md),
 [19](research/19-rig-workspace-ui.md)); acceptance criteria name the M6b scenarios (`E2E-SKIN-NN`, `E2E-RIG-NN`) and gates.
 
 | ID | Requirement | Pri | M | Acceptance criterion |
 |---|---|---|---|---|
-| FR-JNT-01 | Rig & Skin workspace: four modes (Object, Skeleton, Skin, Shapes), pose view Bind/Test/Clip, Maya's Skeleton/Skin/Constrain/Control menus and marking menus, Rig Toolkit with a setup checklist, Validation panel as the export gate, selection undo; nothing in it creates a key. | V1 | M6b (partial: MVP — Object/Skeleton/Skin modes, Bind/Test views, the Skeleton and Skin menus, the `rig.modes` marking menu, Toolkit checklist, Validation gate, selection undo; Shapes mode, Clip view, Constrain/Control menus and the other marking menus after the MVP) | E2E-RIG-01, -02, -05, -08; `S` never keys in any Rig scope. |
+| FR-JNT-01 | Rig & Skin workspace: four modes (Object, Skeleton, Skin, Shapes), pose view Bind/Test/Clip, the desktop DCC's Skeleton/Skin/Constrain/Control menus and marking menus, Rig Toolkit with a setup checklist, Validation panel as the export gate, selection undo; nothing in it creates a key. | V1 | M6b (partial: MVP — Object/Skeleton/Skin modes, Bind/Test views, the Skeleton and Skin menus, the `rig.modes` marking menu, Toolkit checklist, Validation gate, selection undo; Shapes mode, Clip view, Constrain/Control menus and the other marking menus after the MVP) | E2E-RIG-01, -02, -05, -08; `S` never keys in any Rig scope. |
 | FR-JNT-02 | VRM humanoid templates Lite 17 / Core 21 / Standard 33 / Full 52 with rest flexion and a non-deforming `root`, pre-fitted on the generated body; Quick Rig (markers, One-Click guess, guides, projected centre) on T- and A-posed meshes. | V1 | M6b ✓ (MVP — four templates, Quick Rig v2 with the One-Click guess; the A-pose path — fit and bind in the A-pose, *Straighten to T-Pose* — built by AUTORIG A0, E2E-AR-A0 and AS-AR-2) | Fitter within 0.03 H on Seed-san and T- and A-posed Polybot; the A-pose path ends `skel.tpose`-clean; E2E-SKIN-01. |
 | FR-JNT-03 | Joint tool (Snap to Projected Center, X symmetry, automatic parent, MMB/`Insert` reposition, `Backspace`, `Enter`/RMB one undo step, `Esc` no step), Insert Joint, Split Bone, Add Chain, Duplicate Joints; user-authored chains get visible controls. | V1 | M6b (after the MVP) | E2E-RIG-03, E2E-SKIN-09. |
 | FR-JNT-04 | Hierarchy editing: Remove Joints (splice), Delete (subtree), Parent/Unparent, rename with mirror rename (control ids kept), Map Humanoid Bone, Set Side, joint roles (deforming, helper, prop) and sockets; required-bone refusals; weights fold into the nearest surviving deforming ancestor; edits never move unselected joints. | V1 | M6b (partial: MVP — rename with control ids kept, Map Humanoid Bone; Remove/Delete/Parent/Unparent/Set Side, roles and sockets after the MVP) | Properties P-J1, P-J6; E2E-SKIN-09, E2E-CNS-01. |
-| FR-JNT-05 | Orient Joint (World / Maya / Blender presets, Maya's options, children, symmetry), with key conversion on bone-aligned controls; deformation and humanoid animation unchanged. | V1 | M6b ✓ (MVP) | Property P-J2 (1e-9); E2E-SKIN-09. |
+| FR-JNT-05 | Orient Joint (World / `xAim` / `yAim` presets, the desktop DCC's options, children, symmetry), with key conversion on bone-aligned controls; deformation and humanoid animation unchanged. | V1 | M6b ✓ (MVP) | Property P-J2 (1e-9); E2E-SKIN-09. |
 | FR-JNT-06 | Mirror Joint across YZ (Orientation / Behavior, name swap, update existing counterparts in place). | V1 | M6b ✓ (MVP) | Involution P-J3; E2E-SKIN-09. |
 | FR-JNT-07 | Joint display: X-ray joints, joint size, side colours, local axes, humanoid labels, missing-bone ghosts. | V1 | M6b ✓ (MVP) | E2E-RIG-03; joint overlay bench. |
 | FR-JNT-08 | Rest edits with Move Skinned Joints semantics; rotating a bound joint or a control is a session test pose (never a key; IK limbs bend in FK for the test); Go to Bind Pose (the constraint-free rest); ROM test clip; Apply Pose as Rest keeping oriented chains' axes. | V1 | M6b (partial: MVP — Move Skinned Joints, test poses incl. IK → FK, Go to Bind Pose; Apply Pose as Rest ✓ by AUTORIG A0 (T-Stance, Skeleton › Apply Pose as Rest / Straighten to T-Pose); the ROM test clip after the MVP — Auto-Rig ④ previews a range-of-motion clip) | E2E-SKIN-04, -10, -14, E2E-RIG-01, -05; property P-J5. |
@@ -398,12 +398,12 @@ Added 2026-10-19 with [M6B-SPEC](M6B-SPEC.md) (research [17](research/17-maya-ri
 ### FR-SKIN — Binding, weights and character export (M6b)
 
 Added 2026-10-19 with [M6B-SPEC](M6B-SPEC.md) (research [14](research/14-skinning-own-models.md),
-[17](research/17-maya-rigging-basics.md)).
+[17](research/17-dcc-rigging-basics.md)).
 
 | ID | Requirement | Pri | M | Acceptance criterion |
 |---|---|---|---|---|
 | FR-SKIN-01 | Bind Skin: Auto (low-poly) (rigid islands + bone heat), closest in hierarchy, rigid islands, heat, over deforming joints; joint and point masks; one joint = rigid attach; symmetrize; ≤ 4 normalized influences; worker; adjustable; Auto Weights for Selected Joints for joints added to a bound mesh. | V1 | M6b (partial: MVP — every method, masks, symmetrize, worker; Auto Weights for Selected Joints after the MVP) | Polybot within one joint on ≥ 98 % (exact ≥ 85 %); 10k points × 60 joints ≤ 1 s; deterministic across Node and Chromium; E2E-SKIN-01. |
-| FR-SKIN-02 | Normalization contract with per-user holds on joints (Maya Hold / lock icons). | V1 | M6b ✓ (MVP) | Property P-S1. |
+| FR-SKIN-02 | Normalization contract with per-user holds on joints (Hold weights / lock icons). | V1 | M6b ✓ (MVP) | Property P-S1. |
 | FR-SKIN-03 | Paint Skin Weights: Replace/Add/Scale/Smooth, Flood, value/opacity, deterministic stroke rule, surface/volume, X-mirror stroke, sample, pick influence, painting on the posed mesh; one stroke = one undo step. | V1 | M6b ✓ (MVP) | E2E-SKIN-02, -10, E2E-RIG-04; ≤ 4 ms per pointer frame at 10k points. |
 | FR-SKIN-04 | Weight display (greyscale, ramp, influence colours, numbers overlay, Lock-Relative) and the Component Editor weight table with a Hold row and averaged rows. | V1 | M6b (partial: MVP — greyscale, ramp and influence colours with the 0-byte switch; numbers overlay, Lock-Relative and the Component Editor after the MVP) | E2E-SKIN-11; switching the active influence uploads 0 bytes. |
 | FR-SKIN-05 | Weight utilities: assign, rigid islands, Mirror / Copy (inpainting) / Smooth / Hammer Skin Weights, copy/paste vertex weights, Prune, Normalize, Remove Unused Influences, Move Weights. | V1 | M6b (partial: MVP — Mirror, Smooth, Prune, Normalize, Remove Unused Influences; inpainting Copy, Hammer, copy/paste and Move Weights after the MVP) | E2E-SKIN-03, -11; properties P-S3, P-S6. |
@@ -420,7 +420,7 @@ Auto-Rig milestone (A0, D0…D7). Acceptance: the AS-AR scripts (`apps/web/e2e/a
 | ID | Requirement | Pri | M | Acceptance criterion |
 |---|---|---|---|---|
 | FR-AR-01 | Choose on opening: the landing page offers Auto-Rig and Studio; the choice can be remembered and switched at any time. | V1 | AR ✓ | AS-AR-8 (E2E-AR-02). |
-| FR-AR-02 | Mixamo-simple flow: model → markers → rig → animations → export, five steps, one primary button per step. | V1 | AR ✓ | AS-AR-1 (E2E-AR-08). |
+| FR-AR-02 | Simple five-step wizard flow: model → markers → rig → animations → export, five steps, one primary button per step. | V1 | AR ✓ | AS-AR-1 (E2E-AR-08). |
 | FR-AR-03 | Rig a static humanoid, T- or A-posed (GLB, or a model from Studio), with the M6b Quick Rig markers, One-Click guess, X symmetry and the front/side axis rule; skeleton detail on the markers step. | V1 | AR ✓ | AS-AR-1 steps 3–5, AS-AR-2 steps 1–3. |
 | FR-AR-04 | Auto-rig in one click (Create Skeleton + Bind Skin, + Straighten for an A-posed input) with a progress display; the character moves at once. | V1 | AR ✓ | AS-AR-1 step 5 (`PREVIEW Walk` ≤ 300 ms after Checking), AS-AR-2 step 3. |
 | FR-AR-05 | Fix when needed: adjust joints and paint weights with the M6b tools inside the wizard. | V1 | AR ✓ | E2E-AR-05, AS-AR-1 step 12 (moving the elbow back clears `skel.tpose`: the hands follow their forearms on *Done*, AR-D7-16). |

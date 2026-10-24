@@ -6,7 +6,7 @@
 import type { DocSnapshot } from '@ekza-studio/doc';
 import type { SkeletonDesc } from '@ekza-studio/rig';
 import { createKernelApp } from '../app/kernel';
-import { MAYA_KEYMAP } from '../keymap/maya';
+import { DCC_KEYMAP } from '../keymap/dcc';
 import type { EditorApp, EditorServices } from '../types';
 import { naiveKernelDeps } from './deps';
 import { createFakeServices } from './services';
@@ -24,7 +24,7 @@ export interface FakeEditorApp extends EditorApp {
  * - `skeleton` gives every character a runtime (rig program, pose buffers, samplers), created synchronously; without
  *   it there are no runtimes, but channel values and states still evaluate from the curves.
  * - `services` override the recording fakes of `createFakeServices()` (no model loader, validator or storage).
- * - Preferences start with `firstRunDone: true`; the `maya` keymap is contributed; no operators are registered.
+ * - Preferences start with `firstRunDone: true`; the `dcc` keymap is contributed; no operators are registered.
  *   Every `run` is recorded in `calls`; registered operators run through the kernel's runner, unknown ids resolve
  *   to `cancelled: "unknown operator '<id>'"`.
  */
@@ -48,7 +48,7 @@ export function createFakeEditorApp(opts?: {
     },
     naiveKernelDeps(opts?.skeleton ?? null),
   );
-  app.contribute({ kind: 'keymap', bindings: MAYA_KEYMAP });
+  app.contribute({ kind: 'keymap', bindings: DCC_KEYMAP });
   // Same object (the kernel keys its internals by identity), plus the recorded calls.
   return Object.defineProperty(app, 'calls', { get: () => calls, enumerable: true }) as FakeEditorApp;
 }

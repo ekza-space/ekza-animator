@@ -237,7 +237,7 @@ export function rotateEdits(
   const axisIndex = AXIS_OF[handle];
   controls.forEach((c, i) => {
     const reference = references[i] ?? ([...c.r0] as Vec3);
-    // Maya: dragging a ring whose channel is locked leaves the control alone in every space; it never turns the
+    // Dragging a ring whose channel is locked leaves the control alone in every space; it never turns the
     // control about the other two axes instead (object/world rings would otherwise write the unlocked channels).
     if (handle !== 'rview' && axisIndex !== undefined && c.lockedR[axisIndex]) return;
     if (space === 'gimbal' && handle !== 'rview' && axisIndex !== undefined) {

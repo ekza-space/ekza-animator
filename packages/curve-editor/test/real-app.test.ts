@@ -188,7 +188,7 @@ describe.skipIf(!READY)('Graph Editor over the real packages (blocked by WP-1, W
     expect(curveState(app)).toEqual(after);
   });
 
-  it('E2E-10: a free weighted handle changes length; a locked one keeps its Maya weight', async () => {
+  it('E2E-10: a free weighted handle changes length; a locked one keeps its tangent weight', async () => {
     const { app, controller } = await realApp();
     app.store.transact({ label: 'Weighted' }, (tx) => {
       tx.patch('curves', WAVE.curve, { weighted: true });

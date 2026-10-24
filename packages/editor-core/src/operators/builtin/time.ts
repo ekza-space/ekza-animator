@@ -165,7 +165,7 @@ function keyJump(direction: 1 | -1): AnyOperator {
       );
       if (times.length === 0) return;
       const now = currentFrame(app);
-      // Like Maya, the jump wraps around at the last (first) key.
+      // The jump wraps around at the last (first) key (desktop-DCC convention).
       const target =
         direction === 1
           ? (times.find((t) => t > now + KEY_EPSILON) ?? times[0])

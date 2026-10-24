@@ -297,7 +297,7 @@ describe('view, scrub and framing', () => {
     expect(m.app.evaluation.clipFrame(WAVE.character)).toBe(9);
   });
 
-  it('Maya profile: wheel zooms time around the cursor, Shift+wheel scrolls rows; trackpad: scroll pans', async () => {
+  it('dcc profile: wheel zooms time around the cursor, Shift+wheel scrolls rows; trackpad: scroll pans', async () => {
     const m = await setUp({ height: 120 });
     m.sheet.setShow('character');
     for (const control of [CONTROLS.cog, CONTROLS.hips, CONTROLS.upperArmL, CONTROLS.handL, CONTROLS.upperLegL]) {
@@ -326,7 +326,7 @@ describe('view, scrub and framing', () => {
     expect(m.sheet.view.sx).toBeGreaterThan(sx);
   });
 
-  it('Alt+MMB pans and Alt+RMB zooms time (Maya profile)', async () => {
+  it('Alt+MMB pans and Alt+RMB zooms time (dcc profile)', async () => {
     const m = await setUp();
     const { f0, sx } = m.sheet.view;
     dragPoints(m.sheet, { x: 300, y: 100 }, { x: 250, y: 100 }, { button: 1, buttons: 4, alt: true });

@@ -85,7 +85,7 @@ often also has a shell, and names and metadata in imported files are untrusted t
 | Alternative | Why not |
 |---|---|
 | Expose every operator 1:1 as an MCP tool | 115 tools, many acting on the user's selection or playhead; poor tool choice by models and a large token cost |
-| An `execute_code` / script tool (Blender MCP, Spline) | Unbounded reach under prompt injection; everything an agent may do should be something a user may do, through undo and grants |
+| An `execute_code` / script tool (an MCP server for a popular open-source DCC, Spline) | Unbounded reach under prompt injection; everything an agent may do should be something a user may do, through undo and grants |
 | Borrow the user's selection for agent runs (set, run, restore) | The runner stores the session selection in each undo entry and undo restores it, so the user's next `Mod+Z` would restore the agent's temporary selection; a frame change drops unkeyed overrides |
 | Agent edits through `store.applyChanges` (external origin) | Never on the undo stack; the owner wants `Mod+Z` to undo AI edits |
 | `Origin` check without a pairing secret (PlayCanvas), or a secret without `Origin` | A local non-browser process could pose as the editor and feed the agent crafted results; a website could open the socket |

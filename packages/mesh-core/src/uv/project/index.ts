@@ -1,6 +1,6 @@
-// UV projections (M6A-SPEC §5.28): the per-corner `uv0` values of planar, box (Maya Automatic Mapping) and cylindrical
-// mapping for a set of faces, their charts, and the fit into 0–1. Pure functions over an EditMesh in mesh-local space;
-// the ops (../../ops/uv) write the values and the seams.
+// UV projections (M6A-SPEC §5.28): the per-corner `uv0` values of planar, box (DCC-standard Automatic Mapping) and
+// cylindrical mapping for a set of faces, their charts, and the fit into 0–1. Pure functions over an EditMesh in
+// mesh-local space; the ops (../../ops/uv) write the values and the seams.
 //
 // Conventions (u right, v up as seen from outside, so a projected image never reads mirrored; 1 UV unit = 1 m before
 // the fit):

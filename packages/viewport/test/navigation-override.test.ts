@@ -35,7 +35,7 @@ describe('ViewportManager.setNavigationOverride (AUTORIG-SPEC §8.1)', () => {
   it('a plain left drag tumbles only while the override says so; removing it restores the profile', async () => {
     rig = await createRig();
     rig.layout('split');
-    rig.app.prefs.setState({ navProfile: 'maya' });
+    rig.app.prefs.setState({ navProfile: 'dcc' });
     rig.frame();
     const presses: { paneId: string; x: number; y: number; button: number }[] = [];
     const simple: NavigationOverride = {
@@ -47,7 +47,7 @@ describe('ViewportManager.setNavigationOverride (AUTORIG-SPEC §8.1)', () => {
     };
     const start = rig.vm.camera('pane-right');
     dragIn(rig, 'pane-right', 100, 0);
-    expect(moved(rig.vm.camera('pane-right'), start)).toBe(false); // the Maya profile: plain LMB is the tool's
+    expect(moved(rig.vm.camera('pane-right'), start)).toBe(false); // the dcc profile: plain LMB is the tool's
 
     rig.vm.setNavigationOverride(simple);
     dragIn(rig, 'pane-right', 100, 0);
@@ -64,7 +64,7 @@ describe('ViewportManager.setNavigationOverride (AUTORIG-SPEC §8.1)', () => {
     expect(distance(tracked)).toBeCloseTo(distance(tumbled), 9);
     expect(Math.hypot(...tracked.target.map((v, i) => v - (tumbled.target[i] ?? 0)))).toBeGreaterThan(0.001);
 
-    // null falls back to the profile: Alt+RMB is still Maya's dolly
+    // null falls back to the profile: Alt+RMB still dollies
     dragIn(rig, 'pane-right', 80, 0, { button: 2, altKey: true });
     expect(distance(rig.vm.camera('pane-right'))).toBeLessThan(distance(tracked));
 
@@ -72,7 +72,7 @@ describe('ViewportManager.setNavigationOverride (AUTORIG-SPEC §8.1)', () => {
     const after = rig.vm.camera('pane-right');
     dragIn(rig, 'pane-right', 100, 0);
     expect(moved(rig.vm.camera('pane-right'), after)).toBe(false);
-    expect(rig.app.prefs.getState().navProfile).toBe('maya');
+    expect(rig.app.prefs.getState().navProfile).toBe('dcc');
   });
 
   it('a null answer leaves the press to the tool (no navigation)', async () => {

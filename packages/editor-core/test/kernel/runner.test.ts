@@ -308,7 +308,7 @@ describe('operator runner (§4.11.0)', () => {
     expect(app.history.peekUndo()?.label).toBe('Delete 1 Key');
   });
 
-  it('coalesces opted-in runs (Channel Box nudges): doc parts through the store, override parts in the history', async () => {
+  it('coalesces opted-in runs (Channels panel nudges): doc parts through the store, override parts in the history', async () => {
     let now = 1_000;
     const store = createNaiveStore({ now: () => now });
     store.load(waveDoc());
@@ -321,7 +321,7 @@ describe('operator runner (§4.11.0)', () => {
       id: 'test.nudge',
       label: 'Nudge',
       category: 'channel',
-      scope: 'channelBox',
+      scope: 'channels',
       flags: { undo: true },
       coalesce: (args) => ({ key: `nudge:${args.control}.rz`, ms: 500 }),
       apply: (ctx, args) => {
@@ -464,7 +464,7 @@ describe('operator runner (§4.11.0)', () => {
     await app.runUntyped('test.key');
     expect(app.session.getState().overrides.size).toBe(0);
     expect(app.store.query.keysOfCurve(W.curve).map((key) => key.t)).toEqual([0, 5, 15, 30]);
-    // Maya: the first undo removes the key and leaves the unkeyed pose; the second undoes the edit that made it.
+    // The first undo removes the key and leaves the unkeyed pose; the second undoes the edit that made it.
     const undone = app.history.undo();
     expect(undone).toMatchObject({ label: 'Set Key', overridesRestored: true, warnings: [] });
     expect(app.store.query.keysOfCurve(W.curve).map((key) => key.t)).toEqual([0, 15, 30]);

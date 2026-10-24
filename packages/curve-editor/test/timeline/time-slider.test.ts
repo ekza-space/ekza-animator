@@ -309,7 +309,7 @@ describe('TimeSliderController: RMB menu', () => {
     expect(app.session.getState().time.band).toEqual({ start: 10, end: 20 });
   });
 
-  // Acceptance round 3: without a band the menu offered Paste only (Maya acts on the current frame).
+  // Acceptance round 3: without a band the menu offered Paste only (desktop DCCs act on the current frame).
   it('without a band the menu selects the current frame as a 1-frame band and acts on its keys', async () => {
     const { app, slider } = await setUp();
     selectControls(app, [WAVE.lowerArmL]);

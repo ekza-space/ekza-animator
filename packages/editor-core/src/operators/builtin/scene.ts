@@ -1,10 +1,10 @@
 // Scene objects in Model (M6A-SPEC §5.13 "Group / Parent / Unparent / Duplicate / Delete objects", §6.2; B13): meshes
 // and groups of one owner (the scene, or a character for made-editable meshes) form a hierarchy through `parent`.
 //
-// - `scene.group {ids?}` (`Mod+G`): a group holding the selected objects (topmost ones), Maya-style: the group's
-//   placement is identity under the objects' common parent (else the owner root) and its **pivot** sits at the
-//   selection's world bounding-box centre; every object keeps its world transform. `ids: []` makes an empty group at
-//   the origin (Create › Empty Group). The group becomes the selection.
+// - `scene.group {ids?}` (`Mod+G`): a group holding the selected objects (topmost ones), desktop-DCC style: the
+//   group's placement is identity under the objects' common parent (else the owner root) and its **pivot** sits at
+//   the selection's world bounding-box centre; every object keeps its world transform. `ids: []` makes an empty group
+//   at the origin (Create › Empty Group). The group becomes the selection.
 // - `scene.parent {ids?, parent?}` (`P`): parents the selection to the last selected object (same owner only; a cycle
 //   is refused), keeping world transforms.
 // - `scene.unparent {ids?}` (`Shift+P`): moves objects to the owner root, keeping world transforms.
@@ -88,7 +88,7 @@ export function isAncestorOrSelf(view: ReadView, ancestor: string, id: string): 
   return false;
 }
 
-/** The objects of `ids` none of whose ancestors is in `ids` (Maya and Blender transform the topmost only). */
+/** The objects of `ids` none of whose ancestors is in `ids` (common DCCs transform the topmost only). */
 export function topmost(view: ReadView, ids: readonly string[]): SceneObject[] {
   const set = new Set(ids);
   const out: SceneObject[] = [];

@@ -606,7 +606,7 @@ const ROTATE_PARAMS: readonly ParamDef[] = [
 ];
 const AXES6 = ['+x', '-x', '+y', '-y', '+z', '-z'] as const;
 const ORIENT_PARAMS: readonly ParamDef[] = [
-  { ...enumParam('preset', 'Preset', ['auto', 'world', 'maya', 'blender', 'custom'], 'auto'), primary: true },
+  { ...enumParam('preset', 'Preset', ['auto', 'world', 'xAim', 'yAim', 'custom'], 'auto'), primary: true },
   enumParam('mode', 'Orientation', ['world', 'aim'], 'aim'),
   enumParam('primary', 'Primary axis', AXES6, '+x'),
   enumParam('secondary', 'Secondary axis', [...AXES6, 'auto'], '+y'),
@@ -1021,7 +1021,10 @@ export function convertKeysForReorient(
   return converted;
 }
 
-/** `preset: 'auto'` resolves at invoke time: World when every joint has a human bone, else the preference (§5.5). */
+/**
+ * `preset: 'auto'` resolves at invoke time: World when every joint has a human bone, else the preference (§5.5).
+ * `xAim`: X down the bone, Y up; `yAim`: Y down the bone, Z up (the runner maps renamed preset ids, `prefs/legacy`).
+ */
 function orientArgs(
   app: EditorApp,
   view: ReadView,
@@ -1041,9 +1044,9 @@ function orientArgs(
   switch (preset) {
     case 'world':
       return { mode: 'world', primary: '+x', secondary: '+y', secondaryWorld: '+y', children, symmetry };
-    case 'maya':
+    case 'xAim':
       return { mode: 'aim', primary: '+x', secondary: '+y', secondaryWorld: '+y', children, symmetry };
-    case 'blender':
+    case 'yAim':
       return { mode: 'aim', primary: '+y', secondary: '+z', secondaryWorld: '+y', children, symmetry };
     default:
       return {

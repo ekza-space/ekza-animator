@@ -305,7 +305,7 @@ describe('Outliner clips and keyboard', () => {
     expect(active()).toBe(`outliner-row-${control('fk.hips')}`);
     await user.keyboard('{Enter}');
     expect(callsOf(app, 'select.controls').at(-1)).toEqual({ ids: [control('fk.hips')], mode: 'replace' });
-    // Space is left to the global keymap (maximize the hovered panel, Maya): the tree neither selects nor consumes it.
+    // Space is left to the global keymap (maximize the hovered panel): the tree neither selects nor consumes it.
     const selections = callsOf(app, 'select.controls').length;
     let spaceReachedWindow = false;
     const onSpace = (event: KeyboardEvent): void => {

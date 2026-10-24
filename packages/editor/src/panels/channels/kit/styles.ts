@@ -54,5 +54,5 @@ export const SIDE_COLOR = {
 
 export const SIDE_LABEL = { L: 'Left', R: 'Right', C: 'Centre' } as const;
 
-/** Selection highlight tokens (`--sel-lead` marks the lead, Maya's light green). */
+/** Selection highlight tokens (`--sel-lead` marks the lead, the DCC light green). */
 export const SEL_LEAD_COLOR = 'var(--sel-lead, #7dff8a)';

@@ -83,7 +83,7 @@
     "uv0": "fc5a1e7f461fb4a5f9e88f9e29b4b8a11b433eef96abd458415f2e93b4afb247",
     "manifest": "b163d43f16c255086f2e505abf065fa6498baa7150504f78719b46f72dd9c3ad"
   },
-  "cube-maya": {
+  "cube-dcc": {
     "counts": {
       "points": 8,
       "edges": 12,
@@ -97,7 +97,7 @@
     "uv0": "a16685049e8b9b16a92e70818ac2a6945cda8f0b2998880443c2cd68320b4099",
     "manifest": "97cce91b103741a2ec83edd66b250a373afe26d2c0c172a4da7bfd314ff43718"
   },
-  "sphere-maya": {
+  "sphere-dcc": {
     "counts": {
       "points": 382,
       "edges": 780,
@@ -111,7 +111,7 @@
     "uv0": "17bb17b08da78a409b1bb9b946188742266933ba2832c49892e619de790187cd",
     "manifest": "471366d4442d8d79e0772e7fa5e6b157c4189d1ee3e6d1d72f33d86ad7cf8eb0"
   },
-  "cylinder-maya": {
+  "cylinder-dcc": {
     "counts": {
       "points": 40,
       "edges": 60,
@@ -125,7 +125,7 @@
     "uv0": "14009e213768bdc3beb104fa7603b67281fd846d87936672672689532e2417e2",
     "manifest": "55703677ab051b1e5119a415f20a8b9c8a1354567e1b048df180efdce876f970"
   },
-  "cone-maya": {
+  "cone-dcc": {
     "counts": {
       "points": 21,
       "edges": 40,
@@ -139,7 +139,7 @@
     "uv0": "ca07a0cc7acf5837821825e31912fd5121a86809479dc232b805d09175e79d99",
     "manifest": "f416e689eff6cde70401dcdabf58088f506bb57b672e35cbae51bf8c126b8afa"
   },
-  "plane-maya": {
+  "plane-dcc": {
     "counts": {
       "points": 121,
       "edges": 220,
@@ -153,7 +153,7 @@
     "uv0": "ff8d15b159d2e6f6308d87d673dc2263e0804e746388fbc95e72f0fe794f0b86",
     "manifest": "629522abed6191707ee07c5965608c037f026c51dbf6d5d4f7eb200f7343350f"
   },
-  "torus-maya": {
+  "torus-dcc": {
     "counts": {
       "points": 400,
       "edges": 800,

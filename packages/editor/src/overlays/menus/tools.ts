@@ -1,7 +1,7 @@
 // The Model tools marking menus (M6A-SPEC §8.4; B11 owns `model.tools.*`, `model.primitives` and `model.merge`; the
 // generic MarkingMenu is B9's): Shift+RMB opens the tools of the current mode (object, vertex, edge, face) — over
 // empty space in object mode the primitives menu (./primitives.ts) — and `M` the merge menu (./merge.ts). The S, W and
-// SW slots are the same family in every component menu: S Extrude, W Multi-Cut, SW Delete (Maya's plain Delete).
+// SW slots are the same family in every component menu: S Extrude, W Multi-Cut, SW Delete (plain Delete, §5.12).
 // Data only: items name operators (stubs poll-fail with their reasons until their owners land them); items that are
 // M6a-stretch carry a static `disabledReason`.
 import type { Disposer } from '@ekza-studio/anim-core';

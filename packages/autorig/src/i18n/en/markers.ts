@@ -18,7 +18,7 @@ export const markers = {
   pictogram: 'Where the selected marker belongs',
   pictogramNone: 'Select a marker in the list to see where it belongs',
   selectedAt: (name: string, x: string, y: string, z: string) => `${name}: x ${x} cm, y ${y} cm, z ${z} cm`,
-  // fingers (Mixamo's skeleton LOD)
+  // fingers (the skeleton LOD of web auto-rigging services)
   fingers: 'Fingers',
   fingersNone: 'None',
   fingersMitten: 'Thumb + 1',

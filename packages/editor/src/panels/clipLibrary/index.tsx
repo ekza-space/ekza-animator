@@ -2,7 +2,7 @@
 // `lazyPanelDef` (C0), so nothing of this directory is in the editor route. Animate shows it as a right-dock tab
 // (Windows › Clip Library); Rig & Skin shows the same body in the Rig Toolkit's Clip Library section.
 import type { JSX } from 'react';
-import { PANEL_ROOT } from '../channel-box/kit/styles';
+import { PANEL_ROOT } from '../channels/kit/styles';
 import type { PanelProps } from '../types';
 import { ClipCardList } from './ClipCardList';
 

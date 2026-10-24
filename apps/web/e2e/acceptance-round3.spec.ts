@@ -46,7 +46,7 @@ async function keysOf(page: Page, control: string, channel: string) {
 const focusedTestId = (page: Page): Promise<string | null> =>
   page.evaluate(() => (document.activeElement as HTMLElement | null)?.dataset['testid'] ?? null);
 
-/** Keys `control`'s rz at the given frames (typed in the Channel Box, keyed with S over the right pane). */
+/** Keys `control`'s rz at the given frames (typed in the Channels panel, keyed with S over the right pane). */
 async function keyRz(page: Page, control: string, frames: readonly (readonly [number, number])[]): Promise<void> {
   const right = await pane(page, 'pane-right');
   await runOk(page, 'select.controls', { ids: [control], mode: 'replace' });

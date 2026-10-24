@@ -2,7 +2,7 @@
 // (io) → `autoRig` → `compileRig` → `evaluate` (rig). On Seed-san as records (its joints copied into JointRecords,
 // non-identity rests and secondary chains included) and on the generated body's CR-2 pre-fit skeleton
 // (`skel.template.create`), every Orient preset with children on, applied one after the other, leaves every skinned
-// point at every ROM frame within 1e-9 m and every `humanLocal` within 1e-9. In the editor, Orient Joint (Maya) on a
+// point at every ROM frame within 1e-9 m and every `humanLocal` within 1e-9. In the editor, Orient Joint (xAim) on a
 // keyed bone-aligned chain converts its keys so the bones' skinning matrices (world rotation over the rest, and
 // position) at the key times stay within 1e-9 (the conjugate rule, M6B-C2-29).
 import {
@@ -44,13 +44,13 @@ import { describe, expect, it } from 'vitest';
 import { updateControlRig } from '../../../src/operators/builtin/rig/skeleton';
 import { rigTestApp, truthMarkers } from './support';
 
-type Preset = 'maya' | 'blender' | 'world';
+type Preset = 'xAim' | 'yAim' | 'world';
 const PRESETS: Readonly<Record<Preset, Omit<OrientJointArgs, 'joints'>>> = {
-  maya: { mode: 'aim', primary: '+x', secondary: '+y', secondaryWorld: '+y', children: true, symmetry: true },
-  blender: { mode: 'aim', primary: '+y', secondary: '+z', secondaryWorld: '+y', children: true, symmetry: true },
+  xAim: { mode: 'aim', primary: '+x', secondary: '+y', secondaryWorld: '+y', children: true, symmetry: true },
+  yAim: { mode: 'aim', primary: '+y', secondary: '+z', secondaryWorld: '+y', children: true, symmetry: true },
   world: { mode: 'world', primary: '+x', secondary: '+y', secondaryWorld: '+y', children: true, symmetry: true },
 };
-const ORDER: readonly Preset[] = ['maya', 'blender', 'world'];
+const ORDER: readonly Preset[] = ['xAim', 'yAim', 'world'];
 const ROM_FRAMES = 10;
 const IDS = { character: 'chr_pj2' as never, rig: 'rig_pj2' as never };
 
@@ -189,8 +189,8 @@ function expectInvariant(
     });
   }
   // The aim presets really re-oriented the joints (the test is not vacuous).
-  expect(changed['maya']).toBeGreaterThan(10);
-  expect(changed['blender']).toBeGreaterThan(10);
+  expect(changed['xAim']).toBeGreaterThan(10);
+  expect(changed['yAim']).toBeGreaterThan(10);
 }
 
 // ---------- Seed-san as records ----------
@@ -289,7 +289,7 @@ describe('P-J2: Orient Joint is invisible to deformation through the shipped rig
 
 // ---------- editor path: keys of bone-aligned controls ----------
 describe('P-J2: Orient Joint converts the keys of a keyed bone-aligned chain (editor path)', () => {
-  it('Maya on a hair chain under the head: the bones’ skinning matrices at every key time within 1e-9', async () => {
+  it('xAim on a hair chain under the head: the bones’ skinning matrices at every key time within 1e-9', async () => {
     const t = await rigTestApp();
     const result = await t.app.runUntyped('skel.quickRig.commit', {
       preset: 'standard33',
@@ -384,7 +384,7 @@ describe('P-J2: Orient Joint converts the keys of a keyed bone-aligned chain (ed
     };
     const before = worlds();
     const keysBefore = keysAt();
-    expect((await t.app.runUntyped('skel.joint.orient', { joints: [chain[0]], preset: 'maya' })).status).toBe(
+    expect((await t.app.runUntyped('skel.joint.orient', { joints: [chain[0]], preset: 'xAim' })).status).toBe(
       'finished',
     );
     expect(t.app.store.get('joints', chain[0] as JointId)?.restRotation).not.toEqual([0, 0, 0, 1]);

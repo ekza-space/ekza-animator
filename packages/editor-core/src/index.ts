@@ -62,7 +62,7 @@ export {
 } from './edit/tween';
 export { scaleKeyValues } from './edit/valueScale';
 export { compileWithAppEngine } from './evaluation/compile';
-export { MAYA_KEYMAP } from './keymap/maya';
+export { DCC_KEYMAP } from './keymap/dcc';
 // M6a (M6A-SPEC §5.17, §7; B0b): hierarchical key scopes and the tool-modifier sheet.
 export {
   chordInput,
@@ -99,6 +99,15 @@ export {
 } from './operators/builtin/modelOps';
 export { MODEL_MENU_ITEMS } from './operators/builtin/modelMenus';
 export { defaultPrefs } from './prefs/defaults';
+export {
+  LEGACY_ARGS,
+  LEGACY_IDS,
+  type LegacyIdField,
+  migrateLegacyArgs,
+  migrateLegacyId,
+  migrateLegacyPanelId,
+  migrateLegacyPrefs,
+} from './prefs/legacy';
 export { createMemoryAssetStore } from './services/assets';
 export { activeClip, activeClipFrame, activeRuntime } from './session/active';
 export { defaultSession } from './session/defaults';
@@ -459,7 +468,7 @@ export {
 } from './rig/validation';
 export { activeCharacter, LEFT_RIG_REASON, TEST_POSE_TOAST } from './rig/chunk/workspace';
 export { beginTestPoseGesture } from './rig/testPose/gesture';
-export { KEYING_CHORDS, RIG_SCOPE, RIG_SHADOW_KEYMAP } from './keymap/maya.rig';
+export { KEYING_CHORDS, RIG_SCOPE, RIG_SHADOW_KEYMAP } from './keymap/dcc.rig';
 export { RIG_KEYMAP } from './rig/chunk/keymap';
 export { BIND_A_MESH_FIRST, MODE_MASKS, RIG_ONLY_REASON } from './operators/builtin/rig/mode';
 export { type ChannelEditRedirect, registerChannelEditRedirect, rigKeyingRefusal } from './evaluation/rigSource';

@@ -1,14 +1,15 @@
-# 16 — Model workspace UI (low-poly modeling, Maya-first)
+# 16 — Model workspace UI (low-poly modeling, desktop-DCC-first)
 
 | | |
 |---|---|
 | Status | Research / proposed spec (v0.1) for the modeling iteration |
 | Date | 2026-10-18 |
-| Scope | Workspace tabs; the Model workspace layout; component modes and their hotkeys; RMB, Shift+RMB, Ctrl+RMB and Q marking menus; the Modeling Toolkit panel; tool settings and the Adjust Last Operation card; modal numeric input; viewport overlays (component display, normals, poly count HUD, wireframe on shaded, X-ray, backface culling, flat shading); snapping; pivot editing; symmetry; soft selection; selection constraints; the Outliner for meshes and objects; the face-colour palette; UV editor placement (later); empty states and onboarding; the hand-off to Rig & Skin and Animate; the full modeling keymap; React component tree; D/U/P state classification |
+| Scope | Workspace tabs; the Model workspace layout; component modes and their hotkeys; RMB, Shift+RMB, Ctrl+RMB and Q marking menus; the Modeling Tools panel; tool settings and the Adjust Last Operation card; modal numeric input; viewport overlays (component display, normals, poly count HUD, wireframe on shaded, X-ray, backface culling, flat shading); snapping; pivot editing; symmetry; soft selection; selection constraints; the Outliner for meshes and objects; the face-colour palette; UV editor placement (later); empty states and onboarding; the hand-off to Rig & Skin and Animate; the full modeling keymap; React component tree; D/U/P state classification |
 | Out of scope | Mesh data structure, mesh operator algorithms, auto-skinning maths, export writers and AI generation back ends. Sibling notes of this iteration own them. This note fixes only what the UI needs from them (§22) |
-| Builds on | Research 09 (UI/UX spec). This note extends it and, **for the Model workspace only**, replaces 09 §7.5's "F2–F12 not bound". Also research 08 §9.8, ARCHITECTURE §4.1 (D/U/P) and §10, and the shipped shell in `packages/editor`, `packages/editor-core` and `packages/viewport` (read on `dev`, 2026-10-18). Sibling notes of this iteration: [10](10-maya-poly-modeling.md) (Maya tool map), [11](11-blender-vs-maya-modeling-ux.md) (Blender vs Maya UX), [12](12-lowpoly-workflow.md) (low-poly workflow, colour rule), [14](14-skinning-own-models.md) (skeleton and skinning); this note follows their decisions and records the two places where it differs (§19, §26) |
+| Reference DCCs | Two reference products are named generically: **the desktop DCC** (a leading commercial desktop DCC) and **the open-source DCC** (a popular open-source DCC). Ekza is not affiliated with any DCC vendor |
+| Builds on | Research 09 (UI/UX spec). This note extends it and, **for the Model workspace only**, replaces 09 §7.5's "F2–F12 not bound". Also research 08 §9.8, ARCHITECTURE §4.1 (D/U/P) and §10, and the shipped shell in `packages/editor`, `packages/editor-core` and `packages/viewport` (read on `dev`, 2026-10-18). Sibling notes of this iteration: [10](10-dcc-poly-modeling.md) (desktop-DCC tool map), [11](11-modeling-ux-comparison.md) (modeling UX of the two reference DCCs), [12](12-lowpoly-workflow.md) (low-poly workflow, colour rule), [14](14-skinning-own-models.md) (skeleton and skinning); this note follows their decisions and records the two places where it differs (§19, §26) |
 
-Reading guide: §0 decisions; §1 the Maya-or-Blender answer; §2 what the shell has today; §3 workspace tabs; §4 layout; §5–6 component modes and marking menus; §7 Modeling Toolkit; §8 tool settings and Adjust Last Operation; §9 modal input; §10 overlays; §11 snapping and pivots; §12 symmetry, soft selection and constraints; §13 Outliner; §14 palette; §15 UV editor; §16 onboarding; §17 hand-off; §18 menus; §19 keymap; §20 component tree; §21 state; §22 contracts; §23 accessibility; §24 collaboration; §25 build slice and acceptance; §26 open questions; §27 sources.
+Reading guide: §0 decisions; §1 which reference DCC to follow; §2 what the shell has today; §3 workspace tabs; §4 layout; §5–6 component modes and marking menus; §7 Modeling Tools; §8 tool settings and Adjust Last Operation; §9 modal input; §10 overlays; §11 snapping and pivots; §12 symmetry, soft selection and constraints; §13 Outliner; §14 palette; §15 UV editor; §16 onboarding; §17 hand-off; §18 menus; §19 keymap; §20 component tree; §21 state; §22 contracts; §23 accessibility; §24 collaboration; §25 build slice and acceptance; §26 open questions; §27 sources.
 
 ---
 
@@ -16,10 +17,10 @@ Reading guide: §0 decisions; §1 the Maya-or-Blender answer; §2 what the shell
 
 | # | Decision | Why |
 |---|---|---|
-| U1 | **The Maya interaction model is the base**: component modes on F8–F10, RMB / Shift+RMB / Ctrl+RMB marking menus, `Ctrl+E` extrude, Shift+drag smart extrude, `B` soft select, `D` pivot, `X`/`C`/`V` snapping, a Modeling Toolkit tab next to the Channel Box, and symmetry in the status line. | The owner models in Maya. The Animate side is already Maya-first (09 §1), so the whole pipeline keeps one muscle memory. Maya's mouse-driven marking menus survive the browser; many keyboard chords do not (§1). |
-| U2 | **Four Blender ideas on top**: the Adjust Last Operation card, numeric input during any modal drag, symmetry as a persistent mode, and the **Industry Compatible digits `1`/`2`/`3`** for vertex/edge/face. | Blender's redo panel is the fastest way to tweak parameters without construction history. The digits are the only component-mode keys that work on every laptop: F-keys are media keys on Macs, and no browser lets a page have F11. |
-| U3 | **No mesh construction history.** One live *last operation* keeps editable arguments until the next edit (Blender redo semantics). They show in the Last-op card and in the Channel Box `INPUTS` section, where Maya users look. | Mesh state stays one blob per mesh (08 §9.8, 06), and undo stays simple. Maya users still find their parameters in the usual place. |
-| U4 | **Workspaces are pipeline steps**: tabs `Model › Rig & Skin › Animate › Review` on the menu bar. Each owns a menu set, status-line groups, a dock layout, a default tool, a key scope and timeline visibility. Switching keeps the document, object selection and time. | Workspaces replace Maya menu sets (09 §1.1). The pipeline order makes the turnkey flow visible. |
+| U1 | **The desktop DCC's interaction model is the base**: component modes on F8–F10, RMB / Shift+RMB / Ctrl+RMB marking menus, `Ctrl+E` extrude, Shift+drag smart extrude, `B` soft select, `D` pivot, `X`/`C`/`V` snapping, a Modeling Tools panel tab next to the Channels panel, and symmetry in the status line. | The owner models in the desktop DCC. The Animate side is already desktop-DCC-first (09 §1), so the whole pipeline keeps one muscle memory. The desktop DCC's mouse-driven marking menus survive the browser; many keyboard chords do not (§1). |
+| U2 | **Four open-source-DCC ideas on top**: the Adjust Last Operation card, numeric input during any modal drag, symmetry as a persistent mode, and the **Industry Compatible digits `1`/`2`/`3`** for vertex/edge/face. | The open-source DCC's redo panel is the fastest way to tweak parameters without construction history. The digits are the only component-mode keys that work on every laptop: F-keys are media keys on Macs, and no browser lets a page have F11. |
+| U3 | **No mesh construction history.** One live *last operation* keeps editable arguments until the next edit (redo semantics: undo the step and re-run it with the new arguments). They show in the Last-op card and in the Channels panel `INPUTS` section, where desktop-DCC users look. | Mesh state stays one blob per mesh (08 §9.8, 06), and undo stays simple. Desktop-DCC users still find their parameters in the usual place. |
+| U4 | **Workspaces are pipeline steps**: tabs `Model › Rig & Skin › Animate › Review` on the menu bar. Each owns a menu set, status-line groups, a dock layout, a default tool, a key scope and timeline visibility. Switching keeps the document, object selection and time. | Workspaces replace the desktop DCC's menu sets (09 §1.1). The pipeline order makes the turnkey flow visible. |
 | U5 | **The key scope chain becomes hierarchical**: `model.viewport.<mode>` → `model.viewport.component` → `model.viewport` → `viewport` → `model` → `global`. | `Ctrl+E` can extrude in component mode while staying Export everywhere else. `K`, `M` and `Home` get Model meanings only where they apply. `KeymapManager.resolve` already walks string scopes, so only the DOM adapter's chain builder changes. |
 | U6 | **Component selection lives in an imperative `ComponentSelection` service** (bitsets + a version counter), not in zustand. React reads counts only. | Thousands of indices change at pointer rate during marquee and paint selection. 09 §13.3 already bans per-frame React state. |
 | U7 | **Low-poly defaults**: flat shading on, wireframe on shaded on, the poly count HUD on with a triangle budget bar, primitives with minimal segments, and a face-colour palette as the primary "material". | The targets are stylized game assets for OMOBA and Ekza Space, not subdivision surfaces. |
@@ -31,26 +32,26 @@ Reading guide: §0 decisions; §1 the Maya-or-Blender answer; §2 what the shell
 
 ---
 
-## 1. Maya or Blender? The answer, with evidence
+## 1. Which reference DCC? The answer, with evidence
 
-**Answer for the owner:** keep Maya as the base and borrow four Blender ideas. Ship a Blender keymap preset later as a data pack. The reasons are below.
+**Answer for the owner:** keep the desktop DCC as the base and borrow four ideas from the open-source DCC. Ship an alternative keymap preset (open-source-DCC style) later as a data pack. The reasons are below.
 
-| Question | Maya | Blender | What the browser allows | Ekza choice |
+| Question | Desktop DCC | Open-source DCC | What the browser allows | Ekza choice |
 |---|---|---|---|---|
-| Component modes | F8 toggle, F9 vertex, F10 edge, F11 face, F12 UV; Alt+F9 vertex-face; `<`/`>` shrink/grow (Autodesk shortcut list) | `1`/`2`/`3` in Edit Mode; Shift adds modes (manual). Blender's own *Industry Compatible* (Maya-like) keymap moved to `1`/`2`/`3` vertex/edge/face and `4` object in 2019 "due to popular demand" | Mac F-keys are media keys unless the user changes a system setting. macOS takes F11 for Show Desktop. Browsers keep F11 for fullscreen (even Chromium's fullscreen Keyboard Lock leaves F11 and Esc to the browser; Firefox's tests treat F11 as reserved) and F12 for DevTools | F8/F9/F10 **plus** digits `1`/`2`/`3`, plus the RMB marking menu; F11 and F12 unbound (§19.2) |
-| Tool access | Marking menus: RMB (modes), Shift+RMB (polygon tools: Target Weld, Multi-Cut, Insert Edge Loop, Extrude, Fill Holes…), Ctrl+RMB (convert selection) | Single-letter modal keys (E, I, K, M, F) and Ctrl-chords (`Ctrl+R` loop cut, `Ctrl+B` bevel, `Ctrl+N` recalc normals, `Ctrl+Tab` select-mode pie) | `Ctrl+R` reloads, `Ctrl+N` and `Ctrl+Tab` are reserved, and `Alt+E` opens browser menus on Windows | **Marking menus first**; a few Blender single letters as Ekza additions where nothing collides (`K`, `M`) |
-| Parameter tweak | Construction history: the `INPUTS` node in the Channel Box and the In-View Editor (`T` brings it back) | Adjust Last Operation panel, bottom-left of the viewport, `F9` popup | — | **Both views of one last-op state** (§8) |
-| Precision | Channel Box, tool settings | Type numbers during G/R/S, `Tab` between axes | — | Numeric typing during any modal drag (§9) |
-| Symmetry | Status-line dropdown: Object/World X/Y/Z, Topology; Preserve Seam; tolerance | Per-mesh X/Y/Z mirror, topology mirror | — | Maya placement and options; Blender's per-mesh memory (§12) |
-| Stats | Poly Count HUD with scene, selected-object and selected-component columns | Statistics overlay; face orientation overlay | — | Maya HUD plus a budget bar; Blender's face orientation (§10) |
+| Component modes | F8 toggle, F9 vertex, F10 edge, F11 face, F12 UV; Alt+F9 vertex-face; `<`/`>` shrink/grow (vendor shortcut list) | `1`/`2`/`3` in Edit Mode; Shift adds modes (manual). The open-source DCC's own *Industry Compatible* (desktop-DCC-like) keymap moved to `1`/`2`/`3` vertex/edge/face and `4` object in 2019 "due to popular demand" | Mac F-keys are media keys unless the user changes a system setting. macOS takes F11 for Show Desktop. Browsers keep F11 for fullscreen (even Chromium's fullscreen Keyboard Lock leaves F11 and Esc to the browser; Firefox's tests treat F11 as reserved) and F12 for DevTools | F8/F9/F10 **plus** digits `1`/`2`/`3`, plus the RMB marking menu; F11 and F12 unbound (§19.2) |
+| Tool access | Marking menus: RMB (modes), Shift+RMB (polygon tools: Target Weld, Multi-Cut, Insert Edge Loop, Extrude, Fill Holes…), Ctrl+RMB (convert selection) | Single-letter modal keys (E, I, K, M, F) and Ctrl-chords (`Ctrl+R` loop cut, `Ctrl+B` bevel, `Ctrl+N` recalc normals, `Ctrl+Tab` select-mode pie) | `Ctrl+R` reloads, `Ctrl+N` and `Ctrl+Tab` are reserved, and `Alt+E` opens browser menus on Windows | **Marking menus first**; a few open-source-DCC single letters as Ekza additions where nothing collides (`K`, `M`) |
+| Parameter tweak | Construction history: the `INPUTS` node in the Channels panel and the In-View Editor (`T` brings it back) | Adjust Last Operation panel, bottom-left of the viewport, `F9` popup | — | **Both views of one last-op state** (§8) |
+| Precision | Channels, tool settings | Type numbers during G/R/S, `Tab` between axes | — | Numeric typing during any modal drag (§9) |
+| Symmetry | Status-line dropdown: Object/World X/Y/Z, Topology; Preserve Seam; tolerance | Per-mesh X/Y/Z mirror, topology mirror | — | Desktop-DCC placement and options; the open-source DCC's per-mesh memory (§12) |
+| Stats | Poly Count HUD with scene, selected-object and selected-component columns | Statistics overlay; face orientation overlay | — | Desktop-DCC HUD plus a budget bar; the open-source DCC's face orientation (§10) |
 
 Supporting points:
 
-- **Owner muscle memory and product consistency.** Animate already ships Maya's Q/W/E, Channel Box, time slider and Graph Editor (09). A Blender-style Model workspace would make one product with two hands.
-- **Browser fit favours Maya.** Maya's heaviest modeling paths are pointer gestures: marking menus and Shift+drag extrude. Blender's are keyboard chords, and several of them are browser-reserved (above, and 09 §7.6).
-- **Blender itself validates the hybrid.** Its Industry Compatible keymap is Maya-style Q/W/E/R with digit component modes, which is exactly the fallback this note needs.
+- **Owner muscle memory and product consistency.** Animate already ships the desktop DCC's Q/W/E, Channels, time slider and Graph Editor (09). An open-source-DCC-style Model workspace would make one product with two hands.
+- **Browser fit favours the desktop DCC.** Its heaviest modeling paths are pointer gestures: marking menus and Shift+drag extrude. The open-source DCC's are keyboard chords, and several of them are browser-reserved (above, and 09 §7.6).
+- **The open-source DCC itself validates the hybrid.** Its Industry Compatible keymap is desktop-DCC-style Q/W/E/R with digit component modes, which is exactly the fallback this note needs.
 - **Precedent for workspace tabs in a web low-poly tool.** Blockbench (GPL, web and desktop) switches Edit / Paint / Animate / Display modes with tabs, and its panels change per mode. It is a design reference only, because GPL code cannot enter this MIT project (ADR 0009).
-- **What Blender does better, and we take:** the redo panel, numeric input on drags, symmetry remembered per mesh, the face orientation overlay and the statistics overlay.
+- **What the open-source DCC does better, and we take:** the redo panel, numeric input on drags, symmetry remembered per mesh, the face orientation overlay and the statistics overlay.
 
 ---
 
@@ -98,9 +99,9 @@ Supporting points:
 ### 3.3 Switching rules
 
 - Switching is instant and keeps the document, object selection, scene time and each pane's camera (pane IDs persist, 09 §3).
-- **Leaving Model** drops to object mode. The component selection stays in memory per mesh, so returning restores it (Maya's hilite behaviour). A running modal operation is cancelled first (Esc semantics), and the Last-op card closes.
+- **Leaving Model** drops to object mode. The component selection stays in memory per mesh, so returning restores it (the desktop DCC's hilite behaviour). A running modal operation is cancelled first (Esc semantics), and the Last-op card closes.
 - **Entering Model with a character selected** shows the bind pose and the `BIND POSE` HUD badge. Returning to Animate restores the frame's pose.
-- **No default hotkey.** Blender's `Ctrl+PgUp/PgDn` and `Ctrl+Tab` are browser tab shortcuts, and so are `Mod+1…9`. `Alt+1…8` switches tabs in Linux Chrome, and `Alt+Shift` switches keyboard layouts on Windows and many Linux desktops, which bilingual RU/EN users depend on. The command palette lists `Workspace: Model` and the other workspaces, and the hotkey editor lets users bind them.
+- **No default hotkey.** The open-source DCC's `Ctrl+PgUp/PgDn` and `Ctrl+Tab` are browser tab shortcuts, and so are `Mod+1…9`. `Alt+1…8` switches tabs in Linux Chrome, and `Alt+Shift` switches keyboard layouts on Windows and many Linux desktops, which bilingual RU/EN users depend on. The command palette lists `Workspace: Model` and the other workspaces, and the hotkey editor lets users bind them.
 - Persistence: the active workspace is U state. `prefs.lastWorkspace` (P) restores it on the next load. First run asks (§16.1).
 
 ---
@@ -147,7 +148,7 @@ Supporting points:
 | Menu bar | 28 px | Common menus + the Model menu set (§18) + workspace tabs |
 | Status line | 32 px | Model groups: Tools · Mode switcher · Symmetry · Soft select · Constraint · Snap · Pivot · Manipulator space · Layout preset. The Animate groups (pick mask, key target, Tween, auto-key) are hidden |
 | Left dock | 240 px | Outliner (§13) |
-| Centre | flex | Viewport panel. Default preset **M-Quad** (top / persp / front / side) with **persp maximized**, so a Space tap toggles single ↔ four view as in Maya |
+| Centre | flex | Viewport panel. Default preset **M-Quad** (top / persp / front / side) with **persp maximized**, so a Space tap toggles single ↔ four view as in the desktop DCC |
 | Right dock | 300 px (min 260) | Tabs: **Toolkit** (default) · Channels · Attributes · Palette. 300 px fits the two-column tool grid |
 | Bottom dock | collapsed to the 26 px tab strip | Mesh Check (lint list) · UV Editor (later) |
 | Timeline | hidden | Windows › Timeline shows it; Model works on the bind pose |
@@ -160,7 +161,7 @@ Vertical budget at 900 px: chrome 28 + 32 + 26 + 22 = 108 px, so the viewport ge
 | Preset | Shape | Use |
 |---|---|---|
 | M-Single | `[persp]` | Small screens |
-| **M-Quad** (default) | `top | persp` / `front | side`, persp maximized at start | Maya four view; Space tap toggles it |
+| **M-Quad** (default) | `top | persp` / `front | side`, persp maximized at start | Desktop-DCC four view; Space tap toggles it |
 | M-Side | `front | persp` 50/50 | Symmetry work, silhouette checks |
 | M-UV (later) | `UV Editor | persp` | UV layout |
 
@@ -170,14 +171,14 @@ Vertical budget at 900 px: chrome 28 + 32 + 26 + 22 = 108 px, so the viewport ge
 
 ### 5.1 Modes
 
-| Mode | Picks | Display | Maya key | Ekza default | Status |
+| Mode | Picks | Display | Desktop-DCC key | Ekza default | Status |
 |---|---|---|---|---|---|
 | Object | mesh objects, groups, characters | normal | F8 toggles object ↔ last component mode | `F8`, or press the active mode's digit again | must |
 | Vertex | vertices | dots on all hilited meshes | F9 | `F9`, `1` | must |
 | Edge | edges | edges thickened under the pointer | F10 | `F10`, `2` | must |
 | Face | faces (whole-face pick in shaded mode, centre dots in wireframe) | face centre dots | F11 (browser-reserved) | `3` | must |
 | UV | UVs, in the UV editor only | — | F12 (DevTools) | none until the UV editor exists | later |
-| Multi | nearest component (Maya Multi) | all | RMB › Multi | RMB menu | later |
+| Multi | nearest component (the desktop DCC's Multi mode) | all | RMB › Multi | RMB menu | later |
 | Vertex face | — | — | Alt+F9 | not offered: low-poly normals are handled by Soften/Harden | no |
 
 ### 5.2 Switcher
@@ -186,17 +187,17 @@ Vertical budget at 900 px: chrome 28 + 32 + 26 + 22 = 108 px, so the viewport ge
  Mode ┃ ▢ Obj ┃ • Vtx ┃ ╱ Edg ┃ ▰ Face ┃ ⊞ UV ┃          tooltip: "Vertex mode  F9 · 1"   UV: "UV editor arrives later"
 ```
 
-- In the status line it is a `role="radiogroup"` of icon + text buttons. The same control repeats at the top of the Toolkit tab, as Maya's MTK does.
+- In the status line it is a `role="radiogroup"` of icon + text buttons. The same control repeats at the top of the Toolkit tab, as the desktop DCC's modeling tools panel does.
 - The HUD badge in the pane's top-left (`VERTEX`, `EDGE`, `FACE`) shows the mode where the eyes are.
 
 ### 5.3 Semantics
 
-1. **Hilite.** Entering a component mode with mesh objects selected *hilites* them, as Maya does: only their components are pickable. Other meshes ~~draw at 70 % opacity and~~ cannot be picked. RMB on another mesh opens the mode menu for that mesh and adds it to the hilite set. *Superseded (MODELING-PLAN v0.2 §3.5, Q-MOD-UI-15): other meshes stay opaque (Maya does not fade them; fitting work needs them at full opacity); "Dim unhilited" is a per-pane option.*
+1. **Hilite.** Entering a component mode with mesh objects selected *hilites* them, as the desktop DCC does: only their components are pickable. Other meshes ~~draw at 70 % opacity and~~ cannot be picked. RMB on another mesh opens the mode menu for that mesh and adds it to the hilite set. *Superseded (MODELING-PLAN v0.2 §3.5, Q-MOD-UI-15): other meshes stay opaque (the desktop DCC does not fade them; fitting work needs them at full opacity); "Dim unhilited" is a per-pane option.*
 2. With nothing selected, `F9`/`1` hilites the mesh under the pointer. With no mesh there, the help line says "Select a mesh first" (no toast).
-3. **Per-mode selections are remembered** (Maya): faces picked in Face mode come back after a trip to Vertex mode. Conversion is explicit: `Ctrl+F9/F10/F11`, Ctrl+RMB, or Select › Convert. A preference "Convert selection when switching modes" gives Blender's behaviour; it is off by default.
+3. **Per-mode selections are remembered** (desktop-DCC convention): faces picked in Face mode come back after a trip to Vertex mode. Conversion is explicit: `Ctrl+F9/F10/F11`, Ctrl+RMB, or Select › Convert. A preference "Convert selection when switching modes" gives the open-source DCC's behaviour; it is off by default.
 4. Back to object mode: `F8`, pressing the active digit again, RMB › Object Mode, or clicking `Obj`. Leaving the workspace also returns to object mode (§3.3).
-5. A mode switch is not an undo step (U state). History steps record the component selection before and after, as they already do for selection (ARCHITECTURE §4.1). *Amended (MODELING-PLAN v0.2 §3.5, Q-MOD-UI-13): in Model, selection changes are undo steps of their own (coalesced "Select" steps, session-only), as in Maya and Blender.*
-6. Topology-changing operators set the result as the new selection: the faces an extrude creates, the edges a bevel creates. That is how both Maya and Blender behave, and 08 §9.8 requires operators to remap or clear the selection anyway.
+5. A mode switch is not an undo step (U state). History steps record the component selection before and after, as they already do for selection (ARCHITECTURE §4.1). *Amended (MODELING-PLAN v0.2 §3.5, Q-MOD-UI-13): in Model, selection changes are undo steps of their own (coalesced "Select" steps, session-only), as in both reference DCCs.*
+6. Topology-changing operators set the result as the new selection: the faces an extrude creates, the edges a bevel creates. That is how both reference DCCs behave, and 08 §9.8 requires operators to remap or clear the selection anyway.
 
 ### 5.4 RMB marking menu: modes (RMB on a mesh, no modifier)
 
@@ -209,7 +210,7 @@ Vertical budget at 900 px: chrome 28 + 32 + 26 + 22 = 108 px, so the viewport ge
                Assign Colour ▸ (palette recents) · Pivot ▸ · Rename… · Attributes
 ```
 
-- The slot layout is **Maya-like but not yet calibrated**. Autodesk documents the item set (Vertex, Edge, Face, UV, Object Mode, Multi) but not the compass positions. Check against a Maya 2026/2027 install before freezing; it is an owner check item (Q-MOD-UI-1). Once frozen, positions never change between modes (09 §7.4).
+- The slot layout is **modelled on the desktop DCC but not yet calibrated**. The vendor documents the item set (Vertex, Edge, Face, UV, Object Mode, Multi) but not the compass positions. Check against a desktop-DCC install (2026 or 2027 release) before freezing; it is an owner check item (Q-MOD-UI-1). Once frozen, positions never change between modes (09 §7.4).
 - RMB on empty space keeps 09's view menu (Top/Side/Front/Persp…). On macOS, Ctrl+click is RMB (09 §5.1).
 
 ---
@@ -227,12 +228,12 @@ Fixed geometry across all component menus: **S = Extrude, W = Multi-Cut, SW = De
 | E | Sphere | Combine | Connect | Bridge | Duplicate Faces |
 | SE | Plane | Separate | Chamfer Vertex | Collapse | Extract |
 | S | Cone | Center Pivot | **Extrude** | **Extrude** | **Extrude** |
-| SW | Torus | Delete | Delete *(superseded: Maya plain Delete; Delete Vertex in the list)* | Delete *(superseded: Maya plain Delete; Delete Edge in the list)* | Delete Faces |
+| SW | Torus | Delete | Delete *(superseded: the desktop DCC's plain Delete; Delete Vertex in the list)* | Delete *(superseded: the desktop DCC's plain Delete; Delete Edge in the list)* | Delete Faces |
 | W | Humanoid template… | **Multi-Cut** | **Multi-Cut** | **Multi-Cut** | **Multi-Cut** |
 | NW | Primitive options… | Mesh Check… | Average Vertices | Soften/Harden ▸ | Poke |
 | list | Import mesh… · Edit a sample ▸ · Generate… (later) | Freeze / Reset Transforms · Triangulate · Flip Normals · Cleanup… · Decimate… (later) | Snap to Grid · Weld threshold… | Fill Hole · Select Loop / Ring | Triangulate · Flip Normals · Assign Colour ▸ · Mirror |
 
-Origin: Maya's Shift+RMB polygon menu contains Target Weld, Multi-Cut, Insert Edge Loop, Append to Polygon, Soften/Harden, Extrude and Fill Holes (Autodesk Marking Menus page). A Polycount answer reports Extrude at the south slot. Every other position is an Ekza layout, **provisional until the owner calibrates it on a real Maya (Q-MOD-UI-1)**. *Superseded for Delete (Q-MOD-UI-6): the SW slot runs Maya's plain Delete, which keeps the end vertices; Delete Edge/Vertex (`Mod+Delete`) is in the slot's list. Average Vertices (NW, vertex) is built in M6a (B4).*
+Origin: the desktop DCC's Shift+RMB polygon menu contains Target Weld, Multi-Cut, Insert Edge Loop, Append to Polygon, Soften/Harden, Extrude and Fill Holes (vendor help: Marking Menus page). A Polycount answer reports Extrude at the south slot. Every other position is an Ekza layout, **provisional until the owner calibrates it on a real desktop-DCC install (Q-MOD-UI-1)**. *Superseded for Delete (Q-MOD-UI-6): the SW slot runs the desktop DCC's plain Delete, which keeps the end vertices; Delete Edge/Vertex (`Mod+Delete`) is in the slot's list. Average Vertices (NW, vertex) is built in M6a (B4).*
 
 ### 6.2 Ctrl+RMB: convert selection
 
@@ -242,19 +243,19 @@ Origin: Maya's Shift+RMB polygon menu contains Target Weld, Multi-Cut, Insert Ed
                  SW To Border           S  To Faces          SE To Shell
 ```
 
-The vertex/edge/face/UV positions match the RMB mode menu, so one map serves both. Maya has a Ctrl+RMB convert menu with the same commands under Select › Convert Selection; the compass positions are Ekza's.
+The vertex/edge/face/UV positions match the RMB mode menu, so one map serves both. The desktop DCC has a Ctrl+RMB convert menu with the same commands under Select › Convert Selection; the compass positions are Ekza's.
 
 ### 6.3 Ctrl+Shift+RMB and Q+LMB: selection options (Model only)
 
-N Symmetry: Object X · NE Symmetry: Off · E Soft Select on/off · SE Camera-based selection on/off · S Constraint ▸ (Off / Angle / Border / Edge Loop / Edge Ring / Shell) · SW Backface selection on/off · W Selection style ▸ (Marquee / Drag / Tweak) · NW Symmetry ▸ (World X/Y/Z, Object Y/Z, Topology later). Autodesk documents setting symmetry from the Ctrl+Shift+RMB or Q+click marking menus. In Animate, `Q`+LMB keeps the 09 §7.3 pick-mask menu.
+N Symmetry: Object X · NE Symmetry: Off · E Soft Select on/off · SE Camera-based selection on/off · S Constraint ▸ (Off / Angle / Border / Edge Loop / Edge Ring / Shell) · SW Backface selection on/off · W Selection style ▸ (Marquee / Drag / Tweak) · NW Symmetry ▸ (World X/Y/Z, Object Y/Z, Topology later). The vendor documents setting symmetry from the Ctrl+Shift+RMB or Q+click marking menus. In Animate, `Q`+LMB keeps the 09 §7.3 pick-mask menu.
 
 **macOS:** RMB is a two-finger click or Ctrl+click. Ctrl+click opens the *plain* RMB menu, so the Ctrl+RMB family needs Ctrl + two-finger click or a mouse. Cmd is never a substitute: it removes from the selection (09 §6.1). Every item in these menus is also in a menu-bar menu and the command palette (§18).
 
 ---
 
-## 7. Modeling Toolkit panel
+## 7. Modeling Tools panel
 
-The first tab of the right dock in Model, named **Toolkit**. Maya docks its Modeling Toolkit as a tab next to the Channel Box and Attribute Editor.
+The first tab of the right dock in Model, named **Toolkit**. The desktop DCC docks its Modeling Tools panel as a tab next to the Channels panel and Attribute Editor.
 
 ```
 ┌ Toolkit │ Channels │ Attributes │ Palette ─┐
@@ -292,9 +293,9 @@ The first tab of the right dock in Model, named **Toolkit**. Maya docks its Mode
 Behaviour:
 
 - Every button runs an operator. Buttons that do not apply to the mode are disabled, and the tooltip gives the poll reason ("Bridge needs two edge borders"); 09 §8.7.
-- `⋯` on a button opens its **option box**: a non-modal popover with that operator's defaults for the next run (Maya ❒, 09 principle 4). These defaults are P state.
+- `⋯` on a button opens its **option box**: a non-modal popover with that operator's defaults for the next run (the desktop DCC's ❒, 09 principle 4). These defaults are P state.
 - The header names the target meshes, the hilite count and the triangles. With no mesh selected, the panel shows an empty state with the primitive buttons (§16.4).
-- Double-clicking a tool in the status line or the Toolkit scrolls to and expands **Active tool**, Maya's double-click-for-Tool-Settings habit.
+- Double-clicking a tool in the status line or the Toolkit scrolls to and expands **Active tool**, the desktop DCC's double-click-for-Tool-Settings habit.
 - Section collapse state is P. Narrow (≤ 260 px): buttons become icon-only with tooltips, two columns.
 - The **Next** footer is the hand-off (§17).
 
@@ -308,11 +309,11 @@ Behaviour:
 |---|---|---|---|---|
 | Tool settings | Multi-Cut snap step, soft-select falloff, selection style | Before or while using an interactive tool | Toolkit › Active tool; popover from the status line | P (remembered per user) |
 | Operator defaults | Extrude divisions, Bevel segments for the next run | Before running a one-shot operator | Option box `⋯` | P |
-| **Last operation** | The extrude you just did: offset 0.25 m, 1 division | After running it, until anything else changes | **Last-op card** (pane, bottom-left) and **Channel Box › INPUTS** | U |
+| **Last operation** | The extrude you just did: offset 0.25 m, 1 division | After running it, until anything else changes | **Last-op card** (pane, bottom-left) and **Channels panel › INPUTS** | U |
 
 ### 8.2 Placement
 
-**Last-op card.** Blender puts its redo panel at the bottom-left of the viewport. Here the card sits 8 px above the axis triad of the pane where the operation ran. It starts **collapsed** as a pill (`⟲ Extrude · 0.250 m ▸`) and expands on click or `T`. Maya's `T` (Show Manipulator Tool) is the key Autodesk support gives for bringing back the In-View Editor after an extrude or bevel.
+**Last-op card.** The open-source DCC puts its redo panel at the bottom-left of the viewport. Here the card sits 8 px above the axis triad of the pane where the operation ran. It starts **collapsed** as a pill (`⟲ Extrude · 0.250 m ▸`) and expands on click or `T`. The desktop DCC's `T` (Show Manipulator Tool) is the key the vendor's community forum gives for bringing back the In-View Editor after an extrude or bevel.
 
 ```
 ┌ ⟲ Extrude ─────────────────── ⌄ ✕ ┐
@@ -326,7 +327,7 @@ Behaviour:
 └───────────────────────────────────┘
 ```
 
-**Channel Box › INPUTS** shows the same state, where Maya users click `polyExtrudeFace1`. Here it is one live entry, not a history list:
+**Channels panel › INPUTS** shows the same state, where desktop-DCC users click `polyExtrudeFace1`. Here it is one live entry, not a history list:
 
 ```
  Hero_body
@@ -342,7 +343,7 @@ Behaviour:
    Keep Together     on
 ```
 
-Both views edit one session `lastOp`. MMB-drag in the viewport runs the virtual slider on the selected INPUTS field, the existing Channel Box behaviour (`prefs.virtualSlider.viewportMmb`); with no channel or INPUTS field selected, MMB-drag moves the selection (Maya rule, MODELING-PLAN v0.2 §3.7). *Corrected (MODELING-PLAN v0.2 §3.4): the extrude's primary field is Local Translate Z (along the normal), not Offset, which insets the cap.*
+Both views edit one session `lastOp`. MMB-drag in the viewport runs the virtual slider on the selected INPUTS field, the existing Channels panel behaviour (`prefs.virtualSlider.viewportMmb`); with no channel or INPUTS field selected, MMB-drag moves the selection (desktop-DCC convention, MODELING-PLAN v0.2 §3.7). *Corrected (MODELING-PLAN v0.2 §3.4): the extrude's primary field is Local Translate Z (along the normal), not Offset, which insets the cap.*
 
 ### 8.3 Lifecycle
 
@@ -355,17 +356,17 @@ Both views edit one session `lastOp`. MMB-drag in the viewport runs the virtual 
 
 - An edit **replaces** the operation's history step, so `Z` still removes the whole operation in one press.
 - While a field's virtual slider is dragged, re-runs go through a preview session (ARCHITECTURE: preview then commit) at most once per frame. If a re-run takes more than 50 ms, the card switches to "update on release".
-- `Esc` in a field reverts it. `✕` closes the card and keeps the arguments, so `G` (Repeat Last, Maya) still applies the same operation and arguments to a new selection.
-- Operations without parameters (Delete, Flip) show no card. Primitive creation shows its segment counts, which replaces Maya's interactive creation options.
-- **Primitive parameters stay live longer** (note 10, TL;DR 3): until the mesh's first ~~topology~~ **component** edit, Attributes › Primitive and Channel Box INPUTS keep the primitive's sizes and segment counts editable, even after transforms, selection changes and other objects' edits. The first component edit of any kind (a vertex nudge included) freezes them, and the Outliner badge changes from `prim` to `✎` (*amended, Q-MOD-UI-17: regenerating after tweaks would lose or misplace them*).
+- `Esc` in a field reverts it. `✕` closes the card and keeps the arguments, so `G` (Repeat Last, as in the desktop DCC) still applies the same operation and arguments to a new selection.
+- Operations without parameters (Delete, Flip) show no card. Primitive creation shows its segment counts, which replaces the desktop DCC's interactive creation options.
+- **Primitive parameters stay live longer** (note 10, TL;DR 3): until the mesh's first ~~topology~~ **component** edit, Attributes › Primitive and Channels panel INPUTS keep the primitive's sizes and segment counts editable, even after transforms, selection changes and other objects' edits. The first component edit of any kind (a vertex nudge included) freezes them, and the Outliner badge changes from `prim` to `✎` (*amended, Q-MOD-UI-17: regenerating after tweaks would lose or misplace them*).
 - *Superseded (MODELING-PLAN v0.2 §3.4, Q-MOD-K-4): `history.amend` is replaced by undo + re-run (`edit.adjustLast`); after `Ctrl+E` an **extrude session** keeps the card live while the extrude manipulator and `W`/`E`/`R` drags on the cap edit the extrude's local translate/rotate/scale.*
 - A remote change to a target mesh disables the card with "Changed by Anna" (§24).
 
 ### 8.4 Comparison
 
-| | Maya | Blender | Ekza |
+| | Desktop DCC | Open-source DCC | Ekza |
 |---|---|---|---|
-| Where | In-View Editor in the viewport; Channel Box INPUTS | HUD panel, bottom-left; `F9` popup | Pane card, bottom-left, plus Channel Box INPUTS |
+| Where | In-View Editor in the viewport; Channels panel INPUTS | HUD panel, bottom-left; `F9` popup | Pane card, bottom-left, plus Channels panel INPUTS |
 | How long editable | Until history is deleted (any later time) | Until the next operator | Until the next document edit or selection change |
 | Storage | History nodes in the scene | Undo step re-run | Undo step amended; nothing extra in the document (Blockbench does the same in a web stack with `Undo.amendEdit`, note 11 D3) |
 | Key | `T` (with Show Manipulators) | `F9` | `T` (`F9` is Vertex mode) |
@@ -376,7 +377,7 @@ Both views edit one session `lastOp`. MMB-drag in the viewport runs the virtual 
 
 Two kinds of modal interaction share one readout and one grammar:
 
-1. **Manipulator drags**: W/E/R handles, Shift+drag extrude (Maya smart extrude) and the extrude/bevel handles.
+1. **Manipulator drags**: W/E/R handles, Shift+drag extrude (the desktop DCC's smart extrude) and the extrude/bevel handles.
 2. **Parameter drags**: bevel width, inset, `B`+drag soft-select radius, the Multi-Cut slide.
 
 ```
@@ -388,10 +389,10 @@ Two kinds of modal interaction share one readout and one grammar:
 
 Rules:
 
-- Typing a digit, `-` or `.` during a drag starts numeric entry for the active field (Blender). From then on the pointer no longer changes that field. `Backspace` edits, `Tab` moves to the next field, `Enter` or LMB release confirms, and `Esc` cancels. **RMB never cancels** (it is ignored during a drag and completes Multi-Cut; ADR 0016 D8, *corrected*). Cancel restores the pre-drag state with no undo entry (09 §6.2). Right after a keyboard-invoked operator the same entry is armed until the first pointer move, click or non-numeric key; `T` opens the card with the primary field focused (MODELING-PLAN v0.2 §3.4).
+- Typing a digit, `-` or `.` during a drag starts numeric entry for the active field (open-source-DCC convention). From then on the pointer no longer changes that field. `Backspace` edits, `Tab` moves to the next field, `Enter` or LMB release confirms, and `Esc` cancels. **RMB never cancels** (it is ignored during a drag and completes Multi-Cut; ADR 0016 D8, *corrected*). Cancel restores the pre-drag state with no undo entry (09 §6.2). Right after a keyboard-invoked operator the same entry is armed until the first pointer move, click or non-numeric key; `T` opens the card with the primary field focused (MODELING-PLAN v0.2 §3.4).
 - Input follows 09 §6.4: expressions, relative `+=`, `deg`/`rad` suffixes. Units are displayed (m, °).
 - `Shift` is fine adjustment ×0.1 (09). `J` held snaps to increments.
-- **Presets do not mix.** In the Maya preset, holding `X`/`C`/`V` snaps to grid/edge/vertex during a drag too, and the grabbed handle gives the axis. In the Blender preset (later), `X`/`Y`/`Z` constrain the axis and `Ctrl` snaps.
+- **Presets do not mix.** In the `dcc` preset, holding `X`/`C`/`V` snaps to grid/edge/vertex during a drag too, and the grabbed handle gives the axis. In the alternative keymap preset (open-source-DCC style, later), `X`/`Y`/`Z` constrain the axis and `Ctrl` snaps.
 - The help line mirrors the chip text. A polite `aria-live` region announces the committed value ("Extrude offset 0.25 metres, 6 faces").
 - A drag starts after 3 px (09 §6.2). Parameter drags request Pointer Lock and fall back to pointer capture.
 - If re-evaluation exceeds 50 ms, the chip shows `…` and the preview updates at a lower rate.
@@ -412,14 +413,14 @@ Toggles collapse into `Show ▾` below 520 px (09 §4.4).
 
 | Overlay | Model default | Toggle | Implementation |
 |---|---|---|---|
-| Shading: Wireframe / Shaded / **Colours** / Lit | Colours (palette face colours under a soft clay light rig) | `4` / `5` / `6` / `7` (Maya, 09 §5.6; not shipped yet) | Per-pane material override; Colours = the face palette colours |
+| Shading: Wireframe / Shaded / **Colours** / Lit | Colours (palette face colours under a soft clay light rig) | `4` / `5` / `6` / `7` (desktop-DCC keys, 09 §5.6; not shipped yet) | Per-pane material override; Colours = the face palette colours |
 | Wireframe on shaded | on | `Wire` | `LineSegments2` from the mesh edge buffer, 1 px, `--wire`; the mesh uses `polygonOffset` |
 | Flat shading (display) | on | `Flat` | `flatShading` on the display material. Real hard/soft normals are mesh data, edited with Soften/Harden; the toggle tooltip says so |
-| Backface culling | off (Maya draws both sides) | `Cull` | `side: FrontSide`; culled faces cannot be picked |
+| Backface culling | off (the desktop DCC draws both sides) | `Cull` | `side: FrontSide`; culled faces cannot be picked |
 | X-ray | off | `Alt+X` (shipped flag) | Mesh at 50 %; components stay visible through it |
 | Component display | on in component modes | Show ▸ Components | Vertex dots 5 px (7 px selected), edges, face centre dots in Face mode; `Points` with a screen-size shader and `LineSegments2`; 1 px halo |
-| Normals | off | Show ▸ Normals ▸ Face / Vertex / Both + length | `LineSegments2`, optional constant screen length (Blender) |
-| Face orientation | off | Show ▸ Face orientation | Front `--face-front`, back `--face-back` fill (Okabe–Ito blue/orange; Blender uses blue/red) |
+| Normals | off | Show ▸ Normals ▸ Face / Vertex / Both + length | `LineSegments2`, optional constant screen length (as in the open-source DCC) |
+| Face orientation | off | Show ▸ Face orientation | Front `--face-front`, back `--face-back` fill (Okabe–Ito blue/orange; the open-source DCC uses blue/red) |
 | Hard edges | on | Show ▸ Hard edges | Hard edges drawn 2 px |
 | Mesh check (lint) | off; on while the Mesh Check panel is open | Mesh Check tab | n-gons (> 4 sides) ◇ amber, non-manifold ✕ red, zero-area faces, near-coincident vertices; feeds the tab status glyph |
 | Symmetry plane | on when symmetry ≠ Off | Show ▸ Symmetry | Dashed `--sym-plane` rectangle at the mesh bounds; seam edges highlighted when Preserve Seam is on |
@@ -446,7 +447,7 @@ The mesh shades from light grey through to the dark viewport, so no single colou
 | `--face-front` / `--face-back` | `#56b4e9` / `#e69f00` | 7.90 / 8.09 | 4.48 / 4.59 | 2.12 / 2.17 | face orientation |
 | `--sym-plane` | `#5cc8ff` | 9.69 | 5.50 | 2.59 | symmetry plane |
 | `--lint-ngon` / `--lint-error` | `#e3b34a` / `#ef6b6b` | 9.39 / 6.06 | 5.33 / 3.44 | 2.51 / 1.62 | Mesh check |
-| `--soft-1…4` | `#ffd84d` → `#ff8a3d` → `#d9363e` → `#4a1a1e` | ≥ 3.95 (1–3) | — | — | soft-select weight 1 → 0 (Maya-like yellow → red → dark) |
+| `--soft-1…4` | `#ffd84d` → `#ff8a3d` → `#d9363e` → `#4a1a1e` | ≥ 3.95 (1–3) | — | — | soft-select weight 1 → 0 (desktop-DCC-like yellow → red → dark) |
 
 Every glyph reaches ≥ 3.95:1 against its halo, and the halo reaches ≥ 3.73:1 against clay and lighter shading, which meets SC 1.4.11 (3:1). On the dark viewport the glyph colour carries it. None of these tokens uses the brand accent (09 §8.1). The tokens CI contrast check (09 §8.3) gains these rows.
 
@@ -462,9 +463,9 @@ Every glyph reaches ≥ 3.95:1 against its halo, and the halo reaches ≥ 3.73:1
  Budget  [██████████░░░░░] 816 / 1 500 tris · OMOBA prop   ← text + bar; ok / warn ≥ 90 % / danger > 100 %
 ```
 
-- The three columns follow Maya's Poly Count HUD: everything visible, the selected objects, and the selected components. Rows: Verts, Edges, Faces, Tris (+ UVs when UVs exist). Game work tracks **Tris**, so the budget bar uses triangles.
+- The three columns follow the desktop DCC's Poly Count HUD: everything visible, the selected objects, and the selected components. Rows: Verts, Edges, Faces, Tris (+ UVs when UVs exist). Game work tracks **Tris**, so the budget bar uses triangles.
 - The budget comes from the object's export target: a D attribute `targetBudget`, or the export profile's default.
-- Position: top-left under the camera name (Maya's placement). Numbers use `tnum`. The HUD updates on mesh version change, not every frame.
+- Position: top-left under the camera name (the desktop DCC's placement). Numbers use `tnum`. The HUD updates on mesh version change, not every frame.
 
 ---
 
@@ -474,22 +475,22 @@ Every glyph reaches ≥ 3.95:1 against its halo, and the halo reaches ≥ 3.73:1
 
 Status-line group `Snap  [# Grid X] [/ Edge C] [. Vertex V] [~ Incr J]  ⚙`:
 
-- Click makes a snap sticky; holding the key snaps temporarily (Maya). `J` is the existing increment snap (09).
+- Click makes a snap sticky; holding the key snaps temporarily (desktop-DCC convention). `J` is the existing increment snap (09).
 - The `⚙` popover sets the grid step (0.1 m default for low-poly), increments (move 0.1, rotate 15°, scale 0.1; 09) and the vertex snap radius (12 px).
 - Feedback: a ring on the snap candidate, and the readout shows `→ vertex 128 · Hero_body`.
-- Live surface snapping (Maya "Make Live") comes later.
+- Live surface snapping (the desktop DCC's "Make Live") comes later.
 
 ### 11.2 Pivot editing
 
 | Input | Behaviour | Origin |
 |---|---|---|
-| `D` held | Pivot edit while held; drag the pivot handle; `X`/`C`/`V` snap it to grid/edge/vertex | Maya (Autodesk Mac hotkeys doc; Polycount for the snapping) |
-| `Insert` (Win/Linux), `Home` (macOS) | Sticky pivot-edit toggle. `Home` overrides time.goToStart only in the Model viewport scope | Maya: Insert, or Home on Mac |
+| `D` held | Pivot edit while held; drag the pivot handle; `X`/`C`/`V` snap it to grid/edge/vertex | Desktop DCC (vendor macOS hotkeys doc; Polycount for the snapping) |
+| `Insert` (Win/Linux), `Home` (macOS) | Sticky pivot-edit toggle. `Home` overrides time.goToStart only in the Model viewport scope | Desktop DCC: Insert, or Home on Mac |
 | Status line `Piv` toggle | Same as the sticky toggle | E |
 | Modify / RMB › Pivot ▸ | Center Pivot · Pivot to Selection · **Pivot to Bottom Center** (props sit on the ground) · Reset Pivot · Bake Pivot (move the geometry so the pivot becomes the origin) | M + E |
 
 - Visual: the custom pivot handle is an `--axis-active` ring with axis arrows. While editing, the manipulator draws dashed.
-- The object pivot offset is D (an object attribute; Maya stores rotate/scale pivots on the transform). In component mode the transform pivot is U: the selection centre by default. "Pin component pivot" holds it.
+- The object pivot offset is D (an object attribute; the desktop DCC stores rotate/scale pivots on the transform). In component mode the transform pivot is U: the selection centre by default. "Pin component pivot" holds it.
 
 ---
 
@@ -497,26 +498,26 @@ Status-line group `Snap  [# Grid X] [/ Edge C] [. Vertex V] [~ Incr J]  ⚙`:
 
 ### 12.1 Symmetry
 
-- **Status-line dropdown** (Maya places it there): Off · Object X · Object Y · Object Z · World X · World Y · World Z · Topology (later; needs a seam edge, as in Maya).
-- **Remembered per mesh**, the Blender idea: a session map `meshId → mode`, defaulting from P. Templates default to Object X.
+- **Status-line dropdown** (the desktop DCC places it there): Off · Object X · Object Y · Object Z · World X · World Y · World Z · Topology (later; needs a seam edge, as in the desktop DCC).
+- **Remembered per mesh**, the open-source-DCC idea: a session map `meshId → mode`, defaulting from P. Templates default to Object X.
 - **Live Mirror** (note 11 D7) is a separate, per-mesh, non-destructive mirror (axis, merge distance, clipping), stored on the mesh as D and baked at export. You model one half and see both. The Toolkit Symmetry section has a `[ ] Live mirror` toggle with its options, and the Outliner shows a `mirror` badge. Symmetry mode (editing both sides of real geometry) and Live Mirror (generating the other half) are mutually exclusive on one axis, and the UI disables the conflicting option with a tooltip.
-- **Tolerance** defaults to 0.001 m (in metres, shown in scene units; MODELING-PLAN v0.2 §3.14 also fixes the per-tool mirroring of Multi-Cut, loops, weld, slide and bridge). **Preserve Seam** is on by default, so seam vertices stay on the plane. Both are Maya Select Tool options.
+- **Tolerance** defaults to 0.001 m (in metres, shown in scene units; MODELING-PLAN v0.2 §3.14 also fixes the per-tool mirroring of Multi-Cut, loops, weld, slide and bridge). **Preserve Seam** is on by default, so seam vertices stay on the plane. Both are Select Tool options in the desktop DCC.
 - Visual: the symmetry plane overlay. Pre-selection highlights the mirrored counterpart too. Selected counterparts draw `--comp-selected` at 60 %.
 - When a counterpart is missing, the help line says "12 vertices have no mirror within tolerance" and offers **Show asymmetric** (a lint overlay) and **Symmetrize** (Mesh menu).
 
 ### 12.2 Soft selection
 
-- `B` toggles it. `B`+LMB drag changes the radius relative to its current value; `B`+MMB drag sets it from zero (Maya). Trackpad users get `B`+drag only.
-- The status line shows `Soft ○ 0.50 m`; the falloff mode (Volume / Surface, Maya) and the curve preset live in the Toolkit.
+- `B` toggles it. `B`+LMB drag changes the radius relative to its current value; `B`+MMB drag sets it from zero (desktop-DCC convention). Trackpad users get `B`+drag only.
+- The status line shows `Soft ○ 0.50 m`; the falloff mode (Volume / Surface, as in the desktop DCC) and the curve preset live in the Toolkit.
 - It applies to components only. Soft selection on objects is not offered.
 - The weight ramp is the `--soft-1…4` tint, with the radius ring at the pointer while `B` is held.
 
 ### 12.3 Selection constraints, styles and gestures
 
-- **Constraints** (Toolkit and Q menu): Off · Angle (tolerance °) · Border · Edge Loop (edge mode only) · Edge Ring · Shell. As in Maya's MTK, they highlight on hover and propagate on click.
-- **Camera-based selection**: Auto. It is on in shaded and off in wireframe/X-ray, as Maya's default does. Backface selection is a separate toggle.
-- **Styles**: Marquee, Drag (paint over components) and **Tweak** (drag a component to move it directly, Maya Tweak/Marquee). Tweak is the biggest speed win for low-poly shaping; it is in the M6a base as a Move tool option, off by default.
-- **Gestures**: click, Shift toggle, Mod remove, Mod+Shift add (09 §6.1); marquee. Double-clicking an edge selects its loop (Maya). *Corrected to Maya's table (MODELING-PLAN v0.2 §3.5):* Shift+double-click an **adjacent** component selects the full loop, a **non-adjacent** one the partial loop between them (vertices, edges, faces); a parallel edge gives the ring; Ctrl+double-click deselects the loop or partial loop. `>` grows and `<` shrinks. Arrow keys pick-walk to the adjacent component.
+- **Constraints** (Toolkit and Q menu): Off · Angle (tolerance °) · Border · Edge Loop (edge mode only) · Edge Ring · Shell. As in the desktop DCC's modeling tools, they highlight on hover and propagate on click.
+- **Camera-based selection**: Auto. It is on in shaded and off in wireframe/X-ray, as the desktop DCC's default does. Backface selection is a separate toggle.
+- **Styles**: Marquee, Drag (paint over components) and **Tweak** (drag a component to move it directly, the desktop DCC's Tweak/Marquee). Tweak is the biggest speed win for low-poly shaping; it is in the M6a base as a Move tool option, off by default.
+- **Gestures**: click, Shift toggle, Mod remove, Mod+Shift add (09 §6.1); marquee. Double-clicking an edge selects its loop (desktop-DCC convention). *Corrected to the desktop DCC's table (MODELING-PLAN v0.2 §3.5):* Shift+double-click an **adjacent** component selects the full loop, a **non-adjacent** one the partial loop between them (vertices, edges, faces); a parallel edge gives the ring; Ctrl+double-click deselects the loop or partial loop. `>` grows and `<` shrinks. Arrow keys pick-walk to the adjacent component.
 
 ---
 
@@ -540,7 +541,7 @@ Status-line group `Snap  [# Grid X] [/ Edge C] [. Vertex V] [~ Incr J]  ⚙`:
 
 | Item | Behaviour |
 |---|---|
-| Types | Mesh ▢, group ⊞, character ☺, joint, camera. Shape nodes are hidden (Maya's "Show Shapes" is off by default) |
+| Types | Mesh ▢, group ⊞, character ☺, joint, camera. Shape nodes are hidden (the desktop DCC's "Show Shapes" is off by default) |
 | Badges | Triangles (tabular figures); **✎ editable** vs **⊘ asset** (imported meshes stay immutable content-addressed assets until "Make editable", 08 §3.1); skin state `skin ✓` / `skin ⚠ out of date`; `prim` (primitive parameters still live, §8.3); `⇋X` symmetry; `mirror` (Live Mirror, §12.1); lint dot; claim chip (§24). Every badge has text or a glyph plus a tooltip |
 | Drag | Reparent is **allowed in Model** (`scene.node.reparent`) and stays disabled in Animate (09 §4.3). A skinned mesh cannot be dragged out of its character without "Unbind" |
 | Component mode | Clicking a mesh row adds it to the hilite set |
@@ -611,7 +612,7 @@ VRM exports **force the palette texture**, and the Export dialog explains why: t
 ## 15. UV editor (later): placement
 
 - A **pane type** `UV Editor`, drawn with Canvas2D like the Graph Editor (ADR 0007 reasoning). It can sit in the viewport grid (preset M-UV) or as a bottom-dock tab.
-- UV mode (Maya F12, which is DevTools in browsers) is reachable only from RMB › UV and the switcher, and only when a UV Editor pane is open. Ctrl+RMB › To UVs stays disabled until then, with "Coming later".
+- UV mode (F12 in the desktop DCC, which is DevTools in browsers) is reachable only from RMB › UV and the switcher, and only when a UV Editor pane is open. Ctrl+RMB › To UVs stays disabled until then, with "Coming later".
 - It is not on the critical path: the palette workflow generates its own UVs (§14.4).
 
 ---
@@ -686,7 +687,7 @@ The Rig & Skin layout is later work. The hand-off needs only its entry point, it
 
 ## 18. Menus in the Model workspace
 
-The common menus stay (File, Edit, Create, Select, Modify, Display, Windows, Help), and Model adds Maya's Modeling menu set. Each item is an operator (09 principle 7) contributed with `workspaces: ['model']`. Operator IDs are proposals; the mesh-operations note owns the catalog.
+The common menus stay (File, Edit, Create, Select, Modify, Display, Windows, Help), and Model adds the desktop DCC's Modeling menu set. Each item is an operator (09 principle 7) contributed with `workspaces: ['model']`. Operator IDs are proposals; the mesh-operations note owns the catalog.
 
 | Menu | Items (operator) |
 |---|---|
@@ -701,7 +702,7 @@ The common menus stay (File, Edit, Create, Select, Modify, Display, Windows, Hel
 
 ---
 
-## 19. Default keymap for modeling (`maya` preset)
+## 19. Default keymap for modeling (`dcc` preset)
 
 ### 19.1 Implementation rules (additions to 09 §7.1)
 
@@ -712,18 +713,18 @@ The common menus stay (File, Edit, Create, Select, Modify, Display, Windows, Hel
 
 ### 19.2 F-key availability
 
-| Key | Maya meaning | Windows Chrome/Edge | Linux Chrome | Firefox (Win/Linux) | macOS (any browser) | Ekza default |
+| Key | Desktop-DCC meaning | Windows Chrome/Edge | Linux Chrome | Firefox (Win/Linux) | macOS (any browser) | Ekza default |
 |---|---|---|---|---|---|---|
 | F8 | object ↔ component | ok | ok | ok | media play/pause unless fn or "standard function keys" | **bound** |
 | F9 | vertex | ok | ok | ok | media next; fn+F9 | **bound** + `1` |
 | F10 | edge | browser accelerator (focus toolbar); `preventDefault` on keydown, QA per release | ok | shows the menu bar; `preventDefault`, QA | mute; fn+F10 | **bound** + `2` |
 | F11 | face | fullscreen (even Keyboard Lock leaves it to Chromium) | same | reserved (Firefox fullscreen tests) | Show Desktop (OS default) | **not bound**; `3` |
 | F12 | UV | DevTools | DevTools | DevTools | volume up | not bound |
-| Ctrl+F9/F10/F11 | convert to vertices/edges/faces (Maya hotkey list) | ok, QA | ok | ok | fn needed; Ctrl+F1–F8 are macOS keyboard-navigation keys, F9–F11 believed free; QA | bound (convert) |
+| Ctrl+F9/F10/F11 | convert to vertices/edges/faces (desktop-DCC hotkey list) | ok, QA | ok | ok | fn needed; Ctrl+F1–F8 are macOS keyboard-navigation keys, F9–F11 believed free; QA | bound (convert) |
 
 ### 19.3 Full table
 
-Legend: **M** Maya default · **M~** Maya-inspired, adapted · **E** Ekza addition (**E-B** from Blender). Scopes: `mv` = `model.viewport`, `mvc` = `model.viewport.component`, `mo` = `model.outliner`, `modal` = while a modal tool or drag is active. `Mod` = Ctrl on Win/Linux, Cmd on macOS.
+Legend: **M** desktop-DCC default · **M~** desktop-DCC-inspired, adapted · **E** Ekza addition (**E-B** from the open-source DCC). Scopes: `mv` = `model.viewport`, `mvc` = `model.viewport.component`, `mo` = `model.outliner`, `modal` = while a modal tool or drag is active. `Mod` = Ctrl on Win/Linux, Cmd on macOS.
 
 **Modes and selection**
 
@@ -732,12 +733,12 @@ Legend: **M** Maya default · **M~** Maya-inspired, adapted · **E** Ekza additi
 | Object ↔ last component mode | `F8` | `F8` (fn) | mv | M | |
 | Vertex mode | `F9`, `1` | `1`, fn+`F9` | mv | M / E-B (Industry Compatible) | Pressing `1` again returns to object mode |
 | Edge mode | `F10`, `2` | `2`, fn+`F10` | mv | M / E-B | F10 QA (§19.2) |
-| Face mode | `3` | `3` | mv | E-B | Maya F11 is browser/OS-reserved |
+| Face mode | `3` | `3` | mv | E-B | The desktop DCC's F11 is browser/OS-reserved |
 | Convert to vertices / edges / faces | `Ctrl+F9` / `Ctrl+F10` / `Ctrl+F11` | fn+`Ctrl+F9`… | mvc | M | Also Ctrl+RMB and Select › Convert |
 | Grow / shrink selection | `Shift+.` (`>`) / `Shift+,` (`<`) | same | mvc | M | Unshifted `,`/`.` stay prev/next key |
-| Select edge loop / full or partial loop / deselect loop | double-click edge / Shift+double-click adjacent or non-adjacent / Ctrl+double-click | same | mvc | M | Maya table (§12.3, corrected) |
+| Select edge loop / full or partial loop / deselect loop | double-click edge / Shift+double-click adjacent or non-adjacent / Ctrl+double-click | same | mvc | M | Desktop-DCC table (§12.3, corrected) |
 | Select all components of hilited meshes | `Mod+A` | `Cmd+A` | mvc | E (09) | |
-| Invert selection | — (menu, palette) | — | — | — | Maya's `Ctrl+Shift+I` opens DevTools |
+| Invert selection | — (menu, palette) | — | — | — | The desktop DCC's `Ctrl+Shift+I` opens DevTools |
 | Pick-walk to adjacent component | arrows | arrows | mvc | M | |
 | Hide selected / show all / hide unselected | `H` / `Shift+H` / `Alt+H` | same | mv | M~ (09) | Components too |
 | Isolate selection | `Shift+L` | same | mv | M (09) | |
@@ -748,18 +749,18 @@ Legend: **M** Maya default · **M~** Maya-inspired, adapted · **E** Ekza additi
 | Action | Win/Linux | macOS | Scope | Origin | Notes |
 |---|---|---|---|---|---|
 | Select / Move / Rotate / **Scale** tool | `Q` / `W` / `E` / `R` | same | mv | M | Viewport scale tool is new |
-| Last used tool | `Y` | `Y` | mv | M | Also re-activates Multi-Cut (Autodesk) |
-| Adjust Last Operation (expand/collapse card) | `T` | `T` | mv | M~ | Maya `T` brings back the In-View Editor |
+| Last used tool | `Y` | `Y` | mv | M | Also re-activates Multi-Cut (vendor help) |
+| Adjust Last Operation (expand/collapse card) | `T` | `T` | mv | M~ | In the desktop DCC, `T` brings back the In-View Editor |
 | Repeat last operation | `G` | `G` | mv | M | 09 listed `G` as later |
 | **Extrude** | `Ctrl+E` | `Cmd+E` | mvc | M | Shadows Export (`Mod+E`) only here |
 | Export dialog (alias, everywhere) | `Ctrl+Shift+E` | `Cmd+Shift+E` | global | E | Notes 10 §6.3 and 11 D10. QA: Firefox binds `Ctrl+Shift+E` to its Network Monitor |
-| Smart extrude | Shift+drag a manipulator handle | same | mvc | M | In object mode Shift+drag duplicates (Maya smart duplicate) |
+| Smart extrude | Shift+drag a manipulator handle | same | mvc | M | In object mode Shift+drag duplicates (the desktop DCC's smart duplicate) |
 | Bevel | `Ctrl+B` | `Cmd+B` | mvc | E-B | Firefox `Ctrl+B` = bookmarks sidebar: `preventDefault`, QA |
 | Multi-Cut | `K` | `K` | mv | E-B (knife) | In Animate `K`+drag stays the virtual time slider (09) |
-| Insert edge loop | `Ctrl`+click in Multi-Cut; Shift+RMB › N | same | mv | M | Blender's `Ctrl+R` reloads the page |
+| Insert edge loop | `Ctrl`+click in Multi-Cut; Shift+RMB › N | same | mv | M | The open-source DCC's `Ctrl+R` reloads the page |
 | Spin edge (controls triangulation) | `Ctrl+Alt+→` / `Ctrl+Alt+←` | `Ctrl+Option+→` / `←` | mvc | M | Some Windows graphics drivers rotate the screen on this chord (note 10); menu fallback |
 | Merge (menu: at center / to last / by distance) | `M` | `M` | mvc | E-B | `Alt+M` stays Mirror pose |
-| Delete components | `Delete`, `Backspace` | same | mvc | M | *Superseded (Q-MOD-UI-6):* Maya's plain Delete — edges merge their faces and keep the end vertices; `Mod+Delete`/`Mod+Backspace` = Delete Edge/Vertex (clean); faces delete |
+| Delete components | `Delete`, `Backspace` | same | mvc | M | *Superseded (Q-MOD-UI-6):* the desktop DCC's plain Delete — edges merge their faces and keep the end vertices; `Mod+Delete`/`Mod+Backspace` = Delete Edge/Vertex (clean); faces delete |
 | Delete objects | `Delete`, `Backspace` | same | mv, mo | M | |
 | Duplicate (objects; faces in face mode) | `Ctrl+D` | `Cmd+D` | mv, mo | M | Browser "bookmark" prevented, as 09 already does |
 | Duplicate with transform | `Shift+D` | same | mv | M | |
@@ -795,7 +796,7 @@ Legend: **M** Maya default · **M~** Maya-inspired, adapted · **E** Ekza additi
 | Next field | `Tab` | E-B |
 | Confirm / cancel | `Enter`, LMB release / `Esc` (RMB never cancels: ignored during a drag, completes Multi-Cut; corrected per ADR 0016 D8) | M + B |
 | Fine adjustment | `Shift` | 09 |
-| Axis constraint | `X` / `Y` / `Z` (Blender preset only) | B |
+| Axis constraint | `X` / `Y` / `Z` (alternative open-source-DCC-style preset only) | B |
 
 **Marking menus (Model viewport)**: RMB (modes, §5.4) · Shift+RMB (polygon tools, §6.1) · Ctrl+RMB (convert, §6.2) · Ctrl+Shift+RMB and `Q`+LMB (selection options, §6.3) · `W`/`E`/`R`+LMB (spaces; 09; Move adds **Component/Normal** space) · `Space` hold (camera radial, shipped).
 
@@ -803,24 +804,24 @@ Legend: **M** Maya default · **M~** Maya-inspired, adapted · **E** Ekza additi
 
 **Inherited unchanged in Model**: undo/redo, `Mod+S`, `Mod+O`, `Mod+K` (palette), `?`, Space tap/hold, `Shift+[`/`Shift+]`, `Alt+L`, `Alt+V`, `Esc`.
 
-**Never bound by default** (09 §7.6 plus modeling cases): `Mod+R` (reload; Blender loop cut), `Ctrl+N` (new window; Blender recalc normals; use Mesh Display › Conform Normals), `Ctrl+Tab` (Blender select-mode pie), `Mod+Shift+I` (DevTools; Maya invert), `F11`, `F12`, `Alt+E`/`Alt+F` on Windows (browser menus; Blender extrude menu), `Tab` outside modal tools (focus traversal and WCAG 2.1.2; Blender's edit-mode toggle).
+**Never bound by default** (09 §7.6 plus modeling cases): `Mod+R` (reload; open-source-DCC loop cut), `Ctrl+N` (new window; open-source-DCC recalc normals; use Mesh Display › Conform Normals), `Ctrl+Tab` (open-source-DCC select-mode pie), `Mod+Shift+I` (DevTools; desktop-DCC invert), `F11`, `F12`, `Alt+E`/`Alt+F` on Windows (browser menus; open-source-DCC extrude menu), `Tab` outside modal tools (focus traversal and WCAG 2.1.2; the open-source DCC's edit-mode toggle).
 
-### 19.4 Deliberate divergences from Maya
+### 19.4 Deliberate divergences from the desktop DCC
 
-| Maya | Ekza | Why |
+| Desktop DCC | Ekza | Why |
 |---|---|---|
 | F11 face mode | `3` | Fullscreen / Show Desktop |
 | F12 UV mode | Switcher and RMB only, later | DevTools |
-| `1`/`2`/`3` smooth mesh preview | Vertex/edge/face mode; smooth preview later on `Shift+1`/`2`/`3` (note 10) | No subdivision preview in low-poly scope; Blender's Industry Compatible precedent |
+| `1`/`2`/`3` smooth mesh preview | Vertex/edge/face mode; smooth preview later on `Shift+1`/`2`/`3` (note 10) | No subdivision preview in low-poly scope; the open-source DCC's Industry Compatible precedent |
 | `Ctrl+Shift+I` invert | Menu and palette | DevTools |
-| Insert on macOS | `Home` | Maya's own Mac docs |
-| ~~Delete on edges leaves winged vertices~~ | ~~Dissolves cleanly~~ | *Superseded (Q-MOD-UI-6): no divergence; Delete behaves as in Maya, with a stray-vertex lint and one-click fix* |
-| No default bevel / multi-cut / merge keys | `Mod+B` / `K` / `M` | Blender habits that collide with nothing in the browser |
+| Insert on macOS | `Home` | The vendor's own Mac docs |
+| ~~Delete on edges leaves winged vertices~~ | ~~Dissolves cleanly~~ | *Superseded (Q-MOD-UI-6): no divergence; Delete behaves as in the desktop DCC, with a stray-vertex lint and one-click fix* |
+| No default bevel / multi-cut / merge keys | `Mod+B` / `K` / `M` | Open-source-DCC habits that collide with nothing in the browser |
 | Construction history (INPUTS list) | Last operation only | U3 |
 
-### 19.5 Blender preset (later, T0 data pack)
+### 19.5 Alternative keymap preset (open-source-DCC style; later, T0 data pack)
 
-`G`/`R`/`S` modal transforms with `X`/`Y`/`Z`, `E` extrude, `I` inset, `Ctrl+B` bevel, `K` knife, `M` merge, `F` fill, and `Alt`+click loop select. `Alt`+click works only with the Trackpad/Blender navigation profile, because in the Maya profile `Alt`+LMB tumbles. `Ctrl+R`, `Ctrl+N` and `Ctrl+Tab` cannot be offered; the preset maps them to `Alt+R`, menu entries and the RMB menu, with a note in the cheat sheet.
+`G`/`R`/`S` modal transforms with `X`/`Y`/`Z`, `E` extrude, `I` inset, `Ctrl+B` bevel, `K` knife, `M` merge, `F` fill, and `Alt`+click loop select. `Alt`+click works only with the Trackpad navigation profile (or an open-source-DCC-style one), because in the `dcc` profile `Alt`+LMB tumbles. `Ctrl+R`, `Ctrl+N` and `Ctrl+Tab` cannot be offered; the preset maps them to `Alt+R`, menu entries and the RMB menu, with a note in the cheat sheet.
 
 ---
 
@@ -842,10 +843,10 @@ Legend: **M** Maya default · **M~** Maya-inspired, adapted · **E** Ekza additi
    <ViewportPanel>  <PaneHeader/> <PaneSurface/>
      <PaneHud> <ModeBadges/> <PolyCountHud/> <BindPoseBadge/> <LastOpCard/> <ModalReadout/> <SnapTargetChip/>
      <ModelEmptyState/>
-   <ModelingToolkitPanel> <MtkTargetHeader/> <ComponentModeSwitch compact/> <MtkSelectionSection/>
+   <ToolkitPanel> <MtkTargetHeader/> <ComponentModeSwitch compact/> <MtkSelectionSection/>
      <MtkSymmetrySection/> <MtkSoftSelectionSection/> <MtkComponentsGrid/> <MtkToolsGrid/> <MtkMeshGrid/>
      <ActiveToolSettings/> <HandOffFooter/>
-   <ChannelBoxPanel> … <InputsSection/>          // last-op args (Maya INPUTS)
+   <ChannelsPanel> … <InputsSection/>          // last-op args (desktop-DCC INPUTS)
    <AttributesPanel> … <MeshSection/> <PivotSection/> <ExportTargetSection/>
    <PalettePanel> <PaletteSelect/> <SwatchGrid/> <ActiveColour/> <ApplyControls/> <ExportColourModeRadio/>
    <MeshCheckPanel/>                             // lint list ⇄ overlay
@@ -966,7 +967,7 @@ export interface LastOpState {
 |---|---|---|
 | U-0 Shell prerequisites | Workspace tabs, per-workspace layouts/menus/status line, hierarchical key scopes, generic `MarkingMenu` (FR-SHELL-09), command palette (FR-SHELL-08), viewport Scale tool, overlay layer infrastructure, display modes `4`–`7` | — (pulled forward from M2c) |
 | U-1 Modes and selection | Component modes, `ComponentSelection`, component overlays, RMB and Ctrl+RMB menus, poly count HUD, Mesh Check panel + overlay | mesh data note |
-| U-2 Operations UI | Toolkit panel, Shift+RMB menus, Last-op card + Channel Box INPUTS + `history.amend`, modal readout and numeric input | mesh operators note |
+| U-2 Operations UI | Toolkit panel, Shift+RMB menus, Last-op card + Channels panel INPUTS + `history.amend`, modal readout and numeric input | mesh operators note |
 | U-3 Precision aids | Snapping, pivot editing, symmetry, soft selection, constraints, selection styles | U-1 |
 | U-4 Content | Outliner for meshes + Make editable (licence gate), Palette panel + Paint Colour, Model start card, templates, Getting started | mesh data, templates |
 | U-5 Hand-off | Pipeline glyphs, Rig & Skin entry, `BIND POSE`, skin out-of-date flow, Export dialog sections | skinning note, export note |
@@ -988,12 +989,12 @@ Acceptance scenarios (`E2E-MOD-*`, Chrome; mouse and trackpad profiles):
 
 | ID | Question | Proposal |
 |---|---|---|
-| Q-MOD-UI-1 | Calibrate the RMB and Shift+RMB compass positions against a Maya install, or accept the Ekza layout? | Owner checks Maya 2026/2027 once; then freeze |
-| Q-MOD-UI-2 | Digits `1`/`2`/`3` for component modes (lose Maya smooth-preview semantics)? | Yes (Blender Industry Compatible precedent; only portable keys) |
+| Q-MOD-UI-1 | Calibrate the RMB and Shift+RMB compass positions against a desktop-DCC install, or accept the Ekza layout? | Owner checks the desktop DCC (2026 or 2027 release) once; then freeze |
+| Q-MOD-UI-2 | Digits `1`/`2`/`3` for component modes (lose the desktop DCC's smooth-preview semantics)? | Yes (the open-source DCC's Industry Compatible precedent; only portable keys) |
 | Q-MOD-UI-3 | `Ctrl+E` extrudes in component mode and shadows Export there, with Export also on `Ctrl+Shift+E` (same as note 10 Q-MOD-10-2, note 11 Q2)? | Yes, with help-line feedback |
-| Q-MOD-UI-4 | Last operation only, or a Maya-style history list per mesh? | Last operation only for this iteration |
-| Q-MOD-UI-5 | Default Model layout: four view with persp maximized (Maya Space toggle), or single? | Four view, persp maximized |
-| Q-MOD-UI-6 | `Delete` on edges dissolves (clean), not Maya's plain delete? | Dissolve — *overridden: Maya's plain Delete (DECISIONS-OPEN Q-MOD-UI-6)* |
+| Q-MOD-UI-4 | Last operation only, or a desktop-DCC-style history list per mesh? | Last operation only for this iteration |
+| Q-MOD-UI-5 | Default Model layout: four view with persp maximized (desktop-DCC Space toggle), or single? | Four view, persp maximized |
+| Q-MOD-UI-6 | `Delete` on edges dissolves (clean), not the desktop DCC's plain delete? | Dissolve — *overridden: the desktop DCC's plain Delete (DECISIONS-OPEN Q-MOD-UI-6)* |
 | Q-MOD-UI-7 | Hide the timeline in Model by default? | Hide; Windows › Timeline |
 | Q-MOD-UI-8 | Workspace switch hotkey: none by default? | None; command palette and hotkey editor |
 | Q-MOD-UI-9 | Palette texture as the default colour export, forced for VRM (note 12 L3)? | Yes |
@@ -1005,35 +1006,35 @@ Acceptance scenarios (`E2E-MOD-*`, Chrome; mouse and trackpad profiles):
 
 ## 27. Sources
 
-Maya (Autodesk):
-- Maya keyboard shortcuts (F8–F12, Alt+F9, `<`/`>`): https://www.autodesk.com/shortcuts/maya
-- Maya 2011 hotkey reference (Ctrl+F9…F12 convert selection): https://download.autodesk.com/us/maya/2011help/files/PC_Maya_Hotkeys.htm
-- Selection hotkeys (2014): https://download.autodesk.com/global/docs/maya2014/en_US/files/Selection_hotkeys.htm
-- Marking Menus (Shift+RMB polygon tools): https://help.autodesk.com/cloudhelp/2025/ENU/Maya-Basics/files/GUID-8BA1A3AA-4C44-4779-8B22-0AAE3627E8EB.htm
-- Convert Selection (Ctrl+RMB, Ctrl+F9/F10): https://help.autodesk.com/cloudhelp/ENU/MayaCRE-Basics/files/GUID-DCE04BA9-A2CF-44AA-8045-FFF2392B6796.htm
-- Extrude (Ctrl+E, Shift+drag smart extrude, In-View Editor): https://help.autodesk.com/cloudhelp/2022/ENU/Maya-Modeling/files/GUID-20202ED3-5EC7-420E-860E-EC29D101A7A8.htm · https://help.autodesk.com/cloudhelp/2016/ENU/Maya/files/GUID-20202ED3-5EC7-420E-860E-EC29D101A7A8.htm
-- Bevel and the In-View Editor: https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-80605B6D-79ED-4435-99FB-928508248469.htm
-- In-View Editor returns with `T` (Autodesk community): https://forums.autodesk.com/t5/maya-modeling/option-missing/td-p/7114969
-- Multi-Cut hotkeys (`Y`, Ctrl+click loop): https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-21E402B5-1ABF-4DD3-A9CE-8B7957F6DF2B.htm
-- Modeling Toolkit selection styles and options: https://help.autodesk.com/cloudhelp/2023/ENU/Maya-Modeling/files/GUID-7EC09146-E5E8-449E-83D7-BFE7C780C32D.htm
-- Modeling Toolkit selection constraints: https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-CAF874D8-CD2A-4C94-8959-BDB2006EB0FB.htm
-- Camera-based selection: https://help.autodesk.com/cloudhelp/ENU/MayaCRE-Basics/files/GUID-72C0C337-FBA7-4009-9D91-57D0587A17BA.htm
-- Select Tool (symmetry tolerance, Preserve Seam, falloff modes): https://help.autodesk.com/cloudhelp/2024/ENU/Maya-Basics/files/GUID-60FD5F79-AC1D-46DE-B66D-2FBE73E15A30.htm
-- Activate symmetry (status line, Ctrl+Shift+RMB / Q+click): https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-7EC940BA-4B3A-4DB2-AC6B-8CDBA800EC61.htm
-- Soft Selection falloff size (B+drag, B+MMB): https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-9D29FDE2-7715-4FD6-9F45-5D233A9C73CF.htm
-- Poly Count HUD: https://help.autodesk.com/cloudhelp/2016/ENU/Maya/files/GUID-53E46D0C-4B7B-4404-AEB0-3BDD1FF8608A.htm · https://help.autodesk.com/cloudhelp/2019/ENU/Maya-Basics/files/GUID-0E9D9594-6664-4B69-B944-8B69E9551415.htm
-- Hotkeys in Maya for macOS (`D` pivot; Insert/Home): https://help.autodesk.com/cloudhelp/2027/ENU/Maya-KeyboardShortcuts/files/GUID-4670578A-61B8-4A02-A003-9DBA6E53003B.htm
-- Hotkey Editor (2027): https://help.autodesk.com/cloudhelp/2027/ENU/Maya-KeyboardShortcuts/files/GUID-36D24C0F-19E4-411E-8CA9-DB7B64C3E6EA.htm
+Desktop DCC (vendor help, hotkey references and community forum; URLs omitted):
+- Keyboard shortcuts (F8–F12, Alt+F9, `<`/`>`)
+- Hotkey reference, 2011 release (Ctrl+F9…F12 convert selection)
+- Selection hotkeys (2014 release)
+- Marking Menus (Shift+RMB polygon tools; 2025 help)
+- Convert Selection (Ctrl+RMB, Ctrl+F9/F10)
+- Extrude (Ctrl+E, Shift+drag smart extrude, In-View Editor; 2022 and 2016 help)
+- Bevel and the In-View Editor (2017 help)
+- In-View Editor returns with `T` (vendor community forum, modeling board)
+- Multi-Cut hotkeys (`Y`, Ctrl+click loop; 2017 help)
+- Modeling Tools selection styles and options (2023 help)
+- Modeling Tools selection constraints (2017 help)
+- Camera-based selection
+- Select Tool (symmetry tolerance, Preserve Seam, falloff modes; 2024 help)
+- Activate symmetry (status line, Ctrl+Shift+RMB / Q+click; 2017 help)
+- Soft Selection falloff size (B+drag, B+MMB; 2017 help)
+- Poly Count HUD (2016 and 2019 help)
+- Hotkeys for macOS (`D` pivot; Insert/Home; 2027 help)
+- Hotkey Editor (2027 help)
 - Pivot snapping while holding `D` (Polycount): https://polycount.com/discussion/comment/2047791
 - Shift+RMB extrude at the south slot (Polycount): https://polycount.com/discussion/comment/2082948
 
-Blender:
-- Undo & Redo, Adjust Last Operation: https://docs.blender.org/manual/en/3.0/interface/undo_redo.html
-- Mesh selection modes (1/2/3, Shift for multiple): https://docs.blender.org/manual/en/latest/modeling/meshes/selecting/introduction.html
-- Viewport overlays (face orientation, mesh edit overlays, normals): https://docs.blender.org/manual/en/dev/editors/3dview/display/overlays.html
-- Numeric input during transforms: https://docs.blender.org/manual/en/latest/scene_layout/object/editing/transform/control/numeric_input.html
-- Mesh symmetry / mirror options: https://docs.blender.org/manual/en/2.80/modeling/meshes/editing/mesh_options.html
-- Industry Compatible keymap, mode order Vert/Edge/Face/Object: https://developer.blender.org/rB1fce0460d5222604e7007518bc246c97286312f3 · https://lists.blender.org/pipermail/bf-blender-cvs/2019-May/123495.html
+Open-source DCC (manual and development history; URLs omitted):
+- Undo & Redo, Adjust Last Operation (manual 3.0)
+- Mesh selection modes (1/2/3, Shift for multiple)
+- Viewport overlays (face orientation, mesh edit overlays, normals)
+- Numeric input during transforms
+- Mesh symmetry / mirror options (manual 2.80)
+- Industry Compatible keymap, mode order Vert/Edge/Face/Object (source commit and developer mailing-list post, May 2019)
 
 Other tools and assets:
 - Blockbench overview (mode tabs Edit/Paint/Animate/Display): https://www.blockbench.net/wiki/guides/blockbench-overview-tips
@@ -1053,4 +1054,4 @@ Formats and libraries:
 - three-mesh-bvh: https://www.npmjs.com/package/three-mesh-bvh (0.9.16, MIT, checked 2026-10-18)
 - Okabe–Ito palette: https://jfly.uni-koeln.de/color/
 
-In-repo inputs: research 06, 08 (§3.1, §5.2, §9.8), 09 (whole), and this iteration's 10, 11, 12 and 14; ARCHITECTURE §4.1, §8, §10; ADR 0007, 0009, 0012, 0013; REQUIREMENTS FR-SHELL-08…11, FR-MOD-05; DECISIONS-OPEN Q-UI-1; code `packages/editor-core/src/keymap/{maya,manager}.ts`, `packages/editor-core/src/types.ts`, `packages/editor/src/input/keyboard.ts`, `packages/editor/src/shell/{StatusLine.tsx,MenuBar.tsx,layout.ts,workspace.ts}`, `packages/editor/src/panels/viewport/{PaneView,CameraRadial,EmptyState}.tsx`, `packages/viewport/src/layers.ts`.
+In-repo inputs: research 06, 08 (§3.1, §5.2, §9.8), 09 (whole), and this iteration's 10, 11, 12 and 14; ARCHITECTURE §4.1, §8, §10; ADR 0007, 0009, 0012, 0013; REQUIREMENTS FR-SHELL-08…11, FR-MOD-05; DECISIONS-OPEN Q-UI-1; code `packages/editor-core/src/keymap/{dcc,manager}.ts`, `packages/editor-core/src/types.ts`, `packages/editor/src/input/keyboard.ts`, `packages/editor/src/shell/{StatusLine.tsx,MenuBar.tsx,layout.ts,workspace.ts}`, `packages/editor/src/panels/viewport/{PaneView,CameraRadial,EmptyState}.tsx`, `packages/viewport/src/layers.ts`.

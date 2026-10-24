@@ -4,7 +4,7 @@
 // Adapted from Autodesk/animx/src/animx.cpp (`evaluateCurve`, `evaluateCurveSegment`) @
 // 11c31ac74e526b599031414866db639383c9a5e0 (Apache-2.0, © Autodesk, Inc.). Changes: ported to TypeScript over a
 // compiled curve's arrays (key lookup by binary search, span kinds precomputed per segment, Hermite/Bézier
-// coefficients prepared once at compile time); infinities are mapped by the caller (`mapInfinity`); Maya's
+// coefficients prepared once at compile time); infinities are mapped by the caller (`mapInfinity`); AnimX's
 // `isStatic()` shortcut is omitted (a static curve evaluates to the same values); the `(seconds)` precision drop
 // before Bézier spans is a no-op with 64-bit time and is left out; the key lookup first tries the segment of the
 // curve's previous lookup and the one after it (M2A-SPEC §5.21.3, M-3: a cache, not state).

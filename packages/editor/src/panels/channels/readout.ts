@@ -1,4 +1,4 @@
-// The Channel Box readout (WP-9 DoD, ARCHITECTURE §10 React rules): channel values and states of the selected
+// The Channels panel readout (WP-9 DoD, ARCHITECTURE §10 React rules): channel values and states of the selected
 // controls kept outside React. Time, document, override and evaluation changes mark it dirty; it recomputes at most
 // once per animation frame and hands each row a cell object that keeps its identity while nothing visible changed,
 // so during playback only the rows whose value changed commit.

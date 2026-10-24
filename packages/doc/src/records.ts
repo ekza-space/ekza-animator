@@ -173,7 +173,7 @@ export interface AttrDef {
   readonly keyable: boolean;
   /** M2a: new keys on this attribute get in 'flat', out 'step' (MVP: stored, unused). */
   readonly stepped?: boolean;
-  /** M2a: Channel Box and Graph Editor label; default: the name title-cased ('heelTwist' → 'Heel Twist'). */
+  /** M2a: Channels panel and Graph Editor label; default: the name title-cased ('heelTwist' → 'Heel Twist'). */
   readonly label?: string;
   /** M2a: stored radians or metres, shown in degrees or metres; absent = a plain number (3 decimals). */
   readonly unit?: 'angle' | 'distance';
@@ -182,7 +182,7 @@ export interface AttrDef {
   /**
    * M2a: false = a mode or setting, keyed and reset only when named explicitly (§5.1 rule 4): `S` with 'all' or
    * 'attributes', body-part keying, the tween 'frame' target, the pose clipboard and `pose.resetToRest` skip it unless
-   * it is a selected Channel Box channel. Default true.
+   * it is a channel selected in the Channels panel. Default true.
    */
   readonly keyAll?: boolean;
 }
@@ -313,7 +313,7 @@ export interface CurveRecord {
   readonly weighted: boolean;
   readonly pre: InfinityMode;
   readonly post: InfinityMode;
-  /** Maya "static attribute value": used when the curve has no keys. null = channel default. */
+  /** "Static attribute value" (desktop-DCC term): used when the curve has no keys. null = channel default. */
   readonly staticValue: number | null;
   readonly locked: boolean;                    // Graph Editor lock (no edits)
   readonly muted: boolean;                     // V1 (evaluator ignores in MVP)

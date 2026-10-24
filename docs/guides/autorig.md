@@ -11,11 +11,11 @@ there next time; `/?chooser=1` shows the choice again). The address `/autorig` o
 
 - A **humanoid model as GLB** (or glTF in a GLB) — one body standing on two legs, arms out to the sides (**T-pose**) or
   hanging down at an angle (**A-pose**). A VRM you already have is welcome too: it skips straight to animations.
-- Up to 200,000 triangles (the wizard refuses heavier models and tells you how to reduce them in Blender; over
+- Up to 200,000 triangles (the wizard refuses heavier models and tells you how to reduce them in your 3D app; over
   60,000 it warns and asks once, and rigging takes longer).
 - Desktop or tablet. On a phone everything works except weight painting.
 
-FBX and OBJ are not read yet: in Blender use *File › Export › glTF 2.0 (.glb)*.
+FBX and OBJ are not read yet: export the model as glTF 2.0 binary (.glb) from your 3D tool.
 
 ## ① Model
 

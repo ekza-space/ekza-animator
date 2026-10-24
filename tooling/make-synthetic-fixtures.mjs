@@ -2,7 +2,7 @@
 // Generates the synthetic test fixtures of the shared test kit (MVP-SPEC §7 WP-0b) into fixtures/synthetic/:
 //
 //   humanoid-skeleton.json  a SkeletonDesc: a `Root` node plus 25 VRM 1.0-named humanoid bones, identity facing,
-//                           raw bone frames like a Blender export (arm, leg and toe bones are rotated at rest)
+//                           raw bone frames like a typical DCC export (arm, leg and toe bones are rotated at rest)
 //   wave-doc.json           a DocSnapshot: project, asset, character, rig with FK controls for those bones and a clip
 //                           `wave` whose `fk.lowerArm.L` rz curve has keys 30° / −30° / 30° at frames 0 / 15 / 30
 //   rest-pose.json          the expected canonical bone worlds at rest (t, q, s and the column-major matrix)
@@ -116,7 +116,7 @@ const Rx = (deg) => qAxisAngle([1, 0, 0], deg * DEG);
 
 /**
  * World rest pose in canonical character space (+Y up, +Z forward, character left = +X), metres. Bone frames follow
- * a Blender export (local +Y points to the child) so the rest rotations are not all identity.
+ * a typical DCC export (local +Y points to the child) so the rest rotations are not all identity.
  */
 const BONES = [
   // name, humanoid, parent, world position, world rotation, bone radius (m)

@@ -4,11 +4,11 @@ import { createPrimitive, openModel } from './helpers/m6a-model';
 import { call, expectKernelStarted, runOk } from './helpers/test-api';
 
 // E2E-MOD-09 "Delete half, Mirror, Conform, Mesh Check" (M6A-SPEC §10.1, §5.12, §5.13; owner B11): a centre loop,
-// the −X faces deleted with Maya's plain Delete, Mirror from the Mesh menu (defaults: +X kept, cut, merged seam) and
+// the −X faces deleted with plain Delete, Mirror from the Mesh menu (defaults: +X kept, cut, merged seam) and
 // Conform from Mesh Display — a closed, manifold cube that Mesh Check finds nothing wrong with.
 //
 // Gates (§10.1): b3 (Insert Edge Loop, Delete), b4 (Mirror, Conform), b5 (Mesh Check), b10 (face mode and the
-// selection). The B11 check below runs today: the Channel Box of a primitive — the object's rows and the INPUTS
+// selection). The B11 check below runs today: the Channels panel of a primitive — the object's rows and the INPUTS
 // primitive entry adjusting the creation in place (same mesh, same step).
 
 test('E2E-MOD-09 — delete half, Mirror, Conform, Mesh Check', async ({ page }) => {
@@ -64,12 +64,12 @@ test('E2E-MOD-09 — delete half, Mirror, Conform, Mesh Check', async ({ page })
   expect(await call(page, 'meshCheck', cube)).toEqual([]);
 });
 
-test('B11 — the Channel Box of a primitive: object rows and the INPUTS primitive entry', async ({ page }) => {
+test('B11 — the Channels panel of a primitive: object rows and the INPUTS primitive entry', async ({ page }) => {
   await openModel(page);
   await expectKernelStarted(page);
   const cylinder = await createPrimitive(page, 'cylinder');
   expect(await counts(page, cylinder)).toBe('16/24/10');
-  await runOk(page, 'workspace.showPanel', { panel: 'channelBox' });
+  await runOk(page, 'workspace.showPanel', { panel: 'channels' });
   await expect(page.getByTestId('cb-field-ty')).toHaveValue('0.000');
   await expect(page.getByTestId('cb-field-sx')).toHaveValue('1.000');
   await expect(page.getByTestId('cb-prim-title')).toHaveText('cylinder (primitive)');

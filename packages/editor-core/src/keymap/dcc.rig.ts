@@ -1,13 +1,13 @@
-// The Rig & Skin rows of the `maya` preset (M6B-SPEC §7, cut to the MVP operators of §0.6; C7). Every row's scope
+// The Rig & Skin rows of the `dcc` preset (M6B-SPEC §7, cut to the MVP operators of §0.6; C7). Every row's scope
 // starts with `rig`, so Model and Animate never see them. Chain over a pane (CR-4): `rig.viewport.<mode>` →
 // `rig.viewport` → `viewport` → `rig` → `global`; over a panel `rig.<panel>` → `<panel>` → `rig` → `global`.
 //
 // This module is eager and small: the scopes and the **shadow rows** (`RIG_SHADOW_KEYMAP`), which the built-ins
-// contribute with the `maya` preset (`registerBuiltins`), so `S` keys nothing in Rig & Skin even before the
+// contribute with the `dcc` preset (`registerBuiltins`), so `S` keys nothing in Rig & Skin even before the
 // rig-workspace chunk has loaded (a reload straight into Rig & Skin, a failed chunk load; M6B-C7-15). The other rows
 // (`RIG_KEYMAP`, `rig/chunk/keymap.ts`) come with the chunk. Keying is impossible in Rig & Skin (§5.17): every
 // shipped chord that keys, mirrors or pastes a pose resolves to `rig.animateOnly` — in the viewport (`rig.viewport`,
-// §7) and, beyond the §7 table, over every panel whose shipped rows key (Outliner, Channel Box, time slider, Dope
+// §7) and, beyond the §7 table, over every panel whose shipped rows key (Outliner, Channels, time slider, Dope
 // Sheet, Graph Editor). `rig.animateOnly` is a rig-workspace operator: the runner loads the chunk, then it poll-fails.
 import type { Chord, KeyBinding, KeyScope, OperatorId } from '../types';
 
@@ -18,7 +18,7 @@ export const RIG_SCOPE = {
   skeleton: 'rig.viewport.skeleton',
   skin: 'rig.viewport.skin',
   outliner: 'rig.outliner',
-  channelBox: 'rig.channelBox',
+  channels: 'rig.channels',
   timeline: 'rig.timeline',
   dopeSheet: 'rig.dopeSheet',
   graph: 'rig.graph',
@@ -54,7 +54,7 @@ export const KEYING_CHORDS: readonly Chord[] = [
 const KEYING_SCOPES: readonly KeyScope[] = [
   RIG_SCOPE.viewport,
   RIG_SCOPE.outliner,
-  RIG_SCOPE.channelBox,
+  RIG_SCOPE.channels,
   RIG_SCOPE.timeline,
   RIG_SCOPE.dopeSheet,
   RIG_SCOPE.graph,
@@ -63,7 +63,7 @@ const KEYING_SCOPES: readonly KeyScope[] = [
 /** The shadow rows (§7 `rig.animateOnly`; eager, contributed by `registerBuiltins`). */
 export const RIG_SHADOW_KEYMAP: readonly KeyBinding[] = Object.freeze([
   ...rigRows(KEYING_CHORDS, 'rig.animateOnly', KEYING_SCOPES),
-  // Key deletion (Delete/Backspace delete keys in the viewport, Channel Box, time slider, Dope Sheet, Graph Editor).
+  // Key deletion (Delete/Backspace delete keys in the viewport, Channels, time slider, Dope Sheet, Graph Editor).
   ...rigRows(
     [rigKey('Delete'), rigKey('Backspace')],
     'rig.animateOnly',

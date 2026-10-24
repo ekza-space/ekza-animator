@@ -1,6 +1,6 @@
 // Where component transforms happen (M6A-SPEC §5.15; B12a): the picked vertices of the hilited meshes' visible
 // selection of the current kind (the stored picks, never their symmetry partners: the run expands them itself and
-// needs the picks for the source side, M6A-B2-12), the pivot (the world bounding-box centre of those vertices, Maya)
+// needs the picks for the source side, M6A-B2-12), the pivot (the world bounding-box centre of those vertices)
 // and the Component frame (Z = the area-weighted average of the selected faces' normals, or of the normals of the faces
 // around the selected vertices; X/Y by the region-frame rule of §5.8, as B2's `mesh.transformComponents` resolves it).
 import { type Mat4, mat4Compose, mat4Decompose, type Quat, type Vec3 } from '@ekza-studio/anim-core';

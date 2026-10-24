@@ -1,7 +1,7 @@
 // Snapping and the transform tools' settings (M6A-SPEC §6.2, §5.15; B12a).
 // - `model.snap.toggle {kind}`: the sticky grid/vertex/increment toggles (`session.model.snap`, U state). The holds
 //   (`X`, `V`, `J`) are tool modifiers the viewport's transform tools read themselves (§7 "Tool modifiers").
-// - The **Component** orientation of the Move and Rotate tools (§5.15: World / Object / Component; Maya's averaged
+// - The **Component** orientation of the Move and Rotate tools (§5.15: World / Object / Component; the averaged
 //   frame of the selected components): the preferences keep Object/World (`moveSpace`, `rotateSpace`, a closed
 //   contract), so the Component choice is remembered per app here and `view.setManipSpace` accepts it.
 // - The last-picked manipulator handle of the W/E/R tools (`session.model.tweakHandle`, the MMB rule): set by a LMB

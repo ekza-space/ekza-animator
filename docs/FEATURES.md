@@ -33,11 +33,11 @@ and [TODO](../TODO.md).
 | Category | Key capabilities | Status |
 |---|---|---|
 | [Two modes](#1-overview-and-the-two-modes) | Start chooser: full **Studio** or the five-step **Auto-Rig** wizard, one shared document and undo history | `v0.5.0` |
-| [Workspaces and UI](#2-workspaces-and-ui) | Model / Animate / Rig & Skin tabs, dockview panels, layout presets, focus mode, Maya keymap, marking menus, command palette | `v0.1.0`–`v0.5.0`; Review tab planned (V1) |
+| [Workspaces and UI](#2-workspaces-and-ui) | Model / Animate / Rig & Skin tabs, dockview panels, layout presets, focus mode, industry-standard DCC hotkeys, marking menus, command palette | `v0.1.0`–`v0.5.0`; Review tab planned (V1) |
 | [Modeling](#3-modeling-model-workspace) | Low-poly box modeling: primitives, templates, component modes, extrude session, bevel, loops, multi-cut, symmetry, soft selection, snapping, palette colour, Mesh Check, static GLB export | `v0.3.0` |
 | [Rig & Skin](#4-rig--skin) | Quick Rig markers, VRM skeleton templates, Create Skeleton with auto control rig, Bind Skin, weight painting, test poses, Validation gate, VRM 1.0 export | `v0.4.0` (A-pose path `v0.5.0`) |
 | [Auto-Rig mode](#5-auto-rig-mode) | GLB/VRM → checks with one-click fixes → markers → one-click rig → CC0 clips → OMOBA/Space VRM, GLB, VRMA or OMOBA test kit | `v0.5.0`, `v0.5.1` |
-| [Animation](#6-animation) | Circle-control rig, leg/arm IK with foot roll, keying, breakdowns, tweens, Dope Sheet, Graph Editor (Maya tangents, buffer curves), clips, pose tools, Clip Library | `v0.1.0`, `v0.2.0`, `v0.4.0` |
+| [Animation](#6-animation) | Circle-control rig, leg/arm IK with foot roll, keying, breakdowns, tweens, Dope Sheet, Graph Editor (weighted/stepped tangents, buffer curves), clips, pose tools, Clip Library | `v0.1.0`, `v0.2.0`, `v0.4.0` |
 | [Shading](#7-shading) | Every palette swatch is a Lambert or Blinn shader; exported as glTF PBR | `v0.3.1` |
 | [Import / export](#8-import-and-export) | GLB, VRM 0.x/1.0, VRMA, `.ekzanim`; bake into the original file, VRMA, animation GLB, static GLB, VRM 1.0 character, OMOBA kit; profiles and lints | `v0.1.0`–`v0.5.0` |
 | [Project and data](#9-project-and-data) | `.ekzanim` projects, autosave + crash recovery, transactional undo, collaboration-ready document model | `v0.1.0`, `v0.2.0` |
@@ -51,15 +51,15 @@ and [TODO](../TODO.md).
 ## 1. Overview and the two modes
 
 Ekza Studio is an open-source, browser-based 3D package for glTF and VRM characters: model low-poly meshes, rig and
-skin them, animate with a Maya-grade workflow and export to glTF/VRM/VRMA. It has two front ends over **one app, one
-document and one undo history** ([ADR 0021](adr/0021-autorig-mode.md)).
+skin them, animate with a professional DCC-grade workflow and export to glTF/VRM/VRMA. It has two front ends over
+**one app, one document and one undo history** ([ADR 0021](adr/0021-autorig-mode.md)).
 
 | Feature | What it does | Where | Status |
 |---|---|---|---|
 | Start chooser | Landing page with two cards: **Start Auto-Rig** and **Open Studio** | `/` | `v0.5.0` |
 | Remembered choice | "Remember my choice on this device" skips the chooser next time; `/?chooser=1` shows it again | `/`; Edit › Preferences… › *Start in* (Ask / Auto-Rig / Studio) | `v0.5.0` |
 | Studio | The full package: Model, Animate and Rig & Skin workspaces | `/editor` (`?ws=` picks the workspace) | `v0.1.0` |
-| Auto-Rig | Five-step Mixamo-style wizard from a static humanoid to an animated VRM | `/autorig` (`?step=`, `?sample=`) | `v0.5.0` |
+| Auto-Rig | Five-step auto-rig wizard from a static humanoid to an animated VRM | `/autorig` (`?step=`, `?sample=`) | `v0.5.0` |
 | Switch Studio → Auto-Rig | Hands the current document (selection, else visible meshes, else the character) to the wizard, with undo | File › Auto-Rig This Model…; Help › Switch to Auto-Rig; first-run dialog | `v0.5.0` |
 | Switch Auto-Rig → Studio | Same document and undo history into Rig & Skin (Animate from step ④); or a copy in a new tab | header **Open in Studio ▸**; `⋯` › Open in Studio (new tab) | `v0.5.0` |
 | Getting Started | First-run dialog: what do you want to do first | Help › Getting Started | `v0.1.0` |
@@ -72,8 +72,8 @@ Specs: [MVP-SPEC](MVP-SPEC.md) §4.10–4.11, [M6A-SPEC](M6A-SPEC.md) §7–8, [
 
 | Feature | What it does | Where | Status |
 |---|---|---|---|
-| Animate workspace | Viewport, Outliner, Clips, Channel Box, Attributes, Graph Editor, Dope Sheet, Clip Library, time slider | workspace tab **Animate** | `v0.1.0` (Dope Sheet `v0.2.0`, Clip Library `v0.4.0`) |
-| Model workspace | Viewport, Outliner, Toolkit, Channel Box, Attributes, Palette, Mesh Check; time slider hidden | tab **Model** | `v0.3.0` |
+| Animate workspace | Viewport, Outliner, Clips, Channels, Attributes, Graph Editor, Dope Sheet, Clip Library, time slider | workspace tab **Animate** | `v0.1.0` (Dope Sheet `v0.2.0`, Clip Library `v0.4.0`) |
+| Model workspace | Viewport, Outliner, Toolkit, Channels, Attributes, Palette, Mesh Check; time slider hidden | tab **Model** | `v0.3.0` |
 | Rig & Skin workspace | Viewport with the Rig checklist, Rig Toolkit, Paint Weights, Validation panels | tab **Rig & Skin** | `v0.4.0` |
 | Review workspace | Read-only review tab | tab shown disabled ("Arrives in V1") | Planned (V1) |
 | Docked panels | dockview layout: drag, tab, split and float panels; Windows › *panel name* reopens one | Windows menu; Windows › Reset Workspace | `v0.1.0` |
@@ -95,16 +95,16 @@ Specs: [MVP-SPEC](MVP-SPEC.md) §4.10–4.11, [M6A-SPEC](M6A-SPEC.md) §7–8, [
 
 | Feature | What it does | Where | Status |
 |---|---|---|---|
-| Maya keymap | Layout-independent Maya hotkeys (`Q/W/E/R`, `S`, `F/A`, `,` `.`, `Alt+V`, `1`–`7` tangents, …), `Mod` = ⌘ on macOS | Help › Keyboard Shortcuts (`Shift+/`) | `v0.1.0`, extended `v0.2.0`/`v0.3.0` |
-| Marking menus | Maya radial menus: RMB component modes and Shift+RMB tools in Model, `M` merge menu; RMB rig-mode menus in Rig & Skin | viewport RMB / Shift+RMB | `v0.3.0` (rig `v0.4.0`) |
+| Industry-standard DCC hotkeys | Layout-independent default DCC keymap (`Q/W/E/R`, `S`, `F/A`, `,` `.`, `Alt+V`, `1`–`7` tangents, …), `Mod` = ⌘ on macOS | Help › Keyboard Shortcuts (`Shift+/`) | `v0.1.0`, extended `v0.2.0`/`v0.3.0` |
+| Marking menus | Radial menus: RMB component modes and Shift+RMB tools in Model, `M` merge menu; RMB rig-mode menus in Rig & Skin | viewport RMB / Shift+RMB | `v0.3.0` (rig `v0.4.0`) |
 | Camera radial | Hold Space in the viewport for a camera radial | `Space` (hold) | `v0.1.0` |
 | Command palette | Search and run any operator by name | `Mod+K` | `v0.3.0` |
 | Repeat / adjust last | Repeat last operation, re-open its Last-op card, re-activate last tool | `G`, `T`, `Y` (Model); Edit menu | `v0.3.0` |
-| Navigation profiles | Maya three-button mouse (Alt+drag), trackpad (scroll/pinch), one-button mouse (Option+drag) | Edit › Preferences… › Navigation | `v0.1.0` |
+| Navigation profiles | Three-button mouse (Alt+drag), trackpad (scroll/pinch), one-button mouse (Option+drag) | Edit › Preferences… › Navigation | `v0.1.0` |
 | Preferences | Start in, navigation, Space key, auto-key channels, key reduction on import, Graph Editor handles | Edit › Preferences… | `v0.1.0` (Start in `v0.5.0`) |
 | Pick-walk | Arrow keys walk the control hierarchy (Animate) or components (Model) | arrows | `v0.2.0` / `v0.3.0` |
 | MMB virtual slider | Middle-drag in the viewport changes the selected channel | MMB drag | `v0.2.0` |
-| Channel Box | Numeric channel values, lock channels | Channel Box panel | `v0.1.0` |
+| Channels | Numeric channel values, lock channels | Channels panel | `v0.1.0` |
 
 ### 2.4 Viewport
 
@@ -121,8 +121,8 @@ Specs: [MVP-SPEC](MVP-SPEC.md) §4.10–4.11, [M6A-SPEC](M6A-SPEC.md) §7–8, [
 
 ## 3. Modeling (Model workspace)
 
-Low-poly box modeling with Maya's hands. Spec: [M6A-SPEC](M6A-SPEC.md), [ADR 0014–0016](adr/). All in the **Model**
-tab, `v0.3.0` unless noted.
+Low-poly box modeling with desktop-DCC interaction. Spec: [M6A-SPEC](M6A-SPEC.md), [ADR 0014–0016](adr/). All in the
+**Model** tab, `v0.3.0` unless noted.
 
 ### 3.1 Create
 
@@ -140,7 +140,7 @@ tab, `v0.3.0` unless noted.
 | Feature | What it does | Where |
 |---|---|---|
 | Component modes | Object / Vertex / Edge / Face | `F8`, `1`/`2`/`3` (`F9`/`F10`), RMB marking menu, Select menu |
-| Loops and rings | Maya loop/ring picks (double-click), Edge Loop, Edge Ring, Border, Shell | Select menu |
+| Loops and rings | DCC-standard loop/ring picks (double-click), Edge Loop, Edge Ring, Border, Shell | Select menu |
 | Grow / shrink / invert | Grow, shrink, invert, all, none | `Shift+.`, `Shift+,`, Select menu |
 | Convert selection | To vertices / edges / faces / loop / ring / shell / border, contained, perimeters | Select › Convert Selection; `Mod+F9`…`F11` |
 | Select by swatch | Faces painted with the active swatch | Select › By Swatch |
@@ -166,7 +166,7 @@ tab, `v0.3.0` unless noted.
 | Transforms | Freeze / Reset Transformations | Modify |
 | Normals | Soften / Harden Edge, Set Normal Angle, Reverse, Conform; show normals, face orientation, triangulation, hard edges, wire-on-shaded, backface culling | Mesh Display |
 | UV projections | Planar, Automatic (box), Cylindrical (no UV editor) | UV menu |
-| Modeling Toolkit | Tool options with option boxes | Toolkit panel |
+| Modeling Tools | Tool options with option boxes | Toolkit panel |
 
 ### 3.4 Colour, checks and export
 
@@ -222,7 +222,7 @@ A five-step wizard built only from Studio's operators. Guide: [guides/autorig.md
 | **① Model** intake | Drop or choose a `.glb`/`.gltf`/`.vrm` (or a project); a VRM skips to animations | ① |
 | Model checks + fixes | Centred, grounded, facing +Z, upright, human size, pose (T or A); fixes *Center and ground*, *Face forward*, *Stand up*, *Set height* — one undo step each | ① report |
 | Multi-part characters | Parts touching the body (directly or through other parts) belong to the character; separate things are left out; tick/untick parts, *Tick all* | ① parts list |
-| Heavy meshes | Warns above 60,000 triangles, refuses above 200,000 with Blender advice | ① |
+| Heavy meshes | Warns above 60,000 triangles, refuses above 200,000 with decimation advice | ① |
 | **② Markers** | Nine markers guessed from the silhouette, front/side drag rule, list pick, arrow nudge 1 cm (Shift 1 mm), `G` re-guess | ② |
 | Finger detail | None / thumb + 1 / full hands | ② |
 | Arms gate | *Auto-rig* waits for Shoulder, Elbow, Wrist markers when arms are not found | ② |
@@ -429,7 +429,7 @@ From the README's "said plainly" lists, [TODO](../TODO.md) (Parked, After the tu
 
 | Area | Not yet | Planned in |
 |---|---|---|
-| Import | FBX, BVH, Mixamo with humanoid retarget; multi-file `.gltf`; OBJ | M2b |
+| Import | FBX and BVH (incl. common auto-rigger skeletons) with humanoid retarget; multi-file `.gltf`; OBJ | M2b |
 | Animation | Onion skin, motion trails, camera bookmarks, audio, constraints, History panel | M2c |
 | Animation | Space switching, "pole follows foot", stretch IK, animation layers, quaternion curves, pose library, clip sequencing | M5 |
 | Animation stretch | IK/FK ghost, un-keyed Dope Sheet rows, mesh pick of IK controls, key hold / stepped preview, auto-Simplify after Match Range | M2a-stretch (fixme) |

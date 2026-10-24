@@ -99,7 +99,7 @@ export function channelDefaultOf(control: ControlRecord | null, channel: Channel
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
-/** The '@name' channels of a control's attributes, in `attrs` key order (the Channel Box row order, §5.1 rule 5). */
+/** The '@name' channels of a control's attributes, in `attrs` key order (the Channels panel row order, §5.1 rule 5). */
 export function attrChannelsOf(control: ControlRecord | null | undefined): readonly `@${string}`[] {
   const attrs: Readonly<Record<string, AttrDef>> | undefined = control?.attrs;
   if (typeof attrs !== 'object' || attrs === null) return [];
@@ -114,7 +114,8 @@ export function attrChannelsOf(control: ControlRecord | null | undefined): reado
 /**
  * M2A-SPEC §5.1 rule 4: `false` for a `keyAll: false` attribute (a mode or setting such as `ikFk` or `soft`), which
  * `S` with 'all' or 'attributes', body-part keying, the tween 'frame' target, the pose clipboard and
- * `pose.resetToRest` skip unless it is a selected Channel Box channel; `true` for TRS channels and other attributes.
+ * `pose.resetToRest` skip unless it is a channel selected in the Channels panel; `true` for TRS channels and other
+ * attributes.
  */
 export function isKeyAllChannel(control: ControlRecord | null | undefined, channel: ChannelId): boolean {
   if (!isAttrChannel(channel)) return true;
@@ -132,7 +133,10 @@ export function titleCaseAttr(name: string): string {
   return words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 }
 
-/** Channel Box / Graph Editor label of an attribute channel: `AttrDef.label`, else the title-cased name (§5.1 rule 5). */
+/**
+ * The Channels panel and Graph Editor label of an attribute channel: `AttrDef.label`, else the title-cased name
+ * (§5.1 rule 5).
+ */
 export function attrLabel(control: ControlRecord | null | undefined, channel: ChannelId): string {
   const def = attrDefOf(control, channel);
   const label = def?.label;
@@ -140,7 +144,7 @@ export function attrLabel(control: ControlRecord | null | undefined, channel: Ch
   return titleCaseAttr(channel.startsWith('@') ? channel.slice(1) : channel);
 }
 
-/** Names of the TRS channels (FR-CB-01: the Channel Box's row names). */
+/** Names of the TRS channels (FR-CB-01: the Channels panel's row names). */
 export const TRS_CHANNEL_LABEL: Readonly<Record<TrsChannel, string>> = {
   tx: 'Translate X',
   ty: 'Translate Y',
@@ -153,11 +157,11 @@ export const TRS_CHANNEL_LABEL: Readonly<Record<TrsChannel, string>> = {
   sz: 'Scale Z',
 };
 
-/** The limb IK/FK switch attribute (§5.2): the Channel Box shows it as the limb's IK/FK row, below the attributes. */
+/** The limb IK/FK switch attribute (§5.2): the Channels panel shows it as the IK/FK row, below the attributes. */
 const IK_FK: ChannelId = '@ikFk';
 
 /**
- * The name of a channel of `control` wherever channels are listed — Channel Box, Graph Editor, Dope Sheet, virtual
+ * The name of a channel of `control` wherever channels are listed — Channels panel, Graph Editor, Dope Sheet, virtual
  * slider (§5.1 rule 5): the TRS names, an attribute's `AttrDef.label`, else its title-cased name ('@heelTwist' →
  * 'Heel Twist'; `@ikFk` → 'IK/FK' by its label).
  */
@@ -167,10 +171,10 @@ export function channelDisplayLabel(control: ControlRecord | null | undefined, c
 }
 
 /**
- * `channels` of `control` in the Channel Box's row order, for every panel that lists channels (§5.1 rule 5;
- * acceptance fix round 2, M2A-INT-35): TRS in Maya order, then the control's attributes in `attrs` key order with
- * `@ikFk` after them (where the Channel Box shows the limb's IK/FK row), then attribute channels the control does not
- * define (a curve left by a removed attribute) by id.
+ * `channels` of `control` in the Channels panel's row order, for every panel that lists channels (§5.1 rule 5;
+ * acceptance fix round 2, M2A-INT-35): TRS in the usual Channels panel order (tx ty tz, rx ry rz, sx sy sz), then the
+ * control's attributes in `attrs` key order with `@ikFk` after them (where the Channels panel shows the limb's IK/FK
+ * row), then attribute channels the control does not define (a curve left by a removed attribute) by id.
  */
 export function sortChannelsForDisplay(
   control: ControlRecord | null | undefined,

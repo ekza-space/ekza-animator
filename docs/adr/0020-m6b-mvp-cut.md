@@ -8,12 +8,12 @@
 
 ## Context
 
-M6B-SPEC v1.1 specifies a complete Maya-style rigging workspace: joint tools, Quick Rig, binding, weight tools, the
-weight table, constraints, control-shape editing, imports recovery and the character writer. M6a shipped as `v0.3.0`
-and basic shading as `v0.3.1`, so the staging plan of M6B-SPEC §2.2 (a `m6b/dev` branch while M6a is still open) no
-longer applies. The owner's goal is narrower and more concrete: model a character, place markers in the front and side
-views, get a VRM humanoid skeleton, fit it quickly, skin it in one click, and look at animations — then export a VRM
-that OMOBA admits.
+M6B-SPEC v1.1 specifies a complete desktop-DCC-style rigging workspace: joint tools, Quick Rig, binding, weight tools,
+the weight table, constraints, control-shape editing, imports recovery and the character writer. M6a shipped as
+`v0.3.0` and basic shading as `v0.3.1`, so the staging plan of M6B-SPEC §2.2 (a `m6b/dev` branch while M6a is still
+open) no longer applies. The owner's goal is narrower and more concrete: model a character, place markers in the front
+and side views, get a VRM humanoid skeleton, fit it quickly, skin it in one click, and look at animations — then
+export a VRM that OMOBA admits.
 
 Research in `omoba-bevy` corrected an assumption of v1.1: OMOBA has no skeleton of its own and does not play the
 plain five-clip GLB of a user avatar; it admits a VRM (0.x or 1.0) humanoid under explicit runtime limits and plays its

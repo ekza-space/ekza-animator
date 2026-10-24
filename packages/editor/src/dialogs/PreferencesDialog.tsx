@@ -67,12 +67,12 @@ export function PreferencesDialog(): JSX.Element {
               data-testid="prefs-nav"
               onChange={(event) => {
                 const value = event.currentTarget.value;
-                set({ navProfile: value === 'trackpad' || value === 'mayaOneButton' ? value : 'maya' });
+                set({ navProfile: value === 'trackpad' || value === 'oneButton' ? value : 'dcc' });
               }}
               options={[
-                { value: 'maya', label: 'Mouse — Maya (Alt + drag)' },
+                { value: 'dcc', label: 'Mouse — Alt + drag (DCC standard)' },
                 { value: 'trackpad', label: 'Trackpad (scroll, pinch)' },
-                { value: 'mayaOneButton', label: 'One-button mouse (Option + drag)' },
+                { value: 'oneButton', label: 'One-button mouse (Option + drag)' },
               ]}
             />
           </Row>
@@ -80,9 +80,9 @@ export function PreferencesDialog(): JSX.Element {
             <NativeSelect
               value={spaceBehaviour}
               data-testid="prefs-space"
-              onChange={(event) => set({ spaceBehaviour: event.currentTarget.value === 'play' ? 'play' : 'maya' })}
+              onChange={(event) => set({ spaceBehaviour: event.currentTarget.value === 'play' ? 'play' : 'maximize' })}
               options={[
-                { value: 'maya', label: 'Tap maximizes the panel under the pointer' },
+                { value: 'maximize', label: 'Tap maximizes the panel under the pointer' },
                 { value: 'play', label: 'Play and stop' },
               ]}
             />
@@ -93,7 +93,7 @@ export function PreferencesDialog(): JSX.Element {
               data-testid="prefs-autokey-mode"
               onChange={(event) => set({ autoKeyMode: event.currentTarget.value === 'all' ? 'all' : 'keyed-only' })}
               options={[
-                { value: 'keyed-only', label: 'Only channels that have keys (Maya)' },
+                { value: 'keyed-only', label: 'Only channels that have keys' },
                 { value: 'all', label: 'Every edited channel' },
               ]}
             />

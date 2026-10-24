@@ -117,7 +117,7 @@ export class GraphEditorController {
   private pendingFrame: 'all' | 'selection' | null = null;
   /**
    * The view follows the shown curves until the user works in the Graph Editor (v0.3 integration): a newly shown set
-   * is framed, and again after document edits made elsewhere (keys set from the viewport or the Channel Box), so
+   * is framed, and again after document edits made elsewhere (keys set from the viewport or the Channels panel), so
    * the first keys — whose curve appeared with a static value and no key — and later ones stay on screen. Any press,
    * wheel, pan or zoom in the editor and an explicit F/A hand the view to the user until the next new curve set.
    */
@@ -492,7 +492,7 @@ export class GraphEditorController {
       return;
     }
     if (e.button === 1) {
-      // Maya: MMB drag anywhere moves the current key/handle selection.
+      // MMB drag anywhere moves the current key/handle selection.
       this.pending = middlePress(this.pressContext, toGesturePointer(e));
       return;
     }
@@ -565,7 +565,7 @@ export class GraphEditorController {
       this.setView(panView(this.viewState, -e.deltaX, -e.deltaY));
       return;
     }
-    // Maya wheel (and pinch, which arrives as Ctrl+wheel): zoom around the cursor; Shift value axis, Alt time axis.
+    // Mouse wheel (and pinch, which arrives as Ctrl+wheel): zoom around the cursor; Shift value axis, Alt time axis.
     const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
     const factor = Math.exp(-delta * (e.ctrl ? PINCH_ZOOM_RATE : WHEEL_ZOOM_RATE));
     const fx = e.shift ? 1 : factor;
@@ -948,11 +948,11 @@ export class GraphEditorController {
 
   private navigationGesture(e: ToolPointerEvent): Gesture | null {
     const start = toGesturePointer(e);
-    // Maya: Alt+MMB pan, Alt+RMB zoom (every profile; a trackpad user with a mouse keeps them).
+    // Alt+MMB pan, Alt+RMB zoom (every profile; a trackpad user with a mouse keeps them).
     if (e.alt && e.button === 1) return new PanGesture(this.gestureHost, start);
     if (e.alt && e.button === 2) return new ZoomGesture(this.gestureHost, start);
     // One-button macOS profile (M1-stretch): Option+Cmd+LMB pan, Option+Ctrl+LMB zoom.
-    if (this.app.prefs.getState().navProfile === 'mayaOneButton' && e.alt && e.button === 0) {
+    if (this.app.prefs.getState().navProfile === 'oneButton' && e.alt && e.button === 0) {
       if (e.ctrl) return new ZoomGesture(this.gestureHost, start);
       if (e.mod) return new PanGesture(this.gestureHost, start);
     }

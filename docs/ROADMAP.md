@@ -28,7 +28,7 @@ specified in [MCP-SPEC.md](MCP-SPEC.md), to run in parallel with M6a/M6b). Keep 
 | M1 | MVP → public alpha `v0.1.0` | **Done**, released `v0.1.0` | 2026-10-17 | 2026-10-18 | WP-1…WP-10 done; E2E-00…E2E-27 green in Chrome and SwiftShader; owner demo script passes (acceptance round 3); [budgets](#m1-budgets-architecture-14) recorded, 3 misses with owners. The tag waits for the owner's review of [DECISIONS-OPEN](DECISIONS-OPEN.md) |
 | M2a | Game-clip daily driver | **Done**, released `v0.2.0` | 2026-10-18 | 2026-10-18 | [M2A-SPEC](M2A-SPEC.md) v0.3: A0…A5 + integration with its fix round 1 ([status](#m2a-work-package-status)); E2E-00…27, E2E-M2A-01…25 and the owner demo script (scripted walkthrough) green in Chrome and SwiftShader on `dev`, the acceptance walk and attack authored without Plant Feet; the M2a-stretch items listed as `test.fixme`; M-1, M-2, M-3 [met on `dev`](#m2a-budgets-on-dev); one new report-only miss (M-4, Dope Sheet drag); FR-EXP-12 partial; acceptance fix round 1 on `dev` (2026-10-19): the 2 major and 12 minor defects of the acceptance round fixed with regression tests (M2A-INT-20…33: foot roll about the toes joint, "In place" removes only the travel, reduction never larger in bytes, …); owner items in [DECISIONS-OPEN §F](DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18) |
 | M-AI | Agent bridge (MCP): AI agents read and edit animation live in the open tab or headless on files | MVP cut (spec v0.3 §0.4, 2026-10-23); D0, P1, P2 ported on `mai/port`; **MVP integrated on `mai/int` (2026-10-24)**: B1–B5 merged, MVP-AC-1…4 in `pnpm run ci`, MVP-AC-5 recorded (owner acceptance and merge into `dev` pending) | — | — | [MCP-SPEC §0.4](MCP-SPEC.md#04-mvp-cut-2026-10-23), [ADR 0022](adr/0022-m-ai-mvp-cut.md); full plan [MCP-SPEC](MCP-SPEC.md); ≈ 55 agent-days + a fix round (≈ 3), critical path ≈ 20 working days ([work packages](#m-ai-work-package-status)); FR-AI-01…15 (FR-EXT-06's MCP half pulled forward from M5); ADR 0018 proposed; owner defaults in [DECISIONS-OPEN §N](DECISIONS-OPEN.md#n-agent-bridge-m-ai-defaults-chosen-2026-10-19); runs **in parallel with M6a/M6b** (files both touch are routed one by one, MCP-SPEC §8.2); a recorded real-model run gates the first npm publish |
-| M2b | Adoption: FBX/BVH/Mixamo retarget | Planned | — | — | gated by provenance |
+| M2b | Adoption: FBX/BVH retarget (incl. common auto-rigger skeletons) | Planned | — | — | gated by provenance |
 | M2c | Breadth and polish → V1 release | Planned | — | — | constraints (FR-RIG-10) and control-shape editing (FR-RIG-13) moved to M6b (2026-10-19) |
 | M3 | Collaboration P1 | Planned | — | — | `doc-yjs` already passes the suite (M1) |
 | M4a | Ekza T1/T3 (typed animation assets, publish, open from Ekza) | Planned | — | — | depends on M1 + other repos |
@@ -36,7 +36,7 @@ specified in [MCP-SPEC.md](MCP-SPEC.md), to run in parallel with M6a/M6b). Keep 
 | M5 | V2: layers, IK polish, power tools | Planned | — | — | |
 | M6a | Modeling base: Model workspace, low-poly box modeling, palette colour, static GLB export | **Done**, merged into `dev` (2026-10-20); tag `v0.3.0` pending the owner review | 2026-10-19 | 2026-10-20 | [M6A-SPEC](M6A-SPEC.md) v1.1: B0a, B0b, B1…B13 (B12a/B12b) merged in the §11.1 order ([status](#m6a-work-package-status)); every READY/`test.fixme` gate is a failure; E2E-MOD-01…32, AS-LP-S (parts A and B) and the M1/M2a suites green in Chrome, full local gate green on `dev` after the merge; [budgets](#m6a-budgets) re-measured (one report-only miss: the marquee); the eager allowance, the owner feel check and the demo script are owner items in [DECISIONS-OPEN §I](DECISIONS-OPEN.md#i-m6a-build-deviations-2026-10-20); M6b, M6c and M7 stay planned |
 | M6b | Rig & Skin workspace: **MVP** (owner flow: Quick Rig markers → VRM skeleton → Bind Skin → paint → CC0 clip library → VRM 1.0 for Space and OMOBA), then the full workspace (constraints, control shapes, joint tools, imports recovery) | **MVP integrated and merged into `dev`** (2026-10-22: every package merged through `m6b/integration`, full local gate green; owner run of AS-MVP-1 and the tag (proposed `v0.4.0`) open); full M6b after the MVP | 2026-10-22 | — | [M6B-SPEC §0](M6B-SPEC.md#0-mvp-cut-owner-flow-2026-10-22) (binding MVP cut, v1.2) → [§9.0](M6B-SPEC.md#90-mvp-work-packages-binding-for-the-mvp-0): C0, C1, C2, C3, C4, C6 (+ C5 subset), C7, C10, C12 (new: clip library), INT ([status](#m6b-mvp-work-package-status)); ≈ 48.5 agent-days + a fix round, critical path ≈ 22 working days; deferred: C8a, C8b, C9, C11 and parts of C2/C3/C5/C6/C7 (≈ 22 + AS-LP-T) |
-| AR | **Auto-Rig mode**: a Mixamo-style five-step wizard (model → markers → auto-rig → animations → OMOBA/Space VRM) as a second shell over the same app, document and undo history, chosen on the landing page; the A-pose path (A0) in Studio | **Integrated** on `autorig/mvp` and **merged into `dev`** (2026-10-22: A0, D0…D7 merged, AS-AR-1…12 scripted green, OMOBA's validator admits the exports, full local gate green on `dev`); owner run of AS-AR-1/2 and the tag open | 2026-10-22 | — | [AUTORIG-SPEC](AUTORIG-SPEC.md) v0.3, [ADR 0021](adr/0021-autorig-mode.md) (Proposed); [status](#auto-rig-work-package-status), [budgets](#auto-rig-budgets); decisions [DECISIONS-OPEN §M](DECISIONS-OPEN.md#m-auto-rig-2026-10-22) |
+| AR | **Auto-Rig mode**: a five-step auto-rig wizard (model → markers → auto-rig → animations → OMOBA/Space VRM) as a second shell over the same app, document and undo history, chosen on the landing page; the A-pose path (A0) in Studio | **Integrated** on `autorig/mvp` and **merged into `dev`** (2026-10-22: A0, D0…D7 merged, AS-AR-1…12 scripted green, OMOBA's validator admits the exports, full local gate green on `dev`); owner run of AS-AR-1/2 and the tag open | 2026-10-22 | — | [AUTORIG-SPEC](AUTORIG-SPEC.md) v0.3, [ADR 0021](adr/0021-autorig-mode.md) (Proposed); [status](#auto-rig-work-package-status), [budgets](#auto-rig-budgets); decisions [DECISIONS-OPEN §M](DECISIONS-OPEN.md#m-auto-rig-2026-10-22) |
 | M6c | UV editor and texturing basics (optional) | Planned (plan v0.2) | — | — | [MODELING-PLAN §6](MODELING-PLAN.md#6-m6c--uv-editor-and-texturing-basics-optional); ≈ 18; by demand |
 | M7 | AI 3D generation (server gateway, Tripo + Meshy, post chain, provenance) | Planned (plan v0.2) | — | — | [MODELING-PLAN §7](MODELING-PLAN.md#7-m7--ai-3d-generation); G1 ≈ 22, G2 ≈ 14, G3 with M4a/M4b; ADR 0017 proposed |
 | M8 | Splines and generators (the old M6 "splines first") | Planned | — | — | after M7; output type is the M6 mesh kernel |
@@ -71,7 +71,7 @@ start together and build in parallel in their own worktrees (branches `m2a/<slug
 |---|---|---|---|---|---|---|
 | A0 | `contracts-foundation` | §4 contracts, stubs and working baselines, schema v2 (atomic), attribute channels in the compiler and kernel, frame scheduler, key gesture, cycle-aware loop clips, layout v2, keymap, menus, test API | Integration | 3.5 | Done (on `dev`, merged first) | [notes](wp-notes/m2a-contracts-foundation.md) |
 | A1 | `rig-ik` | `ik2` op with foot roll in the foot frame, mesh-based foot pivots, limb IK records, hyperextension-safe matching, import to IK with fidelity fallback, Plant Feet on IK legs | A1 | 6.5 | Done (on `dev`; contract PR C-1…C-7 ratified) | FR-RIG-11; [notes](wp-notes/m2a-rig-ik.md) |
-| A2 | `ik-editor` | IK operators and UI (Channel Box, Attributes with foot fields, viewport), visibility, pick-walk, virtual slider (rows and viewport MMB), body-part keying | A2 | 6 | Done (on `dev`; IK tests and E2E-M2A-01…07, 25 run ungated; the same-mode switch is refused, M2A-A2-23) | [notes](wp-notes/m2a-ik-editor.md) |
+| A2 | `ik-editor` | IK operators and UI (Channels, Attributes with foot fields, viewport), visibility, pick-walk, virtual slider (rows and viewport MMB), body-part keying | A2 | 6 | Done (on `dev`; IK tests and E2E-M2A-01…07, 25 run ungated; the same-mode switch is refused, M2A-A2-23) | [notes](wp-notes/m2a-ik-editor.md) |
 | A3 | `dopesheet-timing` | Dope Sheet, time-slider copy/ripple/MMB carry/nudge, insert/remove time, global-region ripple, breakdown retiming | A3 | 5.5 | Done (on `dev`; E2E-M2A-10b and -14 run ungated) | FR-DS-01..02, FR-TIME-10; [notes](wp-notes/m2a-dopesheet-timing.md) |
 | A4 | `graph-posing` | Tween family (status line too), breakdown display, half-cycle mirror animation, buffer curves, normalized/stacked views, scale/region tool, M-1 (frame profile first) | A4 | 5.5 | Done (on `dev`; M-1 met, p95 3.2 ms on `dev`; E2E-M2A-15 ungated) | [notes](wp-notes/m2a-graph-posing.md); FR-KEY-08..09, FR-GE-18..20 |
 | A5 | `platform-perf` | M-2 lazy loading + size gate, M-3 curve evaluation, autosave + recovery, export key reduction | A5 | 5 | Done (on `dev`; M-2 gate in CI, M-3 met) | FR-PROJ-05, FR-EXP-12; [notes](wp-notes/m2a-platform-perf.md) |
@@ -90,7 +90,7 @@ cross-package tests are `READY`/`test.fixme` gates that turn on when the package
 | B0a | `contracts-foundation` | §4 contracts and stubs, schema v3 (seven tables, `CharacterRecord.source`, `AssetRecord.provenance`), mesh-core interfaces + reference `editMeshFrom`, `UndoManager.entries()`/`onEvict`, history selection parts, `ParamDef`, memory `BlobStore`, operator stubs, test-API types, dependencies | 3.5 | — (M2a release) | **Done** (on `dev`) |
 | B0b | `keymap-menus` | hierarchical key scopes, capture hook, every §7 keymap row, §8.3 menus, keymap conformance | 2 | B0a | **Done** (on `dev`) |
 | B1 | `mesh-kernel` | SoA kernel, layers, write log, Euler operators, validation, revisions, triangulation, normals, hard-flag helpers, primitives, arbitraries, goldens | 7 | B0a | **Done** (on `dev`) |
-| B2 | `mesh-select` | walkers and Maya's loop table, grow/shrink/convert, soft weights, symmetry partner maps, component transforms | 4 | B1 | **Done** (on `dev`) |
+| B2 | `mesh-select` | walkers and the loop table of a leading commercial desktop DCC, grow/shrink/convert, soft weights, symmetry partner maps, component transforms | 4 | B1 | **Done** (on `dev`) |
 | B3 | `mesh-ops-core` | extrude, inset, insert/offset loop, connect, merge family, delete family, fill hole, bridge | 8 | B1 | **Done** (on `dev`) |
 | B4 | `mesh-ops-shape` | mirror, symmetrize, normals ops, triangulate/quadrangulate, spin/flip, freeze, Multi-Cut, slide, average, MeshSetOps and remap helpers | 10 | B1 | **Done** (on `dev`) |
 | B5 | `mesh-bevel-check-uv` | bevel (1–3 segments), Mesh Check diagnostics and fixes, UV projections | 8.5 | B1 | **Done** (on `dev`) |
@@ -249,13 +249,14 @@ SwiftShader CI; math tests green; every panel mounts in `/dev/panels` with the f
 
 **Deliverables**: everything in [MVP-SPEC §1.1](MVP-SPEC.md#11-in-scope-m1-core): open GLB/VRM 0.x/1.0 and samples,
 FK control rig (humanoid with `cog`/`fk.hips`, mesh-based sizes; generic), Plant Feet, node-constraint preview,
-outliner, Channel Box, single/split/quad viewports with locked shot camera, Maya + trackpad navigation, W/E
+outliner, Channels, single/split/quad viewports with locked shot camera, Alt+drag + trackpad navigation, W/E
 manipulators with Gimbal mode, marquee and pick cycling, keying and auto-key, time slider with range editing,
-scene clock, Canvas2D Graph Editor with the Maya tangent model and Simplify, multiple clips with provenance, pose
-tools, editor history (unkeyed edits undoable), three exports (surgeon bake, animation-only GLB, VRMA), `.ekzanim`
-projects, Ekza Tier-0 metadata, profiles and lints, contribution registries, the conformance suite on a test-only
-Yjs store, licence and DCO checks. M1-stretch items ([MVP-SPEC §1.2](MVP-SPEC.md#12-m1-stretch-implement-only-if-time-remains-their-tests-are-testfixme-until-done))
-ship only if time remains.
+scene clock, Canvas2D Graph Editor with the weighted/stepped tangent model (AnimX-compatible) and Simplify, multiple
+clips with provenance, pose tools, editor history (unkeyed edits undoable), three exports (surgeon bake,
+animation-only GLB, VRMA), `.ekzanim` projects, Ekza Tier-0 metadata, profiles and lints, contribution registries, the
+conformance suite on a test-only Yjs store, licence and DCO checks. M1-stretch items ([MVP-SPEC
+§1.2](MVP-SPEC.md#12-m1-stretch-implement-only-if-time-remains-their-tests-are-testfixme-until-done)) ship only if
+time remains.
 
 **Task list**: WP-1 … WP-10 in [MVP-SPEC §7](MVP-SPEC.md#7-work-packages); merge order and checkpoints in §8.1.
 Early measurements in week 1: Graph Editor Canvas2D benchmark (ADR 0007), viewport 4-pane playback, kernel
@@ -460,7 +461,7 @@ misses M-1, M-2 and M-3 (M2A-SPEC §5.21).
 4. Tween slider family, breakdown keys, mirror animation with half-cycle offset, cycle-aware auto tangents on loop
    clips (FR-KEY-08..09, FR-POSE-05, FR-GE-17).
 5. Buffer curves, normalized/stacked views, Graph Editor scale/region (FR-GE-18..20); export-side key reduction
-   (FR-EXP-12); pick-walk; Channel Box virtual slider; keying by body part; autosave + recovery (FR-PROJ-05).
+   (FR-EXP-12); pick-walk; Channels panel virtual slider; keying by body part; autosave + recovery (FR-PROJ-05).
 
 **Acceptance**: a walk cycle and an attack clip with planted feet and contact are authored without Plant Feet
 (E2E-M2A-23, -24); M-1, M-2 and M-3 met; public README with GIFs; `v0.2.x`.
@@ -522,14 +523,16 @@ text-to-motion tools behind the ADR 0017 gateway (FR-AI-17), remote MCP servers 
 **Depends on**: the M2a release (`v0.2.0`). Independent of M6a/M6b except the shared operator runner (see the
 ordering note under [Recommended order](#recommended-order)).
 
-## M2b — Adoption: FBX/BVH/Mixamo retarget (≈ 10–15 agent-days)
+## M2b — Adoption: FBX/BVH retarget (≈ 10–15 agent-days)
 
-FBX (Mixamo) and BVH import with humanoid bone-map retarget to curves or VRMA (FR-IO-11), humanoid inference for
-generic rigs with a confirmation dialog (FR-IO-13), `.gltf` multi-file import (FR-IO-12), Bézier curve fitting on
-import (FR-IO-14). **Gated by provenance**: every imported clip records its source and redistributability (FR-CLIP-09);
-Mixamo-derived clips are marked non-redistributable and cannot be published under Ekza profiles.
+FBX (incl. common auto-rigger skeletons) and BVH import with humanoid bone-map retarget to curves or VRMA (FR-IO-11),
+humanoid inference for generic rigs with a confirmation dialog (FR-IO-13), `.gltf` multi-file import (FR-IO-12), Bézier
+curve fitting on import (FR-IO-14). **Gated by provenance**: every imported clip records its source and
+redistributability (FR-CLIP-09); clips from the auto-rigging service are marked non-redistributable and cannot be
+published under Ekza profiles.
 
-**Acceptance**: a Mixamo walk plays on Polybot without foot inversion and carries `redistributable: 'no'`.
+**Acceptance**: a walk clip from the auto-rigging service plays on Polybot without foot inversion and carries
+`redistributable: 'no'`.
 
 **Depends on**: M1 (provenance fields, import pipeline).
 
@@ -541,7 +544,7 @@ bookmarks → clips (FR-TIME-08), hotkey editor (FR-SHELL-10), Review workspace 
 picker (FR-POSE-07), History panel (FR-UNDO-06), data packs and trusted extensions (FR-EXT-03..04), "Preview as Ekza
 Space" emulation (FR-EKZA-05), IO worker with an op-stream document replica, quality items (Firefox/WebKit smoke,
 screenshot baselines, size budget gate, static/offline/storage/context-loss e2e, token contrast check, i18n string
-table, Vite playground, docs site, Maya fixture calibration if a licence is available).
+table, Vite playground, docs site, desktop-DCC fixture calibration if a licence is available).
 
 **Moved to M6a** (2026-10-18, package B9 of [MODELING-PLAN](MODELING-PLAN.md#42-work-packages)): marking menus
 (FR-SHELL-09), command palette (FR-SHELL-08) and workspaces (FR-SHELL-11), which every modeling surface needs; the
@@ -620,9 +623,9 @@ The old M6 ("Modeling, splines first") is replaced by a polygon-first sequence p
 (proposed; its provenance items accepted with M6a) and the owner decisions of
 [DECISIONS-OPEN §G](DECISIONS-OPEN.md#g-modeling-iteration-m6am7-defaults-chosen-2026-10-18). The owner's goal is a
 turnkey tool: model a low-poly character and a prop → rig and skin → animate → export to Ekza, with AI generation
-feeding the same pipeline later. Interaction model: Maya's (component modes, marking menus, Maya keys and names) with
-Blender's semantics (adjust last operation, typed numbers in tools, live preview, symmetry remembered per mesh) and
-a BMesh-style kernel; no construction history (ADR 0016, ADR 0014).
+feeding the same pipeline later. Interaction model: the desktop DCC's (component modes, marking menus, its keys and
+names) with the semantics of a popular open-source DCC (adjust last operation, typed numbers in tools, live preview,
+symmetry remembered per mesh) and a BMesh-style kernel; no construction history (ADR 0016, ADR 0014).
 
 ### M6a — Modeling base (≈ 108 agent-days + a fix round)
 
@@ -634,7 +637,7 @@ viewport Scale tool and shading modes (pulled from M2c); `mesh-core` kernel (rad
 log, Euler operators, deterministic ops, attribute layers that keep UVs, colours, skin weights and morph deltas valid)
 and `mesh-view` (overlays, CPU picking); component modes and selection (loops, rings, grow/shrink, convert, soft
 selection, symmetry for every base tool, undoable selection, hide/isolate); six low-poly primitives with live
-parameters; extrude as a Maya-style session (`Ctrl+E`, then the manipulator or `W`/`R` on the cap, then Divisions),
+parameters; extrude as a DCC-style session (`Ctrl+E`, then the manipulator or `W`/`R` on the cap, then Divisions),
 inset, bevel (≤ 3 segments), insert and offset edge loops, Multi-Cut, connect, Slide Edge/Vertex, Average Vertices,
 bridge (divisions, twist, offset), fill hole, merge/Target Weld/collapse, delete and Delete Edge/Vertex, spin/flip
 edge, mirror, symmetrize, combine/separate/extract, triangulate/quadrangulate, freeze transforms, MMB-drag and Tweak
@@ -665,21 +668,22 @@ Build spec: [M6B-SPEC.md](M6B-SPEC.md) v1.1, revised after its design review (co
 placement, work packages C0…C11 + INT, E2E-SKIN/E2E-RIG/E2E-CNS scenarios, AS-LP-T); expanded on the owner's request
 from "characters from own models" into a full but bounded rigging workspace (research 17, 18, 19).
 
-**Deliverables**: the Rig & Skin workspace (modes Object/Skeleton/Skin/Shapes, pose view Bind/Test/Clip, Maya's
-Skeleton/Skin/Constrain/Control menus and marking menus, a setup checklist, the Validation panel as the export gate);
-characters from the user's own meshes (adoption, Import Static Model) with the control rig regenerated inside every
-skeleton edit; VRM humanoid templates (Lite 17, Core 21, Standard 33 with mitten hands, Full 52) with rest flexion and
-Quick Rig (markers or a One-Click guess; T- and A-posed meshes); the Joint tool with Snap to Projected Center,
-symmetry and an automatic parent, Insert Joint, Split Bone, Add Chain, Duplicate Joints, Remove/Delete, Parent/Unparent,
-Map Humanoid Bone, joint roles (deforming, helper, prop) and sockets, **Orient Joint** and **Mirror Joint**; test poses
-that never key (IK limbs bend in FK for the test), Go to Bind Pose, a ROM clip, Apply Pose as Rest; **Bind Skin** (Auto
-(low-poly), closest in hierarchy, rigid islands, bone heat; worker) and Auto Weights for Selected Joints; **Paint Skin Weights** (Maya operations, holds, mirror stroke, posed painting), the
-numbers overlay, the **Component Editor**, Mirror/Copy (inpainting)/Smooth/Hammer Skin Weights, Prune, Normalize, Remove
-Unused Influences, Move Weights; **constraints** parent/point/orient/aim with keyable weights, maintain offset and bake
-(from M2c); **control-shape editing** (from M2c); **Attach Prop** for handhelds; the VRM 1.0 / GLB character writer with
-meta, licence presets and thumbnail; weight edits on imported characters through the surgeon and Make Character
-Editable; exporter-agnostic `ekza/space-avatar-v1`; T0 guide. Non-goals: set driven keys, node editor, rig scripting,
-blend-shape authoring, muscle systems.
+**Deliverables**: the Rig & Skin workspace (modes Object/Skeleton/Skin/Shapes, pose view Bind/Test/Clip, the desktop
+DCC's Skeleton/Skin/Constrain/Control menus and marking menus, a setup checklist, the Validation panel as the export
+gate); characters from the user's own meshes (adoption, Import Static Model) with the control rig regenerated inside
+every skeleton edit; VRM humanoid templates (Lite 17, Core 21, Standard 33 with mitten hands, Full 52) with rest
+flexion and Quick Rig (markers or a One-Click guess; T- and A-posed meshes); the Joint tool with Snap to Projected
+Center, symmetry and an automatic parent, Insert Joint, Split Bone, Add Chain, Duplicate Joints, Remove/Delete,
+Parent/Unparent, Map Humanoid Bone, joint roles (deforming, helper, prop) and sockets, **Orient Joint** and **Mirror
+Joint**; test poses that never key (IK limbs bend in FK for the test), Go to Bind Pose, a ROM clip, Apply Pose as
+Rest; **Bind Skin** (Auto (low-poly), closest in hierarchy, rigid islands, bone heat; worker) and Auto Weights for
+Selected Joints; **Paint Skin Weights** (desktop-DCC operations, holds, mirror stroke, posed painting), the numbers
+overlay, the **Component Editor**, Mirror/Copy (inpainting)/Smooth/Hammer Skin Weights, Prune, Normalize, Remove
+Unused Influences, Move Weights; **constraints** parent/point/orient/aim with keyable weights, maintain offset and
+bake (from M2c); **control-shape editing** (from M2c); **Attach Prop** for handhelds; the VRM 1.0 / GLB character
+writer with meta, licence presets and thumbnail; weight edits on imported characters through the surgeon and Make
+Character Editable; exporter-agnostic `ekza/space-avatar-v1`; T0 guide. Non-goals: set driven keys, node editor, rig
+scripting, blend-shape authoring, muscle systems.
 
 **Acceptance**: Polybot without weights auto-skins within one joint on ≥ 98 % of points (exact ≥ 85 %, calibrated);
 Orient Joint leaves deformation and humanoid animation within 1e-9; constraint rest exactness and the M2a schedule
@@ -732,13 +736,13 @@ fallback; sandboxed third-party plugins.
 | Risk | Milestone | Mitigation |
 |---|---|---|
 | Canvas2D Graph Editor misses the 50k-key budget in Safari | M1 week 1 | `CurveRenderer` interface; WebGL curve layer only |
-| Spline/Clamped feel differs from Maya | M1–M2 | AnimX-exact Auto default; calibrate with Maya fixtures if a licence exists |
+| Spline/Clamped feel differs from the desktop DCC | M1–M2 | AnimX-exact Auto default; calibrate with desktop-DCC fixtures if a licence exists |
 | Yjs cannot meet the store contract | **M1 WP-2** | `doc-yjs` runs the full suite in CI; contract changes land before the operator freeze; Loro as the named alternative |
 | FK-only legs disappoint animators in the alpha | M1 | Plant Feet; say it plainly in README and app; leg IK is M2a item 1; owner may pull it into M1 (Q-RIG-5) |
 | M1 scope (63 agent-days) slips | M1 | M1-stretch list; WP-7 split; test kit from day 1; integration agent owns lockfile and shell |
 | Registry/game changes slip | M4a | Tier 0 already works in Space; Tier 1 tracked in owning repos from M2 |
 | R3F 9 pins React minors; three.js focus on WebGPU | ongoing | Renovate groups; renderer swap isolated in `viewport` |
-| Scope creep from Maya breadth | all | Requirements carry priorities; MVP-SPEC is the contract; modeling: BASE/stretch tags, bevel ≤ 3 segments, bounded Multi-Cut (MODELING-PLAN §4.5) |
+| Scope creep from desktop-DCC breadth | all | Requirements carry priorities; MVP-SPEC is the contract; modeling: BASE/stretch tags, bevel ≤ 3 segments, bounded Multi-Cut (MODELING-PLAN §4.5) |
 | Name conflict for "Ekza Studio" | before M1 alpha | Trademark search (Q-NAME-3) |
 | Mesh kernel emits invalid topology or non-deterministic results | M6a | Refusal policy, `validateMesh` after every commit in debug builds, property tests P1–P9 incl. Node vs Chromium hashes (ADR 0014) |
 | Modeling edits silently break skin weights or VRM expressions | M6a/M6b | Attribute layers with propagation rules inside one revision, stable morph order, licence gate, surgeon read-back tests (ADR 0015) |

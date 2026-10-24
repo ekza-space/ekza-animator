@@ -5,8 +5,9 @@
 > accepts it.
 > Scope: (1) the state of the Model Context Protocol — revision, features, transports, auth, the TypeScript SDK, how
 > clients configure local servers, client limits and security guidance; (2) a survey of MCP servers for DCC and
-> creative tools (Blender, Unity, Unreal, Maya, Cascadeur, Figma, Spline, PlayCanvas, Pascal, three.js, VRMA Lab and
-> others):
+> creative tools (a popular open-source DCC, a leading commercial desktop DCC, Unity, Unreal, Cascadeur, Figma, Spline,
+> PlayCanvas, Pascal, three.js, VRMA Lab and others; the first two are "the open-source DCC" and "the desktop DCC"
+> below):
 > what makes them good or bad, tool-design lessons, and what could be reused under our licence policy (ADR 0009).
 > Method: specification pages and `schema.ts` of revision 2026-07-28, the TypeScript SDK `docs/` tree on `main`,
 > npm registry metadata (`npm view`, 2026-10-19), GitHub and Gitea REST metadata (licence, activity), vendor
@@ -29,14 +30,14 @@
 | F2 | TypeScript SDK **v2** (`@modelcontextprotocol/server` 2.3.1, Apache-2.0, ESM-only, Node ≥ 20, dependencies `zod ^4.2` + `@modelcontextprotocol/core`) is the stable line since 2026-07-27 and the only one that speaks 2026-07-28. **v1** (`@modelcontextprotocol/sdk` 1.32.1, MIT) gets fixes for at least six months and never gets 2026-07-28 [TS-SDK][NPM]. | Use v2. Apache-2.0 is on our CI allowlist. `fromJsonSchema()` registers a tool from a plain JSON Schema, so operator tools can come straight from `paramSchema(ParamDef[])` (M6a) with no second schema copy. |
 | F3 | A local server is a **stdio child process launched by the client**. Every client takes the same `command` + `args` shape: Claude Code (`claude mcp add <name> -- <cmd>`, `.mcp.json`), Claude Desktop (`claude_desktop_config.json` or a one-click `.mcpb` bundle), Cursor (`.cursor/mcp.json`), VS Code (`.vscode/mcp.json`, key `servers`), Codex (`[mcp_servers.<name>]` in `config.toml`) [CC-MCP][MCP-LOCAL][MCPB][CURSOR][VSCODE][CODEX]. | Ship one npm bin runnable with `npx -y`, five copy-paste snippets, a committed `.mcp.json` for contributors, a Claude Code plugin with a skill, and later an `.mcpb`. |
 | F4 | Client budgets shape the API. Claude Code defers MCP tool definitions behind **tool search** by default, cuts descriptions and server instructions at 4,096 characters (16,384 for a deferred tool), warns at 10,000 tokens of tool output and caps it at 25,000, and drops a tool whose full name `mcp__<server>__<tool>` exceeds 128 characters [CC-MCP]. The Claude API accepts tool names matching `^[a-zA-Z0-9_-]{1,128}$` — no dots [CLAUDE-TOOLS]. An image costs ⌈w/28⌉ × ⌈h/28⌉ visual tokens (1000 × 1000 px ≈ 1,296) [CLAUDE-VISION]. | `snake_case` tool names (operator ids such as `anim.key.insert` go into arguments, never into tool names); 25–35 tools with the searchable words first in each description; summaries with drill-down and paging; screenshots ≤ 1024 px on the long edge. |
-| F5 | DCC servers follow three designs: **code execution** (MCP for Blender `execute_blender_code`, Blender Lab, Spline `3d_run_code`, Figma `use_figma`), **typed verbs** (PlayCanvas Editor, 130 tools; Pascal, 45 tools; Unity MCP, 50 tools in groups; the community Cascadeur server, 36 tools) and **progressive disclosure** (Unreal 5.8 exposes three meta-tools `list_toolsets` / `describe_toolset` / `call_tool`; Unity's `manage_tools` activates groups). | Typed verbs for the 25–35 animation jobs, plus progressive disclosure (`list_operators` / `describe_operator` / `run_operator`) for the long tail of operators. **No code-execution tool.** |
-| F6 | The useful creative servers close the loop **visually**: Blender's `look` (viewport, camera, auto-framed multi-angle sheet, animation frame strip), VRMA Lab's fixed quad-view review, PlayCanvas runtime screenshots, Figma `get_screenshot`, Spline screenshots. | A `capture` tool with presets (quad sheet, frame strip, one pane or camera) returning image content plus a structured caption (frame, camera, character). |
+| F5 | DCC servers follow three designs: **code execution** (the code tools of both open-source-DCC servers, Spline `3d_run_code`, Figma `use_figma`), **typed verbs** (PlayCanvas Editor, 130 tools; Pascal, 45 tools; Unity MCP, 50 tools in groups; the community Cascadeur server, 36 tools) and **progressive disclosure** (Unreal 5.8 exposes three meta-tools `list_toolsets` / `describe_toolset` / `call_tool`; Unity's `manage_tools` activates groups). | Typed verbs for the 25–35 animation jobs, plus progressive disclosure (`list_operators` / `describe_operator` / `run_operator`) for the long tail of operators. **No code-execution tool.** |
+| F6 | The useful creative servers close the loop **visually**: the community open-source-DCC server's `look` (viewport, camera, auto-framed multi-angle sheet, animation frame strip), VRMA Lab's fixed quad-view review, PlayCanvas runtime screenshots, Figma `get_screenshot`, Spline screenshots. | A `capture` tool with presets (quad sheet, frame strip, one pane or camera) returning image content plus a structured caption (frame, camera, character). |
 | F7 | Two MIT TypeScript **browser editors** are the closest analogues. **PlayCanvas Editor MCP** is a stdio server that listens on `127.0.0.1:52000` for a WebSocket from the browser editor, checks the `Origin`, waits for the user to click CONNECT, drives one editor at a time and hands the port over between server instances [PLAYCANVAS]. **Pascal** (a React Three Fiber editor) runs its MCP server **headless in Node on the same scene core** the UI uses; an open editor tab follows the agent's edits through a shared local store and an event stream, and a stdio connector reads the dynamic loopback port and a bearer token from local files, so client configs hold neither [PASCAL][PASCAL-CONNECTOR]. Spline keeps its server in the desktop app because "the MCP connection does not work from the browser" [SPLINE]. | The live bridge follows the PlayCanvas shape and adds a pairing secret; the headless leg follows Pascal. Chrome's **Local Network Access** permission gates a public HTTPS page connecting to loopback (fetch since Chrome 142, WebSocket since Chrome 147) [LNA]: design the first-connect UX around that prompt. |
-| F8 | The security record: unauthenticated localhost ports (MCP Inspector, CVE-2025-49596, CVSS 9.4) [CVE-INSPECTOR]; arbitrary-code tools (Blender Lab: "will execute LLM generated code in Blender without any guards in place") [BLENDER-LAB]; prompt injection through tool results (the GitHub and Atlassian MCP exploits) [WILLISON-GH]; tool poisoning and rug pulls [POISON]. The spec requires `Origin` validation and recommends binding to 127.0.0.1, a human able to deny calls, and treating annotations as untrusted hints [MCP-SEC][MCP-TOOLS]. | No code tool; file access rooted in one workspace directory; `Origin` allowlist plus a per-launch secret; every agent edit visible as an "AI: …" undo entry with a stop control; strings that come from imported assets are untrusted data in results. |
+| F8 | The security record: unauthenticated localhost ports (MCP Inspector, CVE-2025-49596, CVSS 9.4) [CVE-INSPECTOR]; arbitrary-code tools (the official open-source-DCC server: "will execute LLM generated code in [the DCC] without any guards in place") [OSS-DCC-LAB]; prompt injection through tool results (the GitHub and Atlassian MCP exploits) [WILLISON-GH]; tool poisoning and rug pulls [POISON]. The spec requires `Origin` validation and recommends binding to 127.0.0.1, a human able to deny calls, and treating annotations as untrusted hints [MCP-SEC][MCP-TOOLS]. | No code tool; file access rooted in one workspace directory; `Origin` allowlist plus a per-launch secret; every agent edit visible as an "AI: …" undo entry with a stop control; strings that come from imported assets are untrusted data in results. |
 | F9 | Vendors add a **CLI plus Agent Skills** next to, or instead of, MCP: Unity deprecated its in-Editor MCP server in favour of the Unity CLI (`unity mcp`, `unity command`, `unity skill install`) [UNITY-CLI]; Playwright recommends its CLI with skills for coding agents [PW-MCP]; Figma ships its server inside a plugin bundled with skills [FIGMA]. | The same package offers `mcp` (the stdio server) and direct subcommands for headless batch jobs, and ships a skill with animation workflows. |
 | F10 | **WebMCP** (`document.modelContext.registerTool`, a W3C Community Group draft) is in origin trial in Chrome 149 and Edge 150; ChatGPT Desktop supports it and Brave Leo has it experimentally; no Claude client is listed [WEBMCP][WEBMCP-OT]. | A thin WebMCP adapter over the same tool table is cheap later; it is not the M-AI transport. |
-| F11 | **MCP Apps** (`io.modelcontextprotocol/ui`) render a server's `ui://` HTML in a sandboxed iframe inside Claude (web and desktop), ChatGPT, VS Code, Cursor, Goose and others [MCP-APPS][MCP-EXT-MATRIX]; MCP for Blender already shows a live viewport inline [BLENDER-MCP]. | Later: an inline clip preview. Every tool must still return useful text and images for clients without the extension. |
-| F12 | Undo semantics separate the good servers from the rest. Pascal states it: "Mutation tools are captured by Zundo's temporal middleware as a single undoable step", and its batched `apply_patch` is validated and dry-run before commit [PASCAL]. PlayCanvas exposes undo and redo as tools; Blender tells users to save first; Unreal and Unity are silent. ADR 0008 already makes one operator run one transaction and one history step. | State the guarantee in the M-AI spec and README: every agent call is one labelled, undoable step in the user's History. Among DCC servers only Pascal makes the same promise. |
+| F11 | **MCP Apps** (`io.modelcontextprotocol/ui`) render a server's `ui://` HTML in a sandboxed iframe inside Claude (web and desktop), ChatGPT, VS Code, Cursor, Goose and others [MCP-APPS][MCP-EXT-MATRIX]; the community open-source-DCC server already shows a live viewport inline [OSS-DCC-MCP]. | Later: an inline clip preview. Every tool must still return useful text and images for clients without the extension. |
+| F12 | Undo semantics separate the good servers from the rest. Pascal states it: "Mutation tools are captured by Zundo's temporal middleware as a single undoable step", and its batched `apply_patch` is validated and dry-run before commit [PASCAL]. PlayCanvas exposes undo and redo as tools; the community open-source-DCC server tells users to save first; Unreal and Unity are silent. ADR 0008 already makes one operator run one transaction and one history step. | State the guarantee in the M-AI spec and README: every agent call is one labelled, undoable step in the user's History. Among DCC servers only Pascal makes the same promise. |
 
 ---
 
@@ -148,7 +149,7 @@ a 60-second tool timeout and a 10-second startup timeout [CODEX].
   non-standard `ws` server type for remote WebSocket servers (header auth only) [CC-MCP].
 
 For a local desktop-class tool every surveyed server uses **stdio to the client**. The leg from that process to the
-running application is private: a TCP socket (MCP for Blender, Blender Lab, Unity MCP), a local HTTP endpoint inside
+running application is private: a TCP socket (both open-source-DCC servers, Unity MCP), a local HTTP endpoint inside
 the app (Unreal), a WebSocket from a browser tab (PlayCanvas, threejs-devtools-mcp), a file mailbox polled by the app
 (the community Cascadeur server), or the app's own embedded runtime (Spline).
 
@@ -213,9 +214,9 @@ serveStdio(() => {
 | Gemini CLI | `mcpServers` in `~/.gemini/settings.json` or `.gemini/settings.json` | same | Per-server include/exclude tool lists and a `trust` flag **(unverified field names)** [GEMINI]. |
 
 Every row uses the same `{ command, args, env }` triple, so one `npx -y <package>` entry point serves all of them.
-PlayCanvas, MCP for Blender and the community Cascadeur server all publish exactly this set of snippets; the
-Cascadeur server even generates the client files with absolute paths, because Claude Desktop starts servers from an
-undefined working directory [CASC-COMM][MCP-LOCAL].
+PlayCanvas, the community open-source-DCC server and the community Cascadeur server all publish exactly this set of
+snippets; the Cascadeur server even generates the client files with absolute paths, because Claude Desktop starts
+servers from an undefined working directory [CASC-COMM][MCP-LOCAL].
 
 ### 1.7 Client limits that shape the design
 
@@ -249,7 +250,7 @@ What went wrong in practice:
 | MCP Inspector CVE-2025-49596 (CVSS 9.4): its local proxy accepted unauthenticated connections and could spawn processes; a malicious web page reached it through `0.0.0.0` or DNS rebinding. Fixed in 0.14.1 with a session token and origin validation [CVE-INSPECTOR]. | A localhost listener needs **both** an Origin check and a secret. |
 | GitHub MCP (May 2025) and Atlassian MCP (June 2025): text in a public issue or a support ticket instructed the agent to read private data and publish it — the "lethal trifecta" of private data, untrusted content and an exfiltration channel [WILLISON-GH][TRIFECTA]. | Content from third-party assets (node names, clip names, `extras`, VRM meta) is untrusted; the agent driving our editor often also has a shell. |
 | Tool poisoning and rug pulls: hidden instructions in tool descriptions; definitions changed after approval [POISON]. | Our tool text is static and versioned with the package; no description is built from user data. |
-| Arbitrary-code tools: MCP for Blender — "ALWAYS save your work before using it"; Blender Lab recommends a virtual machine [BLENDER-MCP][BLENDER-LAB]. | Do not ship a code tool; the operator registry is the whole API. |
+| Arbitrary-code tools: the community open-source-DCC server — "ALWAYS save your work before using it"; the official one recommends a virtual machine [OSS-DCC-MCP][OSS-DCC-LAB]. | Do not ship a code tool; the operator registry is the whole API. |
 
 Browser-specific: browsers do not apply CORS to WebSockets, so any open page can try `ws://127.0.0.1:<port>`; the
 browser always sends an `Origin` header that page script cannot forge, which is why PlayCanvas checks it [PLAYCANVAS].
@@ -266,13 +267,13 @@ is not public, so the prompt does not apply to a locally served editor (to be co
 
 | Server | Owner, licence | Architecture | Tool surface | Vision | Safety posture | Verdict |
 |---|---|---|---|---|---|---|
-| **MCP for Blender** (was `blender-mcp`) [BLENDER-MCP] | ahujasid (community), MIT; ★ 31.6k | Python stdio server (`uvx mcp-for-blender`) ↔ TCP socket `localhost:9876` ↔ Blender add-on | 9 tools: `execute_blender_code`, `look`, `get_scene_info`, `generate_3d`, `search_assets`/`import_asset`, `get_addon_status`, telemetry controls | `look`: viewport, camera, auto-framed multi-angle sheet, **animation frame strip**, shading modes; inline viewport via MCP Apps | Socket has "no authentication or encryption"; opt-in "safe mode" statically screens scripts; telemetry with opt-out; paid generation tier | The most popular DCC server; its value is the code tool plus `look`. Security anti-pattern. |
-| **Blender Lab MCP Server** [BLENDER-LAB] | Blender Lab (official), **GPL-3.0** | stdio server ↔ TCP socket ↔ add-on; Blender 5.1+; `.mcpb` release; v1.0.0 2026-04-27, v1.0.3 2026-09-11 | ~25 tools: `execute_blender_code`, blend-file summaries, object summaries, Python API and manual **doc search**, area/window screenshots, window layout as JSON, viewport jumps; every file-reading tool has a `*_for_cli` twin running headless Blender | area and window screenshots | "will execute LLM generated code … without any guards"; recommends a VM | Good: live + headless twins, docs search, layout-as-JSON. Bad: code tool. GPL: patterns only. |
+| **Open-source DCC, community server** [OSS-DCC-MCP] | ahujasid (community), MIT; ★ 31.6k | Python stdio server (run with `uvx`) ↔ TCP socket `localhost:9876` ↔ DCC add-on | 9 tools: a code-execution tool, `look`, `get_scene_info`, `generate_3d`, `search_assets`/`import_asset`, `get_addon_status`, telemetry controls | `look`: viewport, camera, auto-framed multi-angle sheet, **animation frame strip**, shading modes; inline viewport via MCP Apps | Socket has "no authentication or encryption"; opt-in "safe mode" statically screens scripts; telemetry with opt-out; paid generation tier | The most popular DCC server; its value is the code tool plus `look`. Security anti-pattern. |
+| **Open-source DCC, official server** [OSS-DCC-LAB] | the DCC project's lab (official), **GPL-3.0** | stdio server ↔ TCP socket ↔ add-on; DCC 5.1+; `.mcpb` release; v1.0.0 2026-04-27, v1.0.3 2026-09-11 | ~25 tools: a code-execution tool, blend-file summaries, object summaries, Python API and manual **doc search**, area/window screenshots, window layout as JSON, viewport jumps; every file-reading tool has a `*_for_cli` twin running the DCC headless | area and window screenshots | "will execute LLM generated code … without any guards"; recommends a VM | Good: live + headless twins, docs search, layout-as-JSON. Bad: code tool. GPL: patterns only. |
 | **MCP for Unity** [UNITY-COPLAY] | CoplayDev (community, sponsored), MIT; ★ 15.1k | Python server ↔ Unity editor package; multi-instance routing; remote server with auth option | 50 tools in **groups** (`core` on; `animation`, `ui`, `vfx`, `testing`, … off) toggled by `manage_tools`; `manage_*` tools multiplex an `action` and a free-form `properties` dict; `batch_execute` (default 25, max 100 commands) | screenshots via tools | Roslyn validation of scripts; tool toggles in the editor | Good: groups, batching, per-instance routing. Bad: `action` + untyped `properties` hides the real schema from the model. |
 | **Unity AI Assistant MCP → Unity CLI** [UNITY-OFFICIAL][UNITY-CLI] | Unity (official) | In-editor bridge + relay binary; first-time clients appear as *Pending Connections* to Accept/Deny. Now **deprecated** for the Unity CLI's `unity mcp` server (localhost only), with `unity command` / `unity eval` for agents that can run shell commands, and `unity skill install` | `Unity_ManageScene`, `Unity_ManageGameObject`, `Unity_ReadConsole`, custom tools | — | explicit per-client approval | Good: client approval UX; the CLI + skills turn. |
 | **Unreal MCP** (UE 5.8) [UNREAL] | Epic (official), experimental | MCP server inside the editor at `http://127.0.0.1:8000/mcp`; tools run **serially on the game thread** ("clients should not issue overlapping Tool calls") | Tool Search mode exposes three meta-tools: `list_toolsets`, `describe_toolset`, `call_tool`; toolsets for scene, actors, material instances, objects (+ more with plugins) | — | "no authentication layer; … not safe to expose beyond the local machine" | Good: progressive disclosure, explicit serial execution. Bad: no auth. |
 | unreal-mcp [UNREAL-COMMUNITY] | chongdashu, **no licence**; last push 2025-04 | Python server ↔ UE plugin socket | actors, Blueprints | — | — | Unmaintained; not reusable. |
-| Maya (community: MayaMCP and others) [MAYA] | PatrickPalmer MayaMCP, MIT, last push 2025-05; others unverified | commandPort / plugin bridges | script execution + scene inspection | — | — | No Autodesk server found as of 2026-10. |
+| Desktop DCC (community servers) [DESKTOP-DCC-MCP] | PatrickPalmer, MIT, last push 2025-05; others unverified | commandPort / plugin bridges | script execution + scene inspection | — | — | No vendor server found as of 2026-10. |
 | **Cascadeur** built-in [CASC-NEWS] | Nekki, proprietary; 2026.2 (2026-08) | "a 'simple' MCP server" | **(unverified)** | — | — | Shows the animation-tool trend; details not public. |
 | Cascadeur community server [CASC-COMM] | gprethesh, MIT, created 2026-09 | stdio Python ↔ **file mailbox**; a Qt timer in the app runs one request at a time on the main thread; **no network port** | 36 tools: scene and rig inspection, body/finger posing, keyframes, interpolation, timeline selection, camera, PNG previews, FBX I/O; curated physics/AutoPosing action catalog with "explicit verification limits"; optional 37th scripting tool, **off by default** | PNG previews | Workspace path checks; scripting bypasses them and is disabled by default; generated client configs | The closest *animation* tool design: typed posing/keying verbs + previews. Single author, young. |
 | **Figma MCP server** [FIGMA] | Figma (official), proprietary; guide repo has no licence | Remote `https://mcp.figma.com/mcp` (OAuth) + a desktop-app server | ~32 tools; read: `get_metadata` (light XML outline) → `get_design_context`, `get_screenshot`, `get_variable_defs`, `get_motion_context` (keyframes, easing); write (remote only): `use_figma` runs Plugin-API code, plus typed creators | `get_screenshot` ("uses more tokens") | Rate limits per seat; write beta; ships with Agent Skills (`figma-use`) | Good: outline → detail drill-down; skills. Write path is code execution. |
@@ -283,37 +284,37 @@ is not public, so the prompt does not apply to a locally served editor (to be co
 | **VRMA Lab** Agent Mode [VRMA-LAB] | YuBan834, Apache-2.0; ★ 6 | No MCP: `window.vrmaLab` SDK + same-origin `postMessage` JSON bridge, driven by browser-automation agents | `inspect` → `edit` → `review` → `validate` → `exportVrma`, plus undo/redo | **fixed quad-view review** (full body, upper body, half body, legs/contacts) | Export read-back validation before download | Good: the *workflow* (inspect/edit/review/validate/export) and the quad view. |
 | Godot MCP [GODOT] | Coding-Solo, MIT; ★ 6.2k | stdio ↔ Godot CLI | launch editor, run project, capture debug output | — | — | Headless/CLI style; shows the "run and read logs" loop. |
 | Rive, After Effects, Cavalry (community) | various | various | keyframe/easing/state-machine tools (Rive community: 139 tools) **(unverified)** | — | — | Only community; Rive's official server is in an early-access desktop app **(unverified)**. |
-| Mixamo (community) [MIXAMO-MCP] | V1xel, **no licence**; ★ 4 | Playwright automation of the Mixamo web UI with a saved browser session | search and download clips, upload characters to the auto-rigger | — | stored session cookie | Character-animation MCPs are thin and mostly community UI automation; no Rokoko, Motorica or Move AI server found. |
+| Web auto-rigging service (community) [AUTORIG-MCP] | V1xel, **no licence**; ★ 4 | Playwright automation of the service's web UI with a saved browser session | search and download clips, upload characters to the auto-rigger | — | stored session cookie | Character-animation MCPs are thin and mostly community UI automation; no Rokoko, Motorica or Move AI server found. |
 | Generic browser MCPs: Playwright MCP, Chrome DevTools MCP [PW-MCP][CDT-MCP] | Microsoft / Google, Apache-2.0 | drive a browser; Playwright can attach to an existing tab through its extension | accessibility snapshots, clicks, `browser_evaluate`/`evaluate_script`, screenshots | screenshots | generic | A zero-code fallback: an agent can already drive our editor through `window.__EKZA_STUDIO_TEST__` in e2e builds. Slow, token-heavy, and JS evaluation is unbounded. |
 | WebMCP / MCP-B [WEBMCP][MCP-B] | W3C CG draft; MCP-B polyfill MIT | The page registers tools with `document.modelContext.registerTool({name, description, inputSchema, execute, annotations})`; annotations `readOnlyHint`, `untrustedContentHint`, `consequentialHint` | page-defined | page-defined | Browser-mediated; per-origin | Future adapter (F10). |
 
 Counts and stars come from the GitHub API on 2026-10-19 and change daily; they show reach, not quality.
 
-### 2.2 MCP for Blender and Blender Lab: the code-execution archetype
+### 2.2 The open-source DCC's servers: the code-execution archetype
 
-MCP for Blender reached the largest audience of any DCC server by doing almost nothing itself: "The AI writes
-Blender Python itself for modelling, layout, materials, animation, rigging and retopology. The MCP adds what Python
-can't do on its own, as nine tools" [BLENDER-MCP]. That works for Blender because Blender's Python API is huge,
-documented and in every model's training data. Its own limits and warnings are the lesson:
+The community open-source-DCC server reached the largest audience of any DCC server by doing almost nothing itself:
+"The AI writes [the DCC's] Python itself for modelling, layout, materials, animation, rigging and retopology. The MCP
+adds what Python can't do on its own, as nine tools" [OSS-DCC-MCP]. That works for the open-source DCC because its
+Python API is huge, documented and in every model's training data. Its own limits and warnings are the lesson:
 
 - Every edit is a script, so the user sees code, not intent; failures surface as Python tracebacks; and the API's
   undo behaviour for scripted edits is the user's problem ("ALWAYS save your work before using it").
 - The opt-in safe mode screens scripts for file, process and network use — a blocklist on a Turing-complete language,
   which research 08 §8 already rejects as a security boundary.
-- The socket has "no authentication or encryption, so anyone who can reach that port can run Python inside Blender".
+- The socket has "no authentication or encryption, so anyone who can reach that port can run Python inside [the DCC]".
 - What it does well is **`look`**: one tool for every visual check, with presets that frame the subject
   automatically, a multi-angle sheet and an **animation strip**, so the model sees motion without a video.
   `get_scene_info` lets the model choose which fields to return, keeping summaries small.
 
-Blender Lab's official server (GPL-3.0) keeps the code tool but adds two ideas worth copying: **live and headless
-twins** of each inspection tool (`get_blendfile_summary_datablocks` and `…_for_cli`, which opens a `.blend` in
-background Blender) and **bundled documentation search** (`search_api_docs`, `search_manual_docs`,
+The official open-source-DCC server (GPL-3.0) keeps the code tool but adds two ideas worth copying: **live and headless
+twins** of each inspection tool (`get_blendfile_summary_datablocks` and `…_for_cli`, which opens a `.blend` in a
+background DCC process) and **bundled documentation search** (`search_api_docs`, `search_manual_docs`,
 `get_python_api_docs`), so the model looks up the API instead of guessing. Its page recommends running it in a
-virtual machine [BLENDER-LAB].
+virtual machine [OSS-DCC-LAB].
 
-Our position differs: we have no general-purpose scripting language worth exposing, and we have something Blender
-lacks — every user-visible action is already a named, typed, undoable operator (ADR 0008). The agent API is the
-registry; a code tool would bypass the one property that makes agent edits safe to accept.
+Our position differs: we have no general-purpose scripting language worth exposing, and we have something the
+open-source DCC lacks — every user-visible action is already a named, typed, undoable operator (ADR 0008). The agent API
+is the registry; a code tool would bypass the one property that makes agent edits safe to accept.
 
 ### 2.3 Unity and Unreal: granularity and disclosure
 
@@ -476,18 +477,19 @@ well-described tool set is what makes that pattern work.
 
 ### 3.4 Read before write: outlines, drill-down, paging
 
-Figma's `get_metadata` → `get_design_context`, Blender's field-selectable `get_scene_info`, Blender Lab's summary
-family and VRMA Lab's `inspect` all give the model a cheap map first. For us: `get_scene` (characters, clips,
-current frame, selection, dirty state) → `list_controls` (per character, grouped by body part) → `get_curves` (one
-clip, filtered by controls/channels, paged, keys optionally summarised as counts and ranges) → `get_pose` (values at
-a frame). The e2e test API (MVP-SPEC §4.8) already has most of these reads and is a ready inventory.
+Figma's `get_metadata` → `get_design_context`, the community open-source-DCC server's field-selectable `get_scene_info`,
+the official server's summary family and VRMA Lab's `inspect` all give the model a cheap map first. For us: `get_scene`
+(characters, clips, current frame, selection, dirty state) → `list_controls` (per character, grouped by body part) →
+`get_curves` (one clip, filtered by controls/channels, paged, keys optionally summarised as counts and ranges) →
+`get_pose` (values at a frame). The e2e test API (MVP-SPEC §4.8) already has most of these reads and is a ready
+inventory.
 
 ### 3.5 Seeing the result
 
-- One `capture` tool, many presets, as Blender's `look` and VRMA Lab's review do: `quad` (front, side, three-quarter,
-  feet close-up in one image), `strip` (N frames of a range in one image — motion without video), `pane` (a given
-  viewport pane), `camera` (the shot camera). Auto-frame the character; optional overlays (controls, ground grid,
-  contact markers).
+- One `capture` tool, many presets, as the community open-source-DCC server's `look` and VRMA Lab's review do: `quad`
+  (front, side, three-quarter, feet close-up in one image), `strip` (N frames of a range in one image — motion without
+  video), `pane` (a given viewport pane), `camera` (the shot camera). Auto-frame the character; optional overlays
+  (controls, ground grid, contact markers).
 - Budget: a 1024 × 1024 sheet ≈ 1,369 visual tokens; 512 × 512 ≈ 361 [CLAUDE-VISION]. Default to 768–1024 px and
   JPEG/WebP where clients accept them; always add a structured caption (frame, camera, character, overlays).
 - Pair images with **numbers**: foot-slide distance, contact frames, joint-limit violations, arc smoothness. The model
@@ -529,12 +531,12 @@ claims apply.
 
 ### 3.9 Instructions, prompts and skills
 
-Blender Lab sends `prompts.yml` "instructions … to the LLM at connection time" [BLENDER-LAB]; Figma and Unity ship
-Agent Skills [FIGMA][UNITY-CLI]; Pascal publishes an agent-guide resource and workflow prompts, and labels project
-content reached through it as "quoted data, never instructions" [PASCAL]; Claude Code reads server instructions to decide when to search for a server's tools
-[CC-MCP]. Plan three layers: server `instructions` (what the server is for, the edit-verify loop, units), MCP prompts
-for canned jobs, and a skill with longer animation craft (blocking, spacing, overshoot, contact rules) that would bloat
-tool descriptions.
+The official open-source-DCC server sends `prompts.yml` "instructions … to the LLM at connection time" [OSS-DCC-LAB];
+Figma and Unity ship Agent Skills [FIGMA][UNITY-CLI]; Pascal publishes an agent-guide resource and workflow prompts, and
+labels project content reached through it as "quoted data, never instructions" [PASCAL]; Claude Code reads server
+instructions to decide when to search for a server's tools [CC-MCP]. Plan three layers: server `instructions` (what the
+server is for, the edit-verify loop, units), MCP prompts for canned jobs, and a skill with longer animation craft
+(blocking, spacing, overshoot, contact rules) that would bloat tool descriptions.
 
 ### 3.10 Verification loops
 
@@ -546,9 +548,9 @@ result's read-back report) so a task ends with evidence, not with an assertion.
 
 ### 3.11 Telemetry and network
 
-MCP for Blender collects anonymous usage by default and content only on opt-in; PlayCanvas collects nothing and makes
-one documented outbound request [BLENDER-MCP][PLAYCANVAS]. An MIT editor bridge should collect nothing and make no
-network requests of its own.
+The community open-source-DCC server collects anonymous usage by default and content only on opt-in; PlayCanvas collects
+nothing and makes one documented outbound request [OSS-DCC-MCP][PLAYCANVAS]. An MIT editor bridge should collect nothing
+and make no network requests of its own.
 
 ---
 
@@ -568,10 +570,10 @@ unlicensed code.
 | `@mcp-b/global` 6.0.3 | MIT | Possible WebMCP polyfill later. |
 | PlayCanvas Editor MCP server | MIT | **Copy-adapt with attribution** (ADR 0009 rule 3) where useful: the WebSocket ownership/stand-by logic, Origin allowlist, LNA hints, client snippets. |
 | Pascal `@pascal-app/mcp` and `@pascal-app/cli` | MIT | **Copy-adapt with attribution** where useful: the stdio-to-loopback connector with a token file, error-code and retired-tool conventions, the test harness that drives the server through an in-memory client. Built on SDK v1, so code moves over with the v2 codemod. |
-| threejs-devtools-mcp, Figma-Context-MCP, MCP for Blender, MCP for Unity, community Cascadeur server | MIT | Patterns; code is Python or unrelated except threejs-devtools-mcp (TypeScript). |
+| threejs-devtools-mcp, Figma-Context-MCP, community open-source-DCC server, MCP for Unity, community Cascadeur server | MIT | Patterns; code is Python or unrelated except threejs-devtools-mcp (TypeScript). |
 | IvanMurzak Unity-MCP, VRMA Lab, Playwright MCP, Chrome DevTools MCP | Apache-2.0 | Patterns; VRMA Lab's validator already flagged in research 05. |
-| Blender Lab MCP | **GPL-3.0** | Ideas only (live/headless twins, docs search); no code. |
-| chongdashu/unreal-mcp, figma/mcp-server-guide, V1xel/mixamo-mcp | **no licence** | Do not copy. |
+| Official open-source-DCC server | **GPL-3.0** | Ideas only (live/headless twins, docs search); no code. |
+| chongdashu/unreal-mcp, figma/mcp-server-guide, V1xel's auto-rigging-service server | **no licence** | Do not copy. |
 | `@modelcontextprotocol/inspector` 2.11.0 | "SEE LICENSE IN LICENSE" | Developer tool via `npx`, not a dependency. |
 
 ---
@@ -692,15 +694,15 @@ Security
 - [LNA] Chrome Local Network Access: https://developer.chrome.com/blog/local-network-access · Chrome 147 WebSocket/WebTransport enforcement: https://www.phoronix.com/news/Chrome-147-Stable-Released · PlayCanvas bridge comment (Chrome 142+, WebSockets from 147): https://github.com/playcanvas/editor-mcp-server/blob/main/src/wss.ts
 
 DCC and creative servers (GitHub/Gitea metadata 2026-10-19)
-- [BLENDER-MCP] MCP for Blender (renamed from blender-mcp): https://github.com/ahujasid/mcp-for-blender
-- [BLENDER-LAB] Blender Lab MCP Server: https://www.blender.org/lab/mcp-server/ · https://projects.blender.org/lab/blender_mcp
+- [OSS-DCC-MCP] Community MCP server for the open-source DCC (ahujasid, MIT; GitHub)
+- [OSS-DCC-LAB] Official MCP server from the open-source DCC project's lab (GPL-3.0; project site and Gitea)
 - [UNITY-COPLAY] MCP for Unity: https://github.com/CoplayDev/unity-mcp · tool groups: https://coplaydev.github.io/unity-mcp/guides/tool-groups
 - [UNITY-OFFICIAL] Unity MCP (AI Assistant): https://docs.unity3d.com/Packages/com.unity.ai.assistant@2.0/manual/unity-mcp-get-started.html
 - [UNITY-CLI] Unity CLI replaces the in-Editor MCP server: https://docs.unity.com/en-us/unity-cli/replace-mcp-server-unity-cli
 - Unity-MCP (IvanMurzak): https://github.com/IvanMurzak/Unity-MCP
 - [UNREAL] Unreal MCP in Unreal Editor (5.8, experimental): https://dev.epicgames.com/documentation/unreal-engine/unreal-mcp-in-unreal-editor
 - [UNREAL-COMMUNITY] unreal-mcp: https://github.com/chongdashu/unreal-mcp
-- [MAYA] MayaMCP: https://github.com/PatrickPalmer/MayaMCP
+- [DESKTOP-DCC-MCP] Community MCP server for the desktop DCC (PatrickPalmer, MIT; GitHub)
 - [CASC-NEWS] CG Channel, Cascadeur 2026.2: https://www.cgchannel.com/2026/08/nekki-releases-cascadeur-2026-2-with-animation-layers/
 - [CASC-COMM] cascadeur-mcp (community): https://github.com/gprethesh/cascadeur-mcp
 - [FIGMA] Figma MCP server tools: https://developers.figma.com/docs/figma-mcp-server/tools-and-prompts/ · guide: https://github.com/figma/mcp-server-guide
@@ -718,5 +720,5 @@ DCC and creative servers (GitHub/Gitea metadata 2026-10-19)
 - [WEBMCP] WebMCP draft and implementation status: https://webmachinelearning.github.io/webmcp/ · https://github.com/webmachinelearning/webmcp
 - [WEBMCP-OT] Chrome WebMCP origin trial (2026-06-09): https://developer.chrome.com/blog/ai-webmcp-origin-trial
 - [MCP-B] MCP-B WebMCP polyfill: https://www.npmjs.com/package/@mcp-b/global
-- [MIXAMO-MCP] mixamo-mcp (community): https://github.com/V1xel/mixamo-mcp
+- [AUTORIG-MCP] Community MCP server for the web auto-rigging service (V1xel, no licence; GitHub)
 - Rive community server **(unverified)**: https://www.npmjs.com/package/rivemcp

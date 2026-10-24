@@ -1,4 +1,4 @@
-// MeshSetOp `mesh.extract {separate, offset}` (M6A-SPEC §5.13; Maya Extract; owner B4; runner B7). Detaches the
+// MeshSetOp `mesh.extract {separate, offset}` (M6A-SPEC §5.13; DCC-standard Extract; owner B4; runner B7). Detaches the
 // selected faces: their boundary vertices are duplicated so they form their own shell; with `separate` (default) the
 // shell becomes a new record ("Extracted") with the input's placement and slots, else it stays in the mesh (and is the
 // new face selection). `offset` insets the extracted faces' boundary (./subset/inset; `extract.offset-clamped`). The

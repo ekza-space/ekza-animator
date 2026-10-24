@@ -11,15 +11,15 @@ import { type JSX, useRef, useState } from 'react';
 import { usePrefs } from '../hooks';
 import { useShell } from '../shell/context';
 
-type Nav = 'maya' | 'trackpad';
-type Space = 'maya' | 'play';
+type Nav = 'dcc' | 'trackpad';
+type Space = 'maximize' | 'play';
 type Start = 'animate' | 'model' | 'autorig';
 
 export function FirstRunDialog(): JSX.Element {
   const shell = useShell();
   const savedNav = usePrefs((p) => p.navProfile);
   const savedSpace = usePrefs((p) => p.spaceBehaviour);
-  const [nav, setNav] = useState<Nav>(savedNav === 'trackpad' ? 'trackpad' : 'maya');
+  const [nav, setNav] = useState<Nav>(savedNav === 'trackpad' ? 'trackpad' : 'dcc');
   const [space, setSpace] = useState<Space>(savedSpace);
   const savedStart = usePrefs((p) => p.lastWorkspace);
   const [start, setStart] = useState<Start>(savedStart === 'model' ? 'model' : 'animate');
@@ -86,14 +86,14 @@ export function FirstRunDialog(): JSX.Element {
             <h3 className="mt-2 text-ui font-semibold text-fg-2">How do you navigate?</h3>
             <RadioGroup
               value={nav}
-              onValueChange={(value) => setNav(value === 'trackpad' ? 'trackpad' : 'maya')}
+              onValueChange={(value) => setNav(value === 'trackpad' ? 'trackpad' : 'dcc')}
               aria-label="Navigation"
             >
               <RadioGroupItem
-                value="maya"
-                label="Mouse — Maya"
+                value="dcc"
+                label="Mouse — Alt + drag (DCC standard)"
                 hint="Alt + left drag tumble, Alt + middle drag track, Alt + right drag or wheel dolly"
-                data-testid="firstrun-nav-maya"
+                data-testid="firstrun-nav-dcc"
               />
               <RadioGroupItem
                 value="trackpad"
@@ -105,19 +105,19 @@ export function FirstRunDialog(): JSX.Element {
             <h3 className="mt-2 text-ui font-semibold text-fg-2">What does Space do?</h3>
             <RadioGroup
               value={space}
-              onValueChange={(value) => setSpace(value === 'play' ? 'play' : 'maya')}
+              onValueChange={(value) => setSpace(value === 'play' ? 'play' : 'maximize')}
               aria-label="Space key"
             >
               <RadioGroupItem
-                value="maya"
-                label="Maximize the panel under the pointer (Maya)"
+                value="maximize"
+                label="Maximize the panel under the pointer"
                 hint="Tap Space to maximize or restore; Alt+V plays"
-                data-testid="firstrun-space-maya"
+                data-testid="firstrun-space-maximize"
               />
               <RadioGroupItem
                 value="play"
                 label="Play and stop"
-                hint="Like Blender and video editors"
+                hint="Like many open-source DCCs and video editors"
                 data-testid="firstrun-space-play"
               />
             </RadioGroup>

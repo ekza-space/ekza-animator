@@ -100,7 +100,7 @@ async function runSetupImport(ctx: AgentToolContext, args: SetupImportArgs): Pro
       throw new AgentToolFailure(
         'unsupported',
         'Static models are read as .glb.',
-        'In Blender: File › Export › glTF 2.0 (.glb)',
+        'Export the model from your 3D tool as glTF 2.0 (.glb)',
         {
           retryable: false,
         },

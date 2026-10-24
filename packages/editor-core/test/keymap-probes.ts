@@ -1,7 +1,7 @@
 // Probe set for the "Animate resolves exactly as on M2a" check (M6A-SPEC §9 B0b DoD): every physical key the editor
 // could bind, under every modifier combination a binding can name, over every Animate scope chain and trigger. The
-// recorded M2a answers live in `keymap-m2a-resolve.json` (generated once from the M2a `maya` table; never regenerate
-// it from a changed keymap).
+// recorded M2a answers live in `keymap-m2a-resolve.json` (generated once from the M2a default keymap table; never
+// regenerate it from a changed keymap).
 import { GLOBAL_SCOPE, type KeyInput, type KeymapManager, type KeyScope, type KeyTrigger, PANEL } from '../src';
 
 const LETTERS = Array.from({ length: 26 }, (_, i) => `Key${String.fromCharCode(65 + i)}`);
@@ -70,7 +70,7 @@ const M2A_PANELS: readonly string[] = [
   PANEL.timeline,
   PANEL.outliner,
   PANEL.clips,
-  PANEL.channelBox,
+  PANEL.channels,
   PANEL.attributes,
   PANEL.dopeSheet,
 ];

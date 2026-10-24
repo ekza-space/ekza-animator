@@ -1,7 +1,7 @@
 // Limb IK fixtures of the shared test kit (M2A-SPEC §5.2, A2): IK control, pole and `ik2` solver records shaped like
 // the rig's `limbIkRecords` output, added to a document with a humanoid FK rig, and a fake app whose rig programs
 // list `RigProgram.limbs` built from those records. The naive rig program evaluates no `ik2` op (the rig's math):
-// these fixtures test the editor side — visibility, keying, Channel Box rows, key policies, pick-walk, pole lines —
+// these fixtures test the editor side — visibility, keying, Channels panel rows, key policies, pick-walk, pole lines —
 // in Node and in browser-mode panel tests. Browser-safe (no Node APIs).
 import {
   type AttrDef,
@@ -23,7 +23,7 @@ import type {
   SkeletonDesc,
 } from '@ekza-studio/rig';
 import { createKernelApp } from '../app/kernel';
-import { MAYA_KEYMAP } from '../keymap/maya';
+import { DCC_KEYMAP } from '../keymap/dcc';
 import type { EditorApp, EditorServices } from '../types';
 import { naiveKernelDeps } from './deps';
 import { createFakeServices } from './services';
@@ -239,7 +239,7 @@ export function fixtureLimbs(def: RigDefinition, skeleton: SkeletonDesc): readon
 
 /**
  * A fake app (the real kernel over the naive kit, like `createFakeEditorApp`) whose rig programs list the limbs of
- * the document's `ik2` solvers (`fixtureLimbs`). No operators are registered; the `maya` keymap is contributed.
+ * the document's `ik2` solvers (`fixtureLimbs`). No operators are registered; the `dcc` keymap is contributed.
  */
 export function createFakeIkEditorApp(opts: {
   readonly snapshot: DocSnapshot;
@@ -268,7 +268,7 @@ export function createFakeIkEditorApp(opts: {
       },
     },
   );
-  app.contribute({ kind: 'keymap', bindings: MAYA_KEYMAP });
+  app.contribute({ kind: 'keymap', bindings: DCC_KEYMAP });
   return app;
 }
 

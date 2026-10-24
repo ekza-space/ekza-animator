@@ -1,7 +1,8 @@
 # Curve-engine goldens
 
-`animx-goldens.json` holds curve values and auto-tangent slopes computed by Autodesk AnimX (commit
-`11c31ac74e526b599031414866db639383c9a5e0`). It is generated, never edited by hand:
+`animx-goldens.json` holds curve values and auto-tangent slopes computed by the AnimX library (commit
+`11c31ac74e526b599031414866db639383c9a5e0` of the upstream repository pinned in
+`tooling/animx-oracle/generate.mjs`). It is generated, never edited by hand:
 
 ```sh
 node tooling/animx-oracle/generate.mjs           # regenerate

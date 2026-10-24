@@ -7,7 +7,7 @@ import fc from 'fast-check';
 import {
   computeNormals,
   editMeshFrom,
-  MAYA_PRIMITIVE_DEFAULTS,
+  DCC_PRIMITIVE_DEFAULTS,
   type MeshData,
   primitive,
   triangulate,
@@ -43,7 +43,7 @@ export function determinismValues(): Record<string, string> {
   for (const kind of KINDS) {
     for (const [set, params] of [
       ['low-poly', {}],
-      ['maya', MAYA_PRIMITIVE_DEFAULTS[kind] as Record<string, number>],
+      ['dcc', DCC_PRIMITIVE_DEFAULTS[kind] as Record<string, number>],
     ] as const) {
       const data = primitive(kind, params);
       const normals = computeNormals(data);

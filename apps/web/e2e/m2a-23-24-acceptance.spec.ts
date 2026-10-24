@@ -1,5 +1,5 @@
 // M2a acceptance (M2A-SPEC §1.4, §9.1 E2E-M2A-23 and -24, §10.2): a walk cycle and an attack clip with planted feet
-// are authored with leg IK and without Plant Feet, through real input — viewport and Outliner picks, Channel Box
+// are authored with leg IK and without Plant Feet, through real input — viewport and Outliner picks, Channels panel
 // typing with `S`, a time-slider band, the Pose menu, Dope Sheet drags, the status-line Tween bar and the Export
 // dialog — and asserted through the test API (MVP-SPEC §6.1). Both scenarios start from a fresh page.
 //
@@ -57,11 +57,11 @@ async function expectSelected(page: Page, ids: readonly string[]): Promise<void>
 }
 
 /**
- * Keys the selected control at `frame` with Channel Box typing and `S` over the viewport (MVP-SPEC §4.10): the time
+ * Keys the selected control at `frame` with Channels panel typing and `S` over the viewport (MVP-SPEC §4.10): the time
  * slider is clicked at the frame, each field typed in display units and committed with Enter, then `S` keys every
  * keyable channel of the control (`keyAll: false` attributes such as `@ikFk` excepted, §5.1 rule 4).
  */
-async function keyWithChannelBox(
+async function keyWithChannelsPanel(
   page: Page,
   control: string,
   frame: number,
@@ -282,7 +282,7 @@ test('E2E-M2A-23: acceptance — walk cycle with leg IK', async ({ page }) => {
   const ikRight = await controlIdOf(page, 'ik.leg.R');
   const cog = await controlIdOf(page, 'cog');
 
-  // The left IK foot, picked in the viewport, keyed with Channel Box typing and S: contact at 0 and 12 (the planted
+  // The left IK foot, picked in the viewport, keyed with Channels panel typing and S: contact at 0 and 12 (the planted
   // span slides back with the treadmill), lift at 18, contact again at 24.
   await clickControl(page, ikLeft);
   await expectSelected(page, [ikLeft]);
@@ -292,7 +292,7 @@ test('E2E-M2A-23: acceptance — walk cycle with leg IK', async ({ page }) => {
     [18, '0', '0.06'],
     [24, '0.15', '0'],
   ] as const) {
-    await keyWithChannelBox(page, ikLeft, frame, { tz, ty });
+    await keyWithChannelsPanel(page, ikLeft, frame, { tz, ty });
   }
   expect((await keysOf(page, ikLeft, 'tz')).map((key) => [key.t, key.v])).toEqual([
     [0, 0.15],
@@ -316,7 +316,7 @@ test('E2E-M2A-23: acceptance — walk cycle with leg IK', async ({ page }) => {
       ['linear', 'linear'],
     ]);
 
-  // cog: Outliner pick, Channel Box typing and S at 0/6/12/18/24 (down at the contacts, up at the passing poses).
+  // cog: Outliner pick, Channels panel typing and S at 0/6/12/18/24 (down at the contacts, up at the passing poses).
   await clickOutlinerRow(page, cog);
   await expectSelected(page, [cog]);
   for (const [frame, ty, tx] of [
@@ -326,7 +326,7 @@ test('E2E-M2A-23: acceptance — walk cycle with leg IK', async ({ page }) => {
     [18, '-0.02', '-0.02'],
     [24, '-0.05', '0'],
   ] as const) {
-    await keyWithChannelBox(page, cog, frame, { ty, tx });
+    await keyWithChannelsPanel(page, cog, frame, { ty, tx });
   }
 
   // Pose › Mirror Animation › Left → Right (half cycle) with ik.leg.L selected (Outliner row).
@@ -377,7 +377,7 @@ test('E2E-M2A-23: acceptance — walk cycle with leg IK', async ({ page }) => {
   await page.mouse.click(await dopeX(page, 9), sheet.canvasRect.y + sheet.canvasRect.h - 8);
   await expect.poll(async () => (await call(page, 'state')).selection.keys).toEqual([]);
 
-  // Tween a breakdown into the left foot's lift: ik.leg.L, its ty row in the Channel Box, frame 21, the status-line
+  // Tween a breakdown into the left foot's lift: ik.leg.L, its ty row in the Channels panel, frame 21, the status-line
   // Tween bar from 0 to 50 (target: the pose at the current frame, because no key is selected, M2A-D15).
   await clickOutlinerRow(page, ikLeft);
   await expectSelected(page, [ikLeft]);
@@ -485,13 +485,13 @@ test('E2E-M2A-24: acceptance — attack clip with planted feet', async ({ page }
   const upperArm = await controlIdOf(page, 'fk.upperArm.R');
   const lowerArm = await controlIdOf(page, 'fk.lowerArm.R');
 
-  // The stance: left foot forward, right foot back, each keyed once at 0 (Channel Box typing, S).
+  // The stance: left foot forward, right foot back, each keyed once at 0 (Channels panel typing, S).
   await clickOutlinerRow(page, ikLeft);
   await expectSelected(page, [ikLeft]);
-  await keyWithChannelBox(page, ikLeft, 0, { tz: '0.2' });
+  await keyWithChannelsPanel(page, ikLeft, 0, { tz: '0.2' });
   await clickOutlinerRow(page, ikRight);
   await expectSelected(page, [ikRight]);
-  await keyWithChannelBox(page, ikRight, 0, { tz: '-0.1' });
+  await keyWithChannelsPanel(page, ikRight, 0, { tz: '-0.1' });
 
   // cog: the ready stance at 0 and 20 (hips 5 cm down), the lunge at 12 (down, forward and turned 25°).
   await clickOutlinerRow(page, cog);
@@ -501,10 +501,10 @@ test('E2E-M2A-24: acceptance — attack clip with planted feet', async ({ page }
     [12, { ty: '-0.08', tz: '0.12', ry: '25' }],
     [20, { ty: '-0.05', tz: '0', ry: '0' }],
   ] as const) {
-    await keyWithChannelBox(page, cog, frame, fields);
+    await keyWithChannelsPanel(page, cog, frame, fields);
   }
 
-  // The right arm: rest at 0 and 20, windup at 8, strike at 12 (degrees in the Channel Box).
+  // The right arm: rest at 0 and 20, windup at 8, strike at 12 (degrees in the Channels panel).
   for (const [control, poses] of [
     [
       upperArm,
@@ -527,7 +527,7 @@ test('E2E-M2A-24: acceptance — attack clip with planted feet', async ({ page }
   ] as const) {
     await clickOutlinerRow(page, control);
     await expectSelected(page, [control]);
-    for (const [frame, fields] of poses) await keyWithChannelBox(page, control, frame, fields);
+    for (const [frame, fields] of poses) await keyWithChannelsPanel(page, control, frame, fields);
   }
 
   // Dope Sheet: the windup keys of both arm controls move from 8 to 9 (summary glyph, one drag).

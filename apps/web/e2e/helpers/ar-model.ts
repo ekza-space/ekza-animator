@@ -270,9 +270,10 @@ export async function report(page: Page): Promise<ReportLike | null> {
 }
 
 /**
- * The Cube Lad as 16 separate meshes, one per box (AR-D10-1: a low-poly character made of parts, as Maya, Kenney and
- * Quaternius ship them; the forearms, hands, shins and feet touch the body only through other parts), each node named
- * `<prefix>pCube<n>` (a modelling tool's default names, AR-D10-8) and scaled by `scale` (a 5 m import with 3).
+ * The Cube Lad as 16 separate meshes, one per box (AR-D10-1: a low-poly character made of parts, as desktop DCCs,
+ * Kenney and Quaternius ship them; the forearms, hands, shins and feet touch the body only through other parts), each
+ * node named `<prefix>pCube<n>` (a modelling tool's default names, AR-D10-8) and scaled by `scale` (a 5 m import
+ * with 3).
  * `omit` leaves boxes out (4…9 are the arms: an armless body the One-Click guess finds no arms on, AR-D10-3).
  */
 export function splitCubeLad(

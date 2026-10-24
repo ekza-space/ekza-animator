@@ -3,7 +3,7 @@
 // every §6 row, the menus the §7 items, `view.tool` accepts the Dope Sheet and the Graph scale tool, and the key
 // panels of select/edit include the Dope Sheet.
 import { describe, expect, it } from 'vitest';
-import { BUILTIN_MENU_ITEMS, MAYA_KEYMAP } from '../../src';
+import { BUILTIN_MENU_ITEMS, DCC_KEYMAP } from '../../src';
 import { BUILTIN_OPERATORS } from '../../src/operators/builtin';
 import { NOT_AVAILABLE_YET } from '../../src/operators/builtin/stub';
 import type { Chord, KeyBinding } from '../../src/types';
@@ -160,7 +160,7 @@ describe('the Dope Sheet is a key panel of select and edit (§5.10)', () => {
 
 describe('keymap (§6)', () => {
   const has = (chord: Chord, op: string, scope: string, args: unknown): boolean =>
-    MAYA_KEYMAP.some(
+    DCC_KEYMAP.some(
       (binding: KeyBinding) =>
         binding.op === op &&
         binding.scope === scope &&
@@ -174,8 +174,8 @@ describe('keymap (§6)', () => {
     ...(['up', 'down', 'left', 'right'] as const).flatMap((direction) => {
       const code = `Arrow${direction.charAt(0).toUpperCase()}${direction.slice(1)}`;
       return [
-        [{ code }, 'select.pickWalk', ['viewport', 'channelBox'], { direction }] as const,
-        [{ code, shift: true }, 'select.pickWalk', ['viewport', 'channelBox'], { direction, add: true }] as const,
+        [{ code }, 'select.pickWalk', ['viewport', 'channels'], { direction }] as const,
+        [{ code, shift: true }, 'select.pickWalk', ['viewport', 'channels'], { direction, add: true }] as const,
       ];
     }),
     [{ code: 'ArrowLeft' }, 'graph.keys.move', ['graph', 'dopeSheet', 'timeline'], { dFrames: -1, dValue: 0 }],
@@ -183,7 +183,7 @@ describe('keymap (§6)', () => {
     [
       { code: 'KeyS', alt: true },
       'key.set',
-      ['viewport', 'outliner', 'channelBox', 'timeline', 'dopeSheet'],
+      ['viewport', 'outliner', 'channels', 'timeline', 'dopeSheet'],
       { breakdown: true },
     ],
     [{ code: 'KeyQ' }, 'view.tool', ['dopeSheet'], { panel: 'dopeSheet', tool: 'select' }],

@@ -1,6 +1,6 @@
-// Kernel op `mesh.slide {percent, reference}` (M6A-SPEC §5.12; Maya Slide Edge Tool; owner B4). Selected edges (edge
-// mode) or vertices (vertex mode) slide along their **rails**, so every moved vertex stays on an edge of the pre-slide
-// surface (the silhouette is kept):
+// Kernel op `mesh.slide {percent, reference}` (M6A-SPEC §5.12; DCC-standard Slide Edge Tool; owner B4). Selected edges
+// (edge mode) or vertices (vertex mode) slide along their **rails**, so every moved vertex stays on an edge of the
+// pre-slide surface (the silhouette is kept):
 // - edge mode: the selected edges form chains; each chain has two sides (the faces left and right of its edges,
 //   oriented consistently along the chain). A chain vertex's rail on a side is the one unselected edge next to a chain
 //   edge in that side's faces — for a loop on a quad strip, the two "ring" edges up and down; a vertex with no such

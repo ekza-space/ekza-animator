@@ -72,7 +72,7 @@ Status: implemented on `wp/wp-6t` (2026-10-17). Scope: MVP-SPEC §7 WP-6t, §4.1
    the slider shows is what moves), not taken from a `Selection.keys` the Graph Editor may have refined. After the
    drag `time.selectBand` re-selects the band at its new place.
 4. **Undo.** One drag = one history step (`Move Keys` / `Scale Keys`) restoring keys and key selection; the band is
-   session state and stays where the drag left it (as in Maya). A preview cancelled from outside (Esc →
+   session state and stays where the drag left it (desktop-DCC convention). A preview cancelled from outside (Esc →
    `edit.escape`) ends the drag without a step.
 5. **Scale.** The opposite band end is the pivot; the dragged end never crosses it, stays ≥ 1 frame away when
    snapping, and the factor never drops below 0.01 (§4.11.3).

@@ -161,9 +161,9 @@ export function allVisible(t: Topo): Visibility {
 /**
  * The one visibility rule (§5.6 "hidden components are not drawn, not pickable"): a face is visible unless hidden (or
  * outside the isolate set); an edge is visible unless hidden and, when it has faces, only while one of them is visible;
- * a vertex likewise through its edges. So hiding faces takes the edges and vertices only they use along (Maya), and a
- * `HiddenSet` that already lists them changes nothing. Edges without faces and lone vertices follow the isolate set
- * (an isolate set hides them). Writes into `out` and returns it.
+ * a vertex likewise through its edges. So hiding faces takes the edges and vertices only they use along (desktop-DCC
+ * convention), and a `HiddenSet` that already lists them changes nothing. Edges without faces and lone vertices follow
+ * the isolate set (an isolate set hides them). Writes into `out` and returns it.
  */
 export function deriveVisibility(
   t: Topo,

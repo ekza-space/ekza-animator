@@ -1,4 +1,4 @@
-// Channel Box (FR-CB-01…06, research 09 §4.5): the lead selection's keyable channels with Maya's state colours,
+// Channels panel (FR-CB-01…06, research 09 §4.5): the lead selection's keyable channels with the DCC state colours,
 // expression entry applied to every selected control through `channel.setValues`, Tab navigation, ↑/↓ nudges,
 // channel-name selection for "Key Selected", the RMB menu (key selected, reset, lock/unlock) and the virtual slider.
 // Values live in a ChannelReadout outside React: playback commits only the rows whose value changed, at most once
@@ -58,12 +58,12 @@ import { ChannelNudge, nudgeStep } from './nudge';
 import { type ChannelCell, ChannelReadout, PROXY_CELL, type ReadoutTargets } from './readout';
 import { CHANNEL_STATE_STYLE, channelStateTitle, type StateBar } from './states';
 
-const PANEL_KIND = PANEL.channelBox;
+const PANEL_KIND = PANEL.channels;
 
 // M6a (M6A-SPEC §8.6; B11): a mesh or group object's rows and INPUTS in Model, a lazy chunk.
 const MeshChannels = lazy(() => import('./MeshChannels'));
 
-/** The mesh or group object whose channels the Channel Box shows in Model (the lead object, else the hilite lead). */
+/** The mesh or group object whose channels this panel shows in Model (the lead object, else the hilite lead). */
 export function modelLeadObject(s: SessionState): SceneObjectId | null {
   if (s.workspace !== 'model') return null;
   const isObject = (id: string): boolean => id.startsWith('msh_') || id.startsWith('grp_');
@@ -118,7 +118,7 @@ function useLimbOf(app: EditorApp, control: ControlId | null): LimbDesc | null {
   }, [app, control, version]);
 }
 
-export function ChannelBoxPanel({ app, instanceId }: PanelProps): JSX.Element {
+export function ChannelsPanel({ app, instanceId }: PanelProps): JSX.Element {
   const shell = useOptionalShell();
   const pointerLock = shell?.params.pointerLock ?? true;
   const selected = useSession(selectedControls, sameIds);
@@ -444,7 +444,7 @@ export function ChannelBoxPanel({ app, instanceId }: PanelProps): JSX.Element {
   }
   if (lead === null) {
     return (
-      <div className={PANEL_ROOT} data-testid="channel-box-panel" data-instance={instanceId}>
+      <div className={PANEL_ROOT} data-testid="channels-panel" data-instance={instanceId}>
         <div className={EMPTY_STATE} data-testid="cb-empty">
           Select a control to see its channels.
         </div>
@@ -454,7 +454,7 @@ export function ChannelBoxPanel({ app, instanceId }: PanelProps): JSX.Element {
 
   const others = records.length - 1;
   return (
-    <div className={PANEL_ROOT} data-testid="channel-box-panel" data-instance={instanceId}>
+    <div className={PANEL_ROOT} data-testid="channels-panel" data-instance={instanceId}>
       <header className="flex h-7 shrink-0 items-center gap-2 border-b border-line bg-header px-2">
         <span className="truncate font-semibold" title={lead.key} data-testid="cb-lead-name">
           {lead.name}
@@ -634,8 +634,8 @@ const ChannelRow = memo(function ChannelRow(props: ChannelRowProps): JSX.Element
 
 /**
  * The IK/FK proxy row (§5.6): the limb IK control's `@ikFk` (0 FK … 1 IK), editable like a channel (selecting its
- * name makes `@ikFk` a selected Channel Box channel, so `S` keys it), and a button that switches the limb to the
- * other mode with match (`rig.ikFk.switch`, key mode from the preference).
+ * name makes `@ikFk` a channel selected in the Channels panel, so `S` keys it), and a button that switches the limb to
+ * the other mode with match (`rig.ikFk.switch`, key mode from the preference).
  */
 function IkFkRow(
   props: RowHandlers & {

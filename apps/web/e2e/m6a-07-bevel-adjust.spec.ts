@@ -4,10 +4,10 @@ import { clickComponent, createPrimitive, MODEL_PANE, modKey, openModel } from '
 import { call, expectKernelStarted } from './helpers/test-api';
 
 // E2E-MOD-07 "Bevel and adjust" (M6A-SPEC §10.1, §5.9, §5.7, §5.10; owner B11): Mod+B from the keyboard arms the
-// capture window on Bevel's primary field (Fraction, Maya's ×½ of the shortest adjacent edge); the card's Segments
+// capture window on Bevel's primary field (Fraction, × ½ the shortest adjacent edge); the card's Segments
 // adjusts without a new history entry; `T` and `30%` keep the same fraction; one undo removes the bevel.
 //
-// Gates (§10.1): b5 (Bevel), b10 (edge mode, the edge pick). The B11 check below runs today: the Modeling Toolkit
+// Gates (§10.1): b5 (Bevel), b10 (edge mode, the edge pick). The B11 check below runs today: the Modeling Tools panel
 // (poll reasons, ⋯ option boxes that keep the next run's defaults) and the Last-op card of a primitive (typed field,
 // Reset, ✕ and `T`).
 
@@ -69,7 +69,7 @@ test('E2E-MOD-07 — Bevel and adjust', async ({ page }) => {
   await expect.poll(() => counts(page, cube)).toBe('8/12/6');
 });
 
-test('B11 — the Modeling Toolkit, its option boxes and the Last-op card of a primitive', async ({ page }) => {
+test('B11 — the Modeling Tools panel, its option boxes and the Last-op card of a primitive', async ({ page }) => {
   await openModel(page);
   await expectKernelStarted(page);
   const toolkit = page.getByTestId('mtk-panel');

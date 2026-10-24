@@ -1,7 +1,7 @@
 // AnimX golden generator for @ekza-studio/anim-core (MVP-SPEC §6.3, ADR 0003). MIT, Ekza Studio contributors.
 //
 // Builds deterministic curves (hand-picked cases plus seeded random ones) in the Ekza key model, feeds them to
-// Autodesk AnimX through an `adsk::ICurve` adapter and prints JSON goldens to stdout:
+// AnimX through an `adsk::ICurve` adapter and prints JSON goldens to stdout:
 //   - curve values from `adsk::evaluateCurve` (segments, span rules, monotonic-X correction, infinities);
 //   - auto/autoMix/autoEase slopes from `adsk::autoTangent`.
 // Tangent types that AnimX does not compute (linear, spline, clamped, flat, step, fixed) are converted by this adapter
