@@ -1,10 +1,4 @@
-import {
-  createGateway,
-  defaultAdapters,
-  GatewayConfigError,
-  loadGatewayConfig,
-  providerEnvs,
-} from '../src/index.ts';
+import { createGateway, defaultAdapters, GatewayConfigError, loadGatewayConfig, providerEnvs } from '../src/index.ts';
 
 const providers = providerEnvs(defaultAdapters());
 const caps = { GEN_CAP_DAILY_USD: '5', GEN_CAP_MONTHLY_USD: '50' };
@@ -34,12 +28,16 @@ describe('default deny (ADR 0017 §2, Q-GEN-10)', () => {
   it('refuses to start with provider keys and no auth, naming the keys but not their values', () => {
     const env = { GEN_GATEWAY_ENABLED: '1', TRIPO_API_KEY: 'tsk_live_secret', ...caps };
     expect(() => loadGatewayConfig(env, 'next', providers)).toThrow(GatewayConfigError);
-    try {
-      loadGatewayConfig(env, 'next', providers);
-    } catch (e) {
-      expect(String(e)).toContain('TRIPO_API_KEY');
-      expect(String(e)).not.toContain('tsk_live_secret');
-    }
+    const message = ((): string => {
+      try {
+        loadGatewayConfig(env, 'next', providers);
+        return '';
+      } catch (e) {
+        return String(e);
+      }
+    })();
+    expect(message).toContain('TRIPO_API_KEY');
+    expect(message).not.toContain('tsk_live_secret');
     // Standalone on a public interface without a token: refused too.
     expect(() => loadGatewayConfig({ ...env, GEN_GATEWAY_HOST: '0.0.0.0' }, 'standalone', providers)).toThrow(
       /provider keys are set/,

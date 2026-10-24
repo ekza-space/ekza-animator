@@ -60,14 +60,26 @@ export async function callJson(
     res.status === 401 || res.status === 403
       ? { code: 'auth' as const, message: 'The provider refused the key.', retryable: false }
       : res.status === 402
-        ? { code: 'insufficient-credits' as const, message: 'The provider account has no credits left.', retryable: false }
+        ? {
+            code: 'insufficient-credits' as const,
+            message: 'The provider account has no credits left.',
+            retryable: false,
+          }
         : res.status === 429
           ? { code: 'rate-limited' as const, message: 'The provider is rate limiting.', retryable: true }
           : res.status === 404
-            ? { code: 'expired' as const, message: 'The provider does not know this task (any more).', retryable: false }
+            ? {
+                code: 'expired' as const,
+                message: 'The provider does not know this task (any more).',
+                retryable: false,
+              }
             : res.status >= 500
               ? { code: 'provider-failed' as const, message: `The provider failed (${res.status}).`, retryable: true }
-              : { code: 'invalid-input' as const, message: `The provider refused the request (${res.status}).`, retryable: false };
+              : {
+                  code: 'invalid-input' as const,
+                  message: `The provider refused the request (${res.status}).`,
+                  retryable: false,
+                };
   const e = mapped ?? fallback;
   throw new ProviderError(e.code, e.message, {
     status: res.status,
@@ -131,12 +143,7 @@ export async function hmacSha256Verify(secret: string, message: Uint8Array, hexS
     false,
     ['verify'],
   );
-  return globalThis.crypto.subtle.verify(
-    'HMAC',
-    key,
-    HEXB(hexSig.toLowerCase()) as Uint8Array<ArrayBuffer>,
-    message as Uint8Array<ArrayBuffer>,
-  );
+  return globalThis.crypto.subtle.verify('HMAC', key, HEXB(hexSig.toLowerCase()), message);
 }
 
 export async function hmacSha256Hex(secret: string, message: Uint8Array): Promise<string> {
@@ -147,6 +154,6 @@ export async function hmacSha256Hex(secret: string, message: Uint8Array): Promis
     false,
     ['sign'],
   );
-  const sig = new Uint8Array(await globalThis.crypto.subtle.sign('HMAC', key, message as Uint8Array<ArrayBuffer>));
+  const sig = new Uint8Array(await globalThis.crypto.subtle.sign('HMAC', key, message));
   return [...sig].map((b) => b.toString(16).padStart(2, '0')).join('');
 }

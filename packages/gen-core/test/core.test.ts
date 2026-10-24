@@ -30,7 +30,8 @@ describe('state machine', () => {
   it('terminal states have no exits', () => {
     for (const t of TERMINAL_STATES) {
       expect(isTerminal(t)).toBe(true);
-      for (const to of ['queued', 'running', 'fetching', 'succeeded'] as const) expect(canTransition(t, to)).toBe(false);
+      for (const to of ['queued', 'running', 'fetching', 'succeeded'] as const)
+        expect(canTransition(t, to)).toBe(false);
     }
   });
   it('allows the step back of a provider queue and forbids skipping the download', () => {
@@ -67,7 +68,7 @@ describe('parseGenRequest', () => {
       { ...base, attestation: { tier: 'gold' } },
       { ...base, provider: 'https://api.example.com' },
     ];
-    for (const c of cases) expect(parseGenRequest(c).ok, JSON.stringify(c)).toBe(false);
+    expect(cases.filter((c) => parseGenRequest(c).ok)).toEqual([]);
   });
   it('accepts a retopology of an uploaded mesh', () => {
     const r = parseGenRequest({
@@ -87,7 +88,11 @@ describe('SSE', () => {
   it('reads events split across chunks, skipping comments', () => {
     const text = `${formatSseEvent('job', '{"a":1}', 3)}: ping\n\n${formatSseEvent('job', 'x\ny')}`;
     const reader = new SseReader();
-    const events = [...reader.push(text.slice(0, 7)), ...reader.push(text.slice(7, 30)), ...reader.push(text.slice(30))];
+    const events = [
+      ...reader.push(text.slice(0, 7)),
+      ...reader.push(text.slice(7, 30)),
+      ...reader.push(text.slice(30)),
+    ];
     expect(events).toEqual([
       { event: 'job', data: '{"a":1}', id: '3' },
       { event: 'job', data: 'x\ny', id: null },

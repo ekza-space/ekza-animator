@@ -11,7 +11,9 @@ import {
   type View,
 } from './types.ts';
 
-export type Parsed<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly errors: readonly string[] };
+export type Parsed<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly errors: readonly string[] };
 
 const ID = /^[A-Za-z0-9_-]{1,128}$/;
 export const IDEMPOTENCY_KEY = /^[A-Za-z0-9_-]{16,128}$/;
@@ -165,7 +167,8 @@ export function parseGenRequest(v: unknown): Parsed<GenRequest> {
   const provider = v['provider'];
   if (typeof provider !== 'string' || !PROVIDER_ID.test(provider)) errors.push('provider: expected a provider id');
   const op = v['op'];
-  if (typeof op !== 'string' || !GEN_OPS.includes(op as GenOp)) errors.push(`op: expected one of ${GEN_OPS.join(', ')}`);
+  if (typeof op !== 'string' || !GEN_OPS.includes(op as GenOp))
+    errors.push(`op: expected one of ${GEN_OPS.join(', ')}`);
   const prompt = v['prompt'];
   if (prompt !== undefined) {
     if (typeof prompt !== 'string') errors.push('prompt: expected a string');

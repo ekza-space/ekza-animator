@@ -11,7 +11,14 @@ import { makeCubeGlb, makePng } from './fixtures.ts';
 export type MockProvider = 'tripo' | 'meshy';
 
 export type MockFault = { readonly provider?: MockProvider; readonly times?: number } & (
-  | { readonly on: 'create'; readonly kind: 'status'; readonly status: number; readonly code?: number; readonly retryAfterS?: number; readonly message?: string }
+  | {
+      readonly on: 'create';
+      readonly kind: 'status';
+      readonly status: number;
+      readonly code?: number;
+      readonly retryAfterS?: number;
+      readonly message?: string;
+    }
   /** The task is created, then the response never comes (the client times out). */
   | { readonly on: 'create'; readonly kind: 'hang' }
   /** The task is created, then the connection is dropped before any response. */
@@ -79,7 +86,10 @@ function send(res: ServerResponse, status: number, body: unknown, headers?: Reco
 const TRIPO_CREDITS: Record<string, number> = { text: 40, image: 50, decimate: 35, rig: 25 };
 
 export async function startMockProviders(opts?: MockOptions): Promise<MockProviderServer> {
-  const keys = { tripo: opts?.keys?.tripo ?? 'mock-tripo-key-0123456789', meshy: opts?.keys?.meshy ?? 'mock-meshy-key-0123456789' };
+  const keys = {
+    tripo: opts?.keys?.tripo ?? 'mock-tripo-key-0123456789',
+    meshy: opts?.keys?.meshy ?? 'mock-meshy-key-0123456789',
+  };
   const pollsToFinish = opts?.pollsToFinish ?? 2;
   const faults: (MockFault & { left: number })[] = [];
   const requests: MockRequest[] = [];
@@ -145,7 +155,11 @@ export async function startMockProviders(opts?: MockOptions): Promise<MockProvid
       res,
       f.status,
       provider === 'tripo'
-        ? { code: f.code ?? (f.status === 429 ? 2000 : f.status === 401 ? 1001 : 1), status: 'error', message: f.message ?? 'mock fault' }
+        ? {
+            code: f.code ?? (f.status === 429 ? 2000 : f.status === 401 ? 1001 : 1),
+            status: 'error',
+            message: f.message ?? 'mock fault',
+          }
         : { message: f.message ?? (f.status === 429 ? 'Rate limit exceeded' : 'mock fault') },
       f.retryAfterS === undefined ? undefined : { 'retry-after': String(f.retryAfterS) },
     );
@@ -159,11 +173,22 @@ export async function startMockProviders(opts?: MockOptions): Promise<MockProvid
       if (t) t.stepBack = true;
       return false;
     }
-    send(res, f.status, { message: 'mock status fault' }, f.retryAfterS === undefined ? undefined : { 'retry-after': String(f.retryAfterS) });
+    send(
+      res,
+      f.status,
+      { message: 'mock status fault' },
+      f.retryAfterS === undefined ? undefined : { 'retry-after': String(f.retryAfterS) },
+    );
     return true;
   };
 
-  const tripo = async (req: IncomingMessage, res: ServerResponse, path: string, raw: Buffer, json: unknown): Promise<void> => {
+  const tripo = async (
+    req: IncomingMessage,
+    res: ServerResponse,
+    path: string,
+    raw: Buffer,
+    json: unknown,
+  ): Promise<void> => {
     if (req.headers.authorization !== `Bearer ${keys.tripo}`) {
       send(res, 401, { code: 1001, status: 'error', message: 'Authentication required' });
       return;
@@ -209,7 +234,12 @@ export async function startMockProviders(opts?: MockOptions): Promise<MockProvid
       }
       let task: MockTask | null = null;
       const create = (): void => {
-        task = newTask('tripo', kind, body, kind === 'text' && body['texture'] === false ? 30 : (TRIPO_CREDITS[kind] ?? 10));
+        task = newTask(
+          'tripo',
+          kind,
+          body,
+          kind === 'text' && body['texture'] === false ? 30 : (TRIPO_CREDITS[kind] ?? 10),
+        );
       };
       if (createFault(res, 'tripo', create)) return;
       create();
@@ -234,7 +264,10 @@ export async function startMockProviders(opts?: MockOptions): Promise<MockProvid
         progress: st === 'queued' ? 0 : st === 'running' ? 50 : 100,
       };
       if (st === 'success') {
-        data['output'] = { model_url: `${origin}/files/${t.id}.glb`, rendered_image_url: `${origin}/files/${t.id}.png` };
+        data['output'] = {
+          model_url: `${origin}/files/${t.id}.glb`,
+          rendered_image_url: `${origin}/files/${t.id}.png`,
+        };
         data['credits_consumed'] = t.credits;
       }
       if (st === 'failed') {
@@ -293,7 +326,10 @@ export async function startMockProviders(opts?: MockOptions): Promise<MockProvid
         credits = body['should_texture'] === false ? 5 : 15;
       }
       if ((coll === 'remesh' || coll === 'rigging') && body['input_task_id'] === undefined) {
-        if (typeof body['model_url'] !== 'string' || !String(body['model_url']).startsWith('data:application/octet-stream;base64,')) {
+        if (
+          typeof body['model_url'] !== 'string' ||
+          !String(body['model_url']).startsWith('data:application/octet-stream;base64,')
+        ) {
           send(res, 400, { message: 'input_task_id or model_url required' });
           return;
         }
@@ -374,14 +410,23 @@ export async function startMockProviders(opts?: MockOptions): Promise<MockProvid
       return;
     }
     const bytes =
-      m[2] === 'png' ? makePng(64, 64) : f?.kind === 'garbage' ? new TextEncoder().encode('not a glb at all') : (opts?.modelBytes?.(t) ?? makeCubeGlb({ size: 1 + (t.polls % 7) / 10 }));
+      m[2] === 'png'
+        ? makePng(64, 64)
+        : f?.kind === 'garbage'
+          ? new TextEncoder().encode('not a glb at all')
+          : (opts?.modelBytes?.(t) ?? makeCubeGlb({ size: 1 + (t.polls % 7) / 10 }));
     if (f?.kind === 'truncate') {
       res.writeHead(200, { 'content-length': String(bytes.length + 100) });
       res.write(bytes.subarray(0, Math.floor(bytes.length / 2)));
       res.socket?.destroy();
       return;
     }
-    res.writeHead(200, { 'content-type': m[2] === 'png' ? 'image/png' : 'model/gltf-binary', 'content-length': String(bytes.length) }).end(bytes);
+    res
+      .writeHead(200, {
+        'content-type': m[2] === 'png' ? 'image/png' : 'model/gltf-binary',
+        'content-length': String(bytes.length),
+      })
+      .end(bytes);
   };
 
   const server = createServer((req, res) => {
@@ -396,8 +441,18 @@ export async function startMockProviders(opts?: MockOptions): Promise<MockProvid
           json = null;
         }
       }
-      const provider = url.pathname.startsWith('/tripo/') ? 'tripo' : url.pathname.startsWith('/meshy/') ? 'meshy' : 'files';
-      requests.push({ provider, method: req.method ?? 'GET', path: url.pathname, auth: req.headers.authorization ?? null, json });
+      const provider = url.pathname.startsWith('/tripo/')
+        ? 'tripo'
+        : url.pathname.startsWith('/meshy/')
+          ? 'meshy'
+          : 'files';
+      requests.push({
+        provider,
+        method: req.method ?? 'GET',
+        path: url.pathname,
+        auth: req.headers.authorization ?? null,
+        json,
+      });
       if (provider === 'tripo') await tripo(req, res, url.pathname.slice('/tripo/v3'.length), raw, json);
       else if (provider === 'meshy') await meshy(req, res, url.pathname.slice('/meshy/openapi'.length), json);
       else files(res, url.pathname);

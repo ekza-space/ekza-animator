@@ -92,6 +92,9 @@ importers:
       '@ekza-studio/editor':
         specifier: workspace:*
         version: link:../../packages/editor
+      '@ekza-studio/gen-gateway':
+        specifier: workspace:*
+        version: link:../../packages/gen-gateway
       '@ekza-studio/halo':
         specifier: workspace:*
         version: link:../../packages/halo
@@ -459,6 +462,9 @@ importers:
       '@ekza-studio/doc':
         specifier: workspace:*
         version: link:../doc
+      '@ekza-studio/gen-core':
+        specifier: workspace:*
+        version: link:../gen-core
       '@ekza-studio/io':
         specifier: workspace:*
         version: link:../io

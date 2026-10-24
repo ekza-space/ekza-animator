@@ -29,16 +29,19 @@ export interface StandaloneGateway {
 
 function toRequest(req: IncomingMessage, signal: AbortSignal): Request {
   const headers = new Headers();
-  for (let i = 0; i < req.rawHeaders.length; i += 2) headers.append(req.rawHeaders[i] as string, req.rawHeaders[i + 1] as string);
+  const raw = req.rawHeaders;
+  for (let i = 0; i + 1 < raw.length; i += 2) headers.append(raw[i] ?? '', raw[i + 1] ?? '');
   const url = `http://${req.headers.host ?? 'localhost'}${req.url ?? '/'}`;
   const method = req.method ?? 'GET';
   const hasBody = method !== 'GET' && method !== 'HEAD';
-  return new Request(url, {
+  // `duplex: 'half'` streams the request body (Node's fetch requires it for a stream body).
+  const init: RequestInit & { duplex?: 'half' } = {
     method,
     headers,
     signal,
-    ...(hasBody ? { body: Readable.toWeb(req) as ReadableStream<Uint8Array>, duplex: 'half' } : {}),
-  } as RequestInit);
+    ...(hasBody ? { body: Readable.toWeb(req) as ReadableStream<Uint8Array>, duplex: 'half' as const } : {}),
+  };
+  return new Request(url, init);
 }
 
 async function writeResponse(res: ServerResponse, response: Response): Promise<void> {
@@ -49,7 +52,7 @@ async function writeResponse(res: ServerResponse, response: Response): Promise<v
     return;
   }
   res.flushHeaders();
-  const reader = response.body.getReader();
+  const reader = response.body.getReader() as ReadableStreamDefaultReader<Uint8Array>;
   try {
     for (;;) {
       const { value, done } = await reader.read();
@@ -69,7 +72,7 @@ export async function startStandaloneGateway(opts: StandaloneOptions): Promise<S
   const gateway = createGateway({
     config,
     adapters,
-    ...(stores ?? {}),
+    ...stores,
     ...(opts.log ? { log: opts.log } : {}),
     ...(opts.fetch ? { fetch: opts.fetch } : {}),
     ...(opts.timeScale === undefined ? {} : { timeScale: opts.timeScale }),

@@ -13,10 +13,10 @@ export function assertGatewayStartup(env: Env): ConfigResult {
 }
 
 export interface NextRouteHandlers {
-  GET(req: Request): Promise<Response>;
-  POST(req: Request): Promise<Response>;
-  DELETE(req: Request): Promise<Response>;
-  OPTIONS(req: Request): Promise<Response>;
+  readonly GET: (req: Request) => Promise<Response>;
+  readonly POST: (req: Request) => Promise<Response>;
+  readonly DELETE: (req: Request) => Promise<Response>;
+  readonly OPTIONS: (req: Request) => Promise<Response>;
 }
 
 export function createNextRouteHandlers(env: Env, basePath = NEXT_BASE_PATH): NextRouteHandlers {

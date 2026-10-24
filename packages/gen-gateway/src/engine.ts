@@ -124,7 +124,10 @@ export class Engine {
   takeRate(principal: string, kind: 'jobs' | 'uploads'): void {
     const per = kind === 'jobs' ? this.d.config.rate.jobsPerMinute : this.d.config.rate.uploadsPerMinute;
     if (!this.rate.take(`${kind}\0${principal}`, per, this.now()))
-      throw new ApiError('rate-limited', 'Too many requests; try again in a minute.', { retryable: true, retryAfterS: 60 });
+      throw new ApiError('rate-limited', 'Too many requests; try again in a minute.', {
+        retryable: true,
+        retryAfterS: 60,
+      });
   }
 
   async caps(): Promise<GenQuote['caps']> {
@@ -255,7 +258,11 @@ export class Engine {
         await this.finish(
           id,
           'failed',
-          { code: 'gateway', message: 'The gateway restarted before the job was sent; nothing was charged.', retryable: true },
+          {
+            code: 'gateway',
+            message: 'The gateway restarted before the job was sent; nothing was charged.',
+            retryable: true,
+          },
           0,
         );
       } else if (row.keySource === 'byo') {
@@ -287,7 +294,7 @@ export class Engine {
   async close(): Promise<void> {
     this.closed = true;
     for (const w of this.wakers.values()) w();
-    await Promise.allSettled([...this.tasks]);
+    await Promise.allSettled(this.tasks);
   }
 
   // ---------------------------------------------------------------- creation
@@ -308,7 +315,8 @@ export class Engine {
       throw new ApiError('paused', 'The operator has paused generation.', { retryable: true, retryAfterS: 300 });
     let keySource: 'server' | 'byo' = 'server';
     if (byoKey !== null) {
-      if (!this.d.config.byoKeys) throw new ApiError('unsupported', 'This gateway does not accept bring-your-own keys.');
+      if (!this.d.config.byoKeys)
+        throw new ApiError('unsupported', 'This gateway does not accept bring-your-own keys.');
       keySource = 'byo';
     } else if (!this.hasServerKey(adapter.id)) {
       throw new ApiError('provider-unavailable', `No ${adapter.label} key is configured on this gateway.`);
@@ -399,10 +407,17 @@ export class Engine {
       if (up === null || up.principal !== principal) throw new ApiError('not-found', `Unknown upload '${im.upload}'.`);
       if (up.mime === 'model/gltf-binary') throw new ApiError('invalid-request', 'An image input must be an image.');
       if (!adapter.capabilities.imageMimes.includes(up.mime))
-        throw new ApiError('invalid-request', `${adapter.label} accepts ${adapter.capabilities.imageMimes.join(', ')} images.`);
+        throw new ApiError(
+          'invalid-request',
+          `${adapter.label} accepts ${adapter.capabilities.imageMimes.join(', ')} images.`,
+        );
       const bytes = await this.d.blobs.get(up.sha256);
       if (bytes === null) throw new ApiError('not-found', `Upload '${im.upload}' is no longer stored.`);
-      images.push(im.view === undefined ? { bytes, mime: up.mime, sha256: up.sha256 } : { bytes, mime: up.mime, sha256: up.sha256, view: im.view });
+      images.push(
+        im.view === undefined
+          ? { bytes, mime: up.mime, sha256: up.sha256 }
+          : { bytes, mime: up.mime, sha256: up.sha256, view: im.view },
+      );
     }
     let source: ResolvedSource | null = null;
     if (req.source !== undefined) {
@@ -561,7 +576,12 @@ export class Engine {
       }));
       if (row === null || isTerminal(row.job.state)) return false;
       if (this.keyFor(row) === null) {
-        await this.finish(id, 'failed', { code: 'auth', message: 'No provider key is available.', retryable: false }, 0);
+        await this.finish(
+          id,
+          'failed',
+          { code: 'auth', message: 'No provider key is available.', retryable: false },
+          0,
+        );
         return false;
       }
       const ctx = {
@@ -696,7 +716,11 @@ export class Engine {
             st.state,
             st.state === 'canceled'
               ? null
-              : (st.error ?? { code: 'provider-failed', message: `${adapter.label} could not finish the task.`, retryable: true }),
+              : (st.error ?? {
+                  code: 'provider-failed',
+                  message: `${adapter.label} could not finish the task.`,
+                  retryable: true,
+                }),
             usdOf(st.credits === null ? row.creditsDone : credits, row.usdPerCredit),
           );
           return null;
@@ -704,7 +728,11 @@ export class Engine {
           await this.finish(
             id,
             'blocked',
-            st.error ?? { code: 'moderation', message: `${adapter.label} blocked the request under its content policy.`, retryable: false },
+            st.error ?? {
+              code: 'moderation',
+              message: `${adapter.label} blocked the request under its content policy.`,
+              retryable: false,
+            },
             st.credits === null ? quoteLeft : usdOf(credits, row.usdPerCredit),
           );
           return null;
@@ -740,7 +768,8 @@ export class Engine {
         try {
           bytes = await ctx.http.download(out.url, thumb ? THUMBNAIL_MAX : this.d.config.artifactMaxBytes);
         } catch (err) {
-          const pe = err instanceof ProviderError ? err : new ProviderError('provider-failed', String(err), { sent: 'yes' });
+          const pe =
+            err instanceof ProviderError ? err : new ProviderError('provider-failed', String(err), { sent: 'yes' });
           if (thumb) break;
           if (!pe.retryable || attempt === 2) {
             await this.finish(
@@ -759,7 +788,13 @@ export class Engine {
         const mime = sniff(bytes);
         if (mime === null || mime === 'model/gltf-binary') continue;
         const sha = await this.d.blobs.put(bytes);
-        artifacts.push({ role: 'thumbnail', sha256: sha, size: bytes.byteLength, mime, fileName: `${id}-thumbnail.${mime.slice(6)}` });
+        artifacts.push({
+          role: 'thumbnail',
+          sha256: sha,
+          size: bytes.byteLength,
+          mime,
+          fileName: `${id}-thumbnail.${mime.slice(6)}`,
+        });
         continue;
       }
       try {
@@ -865,7 +900,12 @@ export class Engine {
       const updated: JobRow = {
         ...row,
         ...change.row,
-        job: { ...row.job, ...change.job, revision: row.job.revision + 1, updatedAt: new Date(this.now()).toISOString() },
+        job: {
+          ...row.job,
+          ...change.job,
+          revision: row.job.revision + 1,
+          updatedAt: new Date(this.now()).toISOString(),
+        },
       };
       await this.d.store.put(updated);
       result = updated;
@@ -875,7 +915,7 @@ export class Engine {
     this.locks.set(id, settled);
     await next;
     if (this.locks.get(id) === settled) this.locks.delete(id);
-    return result as JobRow | null;
+    return result;
   }
 
   private sleep(id: string, ms: number): Promise<void> {

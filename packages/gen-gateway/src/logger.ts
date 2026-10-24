@@ -19,7 +19,11 @@ const SENSITIVE_KEYS = /^(authorization|x-gen-provider-key|api[-_]?key|token|sec
 const BEARER = /\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/g;
 const QUERY_SECRET = /([?&](?:api[-_]?key|key|token|signature|x-amz-signature|x-amz-credential)=)[^&\s"]+/gi;
 
-export function createRedactingLogger(sink: LogSink, secrets: readonly string[] = [], minLevel: LogLevel = 'info'): Logger {
+export function createRedactingLogger(
+  sink: LogSink,
+  secrets: readonly string[] = [],
+  minLevel: LogLevel = 'info',
+): Logger {
   const order: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 };
   const known = new Set(secrets.filter((s) => s.length >= 8));
   const scrubString = (s: string): string => {

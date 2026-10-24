@@ -16,18 +16,31 @@ describe('webhooks', () => {
         await new Promise((r) => setTimeout(r, 2));
       }
       // A forged "success" body: the gateway only re-polls; the job stays queued at the provider.
-      const body = JSON.stringify({ id: `${taskId}:task.completed`, type: 'task.completed', data: { task_id: taskId, status: 'success', output: { model_url: 'https://evil.example/x.glb' } } });
+      const body = JSON.stringify({
+        id: `${taskId}:task.completed`,
+        type: 'task.completed',
+        data: { task_id: taskId, status: 'success', output: { model_url: 'https://evil.example/x.glb' } },
+      });
       const now = Math.floor(Date.now() / 1000);
       const post = async (sig: string, delivery: string, raw = body): Promise<Response> =>
         s.fetch('/api/gen/v1/hooks/tripo', {
           method: 'POST',
-          headers: { 'content-type': 'application/json', 'tripo-webhook-signature': sig, 'tripo-webhook-delivery': delivery },
+          headers: {
+            'content-type': 'application/json',
+            'tripo-webhook-signature': sig,
+            'tripo-webhook-delivery': delivery,
+          },
           body: raw,
         });
       expect((await post(await signTripoWebhook(SECRET, body, now), 'd1')).status).toBe(200);
-      expect(await (await post(await signTripoWebhook(SECRET, body, now), 'd1')).json()).toEqual({ ok: true, duplicate: true });
+      expect(await (await post(await signTripoWebhook(SECRET, body, now), 'd1')).json()).toEqual({
+        ok: true,
+        duplicate: true,
+      });
       expect((await post(await signTripoWebhook('wrong-secret-0123456789', body, now), 'd2')).status).toBe(401);
-      expect((await post(await signTripoWebhook(SECRET, body, now - TRIPO_WEBHOOK_WINDOW_S - 5), 'd3')).status).toBe(401);
+      expect((await post(await signTripoWebhook(SECRET, body, now - TRIPO_WEBHOOK_WINDOW_S - 5), 'd3')).status).toBe(
+        401,
+      );
       expect((await post(await signTripoWebhook(SECRET, body, now), 'd4', `${body} `)).status).toBe(401);
       expect((await post('garbage', 'd5')).status).toBe(401);
       expect(s.lines.some((l) => l.includes('webhook.accepted') && l.includes('"known":true'))).toBe(true);
@@ -46,7 +59,11 @@ describe('webhooks', () => {
       const hint = await s.fetch('/api/gen/v1/hooks/meshy', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ id: 'not-a-task', status: 'SUCCEEDED', model_urls: { glb: 'https://evil.example/x.glb' } }),
+        body: JSON.stringify({
+          id: 'not-a-task',
+          status: 'SUCCEEDED',
+          model_urls: { glb: 'https://evil.example/x.glb' },
+        }),
       });
       expect(hint.status).toBe(200);
       expect(s.lines.some((l) => l.includes('webhook.accepted') && l.includes('"known":false'))).toBe(true);

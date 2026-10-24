@@ -6,7 +6,14 @@ export * from './adapters/index.ts';
 export * from './config.ts';
 export { Engine, type EngineDeps, usdOf } from './engine.ts';
 export { createEgress, hostAllowed } from './egress.ts';
-export { createGateway, GATEWAY_MARKER, type Gateway, type GatewayOptions, type RequestInfo, secretEquals } from './handler.ts';
+export {
+  createGateway,
+  GATEWAY_MARKER,
+  type Gateway,
+  type GatewayOptions,
+  type RequestInfo,
+  secretEquals,
+} from './handler.ts';
 export { ApiError } from './http.ts';
 export { checkGlb, checkImage, InputError, sniff } from './inputs.ts';
 export * from './logger.ts';

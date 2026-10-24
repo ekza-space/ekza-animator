@@ -1,9 +1,18 @@
 import type { Metadata, Viewport } from 'next';
 import type { JSX, ReactNode } from 'react';
+import { buildCsp, GATEWAY_URL_ENV, gatewayOrigin } from '../csp';
 import { isDevContour, rootMetadata } from './contour';
 import './globals.css';
 
 const DEV = isDevContour();
+/**
+ * M7 G-b (ADR 0017 §1): a static export has no response headers, so its policy is a meta tag (server builds send the
+ * header from `next.config.ts`). Rendered at build time; the gateway origin is the one fixed in the build config.
+ */
+const STATIC_CSP =
+  process.env['STUDIO_STATIC_EXPORT'] === '1' || process.env['ANIMATOR_STATIC_EXPORT'] === '1'
+    ? buildCsp({ dev: false, gatewayOrigin: gatewayOrigin(process.env[GATEWAY_URL_ENV]), header: false })
+    : null;
 
 export const metadata: Metadata = rootMetadata(DEV);
 
@@ -15,6 +24,11 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { readonly children: ReactNode }): JSX.Element {
   return (
     <html lang="en">
+      {STATIC_CSP === null ? null : (
+        <head>
+          <meta httpEquiv="Content-Security-Policy" content={STATIC_CSP} />
+        </head>
+      )}
       <body className="min-h-dvh bg-app text-fg antialiased">
         {children}
         {DEV ? (

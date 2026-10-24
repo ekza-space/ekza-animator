@@ -6,11 +6,12 @@
     "outDir": ".tsbuild/app",
     "plugins": [{ "name": "next" }]
   },
-  "include": ["env.d.ts", "app/**/*"],
+  "include": ["env.d.ts", "app/**/*", "csp.ts", "instrumentation.gen.ts"],
   "references": [
     { "path": "../../packages/editor/src" },
     { "path": "../../packages/ui/src" },
     { "path": "../../packages/autorig/src" },
-    { "path": "../../packages/halo/src" }
+    { "path": "../../packages/halo/src" },
+    { "path": "../../packages/gen-gateway/src" }
   ]
 }

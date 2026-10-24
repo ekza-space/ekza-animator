@@ -32,6 +32,9 @@ const SCHEMATIC_RENDER = scope('schematic-render');
 const AGENT_TOOLS = scope('agent-tools');
 const AGENT_EVALS = scope('agent-evals');
 const MCP_SERVER = 'ekza-studio-mcp';
+// M7 (ADR 0017 §2): the ekza-gen/v1 contract and typed client (browser + Node), and the server-only gateway.
+const GEN_CORE = scope('gen-core');
+const GEN_GATEWAY = scope('gen-gateway');
 const MCP_CLIENT = '@modelcontextprotocol/client';
 
 const VITEST = ['@types/node', 'vitest'];
@@ -113,7 +116,8 @@ export const ALLOWED = {
     ],
   },
   [EDITOR_CORE]: {
-    dependencies: [ANIM_CORE, DOC, RIG, IO, MESH_CORE, 'zustand'],
+    // GEN_CORE: the type of the optional `EditorServices.generation` slot only (oxlint: type imports).
+    dependencies: [ANIM_CORE, DOC, RIG, IO, MESH_CORE, GEN_CORE, 'zustand'],
     devDependencies: [...VITEST, 'fast-check', 'gltf-validator'],
   },
   // M-AI (MCP-SPEC §2 layering table). `ekza-studio-mcp` is the only published package: every runtime dependency is
@@ -122,6 +126,16 @@ export const ALLOWED = {
   [MOTION_ANALYSIS]: {
     dependencies: [ANIM_CORE],
     devDependencies: [...VITEST, 'fast-check'],
+  },
+  // M7 G-b (ADR 0017 §2): gen-core has no runtime dependency (doc only for a type-compatibility test); gen-gateway is
+  // server-only and depends on gen-core alone (node:* built-ins only in its node/ and testing/ subpaths).
+  [GEN_CORE]: {
+    dependencies: [],
+    devDependencies: [...VITEST, DOC],
+  },
+  [GEN_GATEWAY]: {
+    dependencies: [GEN_CORE],
+    devDependencies: VITEST,
   },
   [SCHEMATIC_RENDER]: {
     dependencies: [ANIM_CORE, 'fflate'],
@@ -255,7 +269,8 @@ export const ALLOWED = {
   web: {
     // AUTORIG-SPEC §3.1 (D0): `/autorig` mounts the Auto-Rig shell (the only importer of @ekza-studio/autorig);
     // STUDIO-TOUCH-SPEC §20.1 (T2): `/app` mounts the Halo shell (the only importer of @ekza-studio/halo).
-    dependencies: [EDITOR, UI, AUTORIG, HALO, ...REACT, ...VRM, 'next', 'three'],
+    // ADR 0017 §2 (M7 G-b): the generation route of server builds (`app/api/gen/**/route.gen.ts`) mounts the gateway.
+    dependencies: [EDITOR, UI, AUTORIG, HALO, GEN_GATEWAY, ...REACT, ...VRM, 'next', 'three'],
     // e2e specs may import io and doc (ARCHITECTURE §3).
     devDependencies: [
       ...VITEST,

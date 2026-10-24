@@ -15,7 +15,12 @@ describe('jobs against the mock providers', () => {
     try {
       const png = makePng();
       const up = await s.client.upload(png, 'image/png');
-      const req = request({ provider: 'tripo', op: 'image-to-model', images: [{ upload: up.upload }], params: { faceLimit: 3000 } });
+      const req = request({
+        provider: 'tripo',
+        op: 'image-to-model',
+        images: [{ upload: up.upload }],
+        params: { faceLimit: 3000 },
+      });
       const quote = await s.client.quote(req);
       expect(quote).toMatchObject({ model: TRIPO_MODELS.p1, credits: 50, usd: 0.5, exact: true });
       const job = await s.client.submit(req);
@@ -43,11 +48,11 @@ describe('jobs against the mock providers', () => {
         postSteps: [],
       });
       expect(done.provenance?.taskId).toMatch(/^task_/);
-      expect(done.provenance?.termsSnapshot['termsUrl']).toBe('https://developers.tripo3d.ai/en/terms');
+      expect(done.provenance?.termsSnapshot).toMatchObject({ termsUrl: 'https://developers.tripo3d.ai/en/terms' });
       // The provider saw a pinned model and a file token, never a URL from the client.
       const create = s.mock.requests.find((r) => r.path.endsWith('/generation/image-to-model'));
       expect(create?.json).toMatchObject({ model: 'P1-20260311', face_limit: 3000 });
-      expect(String((create?.json as { input: string }).input)).toMatch(/^file_/);
+      expect(JSON.stringify(create?.json)).toMatch(/"input":"file_[0-9a-f]+"/);
       expect((await s.client.jobs()).map((j) => j.id)).toContain(job.id);
     } finally {
       await s.close();
@@ -75,14 +80,26 @@ describe('jobs against the mock providers', () => {
     const s = await setup();
     try {
       const job = await s.client.submit(
-        request({ provider: 'meshy', op: 'text-to-model', prompt: PROMPT, params: { faceLimit: 500, texture: 'color', restPose: 'a' } }),
+        request({
+          provider: 'meshy',
+          op: 'text-to-model',
+          prompt: PROMPT,
+          params: { faceLimit: 500, texture: 'color', restPose: 'a' },
+        }),
       );
       expect(job.quoteUsd).toBe(0.3);
       const done = await untilDone(s.client, job.id);
       expect(done).toMatchObject({ state: 'succeeded', costUsd: 0.3, model: 'meshy-t2.5' });
       const posts = s.mock.requests.filter((r) => r.method === 'POST' && r.provider === 'meshy').map((r) => r.json);
       expect(posts).toMatchObject([
-        { mode: 'preview', model_type: 'smart-topology', ai_model: 'meshy-t2.5', target_polycount: 500, pose_mode: 'a-pose', moderation: true },
+        {
+          mode: 'preview',
+          model_type: 'smart-topology',
+          ai_model: 'meshy-t2.5',
+          target_polycount: 500,
+          pose_mode: 'a-pose',
+          moderation: true,
+        },
         { mode: 'refine', enable_pbr: false, texture_resolution: '2k' },
       ]);
       expect(JSON.stringify(posts)).not.toContain('lowpoly');
@@ -103,7 +120,10 @@ describe('jobs against the mock providers', () => {
       await untilDone(s.client, a.id);
       expect((await s.client.submit(req)).id).toBe(a.id);
       expect(s.mock.creates('tripo')).toBe(1);
-      await expect(s.client.submit({ ...req, prompt: 'something else' })).rejects.toMatchObject({ code: 'conflict', status: 409 });
+      await expect(s.client.submit({ ...req, prompt: 'something else' })).rejects.toMatchObject({
+        code: 'conflict',
+        status: 409,
+      });
     } finally {
       await s.close();
     }
@@ -130,9 +150,14 @@ describe('jobs against the mock providers', () => {
   it('never re-sends a create that may have reached the provider (dropped connection, timeout)', async () => {
     const s = await setup();
     try {
-      s.mock.inject({ on: 'create', kind: 'drop', provider: 'tripo' }, { on: 'create', kind: 'hang', provider: 'meshy' });
+      s.mock.inject(
+        { on: 'create', kind: 'drop', provider: 'tripo' },
+        { on: 'create', kind: 'hang', provider: 'meshy' },
+      );
       const a = await s.client.submit(request({ provider: 'tripo', op: 'text-to-model', prompt: PROMPT }));
-      const b = await s.client.submit(request({ provider: 'meshy', op: 'text-to-model', prompt: PROMPT, params: { texture: 'none' } }));
+      const b = await s.client.submit(
+        request({ provider: 'meshy', op: 'text-to-model', prompt: PROMPT, params: { texture: 'none' } }),
+      );
       for (const id of [a.id, b.id]) {
         const done = await untilDone(s.client, id);
         expect(done.state).toBe('failed');
@@ -156,13 +181,20 @@ describe('jobs against the mock providers', () => {
         { on: 'create', kind: 'status', status: 429, retryAfterS: 0, provider: 'tripo' },
         { on: 'create', kind: 'status', status: 429, provider: 'tripo', message: 'NoMorePendingTasks' },
       );
-      const ok = await untilDone(s.client, (await s.client.submit(request({ provider: 'tripo', op: 'text-to-model', prompt: PROMPT }))).id);
+      const ok = await untilDone(
+        s.client,
+        (await s.client.submit(request({ provider: 'tripo', op: 'text-to-model', prompt: PROMPT }))).id,
+      );
       expect(ok.state).toBe('succeeded');
       expect(s.mock.creates('tripo')).toBe(1);
       s.mock.inject({ on: 'create', kind: 'status', status: 402, provider: 'meshy' });
       const poor = await untilDone(
         s.client,
-        (await s.client.submit(request({ provider: 'meshy', op: 'text-to-model', prompt: PROMPT, params: { texture: 'none' } }))).id,
+        (
+          await s.client.submit(
+            request({ provider: 'meshy', op: 'text-to-model', prompt: PROMPT, params: { texture: 'none' } }),
+          )
+        ).id,
       );
       expect(poor).toMatchObject({ state: 'failed', error: { code: 'insufficient-credits', retryable: false } });
       expect((await s.client.providers()).caps.remainingDailyUsd).toBe(4.6);
@@ -180,19 +212,31 @@ describe('jobs against the mock providers', () => {
       );
       const ok = await untilDone(
         s.client,
-        (await s.client.submit(request({ provider: 'meshy', op: 'text-to-model', prompt: PROMPT, params: { texture: 'none' } }))).id,
+        (
+          await s.client.submit(
+            request({ provider: 'meshy', op: 'text-to-model', prompt: PROMPT, params: { texture: 'none' } }),
+          )
+        ).id,
       );
       expect(ok.state).toBe('succeeded');
       s.mock.inject({ on: 'task', kind: 'outcome', outcome: 'moderation', provider: 'tripo' });
       s.mock.inject({ on: 'task', kind: 'outcome', outcome: 'moderation', provider: 'meshy' });
       const [t, m] = await Promise.all([
         s.client.submit(request({ provider: 'tripo', op: 'text-to-model', prompt: PROMPT })),
-        s.client.submit(request({ provider: 'meshy', op: 'text-to-model', prompt: PROMPT, params: { texture: 'none' } })),
+        s.client.submit(
+          request({ provider: 'meshy', op: 'text-to-model', prompt: PROMPT, params: { texture: 'none' } }),
+        ),
       ]);
       for (const id of [t.id, m.id])
-        expect(await untilDone(s.client, id)).toMatchObject({ state: 'blocked', error: { code: 'moderation', retryable: false } });
+        expect(await untilDone(s.client, id)).toMatchObject({
+          state: 'blocked',
+          error: { code: 'moderation', retryable: false },
+        });
       s.mock.inject({ on: 'task', kind: 'outcome', outcome: 'failed', provider: 'tripo' });
-      const failed = await untilDone(s.client, (await s.client.submit(request({ provider: 'tripo', op: 'text-to-model', prompt: PROMPT }))).id);
+      const failed = await untilDone(
+        s.client,
+        (await s.client.submit(request({ provider: 'tripo', op: 'text-to-model', prompt: PROMPT }))).id,
+      );
       expect(failed).toMatchObject({ state: 'failed', error: { code: 'provider-failed' } });
     } finally {
       await s.close();
@@ -203,15 +247,25 @@ describe('jobs against the mock providers', () => {
     const s = await setup();
     try {
       s.mock.inject({ on: 'download', kind: 'truncate', provider: 'tripo' });
-      const ok = await untilDone(s.client, (await s.client.submit(request({ provider: 'tripo', op: 'text-to-model', prompt: PROMPT }))).id);
+      const ok = await untilDone(
+        s.client,
+        (await s.client.submit(request({ provider: 'tripo', op: 'text-to-model', prompt: PROMPT }))).id,
+      );
       expect(ok.state).toBe('succeeded');
       s.mock.inject({ on: 'download', kind: 'garbage', provider: 'tripo' });
-      const bad = await untilDone(s.client, (await s.client.submit(request({ provider: 'tripo', op: 'text-to-model', prompt: PROMPT }))).id);
+      const bad = await untilDone(
+        s.client,
+        (await s.client.submit(request({ provider: 'tripo', op: 'text-to-model', prompt: PROMPT }))).id,
+      );
       expect(bad).toMatchObject({ state: 'failed', error: { code: 'provider-failed' } });
       s.mock.inject({ on: 'download', kind: 'status', status: 404, provider: 'meshy' });
       const gone = await untilDone(
         s.client,
-        (await s.client.submit(request({ provider: 'meshy', op: 'text-to-model', prompt: PROMPT, params: { texture: 'none' } }))).id,
+        (
+          await s.client.submit(
+            request({ provider: 'meshy', op: 'text-to-model', prompt: PROMPT, params: { texture: 'none' } }),
+          )
+        ).id,
       );
       expect(gone.state).toBe('expired');
     } finally {
@@ -225,25 +279,52 @@ describe('jobs against the mock providers', () => {
       const glb = await s.client.upload(makeCubeGlb({ size: 2 }), 'model/gltf-binary');
       const remesh = await untilDone(
         s.client,
-        (await s.client.submit(request({ provider: 'meshy', op: 'retopology', source: { upload: glb.upload }, params: { faceLimit: 2000, quad: true } }))).id,
+        (
+          await s.client.submit(
+            request({
+              provider: 'meshy',
+              op: 'retopology',
+              source: { upload: glb.upload },
+              params: { faceLimit: 2000, quad: true },
+            }),
+          )
+        ).id,
       );
       expect(remesh).toMatchObject({ state: 'succeeded', model: 'remesh-v1', costUsd: 0.1 });
-      expect(remesh.provenance).toMatchObject({ digitalSourceType: 'compositeWithTrainedAlgorithmicMedia', inputSha256: [glb.sha256] });
+      expect(remesh.provenance).toMatchObject({
+        digitalSourceType: 'compositeWithTrainedAlgorithmicMedia',
+        inputSha256: [glb.sha256],
+      });
       const remeshPost = s.mock.requests.find((r) => r.path.endsWith('/v1/remesh'))?.json as Record<string, unknown>;
       expect(remeshPost).toMatchObject({ topology: 'quad', target_polycount: 2000, target_formats: ['glb'] });
       expect(String(remeshPost['model_url'])).toMatch(/^data:application\/octet-stream;base64,/);
 
-      const base = await untilDone(s.client, (await s.client.submit(request({ provider: 'tripo', op: 'text-to-model', prompt: PROMPT }))).id);
+      const base = await untilDone(
+        s.client,
+        (await s.client.submit(request({ provider: 'tripo', op: 'text-to-model', prompt: PROMPT }))).id,
+      );
       const rig = await untilDone(
         s.client,
-        (await s.client.submit(request({ provider: 'tripo', op: 'rig', source: { job: base.id }, params: { skeleton: 'vrm' } }))).id,
+        (
+          await s.client.submit(
+            request({ provider: 'tripo', op: 'rig', source: { job: base.id }, params: { skeleton: 'vrm' } }),
+          )
+        ).id,
       );
       expect(rig).toMatchObject({ state: 'succeeded', model: 'v3.0-20260909', costUsd: 0.25 });
       expect(rig.artifacts[0]?.role).toBe('rigged');
       const rigPost = s.mock.requests.find((r) => r.path.endsWith('/animations/rig'))?.json;
-      expect(rigPost).toEqual({ input: base.provenance?.taskId, model: 'v3.0-20260909', rig_type: 'biped', spec: 'vrm', out_format: 'glb' });
+      expect(rigPost).toEqual({
+        input: base.provenance?.taskId,
+        model: 'v3.0-20260909',
+        rig_type: 'biped',
+        spec: 'vrm',
+        out_format: 'glb',
+      });
       await expect(
-        s.client.submit(request({ provider: 'meshy', op: 'rig', source: { job: base.id }, params: { skeleton: 'vrm' } })),
+        s.client.submit(
+          request({ provider: 'meshy', op: 'rig', source: { job: base.id }, params: { skeleton: 'vrm' } }),
+        ),
       ).rejects.toMatchObject({ code: 'unsupported' });
     } finally {
       await s.close();
@@ -254,7 +335,9 @@ describe('jobs against the mock providers', () => {
     const mock = await startMockProviders({ pollsToFinish: 50, pollsQueued: { meshy: 1000 } });
     const s = await setup({ mock });
     try {
-      const m = await s.client.submit(request({ provider: 'meshy', op: 'text-to-model', prompt: PROMPT, params: { texture: 'none' } }));
+      const m = await s.client.submit(
+        request({ provider: 'meshy', op: 'text-to-model', prompt: PROMPT, params: { texture: 'none' } }),
+      );
       let job: GenJob = m;
       for (let i = 0; i < 200 && !job.submitted; i++) {
         await new Promise((r) => setTimeout(r, 2));
@@ -284,7 +367,11 @@ describe('jobs against the mock providers', () => {
       const as = (user: string) => (path: string, init?: RequestInit) =>
         s.fetch(path, { ...init, headers: { ...(init?.headers as Record<string, string>), 'x-test-user': user } });
       const up = (await (
-        await as('alice')('/api/gen/v1/uploads', { method: 'POST', headers: { 'content-type': 'image/png' }, body: makePng() as Uint8Array<ArrayBuffer> })
+        await as('alice')('/api/gen/v1/uploads', {
+          method: 'POST',
+          headers: { 'content-type': 'image/png' },
+          body: makePng() as Uint8Array<ArrayBuffer>,
+        })
       ).json()) as { upload: string; sha256: string };
       const job = (await (
         await as('alice')('/api/gen/v1/jobs', {
@@ -365,7 +452,13 @@ describe('restart recovery (file stores)', () => {
       const row = (await store.get(job.id)) as JobRow;
       const ghost: JobRow = {
         ...row,
-        job: { ...row.job, id: 'job_ghost', state: 'submitting', submitted: false, idempotencyKey: 'ghost-key-0123456789' },
+        job: {
+          ...row.job,
+          id: 'job_ghost',
+          state: 'submitting',
+          submitted: false,
+          idempotencyKey: 'ghost-key-0123456789',
+        },
         taskIds: [],
       };
       await store.put(ghost);
@@ -374,7 +467,10 @@ describe('restart recovery (file stores)', () => {
       try {
         const resumed = await untilDone(second.client, job.id);
         expect(resumed.state).toBe('succeeded');
-        expect(await second.client.job('job_ghost')).toMatchObject({ state: 'failed', error: { code: 'timeout', retryable: false } });
+        expect(await second.client.job('job_ghost')).toMatchObject({
+          state: 'failed',
+          error: { code: 'timeout', retryable: false },
+        });
         expect(mock.creates('tripo')).toBe(1);
         const artifact = resumed.artifacts.find((a) => a.role === 'model');
         expect(await second.client.artifact(artifact as NonNullable<typeof artifact>)).toBeInstanceOf(Uint8Array);
@@ -433,7 +529,10 @@ describe('restart recovery (file stores)', () => {
     });
     const again = await setup({ store, blobs });
     try {
-      expect(await again.client.job('job_queued')).toMatchObject({ state: 'failed', error: { code: 'gateway', retryable: true } });
+      expect(await again.client.job('job_queued')).toMatchObject({
+        state: 'failed',
+        error: { code: 'gateway', retryable: true },
+      });
       expect((await store.get('job_queued'))?.chargeUsd).toBe(0);
     } finally {
       await again.close();

@@ -57,7 +57,13 @@ export interface Gateway {
 
 const FORWARD_HEADERS = ['x-forwarded-for', 'forwarded', 'x-real-ip', 'x-forwarded-host'];
 const UPLOAD_MIMES: readonly UploadMime[] = ['image/png', 'image/webp', 'image/jpeg', 'model/gltf-binary'];
-const ALLOW_HEADERS = ['authorization', 'content-type', GEN_HEADERS.idempotencyKey, GEN_HEADERS.providerKey, 'last-event-id'];
+const ALLOW_HEADERS = [
+  'authorization',
+  'content-type',
+  GEN_HEADERS.idempotencyKey,
+  GEN_HEADERS.providerKey,
+  'last-event-id',
+];
 const DELIVERY_TTL_MS = 10 * 60_000;
 
 async function digest(s: string): Promise<Uint8Array> {
@@ -248,7 +254,8 @@ export function createGateway(opts: GatewayOptions): Gateway {
   };
 
   const artifact = async (principal: string, sha: string): Promise<Response> => {
-    if (!SHA256_HEX.test(sha) || !(await store.owns(principal, sha))) throw new ApiError('not-found', 'Unknown artifact.');
+    if (!SHA256_HEX.test(sha) || !(await store.owns(principal, sha)))
+      throw new ApiError('not-found', 'Unknown artifact.');
     const bytes = await blobs.get(sha);
     if (bytes === null) throw new ApiError('not-found', 'The artifact is no longer stored.');
     const mime = sniff(bytes) ?? 'application/octet-stream';
@@ -297,7 +304,12 @@ export function createGateway(opts: GatewayOptions): Gateway {
 
     // Unsafe methods from a browser origin that is neither this one nor allowed are refused (session cookies, M4b).
     const origin = req.headers.get('origin');
-    if (origin !== null && method !== 'GET' && origin !== new URL(req.url).origin && !config.allowedOrigins.includes(origin))
+    if (
+      origin !== null &&
+      method !== 'GET' &&
+      origin !== new URL(req.url).origin &&
+      !config.allowedOrigins.includes(origin)
+    )
       throw new ApiError('unauthorized', 'This origin may not use the gateway.');
     const principal = await principalOf(req, info);
     if (principal === null) throw new ApiError('unauthorized', 'Authentication required.');
@@ -322,7 +334,8 @@ export function createGateway(opts: GatewayOptions): Gateway {
       return json(job, created ? 201 : 200);
     }
     if (a === 'jobs' && b === undefined && method === 'GET') return json({ jobs: await engine.list(principal) });
-    if (a === 'jobs' && b !== undefined && c === undefined && method === 'GET') return json(await engine.get(principal, b));
+    if (a === 'jobs' && b !== undefined && c === undefined && method === 'GET')
+      return json(await engine.get(principal, b));
     if (a === 'jobs' && b !== undefined && c === undefined && method === 'DELETE')
       return json(await engine.cancel(principal, b));
     if (a === 'jobs' && b !== undefined && c === 'events' && parts.length === 4 && method === 'GET')

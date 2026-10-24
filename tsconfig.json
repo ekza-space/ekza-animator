@@ -21,6 +21,12 @@
       "path": "./packages/io"
     },
     {
+      "path": "./packages/gen-core"
+    },
+    {
+      "path": "./packages/gen-gateway"
+    },
+    {
       "path": "./packages/editor-core"
     },
     {

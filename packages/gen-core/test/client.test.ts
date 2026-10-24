@@ -20,6 +20,9 @@ const job = (revision: number, state: GenJob['state']): GenJob => ({
   idempotencyKey: 'abcdefghijklmnop',
 });
 
+const urlOf = (input: string | URL | Request): string =>
+  typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+
 const respond = (status: number, body: unknown): Response =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
@@ -31,7 +34,7 @@ describe('GenerationClient', () => {
       token: () => 'tok',
       fetch: async (url, init) => {
         seen.push(new Headers(init?.headers));
-        if (String(url) === '/api/gen/v1/providers') return respond(200, { protocol: 'other/v9', providers: [] });
+        if (urlOf(url) === '/api/gen/v1/providers') return respond(200, { protocol: 'other/v9', providers: [] });
         return respond(402, { error: { code: 'spend-cap', message: 'Daily cap reached.', retryable: false } });
       },
     });
@@ -84,7 +87,9 @@ describe('GenerationClient', () => {
         new ReadableStream({
           start(c) {
             const enc = new TextEncoder();
-            states.forEach((s, i) => c.enqueue(enc.encode(formatSseEvent('job', JSON.stringify(job(i + 1, s)), i + 1))));
+            states.forEach((s, i) =>
+              c.enqueue(enc.encode(formatSseEvent('job', JSON.stringify(job(i + 1, s)), i + 1))),
+            );
             c.close();
           },
         }),
@@ -107,7 +112,7 @@ describe('GenerationClient', () => {
         baseUrl: '/g',
         pollMs: 1,
         fetch: async (url) => {
-          if (String(url).endsWith('/events')) return respond(503, {});
+          if (urlOf(url).endsWith('/events')) return respond(503, {});
           polls++;
           return respond(200, job(polls, polls < 3 ? 'running' : 'succeeded'));
         },

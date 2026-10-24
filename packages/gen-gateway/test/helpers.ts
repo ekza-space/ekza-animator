@@ -1,4 +1,10 @@
-import { createGenerationClient, type GenerationClient, type GenJob, type GenRequest, isTerminal } from '@ekza-studio/gen-core';
+import {
+  createGenerationClient,
+  type GenerationClient,
+  type GenJob,
+  type GenRequest,
+  isTerminal,
+} from '@ekza-studio/gen-core';
 import {
   type BlobStore,
   createGateway,
@@ -10,6 +16,9 @@ import {
   providerEnvs,
 } from '../src/index.ts';
 import { type MockProviderServer, startMockProviders } from '../src/testing/index.ts';
+
+export const urlOf = (input: string | URL | Request): string =>
+  typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
 
 export const TOKEN = 'test-token-0123456789abcdef0123456789';
 
@@ -68,7 +77,7 @@ export async function setup(opts?: {
     baseUrl: '/api/gen',
     token: () => TOKEN,
     pollMs: 5,
-    fetch: (input, init) => fetchVia(String(input), init),
+    fetch: (input, init) => fetchVia(urlOf(input), init),
   });
   return {
     mock,

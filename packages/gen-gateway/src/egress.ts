@@ -20,7 +20,10 @@ export function networkError(err: unknown, what: string): ProviderError {
   const code = causeCode(err);
   const name = (err as { name?: unknown } | null)?.name;
   if (code !== null && NOT_SENT.has(code))
-    return new ProviderError('provider-failed', `${what}: connection failed (${code}).`, { retryable: true, sent: 'no' });
+    return new ProviderError('provider-failed', `${what}: connection failed (${code}).`, {
+      retryable: true,
+      sent: 'no',
+    });
   const timeout = name === 'TimeoutError' || name === 'AbortError';
   return new ProviderError('timeout', `${what}: ${timeout ? 'timed out' : 'connection lost'}.`, {
     retryable: true,
@@ -56,7 +59,11 @@ export function createEgress(rules: EgressRules, baseFetch: typeof fetch, timeou
   const call = async (url: URL, init: RequestInit & { timeoutMs: number }, what: string): Promise<Response> => {
     const { timeoutMs, ...rest } = init;
     try {
-      return await baseFetch(url, { ...rest, redirect: 'manual', signal: AbortSignal.timeout(Math.max(1, timeoutMs * timeoutScale)) });
+      return await baseFetch(url, {
+        ...rest,
+        redirect: 'manual',
+        signal: AbortSignal.timeout(Math.max(1, timeoutMs * timeoutScale)),
+      });
     } catch (err) {
       throw networkError(err, what);
     }
@@ -93,7 +100,7 @@ export function createEgress(rules: EgressRules, baseFetch: typeof fetch, timeou
         if (declared > maxBytes)
           throw new ProviderError('provider-failed', `The result is larger than ${maxBytes} bytes.`, { sent: 'yes' });
         if (res.body === null) return new Uint8Array(0);
-        const reader = res.body.getReader();
+        const reader = res.body.getReader() as ReadableStreamDefaultReader<Uint8Array>;
         const parts: Uint8Array[] = [];
         let size = 0;
         for (;;) {

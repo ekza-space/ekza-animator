@@ -73,6 +73,8 @@ jobs:
       - run: pnpm run build
       # M2A-SPEC §5.21.2 (M-2): the editor route's initial JS ≤ 900,000 B gzip -9, lazy boundaries intact.
       - run: pnpm --filter web check:size
+      # M7 G-b (ADR 0017 §1): no provider key name, provider host or gateway code in a browser bundle.
+      - run: pnpm run check:gen-boundary
 
   e2e:
     name: e2e (chromium-swiftshader)

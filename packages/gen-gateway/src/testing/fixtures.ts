@@ -8,8 +8,35 @@ const pad4 = (n: number): number => (n + 3) & ~3;
 /** A unit cube GLB (8 vertices, 12 triangles), scaled by `size` so different calls give different bytes. */
 export function makeCubeGlb(opts?: { readonly size?: number; readonly generator?: string }): Uint8Array {
   const s = (opts?.size ?? 1) / 2;
-  const pos = new Float32Array([-s, 0, -s, s, 0, -s, s, 0, s, -s, 0, s, -s, 2 * s, -s, s, 2 * s, -s, s, 2 * s, s, -s, 2 * s, s]);
-  const idx = new Uint16Array([0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 1, 2, 6, 1, 6, 5, 2, 3, 7, 2, 7, 6, 3, 0, 4, 3, 4, 7]);
+  const pos = new Float32Array([
+    -s,
+    0,
+    -s,
+    s,
+    0,
+    -s,
+    s,
+    0,
+    s,
+    -s,
+    0,
+    s,
+    -s,
+    2 * s,
+    -s,
+    s,
+    2 * s,
+    -s,
+    s,
+    2 * s,
+    s,
+    -s,
+    2 * s,
+    s,
+  ]);
+  const idx = new Uint16Array([
+    0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 1, 2, 6, 1, 6, 5, 2, 3, 7, 2, 7, 6, 3, 0, 4, 3, 4, 7,
+  ]);
   const bin = new Uint8Array(pos.byteLength + idx.byteLength);
   bin.set(new Uint8Array(pos.buffer), 0);
   bin.set(new Uint8Array(idx.buffer), pos.byteLength);
@@ -93,7 +120,8 @@ export function makePng(width = 64, height = 64, metadata?: 'exif' | 'xmp'): Uin
   dv.setUint32(4, height);
   ihdr.set([8, 2, 0, 0, 0], 8);
   const raw = new Uint8Array((width * 3 + 1) * height);
-  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) raw.set([200, 120, 40], y * (width * 3 + 1) + 1 + x * 3);
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) raw.set([200, 120, 40], y * (width * 3 + 1) + 1 + x * 3);
   const extra =
     metadata === 'exif'
       ? [pngChunk('eXIf', new Uint8Array([0x4d, 0x4d, 0, 42, 0, 0, 0, 8]))]
@@ -112,7 +140,27 @@ export function makePng(width = 64, height = 64, metadata?: 'exif' | 'xmp'): Uin
 /** A JPEG skeleton (SOI, optional APP1 Exif, SOF0 with the size, EOI) — enough for type, size and metadata checks. */
 export function makeJpegHeader(width = 64, height = 64, exif = false): Uint8Array {
   const app1 = exif ? [0xff, 0xe1, 0, 16, ...new TextEncoder().encode('Exif\0\0'), 0x4d, 0x4d, 0, 42, 0, 0, 0, 8] : [];
-  const sof = [0xff, 0xc0, 0, 17, 8, height >> 8, height & 255, width >> 8, width & 255, 3, 1, 0x11, 0, 2, 0x11, 1, 3, 0x11, 1];
+  const sof = [
+    0xff,
+    0xc0,
+    0,
+    17,
+    8,
+    height >> 8,
+    height & 255,
+    width >> 8,
+    width & 255,
+    3,
+    1,
+    0x11,
+    0,
+    2,
+    0x11,
+    1,
+    3,
+    0x11,
+    1,
+  ];
   return new Uint8Array([0xff, 0xd8, ...app1, ...sof, 0xff, 0xd9]);
 }
 
@@ -125,7 +173,9 @@ export function makeWebpHeader(width = 64, height = 64, metadata = false): Uint8
   const w = width - 1;
   const h = height - 1;
   vp8x.set([w & 255, (w >> 8) & 255, (w >> 16) & 255, h & 255, (h >> 8) & 255, (h >> 16) & 255], 12);
-  const exif = metadata ? concat([new TextEncoder().encode('EXIF'), new Uint8Array([4, 0, 0, 0, 0x4d, 0x4d, 0, 42])]) : new Uint8Array(0);
+  const exif = metadata
+    ? concat([new TextEncoder().encode('EXIF'), new Uint8Array([4, 0, 0, 0, 0x4d, 0x4d, 0, 42])])
+    : new Uint8Array(0);
   const body = concat([new TextEncoder().encode('WEBP'), vp8x, exif]);
   const head = new Uint8Array(8);
   head.set(new TextEncoder().encode('RIFF'), 0);

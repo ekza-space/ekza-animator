@@ -61,7 +61,7 @@ export async function readBody(req: Request, limit: number): Promise<Uint8Array>
   if (declared !== null && Number(declared) > limit)
     throw new ApiError('payload-too-large', `The body is larger than ${limit} bytes.`);
   if (req.body === null) return new Uint8Array(0);
-  const reader = req.body.getReader();
+  const reader = req.body.getReader() as ReadableStreamDefaultReader<Uint8Array>;
   const chunks: Uint8Array[] = [];
   let size = 0;
   for (;;) {

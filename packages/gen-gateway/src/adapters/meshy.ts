@@ -87,8 +87,10 @@ const mapError: ErrorMapper = (status, body) => {
       message: say('The Meshy account has no credits, or is on the Free plan (the API needs a paid plan).'),
       retryable: false,
     };
-  if (status === 429) return { code: 'rate-limited', message: say('Meshy is limiting requests or queued tasks.'), retryable: true };
-  if (status === 400 || status === 422) return { code: 'invalid-input', message: say('Meshy refused the input.'), retryable: false };
+  if (status === 429)
+    return { code: 'rate-limited', message: say('Meshy is limiting requests or queued tasks.'), retryable: true };
+  if (status === 400 || status === 422)
+    return { code: 'invalid-input', message: say('Meshy refused the input.'), retryable: false };
   return null;
 };
 
@@ -125,7 +127,10 @@ function plan(req: GenRequest, info: PlanInfo): Plan {
       if (p.quad === true)
         throw new ApiError('invalid-request', 'Smart Topology makes triangles; use retopology with quads afterwards.');
       if (p.lowPoly === false)
-        throw new ApiError('unsupported', 'This Meshy adapter pins Smart Topology (low-poly); high-poly is not offered.');
+        throw new ApiError(
+          'unsupported',
+          'This Meshy adapter pins Smart Topology (low-poly); high-poly is not offered.',
+        );
       if (p.skeleton !== undefined || p.heightMeters !== undefined)
         throw new ApiError('invalid-request', 'Skeleton and height apply to the rig op only.');
       if (req.op === 'image-to-model' && info.imageMimes.length !== 1)
@@ -213,7 +218,12 @@ async function create(ctx: SubmitContext, path: string, body: Record<string, unk
   const { body: res } = await callJson(
     ctx,
     path,
-    { method: 'POST', body: JSON.stringify(body), headers: { 'content-type': 'application/json' }, timeoutMs: CREATE_TIMEOUT_MS },
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: { 'content-type': 'application/json' },
+      timeoutMs: CREATE_TIMEOUT_MS,
+    },
     mapError,
   );
   const taskId = isObj(res) ? str(res['result']) : null;
@@ -287,7 +297,10 @@ async function status(_stage: number, taskId: string, ctx: TaskContext): Promise
   const raw = isObj(body) ? str(body['status']) : null;
   const mapped = raw === null ? undefined : STATES[raw];
   if (!isObj(body) || mapped === undefined)
-    throw new ProviderError('provider-failed', `Meshy returned an unknown task status (${raw ?? 'none'}).`, { sent: 'yes', retryable: true });
+    throw new ProviderError('provider-failed', `Meshy returned an unknown task status (${raw ?? 'none'}).`, {
+      sent: 'yes',
+      retryable: true,
+    });
   const err = isObj(body['task_error']) ? body['task_error'] : null;
   const errMessage = (err && str(err['message'])) ?? 'Meshy could not finish the task.';
   const blocked = mapped === 'failed' && MODERATION.test(errMessage);
@@ -303,8 +316,12 @@ async function status(_stage: number, taskId: string, ctx: TaskContext): Promise
     outputs:
       state === 'succeeded'
         ? [
-            ...(glb ? [{ role: 'model' as const, url: glb, mime: 'model/gltf-binary' as const, fileName: 'model.glb' }] : []),
-            ...(thumb ? [{ role: 'thumbnail' as const, url: thumb, mime: 'image/png' as const, fileName: 'thumbnail' }] : []),
+            ...(glb
+              ? [{ role: 'model' as const, url: glb, mime: 'model/gltf-binary' as const, fileName: 'model.glb' }]
+              : []),
+            ...(thumb
+              ? [{ role: 'thumbnail' as const, url: thumb, mime: 'image/png' as const, fileName: 'thumbnail' }]
+              : []),
           ]
         : [],
     credits: num(body['consumed_credits']),
@@ -321,7 +338,11 @@ async function status(_stage: number, taskId: string, ctx: TaskContext): Promise
   };
 }
 
-async function cancel(_stage: number, taskId: string, ctx: TaskContext): Promise<'canceled' | 'too-late' | 'unsupported'> {
+async function cancel(
+  _stage: number,
+  taskId: string,
+  ctx: TaskContext,
+): Promise<'canceled' | 'too-late' | 'unsupported'> {
   const res = await ctx.http.api(`${collection(ctx.op)}/${encodeURIComponent(taskId)}`, {
     method: 'DELETE',
     headers: { authorization: `Bearer ${ctx.key}` },

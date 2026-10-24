@@ -65,7 +65,8 @@ function png(b: Uint8Array): ImageInfo {
     }
     at = data + len + 4;
   }
-  if (!sawEnd || width === 0 || height === 0) throw new InputError('structure', 'The PNG is truncated or has no header.');
+  if (!sawEnd || width === 0 || height === 0)
+    throw new InputError('structure', 'The PNG is truncated or has no header.');
   return { mime: 'image/png', width, height };
 }
 
@@ -118,7 +119,8 @@ function jpeg(b: Uint8Array): ImageInfo {
       if (head.startsWith('Exif') || head.startsWith('http://ns.adobe.com/xap/1.0/'))
         throw new InputError('metadata', 'The JPEG carries EXIF or XMP metadata; re-encode it before uploading.');
     }
-    if (marker === 0xed) throw new InputError('metadata', 'The JPEG carries IPTC metadata; re-encode it before uploading.');
+    if (marker === 0xed)
+      throw new InputError('metadata', 'The JPEG carries IPTC metadata; re-encode it before uploading.');
     if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
       return { mime: 'image/jpeg', height: u16be(b, data + 1), width: u16be(b, data + 3) };
     }
@@ -171,7 +173,10 @@ export function checkGlb(b: Uint8Array): GlbInfo {
     if (!Array.isArray(arr)) throw new InputError('structure', `glTF ${key} is not an array.`);
     for (const item of arr)
       if (isObj(item) && item['uri'] !== undefined)
-        throw new InputError('structure', `The GLB references external or embedded ${key} by uri; only GLB chunks are accepted.`);
+        throw new InputError(
+          'structure',
+          `The GLB references external or embedded ${key} by uri; only GLB chunks are accepted.`,
+        );
   }
   let at = 20 + jsonLen;
   while (at + 8 <= b.length) {

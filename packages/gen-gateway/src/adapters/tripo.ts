@@ -89,18 +89,26 @@ const mapError: ErrorMapper = (status, body) => {
   const code = isObj(body) ? num(body['code']) : null;
   const message = isObj(body) ? (str(body['message']) ?? '') : '';
   const say = (m: string): string => (message === '' ? m : `${m} (${message})`);
-  switch (code) {
+  switch (code ?? -1) {
     case 2:
     case 1000:
     case 1001:
       return { code: 'auth', message: say('Tripo refused the API key.'), retryable: false };
     case 2010:
-      return { code: 'insufficient-credits', message: say('The Tripo account has not enough credits.'), retryable: false };
+      return {
+        code: 'insufficient-credits',
+        message: say('The Tripo account has not enough credits.'),
+        retryable: false,
+      };
     case 1007:
     case 2000:
       return { code: 'rate-limited', message: say('Tripo is limiting requests.'), retryable: true };
     case 2008:
-      return { code: 'moderation', message: say('Tripo blocked the request under its content policy.'), retryable: false };
+      return {
+        code: 'moderation',
+        message: say('Tripo blocked the request under its content policy.'),
+        retryable: false,
+      };
     case 2015:
       return {
         code: 'invalid-input',
@@ -114,7 +122,9 @@ const mapError: ErrorMapper = (status, body) => {
     case 2018:
       return { code: 'invalid-input', message: say('Tripo refused the input.'), retryable: false };
     default:
-      return status === 429 ? { code: 'rate-limited', message: say('Tripo is limiting requests.'), retryable: true } : null;
+      return status === 429
+        ? { code: 'rate-limited', message: say('Tripo is limiting requests.'), retryable: true }
+        : null;
   }
 };
 
@@ -217,11 +227,17 @@ function plan(req: GenRequest, info: PlanInfo): Plan {
 /** Uploads bytes (multipart `POST /files`) and returns the file token. Free, so a failure is safe to retry. */
 async function uploadFile(ctx: AdapterContext, bytes: Uint8Array, mime: string, name: string): Promise<string> {
   const form = new FormData();
-  form.append('file', new Blob([bytes as Uint8Array<ArrayBuffer>], { type: mime }), name);
+  form.append('file', new Blob([bytes], { type: mime }), name);
   try {
-    const { body } = await callJson(ctx, '/files', { method: 'POST', body: form, timeoutMs: UPLOAD_TIMEOUT_MS }, mapError);
+    const { body } = await callJson(
+      ctx,
+      '/files',
+      { method: 'POST', body: form, timeoutMs: UPLOAD_TIMEOUT_MS },
+      mapError,
+    );
     const token = isObj(body) && isObj(body['data']) ? str(body['data']['file_token']) : null;
-    if (token === null) throw new ProviderError('provider-failed', 'Tripo returned no file token.', { sent: 'no', retryable: true });
+    if (token === null)
+      throw new ProviderError('provider-failed', 'Tripo returned no file token.', { sent: 'no', retryable: true });
     return token;
   } catch (err) {
     if (err instanceof ProviderError && err.sent !== 'no')
@@ -234,7 +250,12 @@ async function create(ctx: SubmitContext, path: string, body: Record<string, unk
   const { body: res } = await callJson(
     ctx,
     path,
-    { method: 'POST', body: JSON.stringify(body), headers: { 'content-type': 'application/json' }, timeoutMs: CREATE_TIMEOUT_MS },
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: { 'content-type': 'application/json' },
+      timeoutMs: CREATE_TIMEOUT_MS,
+    },
     mapError,
   );
   const taskId = isObj(res) && isObj(res['data']) ? str(res['data']['task_id']) : null;
@@ -243,7 +264,8 @@ async function create(ctx: SubmitContext, path: string, body: Record<string, unk
 }
 
 async function submit(stage: number, ctx: SubmitContext): Promise<{ taskId: string }> {
-  if (stage !== 0 || ctx.input === null) throw new ProviderError('gateway', 'Tripo jobs have one stage.', { sent: 'no' });
+  if (stage !== 0 || ctx.input === null)
+    throw new ProviderError('gateway', 'Tripo jobs have one stage.', { sent: 'no' });
   const { request, images, source } = ctx.input;
   const params: Params = ctx.params;
   const sourceInput = async (): Promise<string> => {
@@ -256,7 +278,12 @@ async function submit(stage: number, ctx: SubmitContext): Promise<{ taskId: stri
     case 'image-to-model': {
       const image = images[0];
       if (image === undefined) throw new ProviderError('invalid-input', 'No image.', { sent: 'no' });
-      const token = await uploadFile(ctx, image.bytes, image.mime, image.mime === 'image/png' ? 'input.png' : 'input.jpg');
+      const token = await uploadFile(
+        ctx,
+        image.bytes,
+        image.mime,
+        image.mime === 'image/png' ? 'input.png' : 'input.jpg',
+      );
       return create(ctx, '/generation/image-to-model', { input: token, ...params });
     }
     case 'retopology':
@@ -293,7 +320,10 @@ async function status(_stage: number, taskId: string, ctx: TaskContext): Promise
   const raw = data === null ? null : str(data['status']);
   const state = raw === null ? undefined : STATES[raw];
   if (data === null || state === undefined)
-    throw new ProviderError('provider-failed', `Tripo returned an unknown task status (${raw ?? 'none'}).`, { sent: 'yes', retryable: true });
+    throw new ProviderError('provider-failed', `Tripo returned an unknown task status (${raw ?? 'none'}).`, {
+      sent: 'yes',
+      retryable: true,
+    });
   const output = isObj(data['output']) ? data['output'] : {};
   const model = str(output['model_url']);
   const render = str(output['rendered_image_url']);
@@ -306,19 +336,27 @@ async function status(_stage: number, taskId: string, ctx: TaskContext): Promise
     outputs:
       state === 'succeeded'
         ? [
-            ...(model ? [{ role: 'model' as const, url: model, mime: 'model/gltf-binary' as const, fileName: 'model.glb' }] : []),
-            ...(render ? [{ role: 'thumbnail' as const, url: render, mime: 'image/webp' as const, fileName: 'render' }] : []),
+            ...(model
+              ? [{ role: 'model' as const, url: model, mime: 'model/gltf-binary' as const, fileName: 'model.glb' }]
+              : []),
+            ...(render
+              ? [{ role: 'thumbnail' as const, url: render, mime: 'image/webp' as const, fileName: 'render' }]
+              : []),
           ]
         : [],
     credits: num(data['credits_consumed']),
     error:
       state === 'blocked' || (state === 'failed' && errorCode === 2008)
-        ? { code: 'moderation', message: str(data['error_message']) ?? 'Tripo blocked the request under its content policy.', retryable: false }
+        ? {
+            code: 'moderation',
+            message: str(data['error_message']) ?? 'Tripo blocked the request under its content policy.',
+            retryable: false,
+          }
         : state === 'failed'
           ? { code: 'provider-failed', message: errorMessage, retryable: true }
-        : state === 'expired'
-          ? { code: 'expired', message: 'Tripo no longer has the results of this task.', retryable: false }
-          : null,
+          : state === 'expired'
+            ? { code: 'expired', message: 'Tripo no longer has the results of this task.', retryable: false }
+            : null,
   };
 }
 

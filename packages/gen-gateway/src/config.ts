@@ -72,7 +72,8 @@ function num(env: Env, name: string, fallback: number | null, min: number, max: 
     return fallback;
   }
   const v = Number(raw);
-  if (!Number.isFinite(v) || v < min || v > max) throw new GatewayConfigError(`${name} must be a number ${min}…${max}.`);
+  if (!Number.isFinite(v) || v < min || v > max)
+    throw new GatewayConfigError(`${name} must be a number ${min}…${max}.`);
   return v;
 }
 
@@ -85,7 +86,8 @@ function checkUrl(name: string, raw: string, originOnly: boolean): string {
     throw new GatewayConfigError(`${name} is not a URL.`);
   }
   const local = url.protocol === 'http:' && isLoopbackHost(url.hostname.replace(/^\[|\]$/g, ''));
-  if (url.protocol !== 'https:' && !local) throw new GatewayConfigError(`${name} must use https (or http on loopback).`);
+  if (url.protocol !== 'https:' && !local)
+    throw new GatewayConfigError(`${name} must use https (or http on loopback).`);
   if (url.username !== '' || url.password !== '') throw new GatewayConfigError(`${name} must not carry credentials.`);
   if (originOnly) {
     if (url.pathname !== '/' || url.search !== '' || url.hash !== '')

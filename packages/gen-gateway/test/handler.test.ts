@@ -1,7 +1,7 @@
 import { createGenerationClient, sha256Hex } from '@ekza-studio/gen-core';
 import { checkGlb, checkImage, createGateway, defaultAdapters, loadGatewayConfig, providerEnvs } from '../src/index.ts';
 import { makeCubeGlb, makeJpegHeader, makePng, makeWebpHeader } from '../src/testing/index.ts';
-import { setup, TOKEN } from './helpers.ts';
+import { setup, TOKEN, urlOf } from './helpers.ts';
 
 const bearer = { authorization: `Bearer ${TOKEN}` };
 
@@ -15,7 +15,8 @@ describe('auth and routing', () => {
       expect(res.status).toBe(200);
       expect(res.headers.get('cache-control')).toBe('no-store');
       const text = await res.text();
-      for (const secret of [TOKEN, s.mock.keys.tripo, s.mock.keys.meshy, s.mock.origin]) expect(text).not.toContain(secret);
+      for (const secret of [TOKEN, s.mock.keys.tripo, s.mock.keys.meshy, s.mock.origin])
+        expect(text).not.toContain(secret);
       const body = JSON.parse(text) as { protocol: string; providers: { id: string; configured: boolean }[] };
       expect(body.protocol).toBe('ekza-gen/v1');
       expect(body.providers.map((p) => [p.id, p.configured])).toEqual([
@@ -30,7 +31,12 @@ describe('auth and routing', () => {
   });
 
   it('loopback mode refuses remote peers, proxied requests and non-loopback Host headers (DNS rebinding)', async () => {
-    const env = { GEN_GATEWAY_ENABLED: '1', GEN_CAP_DAILY_USD: '1', GEN_CAP_MONTHLY_USD: '1', GEN_GATEWAY_HOST: '127.0.0.1' };
+    const env = {
+      GEN_GATEWAY_ENABLED: '1',
+      GEN_CAP_DAILY_USD: '1',
+      GEN_CAP_MONTHLY_USD: '1',
+      GEN_GATEWAY_HOST: '127.0.0.1',
+    };
     const adapters = defaultAdapters();
     const gw = createGateway({ config: loadGatewayConfig(env, 'standalone', providerEnvs(adapters)), adapters });
     const call = (host: string, remote: string, extra?: Record<string, string>): Promise<Response> =>
@@ -46,7 +52,10 @@ describe('auth and routing', () => {
   it('answers CORS only for the configured origins and refuses unsafe calls from other origins', async () => {
     const s = await setup({ env: { GEN_ALLOWED_ORIGINS: 'https://studio.example' } });
     try {
-      const pre = await s.fetch('/api/gen/v1/jobs', { method: 'OPTIONS', headers: { origin: 'https://studio.example' } });
+      const pre = await s.fetch('/api/gen/v1/jobs', {
+        method: 'OPTIONS',
+        headers: { origin: 'https://studio.example' },
+      });
       expect(pre.status).toBe(204);
       expect(pre.headers.get('access-control-allow-origin')).toBe('https://studio.example');
       expect(pre.headers.get('access-control-allow-headers')).toContain('x-gen-provider-key');
@@ -81,7 +90,13 @@ describe('uploads (§7.2: ≤ 20 MB, real type, no EXIF/XMP)', () => {
     try {
       const png = makePng(80, 64);
       const up = await s.client.upload(png, 'image/png');
-      expect(up).toMatchObject({ mime: 'image/png', size: png.length, width: 80, height: 64, sha256: await sha256Hex(png) });
+      expect(up).toMatchObject({
+        mime: 'image/png',
+        size: png.length,
+        width: 80,
+        height: 64,
+        sha256: await sha256Hex(png),
+      });
       const glb = await s.client.upload(makeCubeGlb(), 'model/gltf-binary');
       expect(glb.width).toBeNull();
     } finally {
@@ -112,8 +127,10 @@ describe('uploads (§7.2: ≤ 20 MB, real type, no EXIF/XMP)', () => {
       expect(await code(post(makePng(32, 32), 'image/png'))).toEqual([400, 'invalid-request']);
       expect(await code(post(new Uint8Array(5000), 'image/png'))).toEqual([413, 'payload-too-large']);
       const glb = makeCubeGlb();
-      const json = JSON.parse(new TextDecoder().decode(glb.subarray(20, 20 + new DataView(glb.buffer).getUint32(12, true))));
-      json.buffers[0].uri = 'https://example.com/steal.bin';
+      const json = JSON.parse(
+        new TextDecoder().decode(glb.subarray(20, 20 + new DataView(glb.buffer).getUint32(12, true))),
+      ) as { buffers: { uri?: string }[] };
+      (json.buffers[0] as { uri?: string }).uri = 'https://example.com/steal.bin';
       const text = new TextEncoder().encode(JSON.stringify(json));
       const padded = new Uint8Array((text.length + 3) & ~3).fill(0x20);
       padded.set(text);
@@ -141,9 +158,14 @@ describe('uploads (§7.2: ≤ 20 MB, real type, no EXIF/XMP)', () => {
   it('the typed client works against the handler through its own fetch', async () => {
     const s = await setup();
     try {
-      const client = createGenerationClient({ baseUrl: '/api/gen', fetch: (i, init) => s.fetch(String(i), init) });
+      const client = createGenerationClient({ baseUrl: '/api/gen', fetch: (i, init) => s.fetch(urlOf(i), init) });
       await expect(client.providers()).rejects.toMatchObject({ code: 'unauthorized', status: 401 });
-      expect((await s.client.providers()).caps).toEqual({ dailyUsd: 5, monthlyUsd: 20, remainingDailyUsd: 5, remainingMonthlyUsd: 20 });
+      expect((await s.client.providers()).caps).toEqual({
+        dailyUsd: 5,
+        monthlyUsd: 20,
+        remainingDailyUsd: 5,
+        remainingMonthlyUsd: 20,
+      });
     } finally {
       await s.close();
     }

@@ -156,7 +156,11 @@ export interface ProviderAdapter {
   plan(req: GenRequest, info: PlanInfo): Plan;
   submit(stage: number, ctx: SubmitContext): Promise<{ readonly taskId: string }>;
   status(stage: number, taskId: string, ctx: TaskContext): Promise<ProviderStatus>;
-  cancel?(stage: number, taskId: string, ctx: TaskContext): Promise<'canceled' | 'too-late' | 'unsupported'>;
+  readonly cancel?: (
+    stage: number,
+    taskId: string,
+    ctx: TaskContext,
+  ) => Promise<'canceled' | 'too-late' | 'unsupported'>;
   /**
    * Verifies a callback. `signed` adapters return null for a bad or replayed-out-of-window signature; unsigned ones
    * (Meshy) return the task id as a hint only — the engine re-fetches the task with the key and never trusts the body.

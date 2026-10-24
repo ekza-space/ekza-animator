@@ -254,7 +254,11 @@ export function createGenerationClient(opts: GenerationClientOptions): Generatio
     },
     job,
     async jobs(signal) {
-      const res = await json<GenJobsResponse>('/v1/jobs', { method: 'GET', headers: headers(), signal: signal ?? null });
+      const res = await json<GenJobsResponse>('/v1/jobs', {
+        method: 'GET',
+        headers: headers(),
+        signal: signal ?? null,
+      });
       return res.jobs;
     },
     cancel(id, signal) {

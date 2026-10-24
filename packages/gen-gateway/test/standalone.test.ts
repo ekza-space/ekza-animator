@@ -56,7 +56,9 @@ describe('standalone server', () => {
       expect(done).toBe('succeeded');
       expect(states.at(-1)).toBe('succeeded');
       // A request through a proxy (X-Forwarded-For) is refused in loopback mode.
-      expect((await fetch(`${gw.url}/v1/providers`, { headers: { 'x-forwarded-for': '203.0.113.1' } })).status).toBe(401);
+      expect((await fetch(`${gw.url}/v1/providers`, { headers: { 'x-forwarded-for': '203.0.113.1' } })).status).toBe(
+        401,
+      );
     } finally {
       await gw.close();
       await mock.close();
@@ -66,12 +68,25 @@ describe('standalone server', () => {
   it('refuses to start: keys without auth on a public bind (CLI exits 78, no secret printed)', async () => {
     await expect(
       startStandaloneGateway({
-        env: { GEN_GATEWAY_ENABLED: '1', GEN_GATEWAY_HOST: '0.0.0.0', GEN_CAP_DAILY_USD: '1', GEN_CAP_MONTHLY_USD: '1', TRIPO_API_KEY: 'tsk_secret_value_123' },
+        env: {
+          GEN_GATEWAY_ENABLED: '1',
+          GEN_GATEWAY_HOST: '0.0.0.0',
+          GEN_CAP_DAILY_USD: '1',
+          GEN_CAP_MONTHLY_USD: '1',
+          TRIPO_API_KEY: 'tsk_secret_value_123',
+        },
         port: 0,
       }),
     ).rejects.toBeInstanceOf(GatewayConfigError);
     const run = spawnSync(process.execPath, [MAIN], {
-      env: { PATH: process.env['PATH'] ?? '', GEN_GATEWAY_ENABLED: '1', GEN_GATEWAY_HOST: '0.0.0.0', GEN_CAP_DAILY_USD: '1', GEN_CAP_MONTHLY_USD: '1', TRIPO_API_KEY: 'tsk_secret_value_123' },
+      env: {
+        PATH: process.env['PATH'] ?? '',
+        GEN_GATEWAY_ENABLED: '1',
+        GEN_GATEWAY_HOST: '0.0.0.0',
+        GEN_CAP_DAILY_USD: '1',
+        GEN_CAP_MONTHLY_USD: '1',
+        TRIPO_API_KEY: 'tsk_secret_value_123',
+      },
       encoding: 'utf8',
       timeout: 20_000,
     });
@@ -79,7 +94,11 @@ describe('standalone server', () => {
     expect(run.stderr).toContain('Refusing to start');
     expect(run.stderr).toContain('TRIPO_API_KEY');
     expect(run.stderr).not.toContain('tsk_secret_value_123');
-    const disabled = spawnSync(process.execPath, [MAIN], { env: { PATH: process.env['PATH'] ?? '' }, encoding: 'utf8', timeout: 20_000 });
+    const disabled = spawnSync(process.execPath, [MAIN], {
+      env: { PATH: process.env['PATH'] ?? '' },
+      encoding: 'utf8',
+      timeout: 20_000,
+    });
     expect(disabled.status).toBe(78);
     expect(disabled.stderr).toContain('GEN_GATEWAY_ENABLED=1');
   });
@@ -100,7 +119,16 @@ describe('redacting logger', () => {
     log.log('debug', 'hidden');
     expect(lines).toHaveLength(1);
     const line = lines[0] as string;
-    for (const s of ['server-secret-value', 'byo-secret-value', 'abcdef', 'zzz', 'abc.def', 'anything', 'my secret idea', 'xyz123'])
+    for (const s of [
+      'server-secret-value',
+      'byo-secret-value',
+      'abcdef',
+      'zzz',
+      'abc.def',
+      'anything',
+      'my secret idea',
+      'xyz123',
+    ])
       expect(line).not.toContain(s);
     expect(line).toContain(REDACTED);
     expect(line).toContain('Expires=1');
