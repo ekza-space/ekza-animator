@@ -1,33 +1,27 @@
 {
   "note": "STUDIO-TOUCH-SPEC §20.5 test 5: the searchOnly ratchet. Regenerate with EKZA_HALO_PARITY_WRITE=1 (ha-parity).",
-  "total": 71,
+  "total": 58,
   "explicit": 4,
-  "pending": 67,
+  "pending": 54,
   "byStage": {
     "make": 1,
     "paint": 12,
     "rig": 18,
     "animate": 14,
-    "all": 26
+    "all": 13
   },
   "targets": {
-    "T8": 55,
-    "T9": 50,
-    "T10": 54,
-    "T11": 58
+    "T8": 42,
+    "T9": 37,
+    "T10": 41
   },
   "live": 352,
-  "reachable": 281,
+  "reachable": 289,
   "items": [
     "agent.show",
     "autorig.cancel",
-    "autorig.export",
-    "autorig.intake",
-    "autorig.navigate {\"to\":[\"autorig\",\"chooser\",\"*\"]}",
     "edit.restoreDocument",
     "edit.revertSteps",
-    "file.export",
-    "file.exportCharacter",
     "file.saveJson",
     "graph.buffer.clear",
     "graph.buffer.snapshot",
@@ -54,7 +48,6 @@
     "palette.setSwatch",
     "rig.pose.view",
     "select.curveKeys",
-    "shell.navigate {\"to\":[\"autorig\",\"chooser\"]}",
     "skel.quickRig.clear",
     "skel.quickRig.commit",
     "skel.quickRig.guess",
@@ -70,14 +63,8 @@
     "skin.paint.mode",
     "skin.testRotate.toggle",
     "skin.weights.flood",
-    "target.bind",
-    "target.exportPackage",
-    "target.unbind",
-    "target.update",
     "tool.last",
     "ui.commandPalette",
-    "ui.open {\"dialog\":[\"export\"]}",
-    "ui.open {\"dialog\":[\"firstRun\"]}",
     "ui.open {\"dialog\":[\"makeEditableReport\"]}",
     "view.tool {\"panel\":\"graph\"}",
     "view.tool {\"panel\":\"viewport\",\"tool\":\"paint\"}",
@@ -88,7 +75,6 @@
     "workspace.showPanel {\"panel\":\"palette\"}",
     "workspace.showPanel {\"panel\":\"quickRig\"}",
     "workspace.showPanel {\"panel\":\"rigToolkit\"}",
-    "workspace.showPanel {\"panel\":\"target\"}",
     "workspace.showPanel {\"panel\":\"toolkit\"}"
   ]
 }

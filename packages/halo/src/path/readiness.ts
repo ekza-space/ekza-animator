@@ -215,6 +215,28 @@ function activeCharacter(app: EditorApp): CharacterLike | null {
   return liveCharacters(app).find((c) => c.id === id) ?? liveCharacters(app)[0] ?? null;
 }
 
+/** The C2 hero package's profile (CHARACTER-CONTRACT-SPEC §8.10, CC-18). */
+export const OMOBA_PACKAGE_PROFILE = 'ekza/omoba-humanoid-v2';
+
+/**
+ * The profile a destination checks a character against (T11, P-T6B-5): OMOBA & Ekza Space is the hero package's
+ * `ekza/omoba-humanoid-v2` for a model character bound to a game target — the file Share writes for it — and the
+ * destination's own profile otherwise; *Into the original file* has none (the source's generic checks).
+ */
+export function profileFor(app: EditorApp, destination: Destination, character: string): string | null {
+  if (destination.profile === 'source') return null;
+  if (destination.id === 'omoba') {
+    const row = (app.store as unknown as { get(table: string, id: string): unknown }).get(
+      'ekza.targets',
+      `tgt:${character}`,
+    );
+    if (typeof row === 'object' && row !== null && (row as { deleted?: unknown }).deleted === null) {
+      return OMOBA_PACKAGE_PROFILE;
+    }
+  }
+  return destination.profile;
+}
+
 function rigRows(app: EditorApp, destination: Destination): { rows: ReadinessRow[]; checked: boolean } {
   const rows: ReadinessRow[] = [];
   const character = activeCharacter(app);
@@ -236,7 +258,7 @@ function rigRows(app: EditorApp, destination: Destination): { rows: ReadinessRow
     return { rows, checked: true };
   }
   if (!app.rig.loaded) return { rows, checked: false };
-  const profile = destination.profile === 'source' ? null : destination.profile;
+  const profile = profileFor(app, destination, character.id);
   let validation: readonly RigValidationRow[] = [];
   try {
     validation = app.rig.validation.rows(character.id as never, profile);
@@ -267,7 +289,8 @@ function rigRows(app: EditorApp, destination: Destination): { rows: ReadinessRow
 function animateRows(app: EditorApp, destination: Destination): ReadinessRow[] {
   const character = activeCharacter(app);
   if (character === null || destination.profile === null || destination.profile === 'source') return [];
-  const required = app.exportProfiles.get(destination.profile)?.requiredClips ?? [];
+  const profile = profileFor(app, destination, character.id);
+  const required = (profile === null ? undefined : app.exportProfiles.get(profile))?.requiredClips ?? [];
   if (required.length === 0) return [];
   const slots = new Set(
     (app.store.list('clips') as unknown as readonly { character: string; slot: string | null; deleted: unknown }[])
