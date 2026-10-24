@@ -49,7 +49,8 @@ const field = (error: EkzaError): unknown => (error.details as { field?: unknown
 const OMOBA = 'omoba.character.v1';
 
 describe('the bundled OMOBA contract', () => {
-  it('reads strictly with its recomputed revision: 113 slots (107 animation, 6 asset), 18 targets', () => {
+  // OMOBA's C0 contract (omoba-bevy PR #109, `c0fe23f`): animation slots only (its gear slots arrive with GP5)
+  it('reads strictly with its recomputed revision: 107 animation slots (101 open), 18 targets', () => {
     const doc = clone();
     const model = readGameContract(doc);
     expect(model.revision).toBe(doc.revision);
@@ -58,13 +59,12 @@ describe('the bundled OMOBA contract', () => {
     expect(model.gameName).toBe('OMOBA');
     expect(model.profiles).toEqual({ used: [OMOBA], required: [] });
     const slots = Object.values(model.slots);
-    expect(slots).toHaveLength(113);
+    expect(slots).toHaveLength(107);
     expect(slots.filter((slot) => slot.kind === 'animation')).toHaveLength(107);
-    expect(slots.filter((slot) => slot.kind === 'asset')).toHaveLength(6);
     expect(slots.filter((slot) => slot.kind === 'animation' && slot.customizable)).toHaveLength(101);
     expect(model.targets).toHaveLength(18);
     expect(model.ignoredKeys).toEqual([]);
-    expect(model.rules.filter((rule) => rule.deferred).map((rule) => rule.id)).toEqual(['omoba.asset.grip']);
+    expect(model.rules.filter((rule) => rule.deferred).map((rule) => rule.id)).toEqual([]);
   });
 
   it('is the same bytes Studio serves, listed by the index as the live channel', () => {
@@ -76,13 +76,13 @@ describe('the bundled OMOBA contract', () => {
       submit: false,
     });
     const live = index.revisions.find((entry) => entry.revision === index.channels.live);
-    expect(live).toMatchObject({ slots: 113, targets: 18 });
+    expect(live).toMatchObject({ slots: 107, targets: 18 });
     expect(read(`apps/web/public/contracts/omoba/${live?.file}`)).toBe(TEXT);
     expect(clone().revision).toBe(index.channels.live);
   });
 
-  it('Wildspark: sections mix kinds, two offers (the character and the gear set)', () => {
-    const model = readContractText(TEXT);
+  it('Wildspark (GP5-shaped draft): sections mix kinds, two offers (the character and the gear set)', () => {
+    const model = readContractText(read('fixtures/contracts/omoba.game-contract.gp5-draft.json'));
     const wildspark = contractTarget(model, 'wildspark');
     expect(wildspark?.kind).toBe('character');
     expect(wildspark?.sections.map((section) => [section.id, section.key])).toEqual([
@@ -115,6 +115,23 @@ describe('the bundled OMOBA contract', () => {
     const any = contractTarget(model, 'any');
     expect(any?.kind).toBe('any');
     expect(any?.slots).toEqual(['base.idle', 'base.run', 'base.death']);
+  });
+
+  it('Wildspark in the bundled contract: six sections, the character offer of its nine clip slots', () => {
+    const model = readContractText(TEXT);
+    const wildspark = contractTarget(model, 'wildspark');
+    expect(wildspark?.sections.map((section) => section.id)).toEqual(['base', 'basic', 'q', 'w', 'e', 'r']);
+    expect(wildspark?.accepts.map((offer) => [offer.package, offer.requirementId, offer.slots.length])).toEqual([
+      ['character', 'character.wildspark', 9],
+    ]);
+    expect(model.slots['skill.wild_zap.release']?.animation?.markers).toEqual({
+      contact: { required: true, maxSecs: 0.15, targetSecs: 0.0379 },
+    });
+    expect(model.rules.find((rule) => rule.id === 'clip.in-place')?.params).toMatchObject({
+      reference: 'rest-pose',
+      maxUp: 1.5,
+      maxDown: 1.25,
+    });
   });
 });
 

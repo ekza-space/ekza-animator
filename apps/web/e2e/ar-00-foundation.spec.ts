@@ -47,7 +47,8 @@ test('autorig.* ids load the rig-workspace chunk on first run and refuse as stub
     // D5 landed the ④ composition
     'autorig.clip.add': 'expects { character, clip, params, replace? }',
     // D6 landed `autorig.export` (its argument poll)
-    'autorig.export': "expects { character, target: 'ekza-vrm' | 'glb' | 'vrma' | 'omoba-kit', fileName }",
+    'autorig.export':
+      "expects { character, target: 'ekza-vrm' | 'omoba-hero' | 'glb' | 'vrma' | 'omoba-kit', fileName }",
   };
   for (const op of WIZARD_IDS) await expectRefused(page, op, landed[op] ?? 'Arrives with Auto-Rig');
   // the moved M6b stubs: A0 landed them (E2E-AR-A0); without a character they refuse with their own reason

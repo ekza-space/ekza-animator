@@ -90,7 +90,12 @@ describe('the Export dialog Character section (§8.13)', () => {
     expect(body('export-char-banner').textContent).toBe(CHARACTER_EXPORT_BANNER);
     expect(CHARACTER_EXPORT_BANNER).toBe('OMOBA plays its own motion library on your VRM; your clips play in Space.');
     const profile = body('export-char-profile') as HTMLSelectElement;
-    expect([...profile.options].map((o) => o.value)).toEqual(['ekza/space-avatar-v1', 'local/generic']);
+    // CHARACTER-CONTRACT-SPEC §8.10 (C2): the OMOBA hero package profile sits between them.
+    expect([...profile.options].map((o) => o.value)).toEqual([
+      'ekza/space-avatar-v1',
+      'ekza/omoba-humanoid-v2',
+      'local/generic',
+    ]);
     expect([...profile.options].map((o) => o.text)).toContain('Ekza avatar — Space and OMOBA (VRM 1.0)');
     const format = body('export-char-format') as HTMLSelectElement;
     expect([...format.options].map((o) => o.value)).toEqual(['vrm']);

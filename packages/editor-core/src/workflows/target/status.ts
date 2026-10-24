@@ -7,8 +7,10 @@
 // Generic over slot kinds: each kind has a filler; `animation` slots are filled by clips (`clip.slot === slot id`),
 // `asset` and `socket` slots have no filler before GP6 and show their default. The document checks of §8.9 (C1) read
 // their numbers from the contract (rule parameters, the slot's window and markers): duration window, loop flag, frame
-// rate, markers present and within their limit, root motion in place, minimum interval. The checks on written bytes
-// (channels, samplers, loop closure, hips drift) are C2's.
+// rate, markers present and within their limit, root motion in place, minimum interval. C2: every named marker the slot
+// declares (the contact on the clip, the others in `ekza.clipMarkers`), and the one-tap fix of each issue that has one
+// (*Make loop*, *Set in place*, *Fit timing*, *Set contact*, *Use default*: `target.fix`). The checks on written bytes
+// (channels, samplers, loop closure, hips drift) run on the package (io `checkCharacterPackage`).
 import type { Fps } from '@ekza-studio/anim-core';
 import type { ClipId, ClipRecord } from '@ekza-studio/doc';
 import {
@@ -28,7 +30,20 @@ export interface SlotIssue {
   readonly rule: string;
   readonly severity: ContractRuleSeverity;
   readonly message: string;
+  /** The one-tap fix (`target.fix {character, slot, rule, marker?}`): its button label, or absent. */
+  readonly fix?: string;
+  /** The marker a `clip.markers` issue is about. */
+  readonly marker?: string;
 }
+
+/** The fix label of each rule `target.fix` repairs (CHARACTER-CONTRACT-SPEC §8.9). */
+export const FIX_LABELS: Readonly<Record<string, string>> = {
+  'clip.loop-closure': 'Make loop',
+  'clip.in-place': 'Set in place',
+  'clip.duration': 'Fit timing',
+  'clip.markers': 'Set contact',
+  'slot.not-open': 'Use default',
+};
 
 export type SlotStatus =
   | {
@@ -98,6 +113,8 @@ export type SlotClip = Pick<
   'id' | 'name' | 'slot' | 'fps' | 'range' | 'loop' | 'rootMotion' | 'contact'
 > & {
   readonly source?: ClipRecord['source'];
+  /** Named markers other than the contact, in clip frames (`ekza.clipMarkers`). */
+  readonly markers?: Readonly<Record<string, number>>;
 };
 
 export interface SlotBinding {
@@ -112,6 +129,12 @@ export const clipSeconds = (clip: SlotClip): number => (clip.range.end - clip.ra
 /** The clip's contact in seconds after its start, or null. */
 export const contactSeconds = (clip: SlotClip): number | null =>
   clip.contact === null ? null : (clip.contact - clip.range.start) / fpsOf(clip.fps);
+/** A marker of the clip in seconds after its start (`contact` or a named one), or null. */
+export function markerSeconds(clip: SlotClip, name: string): number | null {
+  if (name === 'contact') return contactSeconds(clip);
+  const frame = clip.markers?.[name];
+  return frame === undefined ? null : (frame - clip.range.start) / fpsOf(clip.fps);
+}
 
 const secs = (value: number): string => `${(Math.round(value * 100) / 100).toFixed(2)} s`;
 const num = (value: unknown, fallback: number): number =>
@@ -131,11 +154,17 @@ function animationIssues(model: ContractModel, spec: ContractSlotSpec, clip: Slo
       rule: durationRule.id,
       severity: durationRule.severity,
       message: `${secs(duration)} is outside ${secs(anim.window.minSecs).slice(0, -2)}–${secs(anim.window.maxSecs)}`,
+      fix: FIX_LABELS['clip.duration'] as string,
     });
   }
   const loopRule = rule('clip.loop-closure');
   if (loopRule !== undefined && anim.loop && !clip.loop) {
-    issues.push({ rule: loopRule.id, severity: loopRule.severity, message: 'The game loops it: turn Loop on' });
+    issues.push({
+      rule: loopRule.id,
+      severity: loopRule.severity,
+      message: 'The game loops it: turn Loop on',
+      fix: FIX_LABELS['clip.loop-closure'] as string,
+    });
   } else if (loopRule !== undefined && !anim.loop && clip.loop) {
     issues.push({ rule: loopRule.id, severity: 'warning', message: 'The game plays it once; Loop is ignored' });
   }
@@ -148,33 +177,34 @@ function animationIssues(model: ContractModel, spec: ContractSlotSpec, clip: Slo
   if (markersRule !== undefined) {
     const tolerance = num(markersRule.params['toleranceSecs'], 0);
     for (const [name, marker] of Object.entries(anim.markers)) {
-      // Studio stores the `contact` marker on the clip; other named markers arrive with C2's timeline markers.
-      if (name !== 'contact') {
+      const at = markerSeconds(clip, name);
+      const label = name === 'contact' ? 'contact' : `${name.replace(/_/g, ' ')} marker`;
+      const fix = name === 'contact' ? (FIX_LABELS['clip.markers'] as string) : `Set ${label}`;
+      if (at === null) {
         if (marker.required) {
           issues.push({
             rule: markersRule.id,
-            severity: 'warning',
-            message: `The ${name} marker is set in a later Studio`,
+            severity: markersRule.severity,
+            message: `Needs a ${label} frame`,
+            fix,
+            marker: name,
           });
-        }
-        continue;
-      }
-      const at = contactSeconds(clip);
-      if (at === null) {
-        if (marker.required) {
-          issues.push({ rule: markersRule.id, severity: markersRule.severity, message: 'Needs a contact frame' });
         }
       } else if (at < 0 || at > duration + 1e-6) {
         issues.push({
           rule: markersRule.id,
           severity: markersRule.severity,
-          message: 'The contact is outside the clip',
+          message: `The ${label} is outside the clip`,
+          fix,
+          marker: name,
         });
       } else if (marker.maxSecs !== null && at > marker.maxSecs + tolerance) {
         issues.push({
           rule: markersRule.id,
           severity: markersRule.severity,
-          message: `Contact ${secs(at)} > ${secs(marker.maxSecs)}`,
+          message: `${name === 'contact' ? 'Contact' : `The ${label}`} ${secs(at)} > ${secs(marker.maxSecs)}`,
+          fix,
+          marker: name,
         });
       }
     }
@@ -186,6 +216,7 @@ function animationIssues(model: ContractModel, spec: ContractSlotSpec, clip: Slo
       rule: inPlaceRule.id,
       severity: 'warning',
       message: 'The game plays it in place: set Root motion to In place',
+      fix: FIX_LABELS['clip.in-place'] as string,
     });
   }
   const intervalRule = rule('clip.min-interval');
@@ -288,6 +319,7 @@ export function computeSlotStatuses(
                   spec.customizableFrom === null
                     ? 'The game makes this one itself'
                     : `Custom fills open with contract ${spec.customizableFrom}`,
+                fix: FIX_LABELS['slot.not-open'] as string,
               },
             ];
         const base = { clip: fill.clip.id, via: fill.via, from: fill.from, issues };

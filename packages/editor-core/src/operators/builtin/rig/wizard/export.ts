@@ -10,6 +10,10 @@
 // - `vrma`: the shipped exporter of kind `vrma` (what `file.export`'s `prepare` runs, with its read-back lint), one
 //   artifact per clip over every non-test clip of the character; one file is saved as it is, several as
 //   `<name>-animations.zip` (io's `zipFiles`). Available only where the exporter's poll accepts the character.
+// - `omoba-hero` (CHARACTER-CONTRACT-SPEC §8.5, §8.10; C2): a model character bound to an OMOBA target, the hero
+//   package — `runExportCharacter` with `{profile: 'ekza/omoba-humanoid-v2', clips: 'target'}` (the slot clips and the
+//   `ekza_package_v1` slot map; the contract's rules block). For such a character `omoba-kit` writes the developer zip
+//   of that package instead of the local test kit (decision CC-24): the staged VRM, one VRMA per slot, the slot map.
 // - `omoba-kit`: the `ekza-vrm` bytes packed by io's `packOmobaKit` (`<slug>.glb`, `<slug>.png` — the stored thumbnail,
 //   or an imported VRM's own image, `.jpg` when it is a JPEG —, `manifest-entry.json`, `README.txt`) as
 //   `<slug>-omoba-kit.zip`; blocked whenever the VRM is. The slug never starts with OMOBA's protected `ekza-`.
@@ -33,6 +37,7 @@ import {
   exportFileName,
   LOCAL_PROFILE_ID,
   type LintIssue,
+  OMOBA_PACKAGE_PROFILE_ID,
   type OmobaKitMeta,
   omobaKitFileName,
   omobaLicense,
@@ -53,11 +58,12 @@ import {
 import { blockingLints, pollExport, withReadBackLint } from '../../../../workflows/export';
 import { isRestrictedLicense } from '../../../../workflows/provenance';
 import { characterRequestProblem, isModelCharacter, runExportCharacter } from '../../../../workflows/exportCharacter';
+import { loadTargetKit } from '../../../../workflows/targetSlots';
 import { isRecord } from '../../../../workflows/util';
 import { type AnyOperator, defineOperator, fail, OK } from '../../define';
 
 /** The targets in the order the step offers them (§5.6.1). */
-export const EXPORT_TARGETS: readonly AutoRigExportTarget[] = ['ekza-vrm', 'glb', 'vrma', 'omoba-kit'];
+export const EXPORT_TARGETS: readonly AutoRigExportTarget[] = ['ekza-vrm', 'omoba-hero', 'glb', 'vrma', 'omoba-kit'];
 
 /** The busy label of a running export (the progress line and the footer). */
 export const EXPORT_BUSY = 'Exporting the character…';
@@ -129,14 +135,36 @@ export function exportBase(record: CharacterRecord, fileName: string): string {
   return base === '' ? omobaSlug(avatarName(record)) : base;
 }
 
+/** Whether a character is bound to a contract target (the raw `ekza.targets` row; the chunk need not be loaded). */
+export function hasContractTarget(app: EditorApp, character: CharacterId): boolean {
+  const row = (app.store as unknown as { get(table: string, id: string): unknown }).get(
+    'ekza.targets',
+    `tgt:${character}`,
+  );
+  return isRecord(row) && row['deleted'] === null;
+}
+
 /** The character export request of a model-character target (§5.6.1). */
 export function characterRequest(
   app: EditorApp,
   record: CharacterRecord,
-  target: 'ekza-vrm' | 'glb' | 'omoba-kit',
+  target: 'ekza-vrm' | 'omoba-hero' | 'glb' | 'omoba-kit',
   fileName: string,
 ): CharacterExportRequest {
   const base = exportBase(record, fileName);
+  if (target === 'omoba-hero') {
+    return {
+      character: record.id,
+      fileName: base,
+      format: 'vrm',
+      profile: OMOBA_PACKAGE_PROFILE_ID,
+      clips: 'target',
+      includeProps: null,
+      material: null,
+      thumbnail: 'stored',
+      validate: true,
+    };
+  }
   if (target === 'glb') {
     return {
       character: record.id,
@@ -201,7 +229,11 @@ export function fileExportRequest(
 }
 
 /** The bake profile of an asset character's target, or null when the target does not apply to it. */
-function assetBakeProfile(record: CharacterRecord, target: 'ekza-vrm' | 'glb' | 'omoba-kit'): string | null {
+function assetBakeProfile(
+  record: CharacterRecord,
+  target: 'ekza-vrm' | 'omoba-hero' | 'glb' | 'omoba-kit',
+): string | null {
+  if (target === 'omoba-hero') return null;
   const vrm = record.format !== 'gltf';
   if (target === 'glb') return vrm ? null : LOCAL_PROFILE_ID;
   return vrm ? SPACE_PROFILE_ID : null;
@@ -228,9 +260,13 @@ export function exportTargetProblem(
     const poll = pollExport(app, fileExportRequest(app, record, 'vrma', null, fileName), 'vrma');
     return poll === true ? null : poll.reason;
   }
+  if (target === 'omoba-hero' && !hasContractTarget(app, record.id)) {
+    return 'Choose what the character is for in ④ (For a game…) to export an OMOBA hero package';
+  }
   if (isModelCharacter(record)) return characterRequestProblem(app, characterRequest(app, record, target, fileName));
   const profile = assetBakeProfile(record, target);
   if (profile === null) {
+    if (target === 'omoba-hero') return 'An OMOBA hero package is made from a model rigged in Ekza Studio';
     return target === 'glb'
       ? `${record.name} is a VRM: export it as the Ekza avatar (VRM) or as animations`
       : `${record.name} is not a VRM: export it as a GLB or as animations`;
@@ -365,7 +401,16 @@ export async function planExport(
     }));
   }
 
-  // ekza-vrm, glb, omoba-kit: the character export (model characters) or the bake (imported avatars)
+  // C2: a bound model character's developer files are the hero package's developer zip (CC-24)
+  if (target === 'omoba-kit' && isModelCharacter(record) && hasContractTarget(app, record.id)) {
+    const kit = await loadTargetKit(app);
+    const built = await kit.buildPackage(app, character, { devZip: true, fileName: base });
+    return {
+      result: { target, fileName: built.fileName, artifacts: [built.artifact], lints: sortedLints([built.artifact]) },
+      file: built.bytes === null ? null : { name: built.fileName, bytes: built.bytes, mime: ZIP_MIME },
+    };
+  }
+  // ekza-vrm, omoba-hero, glb, omoba-kit: the character export (model characters) or the bake (imported avatars)
   let vrm: ExportArtifact;
   if (isModelCharacter(record)) {
     vrm = await runExportCharacter(app, characterRequest(app, record, target, fileName));

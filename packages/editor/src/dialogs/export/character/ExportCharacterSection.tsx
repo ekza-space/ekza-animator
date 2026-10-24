@@ -3,6 +3,9 @@
 // plain GLB. The banner says what OMOBA does with it; the profile's Validation rows and the VRM meta rows gate the
 // Export button; the clips are the slot clips (test clips never listed); the VRM meta and the thumbnail are edited
 // in place; after the export the lints, the read-back and the validator results, and the file size, are listed.
+// CHARACTER-CONTRACT-SPEC §8.10 (C2): the profile *OMOBA character (VRM 1.0 with your animations)* exports the hero
+// package of a character bound to an OMOBA target — the target's slot clips (`clips: 'target'`), the slot map, the
+// contract's rules as errors — and offers the developer zip (`target.exportPackage`).
 import type { CharacterId, ClipId, DocumentStore } from '@ekza-studio/doc';
 import { characterRequestProblem, type EditorApp, preloadExportPath } from '@ekza-studio/editor-core';
 import {
@@ -12,6 +15,7 @@ import {
   characterFormats,
   characterProfiles,
   type ExportArtifact,
+  OMOBA_PACKAGE_PROFILE_ID,
   SPACE_PROFILE_ID,
 } from '@ekza-studio/io';
 import {
@@ -140,6 +144,7 @@ export function ExportCharacterSection(props: {
   const [artifact, setArtifact] = useState<ExportArtifact | null>(null);
   const [error, setError] = useState<string | null>(null);
   const rows = useCharacterRows(app, character, profile, format);
+  const pkg = profile === OMOBA_PACKAGE_PROFILE_ID;
 
   useEffect(() => {
     void preloadExportPath().catch(() => {});
@@ -150,7 +155,7 @@ export function ExportCharacterSection(props: {
     fileName: fileName ?? name,
     format,
     profile,
-    clips: chosenClips === null ? ('slots' as const) : [...chosen],
+    clips: pkg ? ('target' as const) : chosenClips === null ? ('slots' as const) : [...chosen],
     includeProps: null,
     material: material === '' ? null : material,
     thumbnail: format === 'vrm' ? ('stored' as const) : ('none' as const),
@@ -183,7 +188,9 @@ export function ExportCharacterSection(props: {
         data-testid="export-char-banner"
       >
         <TriangleAlert size={14} className="mt-0.5 shrink-0 text-accent" />
-        {CHARACTER_EXPORT_BANNER}
+        {pkg
+          ? 'The package carries your slot animations and the slot map for OMOBA; empty slots use OMOBA’s own animations.'
+          : CHARACTER_EXPORT_BANNER}
       </p>
       {characters.length === 0 ? (
         <p className="text-ui text-fg-3">No character made from a model yet: Rig & Skin › Quick Rig makes one.</p>
@@ -254,11 +261,21 @@ export function ExportCharacterSection(props: {
       </div>
       <section className="flex flex-col gap-1.5" aria-label="Clips">
         <h3 className="text-ui font-semibold text-fg-2">Clips</h3>
-        {clips.length === 0 ? (
+        {pkg ? (
+          <p className="text-ui text-fg-3" data-testid="export-char-package-clips">
+            The clips of your target’s slots (Windows › Target), each named by its slot:{' '}
+            {clips
+              .filter((clip) => clip.slot?.includes('.') === true)
+              .map((clip) => clip.name)
+              .join(', ') || 'none yet'}
+            .
+          </p>
+        ) : null}
+        {pkg ? null : clips.length === 0 ? (
           <p className="text-ui text-fg-3">No clips: the avatar exports without animations (OMOBA brings its own).</p>
         ) : null}
         <ul className="flex max-h-32 flex-col gap-0.5 overflow-auto">
-          {clips.map((clip) => (
+          {(pkg ? [] : clips).map((clip) => (
             <li key={clip.id}>
               <Checkbox
                 checked={chosen.has(clip.id)}
@@ -309,6 +326,18 @@ export function ExportCharacterSection(props: {
         <Button variant="ghost" onClick={props.onCancel}>
           {artifact === null ? 'Cancel' : 'Close'}
         </Button>
+        {pkg && character !== null ? (
+          <Button
+            variant="ghost"
+            disabled={blocked !== null || running}
+            data-testid="export-char-devzip"
+            onClick={() =>
+              void shell.runFromUi('target.exportPackage', { character, devZip: true, fileName: fileName ?? name })
+            }
+          >
+            Developer zip
+          </Button>
+        ) : null}
         <Button
           variant="primary"
           disabled={blocked !== null || running}

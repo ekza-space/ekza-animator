@@ -106,6 +106,13 @@ export interface EkzaClipMetaV1 {
   readonly tags: readonly string[];
   readonly derivedFrom: readonly DerivedFrom[];
   readonly redistributable: Redistributable;
+  /**
+   * The clip's display label (CHARACTER-CONTRACT-SPEC §8.14, ADR 0010 rev. 3): written only when set (a package clip,
+   * whose animation is named by its slot), so files without one keep their bytes (the M1 goldens).
+   */
+  readonly label?: string | null;
+  /** Named marker times other than the contact (seconds from the clip's start); written only when not empty. */
+  readonly markers?: Readonly<Record<string, number>>;
 }
 export interface EkzaAnimationV1 {
   readonly schema: 1;
@@ -387,7 +394,9 @@ export interface CharacterExportRequest {
   readonly fileName: string;
   readonly format: 'vrm' | 'glb';
   readonly profile: string | null;                           // 'ekza/space-avatar-v1' | 'ekza/omoba-humanoid-v1' | 'local/generic' | null
-  readonly clips: readonly ClipId[] | 'slots';               // 'slots' = every clip with an Ekza slot name
+  // 'slots' = every clip with an Ekza slot name; 'target' (CHARACTER-CONTRACT-SPEC §8.10, C2) = the custom clips of the
+  // character's contract target, each named by its primary slot, with the `ekza_package_v1` slot map
+  readonly clips: readonly ClipId[] | 'slots' | 'target';
   readonly includeProps: boolean | null;                     // null = the profile's default (§5.22)
   readonly material: 'unlit' | 'lit' | null;                 // null = each mesh's own
   readonly thumbnail: 'stored' | 'none';                     // vrm: 'stored' (required by the profile lints)

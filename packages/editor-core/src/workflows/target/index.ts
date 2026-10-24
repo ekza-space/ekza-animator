@@ -4,8 +4,10 @@
 // visit (`TARGET_CHUNK_MARKER` is the check-size boundary marker). `attachTargets` is idempotent per app.
 import { type ContractModel, type ContractTarget, contractOffer, contractTarget } from '@ekza-studio/io';
 import { TARGET_OPERATORS } from '../../operators/builtin/target';
+import { TARGET_SETUP_OPERATORS } from '../../operators/builtin/targetSetup';
 import type { EditorApp } from '../../types';
 import { targetHooks } from '../targetSlots';
+import { ensureMarkersTable } from './markers';
 import { contractSlotProblem, targetValidationRows } from './service';
 import { ensureTargetTable } from './table';
 
@@ -14,14 +16,40 @@ export {
   bindingOf,
   contractSlotProblem,
   contractsOf,
+  slotClips,
   slotStatuses,
   type TargetBinding,
   targetValidationRows,
 } from './service';
 export {
+  blankFrames,
+  buildPackage,
+  markerTargetFrame,
+  PACKAGE_BUSY,
+  packageRequest,
+} from '../../operators/builtin/targetSetup';
+export {
+  CONTACT_MARKER,
+  clipMarkers,
+  type ClipMarkersRecord,
+  MARKERS_TABLE,
+  namedMarkers,
+} from './markers';
+export {
+  clipMarkerSeconds,
+  PACKAGE_TOOL,
+  type PackagePlan,
+  packageClipMeta,
+  packageLints,
+  packageManifestOf,
+  packagePlan,
+} from './package';
+export {
   clipSeconds,
   computeSlotStatuses,
   contactSeconds,
+  FIX_LABELS,
+  markerSeconds,
   type OfferStatus,
   type SlotBinding,
   type SlotClip,
@@ -44,10 +72,11 @@ const attached = new WeakSet<object>();
 export function attachTargets(app: EditorApp): void {
   if (typeof TARGET_CHUNK_MARKER !== 'string') throw new Error('target chunk without its marker');
   ensureTargetTable();
+  ensureMarkersTable();
   targetHooks({ problem: contractSlotProblem, rows: targetValidationRows });
   if (attached.has(app.operators)) return;
   attached.add(app.operators);
-  for (const def of TARGET_OPERATORS) {
+  for (const def of [...TARGET_OPERATORS, ...TARGET_SETUP_OPERATORS]) {
     if (app.operators.get(def.id) === undefined) app.contribute({ kind: 'operator', def });
   }
 }

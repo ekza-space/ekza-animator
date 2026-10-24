@@ -1,0 +1,3 @@
+# Pinned bytes (SHA-256 in their manifests): no line-ending conversion
+fixtures/contracts/** -text
+apps/web/public/contracts/** -text

@@ -71,7 +71,7 @@ export function createRigValidation(deps: { readonly app: () => EditorApp }): Ri
     const skeleton = characterSkeleton(app.store, character)?.skeleton.id ?? null;
     const rows = profileRows(raw(character), chosen ?? profile, { character, skeleton });
     // CHARACTER-CONTRACT-SPEC §8.3 (C1): the bound target's slot checks, area `animation`, last.
-    const target = targetHooks()?.rows(app, character) ?? [];
+    const target = targetHooks()?.rows(app, character, chosen ?? profile) ?? [];
     return target.length === 0 ? rows : [...rows, ...target];
   };
 

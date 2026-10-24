@@ -23,6 +23,7 @@ import { newRecordId } from '../app/internals';
 import type { ClipsResult, ImportAnimationOptions } from '../operators/args';
 import type { CharacterRuntime, EditorApp } from '../types';
 import { type ClipWritePlan, planImportedClip, resolveClipOptions, writeClipPlan } from './clipWrite';
+import { embeddedClipSettings, withRestoredSettings, writeRestoredMarkers } from './ekzaClipRestore';
 import { embeddedEkzaLoop } from './ekzaLoop';
 import { yieldToHost } from './host';
 import { importLimbWarnings } from './ik';
@@ -122,7 +123,10 @@ export async function prepareVrmaImport(app: EditorApp, input: ImportInput): Pro
   // M2a §5.8: limbs kept FK for this clip say so, first (the import toast shows the first three warnings).
   warnings.unshift(...importLimbWarnings(title, imported));
   const asset = await storeSource(app, input, 'vrma');
-  const clip = planImported(app, input, asset, title, vrmaProvenance(container, data.name, title), imported);
+  const clip = withRestoredSettings(
+    planImported(app, input, asset, title, vrmaProvenance(container, data.name, title), imported),
+    embeddedClipSettings(container),
+  );
   await app.store.open(`clip:${clip.clip.id}`);
   return { character: input.character, asset, clips: [clip], warnings };
 }
@@ -203,7 +207,12 @@ export async function prepareGlbAnimationImport(app: EditorApp, input: ImportInp
     const name = uniqueName(sanitizeClipName(raw.name), taken);
     taken.push(name);
     const provenance = embeddedEkzaProvenance(container, raw.index) ?? clipProvenance(unknown, names);
-    clips.push(planImported(app, input, asset, name, provenance, imported, embeddedEkzaLoop(container, raw.index)));
+    clips.push(
+      withRestoredSettings(
+        planImported(app, input, asset, name, provenance, imported, embeddedEkzaLoop(container, raw.index)),
+        embeddedClipSettings(container, raw.index),
+      ),
+    );
     await yieldToHost();
   }
   if (clips.length === 0) throw new EkzaError('unsupported', `No animation of ${input.fileName} fits the character`);
@@ -228,11 +237,22 @@ export function applyClipImport(
   if (tx.get('assets', plan.asset.id) === undefined) tx.put('assets', plan.asset);
   const names = tx.query.clipsOfCharacter(plan.character).map((clip) => clip.name);
   const orders = tx.query.clipsOfCharacter(plan.character).map((clip) => clip.order);
+  // §8.14 (C2): a restored slot stays only while no other live clip of the character holds it
+  const slots = new Set(
+    tx.query
+      .clipsOfCharacter(plan.character)
+      .filter((clip) => clip.deleted === null)
+      .map((clip) => clip.slot),
+  );
   const ids: ClipId[] = [];
-  for (const clip of plan.clips) {
+  for (const planned of plan.clips) {
+    const taken = planned.clip.slot !== null && slots.has(planned.clip.slot);
+    const clip = taken ? { ...planned, clip: { ...planned.clip, slot: null } } : planned;
+    slots.add(clip.clip.slot);
     const name = uniqueName(clip.clip.name, names);
     const order = orderAfter(orders);
     writeClipPlan(tx, clip, { name, order });
+    writeRestoredMarkers(tx, clip.clip, (planned as { readonly markers?: Readonly<Record<string, number>> }).markers);
     names.push(name);
     orders.push(order);
     ids.push(clip.clip.id);

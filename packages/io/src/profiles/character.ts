@@ -4,6 +4,9 @@
 //   written by `writeCharacter({format: 'vrm'})` and checked with OMOBA's runtime rules (`vrm.*`, errors).
 // - `local/generic`: a VRM 1.0 (the `vrm.*` rows as warnings) or a plain GLB (`format: 'glb'`, no `VRMC_vrm`, the
 //   plain GLB's only route).
+// - `ekza/omoba-humanoid-v2` ("OMOBA character (VRM 1.0 with your animations)", CHARACTER-CONTRACT-SPEC §8.10; C2): the
+//   hero package of a character bound to an OMOBA target — VRM 1.0 only, the target's custom slot clips (`clips:
+//   'target'`) and the `ekza_package_v1` slot map.
 // - `ekza/omoba-humanoid-v1` (the shipped five-clip GLB bake) is not offered for model characters: OMOBA plays its
 //   own motion library on the VRM. Asset-sourced characters keep the shipped bake path and its profiles.
 import type { ExportProfileDef } from '../types';
@@ -11,9 +14,14 @@ import type { ExportProfileDef } from '../types';
 export const SPACE_PROFILE_ID = 'ekza/space-avatar-v1';
 export const LOCAL_PROFILE_ID = 'local/generic';
 export const OMOBA_GLB_PROFILE_ID = 'ekza/omoba-humanoid-v1';
+export const OMOBA_PACKAGE_PROFILE_ID = 'ekza/omoba-humanoid-v2';
 
 /** The profiles a model-sourced character can be exported with, in the Export dialog's order. */
-export const MODEL_CHARACTER_PROFILE_IDS: readonly string[] = [SPACE_PROFILE_ID, LOCAL_PROFILE_ID];
+export const MODEL_CHARACTER_PROFILE_IDS: readonly string[] = [
+  SPACE_PROFILE_ID,
+  OMOBA_PACKAGE_PROFILE_ID,
+  LOCAL_PROFILE_ID,
+];
 
 /** The interop banner of the Export dialog's Character section (§0.4.6, replaces §5.22's). */
 export const CHARACTER_EXPORT_BANNER = 'OMOBA plays its own motion library on your VRM; your clips play in Space.';
@@ -30,7 +38,7 @@ export function characterProfiles(profiles: readonly ExportProfileDef[]): Export
 
 /** The formats a profile writes for a model character (the first is its default). */
 export function characterFormats(profile: string | null): readonly CharacterFormat[] {
-  return profile === SPACE_PROFILE_ID ? ['vrm'] : ['vrm', 'glb'];
+  return profile === SPACE_PROFILE_ID || profile === OMOBA_PACKAGE_PROFILE_ID ? ['vrm'] : ['vrm', 'glb'];
 }
 
 /** Why a (profile, format) pair cannot export a model character, or null. */

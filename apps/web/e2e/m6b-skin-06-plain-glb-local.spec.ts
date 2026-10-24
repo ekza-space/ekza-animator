@@ -47,7 +47,10 @@ test('E2E-SKIN-06 (MVP part): a VRM with a required Draco extension fails vrm.ex
   expect(local.map((lint) => `${lint.code}:${lint.severity}`)).toEqual(['vrm.extensions-required:warning']);
 });
 
-test('E2E-SKIN-06 (MVP part): the Export dialog offers the Space profile and local/generic only', async ({ page }) => {
+// CHARACTER-CONTRACT-SPEC §8.10 (C2): the OMOBA character package profile sits between them.
+test('E2E-SKIN-06 (MVP part): the Export dialog offers the Space profile, the OMOBA package and local/generic', async ({
+  page,
+}) => {
   await openEditor(page);
   await expectKernelStarted(page);
   await enterModel(page);
@@ -59,6 +62,7 @@ test('E2E-SKIN-06 (MVP part): the Export dialog offers the Space profile and loc
   const profile = page.getByTestId('export-char-profile');
   await expect(profile.locator('option')).toHaveText([
     'Ekza avatar — Space and OMOBA (VRM 1.0)',
+    'OMOBA character (VRM 1.0 with your animations)',
     'Local file (generic checks)',
   ]);
   await expect(page.getByTestId('export-char-format').locator('option')).toHaveText(['VRM 1.0']);

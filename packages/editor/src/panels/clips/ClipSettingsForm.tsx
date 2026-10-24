@@ -44,6 +44,8 @@ export function ClipSettingsForm(props: ClipSettingsFormProps): JSX.Element {
   const { errors, args, fpsChanged } = checkDraft(clip, draft);
   const hint = redistributionHint(draft);
   const id = useId();
+  // CHARACTER-CONTRACT-SPEC §8.4 (C2): a contract slot's loop, root motion and slot come from the contract.
+  const locked = clip.slot?.includes('.') === true;
 
   const set = <K extends keyof ClipSettingsDraft>(key: K, value: ClipSettingsDraft[K]): void =>
     setEdited({ ...draft, [key]: value });
@@ -170,6 +172,7 @@ export function ClipSettingsForm(props: ClipSettingsFormProps): JSX.Element {
           type="checkbox"
           className={CHECK}
           checked={draft.loop}
+          disabled={locked}
           data-testid="clip-settings-loop"
           onChange={(event) => set('loop', event.currentTarget.checked)}
         />
@@ -181,6 +184,7 @@ export function ClipSettingsForm(props: ClipSettingsFormProps): JSX.Element {
           className={`${SELECT} w-40`}
           value={draft.rootMotion}
           title={ROOT_MOTION_HINT}
+          disabled={locked}
           data-testid="clip-settings-root-motion"
           onChange={(event) => set('rootMotion', event.currentTarget.value as RootMotionMode)}
         >
@@ -197,6 +201,7 @@ export function ClipSettingsForm(props: ClipSettingsFormProps): JSX.Element {
           id={`${id}-slot`}
           className={`${SELECT} w-40 ${invalid('slot')}`}
           value={draft.slot}
+          disabled={locked}
           data-testid="clip-settings-slot"
           onChange={(event) => set('slot', event.currentTarget.value)}
         >
@@ -211,6 +216,22 @@ export function ClipSettingsForm(props: ClipSettingsFormProps): JSX.Element {
             <option value={draft.slot}>{draft.slot}</option>
           ) : null}
         </select>
+        {locked ? (
+          <button
+            type="button"
+            className={BUTTON}
+            title="Free the clip from its contract slot (the game plays its own there)"
+            data-testid="clip-settings-unlock"
+            onClick={() =>
+              void runOperator(app, panel, 'target.slot.clear', {
+                character: clip.character,
+                slot: clip.slot as string,
+              })
+            }
+          >
+            Unlock
+          </button>
+        ) : null}
       </Row>
       {error('slot')}
 
