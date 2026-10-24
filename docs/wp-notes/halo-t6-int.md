@@ -81,7 +81,7 @@ the total or any stage), and it also fails now when `reachable` falls below the 
 | Check | Result |
 |---|---|
 | `/app` shows the frame with the Path on `chrome-touch` and `webkit-ipad`; More, Numbers, Scene, View, Settings, Health, Help and About open from the real shell | `ha-15` (landscape 1194×834, portrait 834×1194, phone 390×844) on `chrome`, `chrome-touch`, `webkit-ipad`: every sheet a named dialog with 44 px targets and 16 px inputs, on screen, no sideways overflow; `ha-05` (the Path, readiness, Health's destinations, the budget ring) on all three |
-| ha-02 / 03 / 04 / 05 / 12 / 13 / 15 / parity on `/app` | GATE_HA |
+| ha-02 / 03 / 04 / 05 / 12 / 13 / 15 / parity on `/app` | **Green** in the final gate. Passes by project:<br>• `chrome-touch`: ha-02 7, ha-03 4, ha-04 3, ha-05 3, ha-12 4, ha-13 1, ha-15 4<br>• `chrome`: ha-02 1 (the mouse), ha-05 3, ha-12 4, ha-15 4, ha-parity 1<br>• `webkit-ipad`: ha-02 1, ha-05 3, ha-12 4, ha-15 4<br>`ha-15`'s axe test (WCAG 2.0 / 2.1 / 2.2 A and AA, the eight sheets) skips in the gate without axe-core. Run separately with `EKZA_AXE_PATH` (a local axe-core 4.x) it is green on all three projects, after one fix: the selected Scene row's grey detail fell below 4.5:1 |
 | Visible targets (`halo().visibleTargets`, iPad landscape 1194×834, chrome-touch) | at rest **18** (Animate, Polybot: Path, top bar, tray, ↶, Thumb key, puck, Next chip) ≤ 22; with a Halo **27** (a control) and **31** (a face in Make) ≤ 36; Make after Pull with its chips, the reduced Halo and the session bar **35** ≤ 36; phone at rest 13 |
 | Screenshots | `t6int-ipad-landscape-{rest,halo,more,numbers,settings-input,make-pull}.png`, `t6int-phone-{rest,halo,more,numbers}.png` (production e2e build, Chrome with touch @2x; in the session's scratchpad `halo/`, not committed) |
 
@@ -121,7 +121,22 @@ saved **0 B**: Turbopack keeps a re-exported module's exports in the shared modu
 
 ## Gate
 
-GATE_RECORD
+`EKZA_E2E_PORT=3183 pnpm run ci` at `542461e6`, local Chrome, load average ≈ 3: **green** (exit 0, 4 min 28 s).
+- format, lint, typecheck, check:deps, check:fixtures, check:licenses.
+- 23 / 23 test tasks: halo 157, editor 677 + 1 skipped, editor-core 1,821, ui 155, viewport 341 + 1, headless-tests
+  225, …; the tooling tests and param-lint.
+- The production build, and check:size (all three routes OK under SIZE-1).
+- **e2e: 454 passed, 73 skipped, 0 failed, 0 flaky** on `chrome`, `chrome-touch` and `webkit-ipad`. The skips are
+  `dev`'s stretch `test.fixme`s and the per-project skips.
+
+An earlier full run at `a63dad3d` was green too (454 / 73 / 0). After it, the manifest was made lazy on `/app` and
+the contrast fix landed.
+
+**The coordinator's base-gate failures.**
+- `halo` `rules.test.ts` (the preference rule): fixed (ST-T6INT-9).
+- `viewport` `m6a-transform/runtime.test.ts` (Esc during a drag): 29 / 29 when run alone, so it was load and not
+  T6a's ViewportManager lines.
+- `m6a-19` B11: did not fail; `dev` `f49d05e6` with its fix is merged.
 
 ## Deviations and lines outside the row
 
