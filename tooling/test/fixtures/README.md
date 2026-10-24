@@ -8,3 +8,8 @@ range and an unknown package). `check-deps.test.mjs` asserts that each one is re
 editor-core operator file that import the Halo-only forms (the subpath and a relative path), and an `addParams`
 declaration; the touch shell's import, editor-core's test import and a comment that mentions `addParams` are allowed.
 `param-lint.test.mjs` asserts exactly those violations.
+
+`halo-callsites/` is a small fake workspace for `tooling/halo-callsites.mjs` (STUDIO-TOUCH-SPEC §20.5 test 2): panel,
+overlay, shell, dialog and Auto-Rig files with every recognised call form (wrapper calls, `op:` objects, JSX `op=`,
+menu rows, template ids, a same-file constant and an unresolved variable), plus a file outside the scan roots.
+`halo-callsites.test.mjs` asserts the pairs and the unresolved sites.

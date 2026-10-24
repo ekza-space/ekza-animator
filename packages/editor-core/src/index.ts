@@ -110,6 +110,26 @@ export {
 export { MODEL_MENU_ITEMS } from './operators/builtin/modelMenus';
 export { defaultPrefs } from './prefs/defaults';
 export {
+  PREF_DESCRIPTORS,
+  PREF_SECTIONS,
+  type PrefDescriptor,
+  type PrefDisplay,
+  type PrefKind,
+  type PrefOption,
+  type PrefPath,
+  type PrefSection,
+  type PrefSectionDef,
+  type PrefUnit,
+  type PrefWrite,
+  prefDescriptor,
+  prefLeafPaths,
+  prefPatch,
+  prefShownValue,
+  prefStoredValue,
+  prefValue,
+  prefWrite,
+} from './prefs/descriptors';
+export {
   LEGACY_ARGS,
   LEGACY_IDS,
   type LegacyIdField,
