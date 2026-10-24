@@ -1,8 +1,8 @@
 // Kernel mesh operators (M6A-SPEC §6.1; B11, research 16 U-2): every `mesh.*` op registered from its **descriptor**
-// (eager; no kernel code in the editor route) through `meshOperator` / `meshSetOperator` (B7), with Maya's label,
-// Blender names as command-palette aliases, the tool that `G` (after a tool run) and `Y` re-activate, and the
-// internal flag for the ops other operators run (`mesh.applyTransform`: Freeze and Bake Pivot; `mesh.paint.remap`:
-// Replace Swatch).
+// (eager; no kernel code in the editor route) through `meshOperator` / `meshSetOperator` (B7), with the
+// DCC-standard label, common alternative names as command-palette aliases, the tool that `G` (after a tool run) and
+// `Y` re-activate, and the internal flag for the ops other operators run (`mesh.applyTransform`: Freeze and Bake
+// Pivot; `mesh.paint.remap`: Replace Swatch).
 //
 // The LastRun recorder stores **resolved** args (§5.7: `OpResult.resolvedArgs` for kernel ops): `apply` is B7's
 // commit path (the same calls `meshOperator.apply` makes) with the kernel's resolved args remembered for the outcome
@@ -24,7 +24,7 @@ import { WHOLE_MESH_OPS, wholeMeshRun } from './whole';
 
 export { MESH_EXTRA_ARGS, WHOLE_MESH_OPS, wholeMeshRun };
 
-/** Blender names (and a few Maya synonyms) the command palette also finds (§6: "Blender names are palette aliases"). */
+/** Common alternative names (as other DCCs call the ops) the command palette also finds (§6: palette aliases). */
 export const MESH_OP_ALIASES: Readonly<Record<string, readonly string[]>> = {
   'mesh.transformComponents': ['Move Components', 'Rotate Components', 'Scale Components', 'Grab'],
   'mesh.extrude': ['Extrude Region', 'Extrude Faces', 'Extrude Edges'],

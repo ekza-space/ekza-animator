@@ -255,9 +255,9 @@ export class RigSkinRuntime {
   }
 
   /**
-   * Maya starts with an influence picked: the first weighted joint of the first target mesh (skeleton order). Bind
-   * Skin enters Skin mode inside its own transaction, before the mesh is bound, so the pick waits for the bound mesh
-   * (`refresh` retries while pending; M6b acceptance fix M6B-AF-1).
+   * The paint tool starts with an influence picked: the first weighted joint of the first target mesh (skeleton
+   * order). Bind Skin enters Skin mode inside its own transaction, before the mesh is bound, so the pick waits for the
+   * bound mesh (`refresh` retries while pending; M6b acceptance fix M6B-AF-1).
    */
   private pickFirstInfluence(): void {
     const character = this.character();

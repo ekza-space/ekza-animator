@@ -6,7 +6,7 @@ import { OrthographicCamera, PerspectiveCamera, Vector3 } from 'three';
 import { type NavCamera, NavigationController } from '../navigation/NavigationController';
 import type { CameraSnapshot, ViewPreset } from '../types';
 
-/** Maya's persp camera: 35 mm on a 36 × 24 mm gate → vertical FOV 37.8° (research 09 §5.2). */
+/** The desktop DCC's default persp camera: 35 mm on a 36 × 24 mm gate → vertical FOV 37.8° (research 09 §5.2). */
 export const PERSP_FOV_DEG = 37.8;
 const ORTHO_DISTANCE = 100;
 const DEFAULT_TARGET: readonly [number, number, number] = [0, 0.9, 0];

@@ -49,7 +49,7 @@ export const GRAPH_SELECT_TOOL: ToolDef<GraphToolHost> = {
 };
 
 /**
- * Move tool: Maya's Move Keys tool behaves like Select in the Graph Editor (MVP-SPEC §4.11.18: LMB drag on a
+ * Move tool (Move Keys): behaves like Select in the Graph Editor (MVP-SPEC §4.11.18: LMB drag on a
  * selected key or handle moves, on empty space draws a marquee); it differs by its cursor.
  */
 export const GRAPH_MOVE_TOOL: ToolDef<GraphToolHost> = {

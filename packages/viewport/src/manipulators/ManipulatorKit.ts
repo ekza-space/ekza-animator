@@ -60,7 +60,7 @@ export interface ManipTarget {
   };
   /**
    * Keyable channels that are locked. Their axis handles (translate arrows, rotate rings) are drawn dimmed and never
-   * drag, but stay pickable so a press on one can say why nothing moves (Maya). Absent: nothing is locked.
+   * drag, but stay pickable so a press on one can say why nothing moves. Absent: nothing is locked.
    */
   readonly locked?: {
     readonly t: readonly [boolean, boolean, boolean];
@@ -674,7 +674,7 @@ export class ManipulatorKit {
       const a1 = ((i + 1) / RING_SEGMENTS) * Math.PI * 2;
       positions.push(Math.cos(a0) * radius, Math.sin(a0) * radius, 0, Math.cos(a1) * radius, Math.sin(a1) * radius, 0);
     }
-    // Axis rings are depth-tested against the occluder sphere, so only their front half shows (Maya look).
+    // Axis rings are depth-tested against the occluder sphere, so only their front half shows (the usual DCC look).
     const material = lineMaterial({ width: 2, vertexColors: false, color, depthTest: handle !== 'rview' });
     root.add(this.line(positions, material));
     return { handle, root, lines: [material], meshes: [], baseColor: color };

@@ -1,4 +1,5 @@
-// Kernel op `mesh.mirror` (M6A-SPEC §5.13, research 10 §4.14, 13 §5.10; Maya `polyMirror`; owner B4). Whole mesh:
+// Kernel op `mesh.mirror` (M6A-SPEC §5.13, research 10 §4.14, 13 §5.10; the desktop DCC's `polyMirror`; owner B4).
+// Whole mesh:
 // 1. The plane: `position: 'object'` — local axis = 0 through the object origin; `'world'` — the world axis plane
 //    through the world origin, mapped into mesh-local space through the placement (the reflection is then the local
 //    affine map P⁻¹·S·P). Vertices within `mergeThreshold` (at least ctx.epsilon) of the plane snap onto it.

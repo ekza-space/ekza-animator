@@ -1,6 +1,6 @@
 // The move (`W`) and rotate (`E`) tools (MVP-SPEC §4.11.16): an LMB press on a manipulator handle starts a drag whose
 // channel edits go through `beginChannelEditGesture` (preview, overrides, auto-key on commit, exactly one history
-// step; Esc cancels). A drag on a handle whose channel is locked edits nothing and says so (Maya). A press anywhere
+// step; Esc cancels). A drag on a handle whose channel is locked edits nothing and says so. A press anywhere
 // else selects like the select tool.
 //
 // M6a (B12a, M6A-SPEC §5.15): one ToolDef per id branches on the workspace and the component mode inside. In Model the
@@ -103,7 +103,7 @@ interface Drag {
 
 /**
  * The second press of a component double-click that lands on the manipulator the first click put there (§5.6 loop
- * table; Maya double-click loop selection with Move/Rotate/Scale active). The press goes to the manipulator as usual;
+ * table; double-click loop selection with Move/Rotate/Scale active). The press goes to the manipulator as usual;
  * released without moving it is given to selection instead (the loop), so a quick click-then-drag of a handle still
  * drags (acceptance fix round 1).
  */

@@ -1,8 +1,8 @@
 // The Channel Box of a mesh or group object in Model (M6A-SPEC §8.6; B11), a lazy chunk the Channel Box loads when
-// the lead selected object is a mesh or a group: Maya's layout — the object's Translate/Rotate/Scale rows (editing
+// the lead selected object is a mesh or a group: the DCC layout — the object's Translate/Rotate/Scale rows (editing
 // `placement` through `scene.object.transform`, every selected object gets the typed channel), SHAPES (the mesh) and
 // INPUTS with up to two entries:
-// - the **primitive entry** while the mesh's `generator` is live ("cylinder (primitive)", Maya's `polyCylinder1`):
+// - the **primitive entry** while the mesh's `generator` is live ("cylinder (primitive)", the DCC's `polyCylinder1`):
 //   the §6.3 fields of its kind, persistent across selection changes; an edit right after the creation run is an
 //   `edit.adjustLast` of `mesh.create.<kind>` (the id and the step stay), later ones run `mesh.primitive.set`;
 // - the **last-op entry** ("extrude (last operation)") with the Last-op card's fields while `lastRun` is live and

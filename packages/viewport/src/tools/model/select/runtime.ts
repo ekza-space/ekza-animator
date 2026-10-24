@@ -735,7 +735,7 @@ class ModelPointer implements ModelSelectBehaviour {
     const key = hit === null ? null : `${hit.mesh}:${hit.kind}:${hit.index}`;
     const previous = this.last;
     if (press.double && hit !== null && previous?.hit === key) {
-      // The second press of a double-click on the same component: Maya's loop table (§5.6).
+      // The second press of a double-click on the same component: the loop table (§5.6).
       this.last = null;
       const gesture = loopGestureOf(press);
       this.run('select.mesh.loop', { mesh: hit.mesh, kind: hit.kind, component: hit.index, gesture }, press.paneId);

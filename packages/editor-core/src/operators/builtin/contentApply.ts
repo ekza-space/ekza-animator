@@ -192,7 +192,7 @@ function parentWorldOf(view: ReadView, owner: MeshOwner, parent: GroupId | MeshI
   return xfIdentity();
 }
 
-/** The name a copy counts up from: "Cube 2" → "Cube" (the copy is "Cube 3", Maya's pCube2 → pCube3). */
+/** The name a copy counts up from: "Cube 2" → "Cube" (the copy is "Cube 3", like the desktop DCC's pCube2 → pCube3). */
 const copyStem = (name: string): string => name.replace(/ \d+$/, '') || name;
 
 /** Copies an object's subtree under `parent` with new ids; returns the copy of the root. */
@@ -650,7 +650,7 @@ function firstFaceColour(
 }
 
 /**
- * `palette.assignMaterial` (SHADING-SPEC §5; Maya's Assign New Material): in one transaction a new swatch with the
+ * `palette.assignMaterial` (SHADING-SPEC §5; Assign New Material): in one transaction a new swatch with the
  * shader in the targets' palette, painted on the selected faces (face mode) or on every face of the target meshes;
  * targets whose material preset is `unlit` become `lit`; the swatch becomes the active one.
  */

@@ -402,7 +402,7 @@ export class DopeSheetController {
     }
     const hit = this.hitTest(e.x, e.y);
     if (e.button === 1) {
-      // Maya: MMB drag anywhere moves the selected keys.
+      // MMB drag anywhere moves the selected keys.
       this.pending = { start, drag: () => this.moveGesture(e.x), click: null };
       return;
     }
@@ -503,7 +503,7 @@ export class DopeSheetController {
       return;
     }
     if (e.shift && !e.ctrl) {
-      // Maya: Shift+wheel scrolls rows.
+      // Shift+wheel scrolls rows.
       this.setView({ ...view, scrollY: view.scrollY + (e.deltaY !== 0 ? e.deltaY : e.deltaX) });
       return;
     }

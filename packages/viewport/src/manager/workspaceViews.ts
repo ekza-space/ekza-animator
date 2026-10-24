@@ -54,7 +54,7 @@ export const MODEL_DISPLAY: DisplayFlags = {
 
 const VIEW = (preset: ViewPreset): PaneCamera => ({ kind: 'view', preset });
 
-/** Model's pane cameras: M-Single persp, M-Side `front | persp` (the split layout), M-Quad as Maya's four view. */
+/** Model's pane cameras: M-Single persp, M-Side `front | persp` (the split layout), M-Quad as the classic four view. */
 const MODEL_CAMERAS: Readonly<Record<string, PaneCamera>> = {
   'pane-single': VIEW('persp'),
   'pane-left': VIEW('front'),

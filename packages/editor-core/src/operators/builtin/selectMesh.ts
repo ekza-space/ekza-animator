@@ -179,7 +179,7 @@ function walk(app: EditorApp, from: ComponentKind, to: ComponentKind, fn: Walker
   });
 }
 
-/** Switches the component mode (a conversion's result is shown in its kind, as Maya does). */
+/** Switches the component mode (a conversion's result is shown in its kind, as desktop DCCs do). */
 function showKind(app: EditorApp, kind: ComponentKind): void {
   const model = app.session.getState().model;
   if (model.componentMode !== kind) {

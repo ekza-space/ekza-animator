@@ -20,7 +20,7 @@ bool has(int s, int b) { return (s & b) != 0; }
 const SOFT_RAMP = `
 uniform vec3 uSoft[4];
 vec3 softRamp(float w) {
-  // Full weight = --soft-1 (yellow) … no weight = --soft-4 (dark), Maya's ramp.
+  // Full weight = --soft-1 (yellow) … no weight = --soft-4 (dark), the usual DCC soft-selection ramp.
   float x = clamp(1.0 - w, 0.0, 1.0) * 3.0;
   if (x < 1.0) return mix(uSoft[0], uSoft[1], x);
   if (x < 2.0) return mix(uSoft[1], uSoft[2], x - 1.0);

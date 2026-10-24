@@ -127,7 +127,7 @@ type RepeatPlan =
   | { readonly kind: 'run'; readonly args: Record<string, unknown> }
   | { readonly kind: 'none'; readonly reason: string };
 
-/** §5.7 `edit.repeatLast` decides by the run source, as Maya's `G` does. */
+/** §5.7 `edit.repeatLast` decides by the run source, as `G` does in desktop DCCs. */
 function repeatPlan(last: LastRun | null): RepeatPlan {
   if (last === null) return { kind: 'none', reason: NOTHING_TO_REPEAT };
   // 1. A tool run (Multi-Cut cut, Insert Edge Loop by its tool, Target Weld, Slide, Paint Colour): re-enter the tool.

@@ -2,10 +2,10 @@
 // guess, fit and axis rule; C3's markers tool and marker list) presented differently: over the panes their labels
 // (FRONT · drag ↔ ↕, SIDE · depth ↕, 3D · orbit) and, on a phone or a portrait tablet, the pane switch; in the side
 // panel M6b's compact marker list (`QuickRigPanelBody`, its own Create Skeleton row hidden: *Auto-rig ▸* replaces it)
-// beside a body pictogram, the selected marker's coordinates, the fingers choice (Mixamo's skeleton detail:
-// `skel.quickRig.setPreset`), the symmetry line and Auto-Rig's notices (the A-pose one, the non-humanoid one). The
-// footer's primary *Auto-rig ▸* is enabled when `autoRigBlock` is null (Quick Rig's block, or AR-D10-3's arms gate) and runs `autorig.rig` (`../rig/run`).
-// While it runs the progress sheet covers the wizard.
+// beside a body pictogram, the selected marker's coordinates, the fingers choice (the skeleton detail level web
+// auto-rigging services offer: `skel.quickRig.setPreset`), the symmetry line and Auto-Rig's notices (the A-pose one,
+// the non-humanoid one). The footer's primary *Auto-rig ▸* is enabled when `autoRigBlock` is null (Quick Rig's block,
+// or AR-D10-3's arms gate) and runs `autorig.rig` (`../rig/run`). While it runs the progress sheet covers the wizard.
 import { autoRigBlock, type EditorApp, QUICK_RIG_LABELS, type QuickRigState } from '@ekza-studio/editor-core';
 import { buttonClass, cn } from '@ekza-studio/ui';
 import { type JSX, lazy, Suspense, useCallback, useEffect } from 'react';

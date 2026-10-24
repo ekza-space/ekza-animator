@@ -2,11 +2,11 @@
 // neighbours and never carry a flood fill. Each function changes only the bitset of the kind it returns; the other
 // kinds' per-mode memory is copied.
 //
-// - Grow adds every visible component sharing a vertex with the selection (vertices: across edges and faces, Maya's
-//   and Blender's default face step). Shrink removes the selected components that share a vertex with a visible
+// - Grow adds every visible component sharing a vertex with the selection (vertices: across edges and faces, the
+//   default face step of common DCCs). Shrink removes the selected components that share a vertex with a visible
 //   unselected component of the same kind.
-// - Convert "touching" selects the components touching the selection (Maya's default), "contained" only those fully
-//   inside it (edges with both ends, faces with every vertex or edge selected).
+// - Convert "touching" selects the components touching the selection (the usual DCC default), "contained" only those
+//   fully inside it (edges with both ends, faces with every vertex or edge selected).
 // - "perimeter": the boundary of the selected face region (faces: the selection; edges and vertices: the faces they
 //   contain) — edges with exactly one region face, their vertices, or the region faces along them.
 // - "border": the complete mesh-border loops (edges with one face) touching the selection.

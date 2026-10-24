@@ -140,7 +140,7 @@ export class JointInput {
       this.host.toast(JOINT_SCALE_REFUSAL);
       return true;
     }
-    // A press on an unselected joint with a transform tool selects it first (Maya), so the drag moves it.
+    // A press on an unselected joint with a transform tool selects it first, so the drag moves it.
     if (pick !== null && pick.kind !== 'missing' && (tool === 'move' || tool === 'rotate')) {
       const selection = this.app.session.getState().selection.joints;
       if (!selection.includes(pick.joint)) this.select([pick.joint], 'replace');

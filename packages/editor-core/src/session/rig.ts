@@ -1,7 +1,7 @@
 // The Rig & Skin session defaults (M6B-SPEC §4.6, §5.24; C0 baseline, then C7). U state: never in the document.
 import type { BrushSettings, RigSessionState } from '../types';
 
-/** Maya's Paint Skin Weights defaults (§8.7): Replace, value 1, opacity 1, 40 px, smooth, surface, front faces. */
+/** Paint Skin Weights defaults (§8.7): Replace, value 1, opacity 1, 40 px, smooth, surface, front faces. */
 export const DEFAULT_BRUSH: BrushSettings = {
   op: 'replace',
   value: 1,

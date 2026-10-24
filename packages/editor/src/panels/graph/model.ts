@@ -36,7 +36,7 @@ export interface ListContext {
 }
 
 /**
- * Controls the channel list shows: the selected controls of the active character (Maya "auto load selected"), or,
+ * Controls the channel list shows: the selected controls of the active character ("auto load selected"), or,
  * with nothing selected, every control of the active character with a keyed curve in the active clip.
  */
 export function listedControls(store: DocumentStore, context: ListContext): ControlId[] {
@@ -127,7 +127,7 @@ export function rowRefs(node: ChannelTreeNode): ChannelRef[] {
   );
 }
 
-/** Channel selection after a click with Maya modifiers (replace, toggle, remove, add). */
+/** Channel selection after a click with the selection modifiers (replace, toggle, remove, add). */
 export function applyChannelSelection(
   current: readonly ChannelRef[],
   refs: readonly ChannelRef[],
@@ -260,7 +260,7 @@ function indexOfKey(sorted: readonly KeyRecord[], key: KeyRecord): number {
 }
 
 /**
- * In/out angle and weight of the selected keys in Maya's convention (MVP-SPEC §4.11.4 `tangentFields`), from the
+ * In/out angle and weight of the selected keys in the DCC convention (MVP-SPEC §4.11.4 `tangentFields`), from the
  * resolved handles of the compiled curves. Linear in the selection: keys are grouped by curve, each curve is read
  * once and every key is found by binary search; the scan stops as soon as every shown field is mixed.
  */

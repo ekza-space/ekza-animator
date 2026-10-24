@@ -1,5 +1,6 @@
-// Kernel op `mesh.quadrangulate {angle, keepHardEdges, keepSeams, keepMaterials}` (M6A-SPEC §5.13; Maya `polyQuad`;
-// owner B4). Pairs triangles of the selected (object mode: every visible) faces greedily and removes the shared edge:
+// Kernel op `mesh.quadrangulate {angle, keepHardEdges, keepSeams, keepMaterials}` (M6A-SPEC §5.13; the desktop DCC's
+// `polyQuad`; owner B4). Pairs triangles of the selected (object mode: every visible) faces greedily and removes the
+// shared edge:
 // - candidates: an edge with exactly two faces, both triangles in scope, wound consistently, sharing only that edge,
 //   whose dihedral angle is below `angle`, that is not hard (`keepHardEdges`), not a UV seam (`EDGE_SEAM` or unequal
 //   corner values, `keepSeams`) and not a material or paint border (`keepMaterials`), and whose quad is strictly convex;

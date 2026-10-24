@@ -3,8 +3,8 @@
 //   coincident only); each cluster becomes its first-selected vertex (pick order, else the smallest index) at the
 //   cluster centroid; exactly two selected vertices with `alwaysMergeTwo` merge regardless of distance.
 // - `mesh.mergeToCenter`: the selected vertices → one vertex at their centroid (cube top face → 5/8/5).
-// - `mesh.mergeByDistance {distance}`: every visible vertex of the mesh (Blender's name; Maya's Merge on a whole mesh),
-//   with the merged count as a warning.
+// - `mesh.mergeByDistance {distance}`: every visible vertex of the mesh (a common DCC name; the desktop DCC's Merge on
+//   a whole mesh), with the merged count as a warning.
 // Symmetry (§5.14): merge and merge to center run on the expanded selection — the picked group and its mirror merge
 // separately; a group that is its own mirror merges once with its centre snapped onto the plane. Nothing to merge is
 // a refusal (`<op>.nothing`), so no empty step is recorded.

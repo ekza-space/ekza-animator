@@ -5,7 +5,7 @@ import type { ViewportLayout } from '@ekza-studio/editor-core';
 import type { PaneCamera, ViewPreset } from '../types';
 
 /**
- * Pane ids per layout, in reading order. `split` is the owner's shot | free layout; `quad` is Maya's four view
+ * Pane ids per layout, in reading order. `split` is the owner's shot | free layout; `quad` is the classic four view
  * (top | persp / front | side). Pane ids are stable, so cameras and display flags survive layout switches.
  */
 export const LAYOUT_PANES: Readonly<Record<ViewportLayout, readonly string[]>> = {

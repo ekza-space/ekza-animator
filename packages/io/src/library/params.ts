@@ -1,6 +1,6 @@
-// Mixamo-style clip parameters on a normalized humanoid clip (AUTORIG-SPEC §5.5.3; D5): speed, trim, mirror, in
-// place and arm space, applied to the VRMA bytes before C12's import path (`deriveHumanoidVrma`), so the library
-// preview and Use Clip compile the same curves from the same bytes. Pure and deterministic.
+// Auto-rigging-service style clip parameters on a normalized humanoid clip (AUTORIG-SPEC §5.5.3; D5): speed, trim,
+// mirror, in place and arm space, applied to the VRMA bytes before C12's import path (`deriveHumanoidVrma`), so the
+// library preview and Use Clip compile the same curves from the same bytes. Pure and deterministic.
 //
 // - trim keeps the samples inside [start, end], adds a sample at each end (interpolated as the track interpolates:
 //   STEP holds, LINEAR lerps positions and slerps rotations, CUBICSPLINE evaluates the Hermite segment and takes its

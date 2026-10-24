@@ -148,7 +148,7 @@ export interface OpContext {
   readonly epsilon: number;
 }
 export interface OpResult {
-  readonly selection: ComponentSelection;            // the new selection (Maya and Blender behaviour)
+  readonly selection: ComponentSelection;            // the new selection (the usual DCC behaviour)
   readonly warnings: readonly OpWarning[];
   readonly frame?: OpFrame;                          // extrude cap frame, bevel handle frame …
   /** Fast path for continuous value args during a live preview; false → caller reverts and re-runs. */
@@ -165,7 +165,7 @@ export interface OpFlags {
 /** *descriptors* (eager, `./descriptors`): everything menus, keymap, palette, option boxes and cards need. */
 export interface MeshOpDescriptor {
   readonly id: `mesh.${string}`;
-  readonly label: string;                            // Maya name
+  readonly label: string;                            // the DCC-standard name
   readonly kinds: readonly ComponentKind[] | 'object';
   readonly params: readonly ParamDef[];
   readonly flags: OpFlags;

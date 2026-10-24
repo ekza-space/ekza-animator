@@ -527,8 +527,8 @@ const lastOpCard = defineOperator({
       focusPrimary: opts['focusPrimary'] !== false,
       paneId: last.paneId ?? paneId ?? app.session.getState().hoveredPanel?.paneId ?? null,
     });
-    // Maya's `T` on the extrude node: reopen the extrude session and its manipulator when the current selection is
-    // still the extrude's result (§5.7; B12b's `reopen` decides the rest).
+    // `T` on the extrude node (desktop-DCC convention): reopen the extrude session and its manipulator when the
+    // current selection is still the extrude's result (§5.7; B12b's `reopen` decides the rest).
     if (last.id === 'mesh.extrude' && app.extrude.state === null && resultIsSelection(app, last)) app.extrude.reopen();
   },
 });

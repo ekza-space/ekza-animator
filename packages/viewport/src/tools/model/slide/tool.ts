@@ -1,4 +1,4 @@
-// The Slide Edge tool (M6A-SPEC §5.12 "Slide Edge/Vertex", §5.10, §5.14; Maya's Slide Edge Tool; B12b). With edges
+// The Slide Edge tool (M6A-SPEC §5.12 "Slide Edge/Vertex", §5.10, §5.14; B12b). With edges
 // (edge mode) or vertices (vertex mode) selected, an LMB or MMB drag anywhere in the pane slides them along their
 // rails: the first drag direction picks the rail side (the `reference` rail of the selected vertex nearest to the
 // press whose screen direction best follows the drag), and the percent is the pointer's travel along that rail's

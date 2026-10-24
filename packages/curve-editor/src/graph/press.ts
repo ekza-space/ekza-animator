@@ -97,7 +97,7 @@ export function selectionGesture(
   return targets.length > 0 ? new HandleDragGesture(ctx.gestures, start, targets) : null;
 }
 
-/** Keys inside a marquee; when none, the shown handles inside it (Maya). */
+/** Keys inside a marquee; when none, the shown handles inside it. */
 export function marqueeItems(scene: GraphScene, rect: ScreenRect, scratch: HitScratch): KeySelectItems {
   const keys = keysInRect(scene, rect);
   if (keys.length > 0) return keys.map((key) => ({ key, parts: KEY_PART }));
@@ -116,7 +116,7 @@ export function middlePress(ctx: PressContext, start: GesturePointer): PendingPr
  * or moves the current selection (`empty: 'move'`).
  *
  * The second press of a double-click can still drag (acceptance round 3): on a key it is a key press whose release
- * without a drag selects the curve (a click and a quick press-drag on a key moves the key, as in Maya); on a curve
+ * without a drag selects the curve (a click and a quick press-drag on a key moves the key); on a curve
  * segment it selects the curve's keys at once and a drag moves them.
  */
 export function defaultPress(
@@ -143,7 +143,7 @@ export function defaultPress(
     const isSelected = (selection: ReadonlyMap<KeyId, KeyPartSelection>): boolean =>
       hit.kind === 'key' ? selection.get(hit.key)?.key === true : selection.get(hit.key)?.[hit.side] === true;
     // Pressing an already selected part keeps the selection so it can be dragged (Shift locks the axis); a click
-    // without a drag then narrows the selection to that part, or with Shift toggles it off (Maya; acceptance
+    // without a drag then narrows the selection to that part, or with Shift toggles it off (acceptance
     // round 1: Shift+press deselected the key before the drag could start).
     const deferred = (mode === 'replace' || mode === 'toggle') && isSelected(current);
     const predicted = deferred ? current : applyKeySelection(current, [{ key: hit.key, parts }], mode);

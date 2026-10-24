@@ -64,9 +64,10 @@ export interface SkinBindArgs {
   readonly method: BindMethod;               // 'auto-lowpoly'
   readonly joints: readonly string[] | null; // influence mask (palette keys); null = every deforming joint; one key = rigid attach
   readonly points: readonly number[] | null; // point mask: only these points are re-solved, the others keep their weights
-  readonly hierarchy: boolean;               // closest: true = Maya "Closest in hierarchy" (our reading), false = "Closest distance"
+  readonly hierarchy: boolean;               // closest: true = the standard "Closest in hierarchy" bind method
+                                             // (our reading), false = "Closest distance"
   readonly dropoff: number;                  // closest: 4 (0.1…10)
-  readonly stiffness: number;                // heat: 1 (0.1…10); the role of Maya's falloff
+  readonly stiffness: number;                // heat: 1 (0.1…10); the role of the DCC-standard bind falloff
   readonly pruneBelow: number;               // 0.025 (0…0.2)
   readonly rigidifyAbove: number | null;     // null = off; 0.5…1
   /** null = auto, resolved by the operator at invoke time (true when `SkinGeometry.paired ≥ 0.9` and the skeleton has

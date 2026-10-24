@@ -1,9 +1,9 @@
-// MeshSetOp `mesh.duplicateFaces {separate, offset}` (M6A-SPEC §5.13; Maya Duplicate Face; owner B4; runner B7).
-// Copies the selected faces (`copySubset`): with `separate` (default) as a new record ("Duplicated") with the input's
-// placement and slots, else as a new shell in the same mesh (the new face selection). `offset` insets the copy's
-// boundary (`duplicate.offset-clamped`). On an asset-backed mesh it is the one MeshSetOp allowed in M6a: it makes an
-// authored static copy without skin and morph layers (`duplicate.static-copy`); the in-place variant would change the
-// asset's topology and is refused.
+// MeshSetOp `mesh.duplicateFaces {separate, offset}` (M6A-SPEC §5.13; DCC-standard Duplicate Face; owner B4;
+// runner B7). Copies the selected faces (`copySubset`): with `separate` (default) as a new record ("Duplicated") with
+// the input's placement and slots, else as a new shell in the same mesh (the new face selection). `offset` insets the
+// copy's boundary (`duplicate.offset-clamped`). On an asset-backed mesh it is the one MeshSetOp allowed in M6a: it
+// makes an authored static copy without skin and morph layers (`duplicate.static-copy`); the in-place variant would
+// change the asset's topology and is refused.
 import type { ParamValues } from '@ekza-studio/anim-core';
 import { refuse } from '../../refusal';
 import { copySubset } from '../../subset/copy';

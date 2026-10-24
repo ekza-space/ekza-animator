@@ -313,7 +313,7 @@ export interface CurveRecord {
   readonly weighted: boolean;
   readonly pre: InfinityMode;
   readonly post: InfinityMode;
-  /** Maya "static attribute value": used when the curve has no keys. null = channel default. */
+  /** "Static attribute value" (desktop-DCC term): used when the curve has no keys. null = channel default. */
   readonly staticValue: number | null;
   readonly locked: boolean;                    // Graph Editor lock (no edits)
   readonly muted: boolean;                     // V1 (evaluator ignores in MVP)

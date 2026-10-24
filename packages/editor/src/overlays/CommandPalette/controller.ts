@@ -1,5 +1,5 @@
 // The command palette (M6A-SPEC §5.18, FR-SHELL-08; B9): logic, no React. `Mod+K` opens a fuzzy search over every
-// operator visible in the current workspace (labels, ids and Blender-style `aliases`), the menu items with their
+// operator visible in the current workspace (labels, ids and alternative-name `aliases`), the menu items with their
 // arguments ("Four View", "Export…") and one entry per workspace ("Workspace: Model"), with key labels and poll
 // reasons read when it opens. Enter runs the highlighted entry (`source: 'palette'`); an operator with value params
 // first prompts for its primary field inline (Tab moves through the others), then runs with the typed values.
