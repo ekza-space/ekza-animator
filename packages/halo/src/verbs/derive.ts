@@ -106,8 +106,16 @@ function poll(app: EditorApp, op: string, args: unknown): { enabled: boolean; re
   }
 }
 
+/** A poll that failed only on argument validation ("expects { … }"): the row's arguments come from a form or a target. */
+const ARGUMENT_REASON = /^expects\b|\bexpects \{/;
+
 function row(app: EditorApp, op: OperatorId, args: unknown, plain: string, petal: boolean): MoreRow {
-  const { enabled, reason } = poll(app, op, args);
+  const polled = poll(app, op, args);
+  const surfaces = paramSurfacesOf(op);
+  const argumentsMissing = polled.reason !== null && ARGUMENT_REASON.test(polled.reason);
+  // An operator with a pre-run form asks for its arguments on the tap (§5.6); others say what to pick, in plain words.
+  const enabled = polled.enabled || (argumentsMissing && surfaces.includes('form'));
+  const reason = enabled ? null : argumentsMissing ? 'Pick what it works on first' : polled.reason;
   const pro = app.operators.get(op)?.label ?? '';
   return {
     key: `${op} ${stableKey(args)}`,
@@ -119,7 +127,7 @@ function row(app: EditorApp, op: OperatorId, args: unknown, plain: string, petal
     enabled,
     reason,
     fix: reason === null ? null : fixFor(reason),
-    options: paramSurfacesOf(op).some((surface) => surface === 'options' || surface === 'form'),
+    options: surfaces.some((surface) => surface === 'options' || surface === 'form'),
     petal,
   };
 }

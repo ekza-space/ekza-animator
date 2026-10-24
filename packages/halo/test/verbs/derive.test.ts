@@ -46,6 +46,15 @@ describe('More (§6.3)', () => {
     expect(animate.some((row) => row.op === 'clip.new')).toBe(true);
   });
 
+  it('lets a row that needs its arguments open its form, and words a missing target plainly', async () => {
+    const { app } = await polybotApp();
+    await runOk(app, 'workspace.set', { workspace: 'animate' });
+    const rows = moreGroups(app, 'control', 'animate').flatMap((g) => g.rows);
+    const leads = rows.find((row) => row.op === 'rig.ikFk.switch');
+    expect(leads).toMatchObject({ enabled: true, reason: null, options: true });
+    expect(rows.every((row) => row.reason === null || !row.reason.startsWith('expects'))).toBe(true);
+  });
+
   it('offers a one-tap fix for reasons an operator removes', () => {
     expect(fixFor('Needs a bound skin')).toMatchObject({ op: 'skin.bind' });
     expect(fixFor('Something else')).toBeNull();
