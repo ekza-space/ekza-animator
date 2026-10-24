@@ -84,3 +84,12 @@ the plain slot id in Clip Settings and a shorter v1 profile label (`CC-C1-17`).
 Gate runs (`EKZA_E2E_PORT=3170 pnpm run ci`, local Chrome) on a machine at load average 50–100 from parallel agents:
 the earlier runs failed only on load timeouts (editor `input.test.ts` and `m6a-select-ui.test.tsx`, e2e
 `ar-05-rig-framing` AR-D8-4 and `m6b-skin-02`), each green when rerun alone; the final run is recorded below.
+
+Final run on `ef8138a7` (code = `717e930e`): format:check, lint, typecheck, check:deps, check:fixtures,
+check:licenses: pass; test (turbo) **22/22 tasks** (io, editor-core 1,706+, editor, autorig, mcp-server, tooling incl.
+`sync-contract`); build: pass; check:size: `/editor` 892,300 B, `/autorig` 653,008 B, Auto-Rig eager delta −3,388 B
+(enforced limit 897,736 B); test:e2e **366 passed, 24 skipped (the existing skips), 1 failed**: E2E-M2A-01 ("Character
+'Polybot' has no runtime yet", a load race in an untouched spec), green when rerun alone. E2E-CC-01 and E2E-CC-02 and
+the updated AR-07 kit test passed in every run.
+
+Cosmetic left for C6: Auto-Rig ④ rows prefix the key (`Q · Switchfire (Q) — release`) although OMOBA's labels carry it.
