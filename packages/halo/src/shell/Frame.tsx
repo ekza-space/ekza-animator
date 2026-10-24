@@ -57,6 +57,8 @@ export function Frame({ controller }: { readonly controller: HaloController }): 
   // the chrome's extent, for the floating grammar (pane px)
   const insetTop = size === 'regular' ? 128 : 76;
   const insetBottom = compact ? 148 : 84;
+  // the off-hand column and the puck sit above the tray (and, on Compact, above the docked verb bar, §4.4)
+  const cornerBottom = compact ? insetBottom + 52 : insetBottom - 12;
   const offSide = handedness === 'right' ? 'left-(--touch-inset-left)' : 'right-(--touch-inset-right)';
   const penSide = handedness === 'right' ? 'right-(--touch-inset-right)' : 'left-(--touch-inset-left)';
   const fade = breathing ? { opacity: 0.15, pointerEvents: 'none' as const } : undefined;
@@ -79,7 +81,7 @@ export function Frame({ controller }: { readonly controller: HaloController }): 
         />
       ) : null}
       {home ? (
-        <Home controller={controller} />
+        <Home controller={controller} compact={compact} />
       ) : hideUi ? (
         <TouchIconButton
           label={en.view.showUi}
@@ -105,7 +107,7 @@ export function Frame({ controller }: { readonly controller: HaloController }): 
           <TargetBar controller={controller} top={insetTop} />
           <div
             className={`pointer-events-none absolute ${offSide} flex flex-col items-start gap-2.5`}
-            style={{ bottom: `calc(var(--touch-inset-bottom) + ${insetBottom - 12}px)` }}
+            style={{ bottom: `calc(var(--touch-inset-bottom) + ${cornerBottom}px)` }}
           >
             {compact ? null : (
               <TouchIconButton
@@ -127,7 +129,7 @@ export function Frame({ controller }: { readonly controller: HaloController }): 
           </div>
           <div
             className={`pointer-events-none absolute ${penSide} transition-opacity duration-(--motion-touch)`}
-            style={{ ...fade, bottom: `calc(var(--touch-inset-bottom) + ${insetBottom - 12}px)` }}
+            style={{ ...fade, bottom: `calc(var(--touch-inset-bottom) + ${cornerBottom}px)` }}
           >
             <ViewPuck controller={controller} />
           </div>

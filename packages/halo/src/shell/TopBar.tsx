@@ -56,11 +56,11 @@ export function TopBar({
       data-halo-chrome=""
       className="pointer-events-none absolute inset-x-0 top-0 flex flex-col gap-2 px-(--touch-inset-left) pt-[max(8px,env(safe-area-inset-top))]"
     >
-      <div className="flex items-center gap-2.5">
+      <div className={compact ? 'flex items-center gap-1.5' : 'flex items-center gap-2.5'}>
         <Cluster className="pointer-events-auto flex">
           <TouchButton
             variant="ghost"
-            className="max-w-[220px] gap-1.5 px-3 text-fg"
+            className={compact ? 'max-w-[136px] gap-1 px-2 text-fg' : 'max-w-[220px] gap-1.5 px-3 text-fg'}
             aria-label={`${name}${dirty ? `, ${en.top.unsaved}` : ''}. ${en.top.projectMenu}`}
             aria-haspopup="menu"
             data-testid="halo-project"
@@ -102,7 +102,7 @@ export function TopBar({
         <Cluster className="pointer-events-auto flex">
           <TouchButton
             variant="ghost"
-            className="gap-2 text-fg"
+            className={compact ? 'gap-1.5 px-3 text-fg' : 'gap-2 text-fg'}
             data-testid="halo-share"
             // leaving for Share commits the open tool session (P15)
             onClick={() => void commitSession(controller.ctx).then(() => store.set({ sheet: 'share', halo: null }))}

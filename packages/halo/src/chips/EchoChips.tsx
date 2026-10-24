@@ -54,7 +54,9 @@ export function echoParams(last: LastRun | null): readonly ParamDef[] {
   const numbers = last.params.filter(
     (p) => p.hidden !== true && p.kind !== 'data' && p.bound !== 'pointer' && typeof last.args[p.name] === 'number',
   );
-  const rank = (p: ParamDef): number => (p.primary === true ? 0 : p.kind === 'int' ? 1 : 2);
+  // the primary value, the counts, then the ones with a plain name (Offset, Thickness), then the rest
+  const rank = (p: ParamDef): number =>
+    p.primary === true ? 0 : p.kind === 'int' ? 1 : en.chips.params[p.name] !== undefined ? 2 : 3;
   return [...numbers].sort((a, b) => rank(a) - rank(b)).slice(0, MAX_ECHO);
 }
 

@@ -185,8 +185,9 @@ export function HaloLayer({
         </div>
       )}
       {loupe === null ? null : (
-        <div className="pointer-events-auto absolute inset-0" data-halo-chrome="">
+        <div className="pointer-events-none absolute inset-0" data-halo-chrome="">
           <LoupeChips
+            className="pointer-events-auto"
             data-testid="halo-loupe"
             label={en.halo.loupe}
             candidates={loupe.candidates}

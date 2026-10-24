@@ -2,13 +2,19 @@
 // autosave slots, intake with sniffing, Bring a model's routing). No modal on the first paint: one sentence, three doors
 // (*Try a sample* is the primary one, since a new user may have no model file), *Rig a model for me ▸*, a single gesture
 // line and a quiet ▤ Pro layout. The live canvas idles behind it.
-import { Cluster, TouchButton } from '@ekza-studio/ui/touch';
+import { Cluster, TouchButton, TouchIconButton } from '@ekza-studio/ui/touch';
 import { type JSX, useRef, useState } from 'react';
 import { Icon } from '../halo/icons';
 import { en } from '../i18n/en';
 import type { HaloController } from '../shell/controller';
 
-export function Home({ controller }: { readonly controller: HaloController }): JSX.Element {
+export function Home({
+  controller,
+  compact = false,
+}: {
+  readonly controller: HaloController;
+  readonly compact?: boolean;
+}): JSX.Element {
   const { ctx } = controller;
   const [busy, setBusy] = useState(false);
   const file = useRef<HTMLInputElement>(null);
@@ -35,7 +41,7 @@ export function Home({ controller }: { readonly controller: HaloController }): J
       data-touch-scroll=""
     >
       <header className="flex items-center gap-2.5">
-        <span className="flex min-h-(--touch-hit) items-center gap-2 px-2 text-touch-title font-semibold">
+        <span className="flex min-h-(--touch-hit) items-center gap-2 px-2 text-touch-title font-semibold whitespace-nowrap">
           <span aria-hidden="true" className="text-accent-text">
             ◆
           </span>
@@ -43,26 +49,46 @@ export function Home({ controller }: { readonly controller: HaloController }): J
         </span>
         <span className="flex-1" />
         <Cluster className="flex">
-          <TouchButton
-            variant="ghost"
-            className="gap-2 font-normal text-fg-2"
-            data-testid="halo-search"
-            onClick={() => ctx.store.set({ palette: true })}
-          >
-            <Icon name="search" />
-            {en.top.search}
-          </TouchButton>
+          {compact ? (
+            <TouchIconButton
+              label={en.top.search}
+              icon={<Icon name="search" />}
+              className="border-0 bg-transparent shadow-none"
+              data-testid="halo-search"
+              onClick={() => ctx.store.set({ palette: true })}
+            />
+          ) : (
+            <TouchButton
+              variant="ghost"
+              className="gap-2 font-normal text-fg-2"
+              data-testid="halo-search"
+              onClick={() => ctx.store.set({ palette: true })}
+            >
+              <Icon name="search" />
+              {en.top.search}
+            </TouchButton>
+          )}
         </Cluster>
         <Cluster className="flex">
-          <TouchButton
-            variant="ghost"
-            className="gap-2"
-            data-testid="halo-pro-layout"
-            onClick={() => controller.proLayout()}
-          >
-            <Icon name="layout" />
-            {en.top.proLayout}
-          </TouchButton>
+          {compact ? (
+            <TouchIconButton
+              label={en.top.proLayout}
+              icon={<Icon name="layout" />}
+              className="border-0 bg-transparent shadow-none"
+              data-testid="halo-pro-layout"
+              onClick={() => controller.proLayout()}
+            />
+          ) : (
+            <TouchButton
+              variant="ghost"
+              className="gap-2"
+              data-testid="halo-pro-layout"
+              onClick={() => controller.proLayout()}
+            >
+              <Icon name="layout" />
+              {en.top.proLayout}
+            </TouchButton>
+          )}
         </Cluster>
       </header>
       <div className="mx-auto flex w-full max-w-[920px] flex-1 flex-col justify-center gap-6 py-8">
