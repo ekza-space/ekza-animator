@@ -1,12 +1,13 @@
 // The ③ motion test (AUTORIG-SPEC §5.4, L3, §8.2; D4; lazy with the view): as soon as the rig is checked the character
 // plays a loop through C12's library preview (`library.preview {character, clip}`, channel source `preview`: no
-// document write, no undo step) — Walk, Sword attack or Dance from the starter pack. C12 stops the preview on any
-// document change; while the test is on, Auto-Rig starts it again once the change has committed (a committed batch,
-// never a gesture's preview batches). Leaving review, turning the test off or unmounting stops it. With
-// `prefers-reduced-motion` nothing plays until the user presses *Play motion test*. The Range test clip is D5's
-// (`library.preview` with ROM bytes, §5.4.1; optional in v1) and is not offered here yet.
+// document write, no undo step) — Walk, Sword attack or Dance from the starter pack. The driver is editor-core's
+// `autorigFlow` (T5b, shared with Halo's *Test with*): C12 stops the preview on any document change and the driver
+// starts it again once the change has committed (a committed batch, never a gesture's preview batches). Leaving
+// review, turning the test off or unmounting stops it. With `prefers-reduced-motion` nothing plays until the user
+// presses *Play motion test*. The Range test clip is D5's (`library.preview` with ROM bytes, §5.4.1; optional in v1)
+// and is not offered here yet.
 import type { CharacterId } from '@ekza-studio/doc';
-import type { ClipPreviewState, EditorApp } from '@ekza-studio/editor-core';
+import { type ClipPreviewState, type EditorApp, startMotionTest } from '@ekza-studio/editor-core';
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { messages } from '../../i18n';
 import './strings';
@@ -57,40 +58,11 @@ export function useMotionTest(
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     if (!active || character === null) return undefined;
-    let alive = true;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const start = async (): Promise<void> => {
-      try {
-        if (!app.library.loaded) await app.library.load();
-      } catch {
-        if (alive) setError(messages().rig.motionUnavailable);
-        return;
-      }
-      if (!alive) return;
-      const playing = app.library.service.preview;
-      if (playing !== null && playing.character === character && playing.clip === clip) return;
-      const result = await app.runUntyped('library.preview', { character, clip });
-      if (!alive) return;
-      if (result.status === 'finished') setError(null);
-      else if (result.status === 'failed' && result.error.code !== 'cancelled') {
-        setError(messages().rig.motionUnavailable);
-      }
-    };
-    void start();
-    const off = app.store.subscribe((batch) => {
-      if (batch.origin === 'preview' || timer !== null) return;
-      timer = setTimeout(() => {
-        timer = null;
-        if (alive && (!app.library.loaded || app.library.service.preview === null)) void start();
-      }, 0);
-    });
+    const test = startMotionTest({ app, quiet: (op, args) => app.runUntyped(op, args) }, character, clip, (state) =>
+      setError(state === null ? null : messages().rig.motionUnavailable),
+    );
     return () => {
-      alive = false;
-      off();
-      if (timer !== null) clearTimeout(timer);
-      if (app.library.loaded && app.library.service.preview?.character === character) {
-        void app.runUntyped('library.stop');
-      }
+      void test.stop();
     };
   }, [app, active, clip, character]);
   return active ? error : null;

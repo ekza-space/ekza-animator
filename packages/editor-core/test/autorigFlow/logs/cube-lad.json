@@ -1,0 +1,139 @@
+{
+  "model": "cube-lad",
+  "log": [
+    {
+      "op": "workspace.set",
+      "via": "quiet",
+      "args": {
+        "workspace": "rig"
+      },
+      "status": "finished",
+      "document": []
+    },
+    {
+      "op": "autorig.sample",
+      "via": "run",
+      "args": {
+        "sample": "cube-lad"
+      },
+      "status": "finished",
+      "document": ["mesh.importStatic"]
+    },
+    {
+      "op": "select.objects",
+      "via": "quiet",
+      "args": {
+        "ids": ["msh#1"],
+        "mode": "replace"
+      },
+      "status": "finished",
+      "document": []
+    },
+    {
+      "op": "skel.quickRig.start",
+      "via": "quiet",
+      "args": {
+        "meshes": ["msh#1"]
+      },
+      "status": "finished",
+      "document": []
+    },
+    {
+      "op": "autorig.rig",
+      "via": "quiet",
+      "args": {
+        "rigidParts": false,
+        "straighten": false
+      },
+      "status": "finished",
+      "document": ["skel.quickRig.commit", "skin.bind"]
+    },
+    {
+      "op": "library.preview",
+      "via": "quiet",
+      "args": {
+        "character": "chr#1",
+        "clip": "walk"
+      },
+      "status": "finished",
+      "document": []
+    },
+    {
+      "op": "library.stop",
+      "via": "quiet",
+      "args": null,
+      "status": "finished",
+      "document": []
+    },
+    {
+      "op": "autorig.clip.add",
+      "via": "run",
+      "args": {
+        "character": "chr#1",
+        "clip": "walk",
+        "params": {
+          "armSpace": 0,
+          "inPlace": false,
+          "mirror": false,
+          "speed": 1,
+          "trim": null
+        }
+      },
+      "status": "finished",
+      "document": ["library.useClip"]
+    },
+    {
+      "op": "char.renderThumbnail",
+      "via": "run",
+      "args": {
+        "character": "chr#1"
+      },
+      "status": "finished",
+      "document": ["char.renderThumbnail"]
+    },
+    {
+      "op": "char.setVrmMeta",
+      "via": "run",
+      "args": {
+        "character": "chr#1",
+        "patch": {
+          "authors": ["Tester"]
+        }
+      },
+      "status": "finished",
+      "document": ["char.setVrmMeta"]
+    },
+    {
+      "op": "char.setVrmMeta",
+      "via": "run",
+      "args": {
+        "character": "chr#1",
+        "patch": {
+          "licensePreset": "cc0"
+        }
+      },
+      "status": "finished",
+      "document": ["char.setVrmMeta"]
+    },
+    {
+      "op": "autorig.export",
+      "via": "run",
+      "args": {
+        "character": "chr#1",
+        "fileName": "",
+        "target": "ekza-vrm"
+      },
+      "status": "finished",
+      "document": []
+    }
+  ],
+  "history": [
+    "Import Static Model",
+    "Create Skeleton",
+    "Bind Skin",
+    "Use Clip Walk",
+    "Render Thumbnail",
+    "VRM Meta",
+    "VRM Meta"
+  ]
+}
