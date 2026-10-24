@@ -153,7 +153,7 @@ describe('resolveKeyHandles', () => {
   });
 });
 
-describe('numeric tangent fields (MVP-SPEC §4.11.4, Maya convention)', () => {
+describe('numeric tangent fields (MVP-SPEC §4.11.4, DCC convention)', () => {
   it('out-angle = atan2(dv·k, dt/fps), in-angle on the forward-pointing vector, weight = 3·hypot', () => {
     const out = tangentFields({ dt: 3, dv: 0.1 }, 'out', FPS30, K);
     expect(out.angleDeg).toBeCloseTo(Math.atan2(0.1 * K, 3 / 30) * K, 12);

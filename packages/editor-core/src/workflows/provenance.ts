@@ -1,9 +1,10 @@
 // Clip provenance on import (MVP-SPEC §4.11.6 step 7, ADR 0010 §3): embedded clips of a VRM inherit the avatar's
-// VRM meta (title, authors, licence, `allowRedistribution`); clip or node names matching /mixamo/i force
-// `redistributable: 'no'`; GLB and VRMA files without licence data are 'unknown'; bundled samples pass their known
-// licence; a VRMA written by the editor carries its clips' provenance in `ekza_animation_v1`, which is kept.
+// VRM meta (title, authors, licence, `allowRedistribution`); clip or node names with a web auto-rigging service's
+// marker (`isNonRedistributableSource`, @ekza-studio/io) force `redistributable: 'no'`; GLB and VRMA files without
+// licence data are 'unknown'; bundled samples pass their known licence; a VRMA written by the editor carries its
+// clips' provenance in `ekza_animation_v1`, which is kept.
 import type { ClipProvenance, DerivedFrom, Redistributable } from '@ekza-studio/doc';
-import type { GlbContainer, VrmLicenseInfo } from '@ekza-studio/io';
+import { type GlbContainer, isNonRedistributableSource, type VrmLicenseInfo } from '@ekza-studio/io';
 import { isRecord, parseDerivedFrom } from './util';
 
 /** A licence known in advance (bundled samples). */
@@ -15,15 +16,9 @@ export interface KnownLicense {
   readonly redistributable: Redistributable;
 }
 
-const MIXAMO = /mixamo/i;
+export { isNonRedistributableSource } from '@ekza-studio/io';
 
-/** True when any name marks the motion as Mixamo's (not redistributable as a standalone animation). */
-export function isMixamo(names: Iterable<string>): boolean {
-  for (const name of names) if (MIXAMO.test(name)) return true;
-  return false;
-}
-
-/** Names of every animation and node of a glTF file (the Mixamo rule looks at both). */
+/** Names of every animation and node of a glTF file (the auto-rigging-service rule looks at both). */
 export function animationAndNodeNames(container: GlbContainer): readonly string[] {
   const names: string[] = [];
   for (const key of ['animations', 'nodes'] as const) {
@@ -43,7 +38,7 @@ function meaningful(text: string | null | undefined): string | null {
   return trimmed === '' || trimmed === 'undefined' || trimmed === 'null' ? null : trimmed;
 }
 
-/** Provenance of the source file as a whole (before the per-clip Mixamo rule). */
+/** Provenance of the source file as a whole (before the per-clip auto-rigging-service rule). */
 export function sourceProvenance(source: {
   readonly fileTitle: string;
   readonly sha256: string;
@@ -76,9 +71,9 @@ export function sourceProvenance(source: {
   return { derivedFrom: [entry], redistributable };
 }
 
-/** Per-clip provenance: the source's, forced to 'no' when the clip or its animated nodes are Mixamo's. */
+/** Per-clip provenance: the source's, forced to 'no' when the clip or its animated nodes carry the service's marker. */
 export function clipProvenance(source: ClipProvenance, names: Iterable<string>): ClipProvenance {
-  return isMixamo(names) ? { derivedFrom: source.derivedFrom, redistributable: 'no' } : source;
+  return isNonRedistributableSource(names) ? { derivedFrom: source.derivedFrom, redistributable: 'no' } : source;
 }
 
 /** True when the VRM meta forbids modifying or redistributing the avatar (export licence gate, ADR 0012 §5). */

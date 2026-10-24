@@ -87,7 +87,7 @@ function selectKey(app: FakeEditorApp, key: KeyId): Promise<void> {
   });
 }
 
-/** Maya angle of a handle as the canvas draws it: atan(Δvalue display / Δseconds), from screen pixels. */
+/** Tangent angle of a handle as the canvas draws it: atan(Δvalue display / Δseconds), from screen pixels. */
 function drawnAngle(app: FakeEditorApp, key: KeyId, side: 'in' | 'out'): number {
   const hooks = graphTestHooks(app);
   const view = hooks.graph()?.view;

@@ -1,9 +1,9 @@
-// The Rig & Skin rows of the `maya` preset (M6B-SPEC §7, cut to the MVP operators of §0.6; C7). Every row's scope
+// The Rig & Skin rows of the `dcc` preset (M6B-SPEC §7, cut to the MVP operators of §0.6; C7). Every row's scope
 // starts with `rig`, so Model and Animate never see them. Chain over a pane (CR-4): `rig.viewport.<mode>` →
 // `rig.viewport` → `viewport` → `rig` → `global`; over a panel `rig.<panel>` → `<panel>` → `rig` → `global`.
 //
 // This module is eager and small: the scopes and the **shadow rows** (`RIG_SHADOW_KEYMAP`), which the built-ins
-// contribute with the `maya` preset (`registerBuiltins`), so `S` keys nothing in Rig & Skin even before the
+// contribute with the `dcc` preset (`registerBuiltins`), so `S` keys nothing in Rig & Skin even before the
 // rig-workspace chunk has loaded (a reload straight into Rig & Skin, a failed chunk load; M6B-C7-15). The other rows
 // (`RIG_KEYMAP`, `rig/chunk/keymap.ts`) come with the chunk. Keying is impossible in Rig & Skin (§5.17): every
 // shipped chord that keys, mirrors or pastes a pose resolves to `rig.animateOnly` — in the viewport (`rig.viewport`,

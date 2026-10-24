@@ -292,7 +292,7 @@ describe.skipIf(!KERNEL_READY)('[needs WP-7a] handle drags (MVP-SPEC §4.11.4, E
     expect(handle.dv).toBeCloseTo(dv, 9);
   });
 
-  it('E2E-10: free weighted handles change length; locked weights keep the Maya weight', async () => {
+  it('E2E-10: free weighted handles change length; locked weights keep the tangent weight', async () => {
     const app = await waveApp();
     app.store.transact({ label: 'Weighted' }, (tx) => {
       tx.patch('curves', WAVE.curve, { weighted: true });

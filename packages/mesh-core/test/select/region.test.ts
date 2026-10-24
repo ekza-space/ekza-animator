@@ -65,8 +65,8 @@ describe('grow and shrink', () => {
     expect(inner.length).toBe(1);
     const grown = growSelection(m, sel(m, 'face', inner));
     expect(sorted(membersOf(grown))).toEqual(sorted(facesWithin(m, -0.5, 0.25, -0.5, 0.25)));
-    // Shrink removes only faces touching an unselected face; the mesh border is no neighbour (Blender's select
-    // less), so the block's 2 × 2 corner at the grid corner stays.
+    // Shrink removes only faces touching an unselected face; the mesh border is no neighbour (as in a popular
+    // open-source DCC's Select Less), so the block's 2 × 2 corner at the grid corner stays.
     expect(sorted(membersOf(shrinkSelection(m, grown)))).toEqual(sorted(facesWithin(m, -0.5, 0, -0.5, 0)));
     // Away from the border a 3 × 3 block shrinks to its centre.
     const big = mesh('plane', { width: 6, height: 6, subdivisionsWidth: 6, subdivisionsHeight: 6 });

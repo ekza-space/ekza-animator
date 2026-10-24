@@ -422,7 +422,7 @@ export interface OperatorMap {
     readonly meshes: readonly MeshId[]; readonly flexion: number };                               // §0.4.2 args
     result: { readonly character: CharacterId; readonly skeleton: SkeletonId } };
   'skel.joint.create': { args: { readonly points: readonly (readonly [number, number, number])[]; readonly parent?: JointId | null;
-    readonly prefix?: string; readonly orient?: 'world' | 'maya' | 'blender'; readonly symmetry?: boolean };
+    readonly prefix?: string; readonly orient?: 'world' | 'xAim' | 'yAim'; readonly symmetry?: boolean };
     result: { readonly joints: readonly JointId[] } };
   'skel.joint.duplicate': { args: { readonly joints?: readonly JointId[]; readonly mirror?: boolean } | void; result: { readonly joints: readonly JointId[] } };
   'skel.joint.setRole': { args: { readonly joints?: readonly JointId[]; readonly role: JointRole }; result: void };

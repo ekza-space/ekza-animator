@@ -428,7 +428,7 @@ describe('pointer platform rules (§5.17)', () => {
     rig.frame();
     const cameraBefore = rig.vm.camera('pane-single');
     const standIn = { button: 0, altKey: true, shiftKey: true };
-    for (const profile of ['trackpad', 'mayaOneButton'] as const) {
+    for (const profile of ['trackpad', 'oneButton'] as const) {
       rig.vm.setNavProfile(profile);
       setWorkspace(rig, 'model');
       events.length = 0;
@@ -443,14 +443,14 @@ describe('pointer platform rules (§5.17)', () => {
       expect(events[0]).toMatchObject({ button: 1, ctrl: true, alt: false, shift: false });
       setWorkspace(rig, 'animate');
     }
-    // Animate, and the maya profile in Model: Alt+LMB stays tumble.
+    // Animate, and the dcc profile in Model: Alt+LMB stays tumble.
     rig.vm.setNavProfile('trackpad');
     events.length = 0;
     drag(pane, { x: 400, y: 300 }, { x: 460, y: 300 }, standIn);
     expect(events).toEqual([]);
     expect(rig.vm.camera('pane-single')).not.toEqual(cameraBefore);
     const tumbled = rig.vm.camera('pane-single');
-    rig.vm.setNavProfile('maya');
+    rig.vm.setNavProfile('dcc');
     setWorkspace(rig, 'model');
     drag(pane, { x: 400, y: 300 }, { x: 460, y: 300 }, standIn);
     expect(events).toEqual([]);
@@ -649,7 +649,7 @@ describe('the MMB stand-in reaches the virtual slider as MMB (§5.17 (b))', () =
     setWorkspace(r, 'model');
     setDisplay(r, PANE, { controls: true });
     const chord = { button: 0, altKey: true, shiftKey: true };
-    for (const profile of ['trackpad', 'mayaOneButton'] as const) {
+    for (const profile of ['trackpad', 'oneButton'] as const) {
       r.vm.setNavProfile(profile);
       const mmb = slideDrag(r, { button: 1 });
       const standIn = slideDrag(r, chord, { altKey: true, shiftKey: true });

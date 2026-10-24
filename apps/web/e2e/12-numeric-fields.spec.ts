@@ -4,7 +4,7 @@ import { seedWaveClip } from './helpers/seed';
 import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
 
 // E2E-12 (MVP-SPEC §6.2, §4.11.4 numeric fields): the Graph Editor's key fields set a key's value, frame and tangent
-// angles in display units (degrees, Maya's angle convention with time in seconds).
+// angles in display units (degrees, the desktop-DCC angle convention with time in seconds).
 test('E2E-12: numeric fields', async ({ page }) => {
   await openEditor(page, '&platform=mac');
   await expectKernelStarted(page);

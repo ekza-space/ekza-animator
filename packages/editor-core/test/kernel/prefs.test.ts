@@ -22,8 +22,8 @@ describe('defaultPrefs', () => {
     expect(defaultPrefs('other')).toEqual({
       version: 1,
       firstRunDone: false,
-      navProfile: 'maya',
-      spaceBehaviour: 'maya',
+      navProfile: 'dcc',
+      spaceBehaviour: 'maximize',
       keymapOverrides: [],
       defaultTangents: { in: 'auto', out: 'auto' },
       autoKey: false,
@@ -82,7 +82,7 @@ describe('defaultPrefs', () => {
         influenceSort: 'hierarchy',
         influenceColours: {},
         optionDefaults: {},
-        orientPreset: 'maya',
+        orientPreset: 'xAim',
         holds: {},
       },
     });
@@ -157,7 +157,7 @@ describe('M6a preferences (version stays 1)', () => {
       ...defaults,
       lastWorkspace: 'model',
       modeling: {
-        primitiveDefaults: 'maya',
+        primitiveDefaults: 'dcc',
         numericCapture: 'sometimes',
         undoSelection: { model: false, animate: 'yes' },
         undoBudgetMB: 128,
@@ -173,7 +173,7 @@ describe('M6a preferences (version stays 1)', () => {
       lastWorkspace: 'model',
       modeling: {
         ...defaults.modeling,
-        primitiveDefaults: 'maya',
+        primitiveDefaults: 'dcc',
         undoBudgetMB: 128,
         increments: { move: 0.5, rotate: Math.PI / 12, scale: 0.25 },
         optionDefaults: { 'mesh.bevel': { offset: 0.1 } },
@@ -206,7 +206,7 @@ describe('preference persistence', () => {
     const defaults = defaultPrefs('other');
     const stored = {
       ...defaults,
-      navProfile: 'blender',
+      navProfile: 'joystick',
       uiScale: 9,
       autoKey: 'yes',
       defaultTangents: { in: 'linear', out: 'bogus' },

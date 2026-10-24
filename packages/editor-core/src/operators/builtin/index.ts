@@ -1,10 +1,10 @@
 // Built-in contributions (MVP-SPEC §7 WP-7b, ADR 0008): every §4.9 operator owned by WP-7b, the importers,
-// exporters, export profiles, menu items and the `maya` keymap — registered through the same registries extensions
+// exporters, export profiles, menu items and the `dcc` keymap — registered through the same registries extensions
 // use, explicitly (nothing registers on import).
 import type { Disposer } from '@ekza-studio/anim-core';
 import { BUILTIN_EXPORT_PROFILES } from '@ekza-studio/io';
-import { MAYA_KEYMAP } from '../../keymap/maya';
-import { RIG_SHADOW_KEYMAP } from '../../keymap/maya.rig';
+import { DCC_KEYMAP } from '../../keymap/dcc';
+import { RIG_SHADOW_KEYMAP } from '../../keymap/dcc.rig';
 import type { EditorApp } from '../../types';
 import { AUTOSAVE_OPERATORS } from './autosave';
 import { BREAKDOWN_OPERATORS } from './breakdown';
@@ -88,7 +88,7 @@ export function registerBuiltinOperators(app: EditorApp): Disposer {
   return disposeAll(disposers);
 }
 
-/** Operators, importers, exporters, BUILTIN_EXPORT_PROFILES, menu items, MAYA_KEYMAP and (M6a) workspaces. */
+/** Operators, importers, exporters, BUILTIN_EXPORT_PROFILES, menu items, DCC_KEYMAP and (M6a) workspaces. */
 export function registerBuiltins(app: EditorApp): Disposer {
   // M6a (B11): the numeric capture window binds to the app up front (tools arm the capture before any operator runs;
   // the binding loads the B11 runtime chunk on the first Model entry); the Last-op card's tracker binds once that chunk
@@ -110,7 +110,7 @@ export function registerBuiltins(app: EditorApp): Disposer {
   for (const def of BUILTIN_MENU_ITEMS) {
     if (app.menus.get(def.id) === undefined) disposers.push(app.contribute({ kind: 'menu', def }));
   }
-  disposers.push(app.contribute({ kind: 'keymap', bindings: MAYA_KEYMAP }));
+  disposers.push(app.contribute({ kind: 'keymap', bindings: DCC_KEYMAP }));
   // M6b C7 (M6B-C7-15): `S` keys nothing in Rig & Skin before the rig-workspace chunk (and its rows) has loaded.
   disposers.push(app.contribute({ kind: 'keymap', bindings: RIG_SHADOW_KEYMAP }));
   disposers.push(registerModelOperators(app));

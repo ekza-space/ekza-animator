@@ -365,7 +365,7 @@ describe('ui.commandPalette and ui.markingMenu (§5.18)', () => {
     });
   });
 
-  it('lists the palette with Blender-style aliases and keeps the marking menu out of it (internal)', () => {
+  it('lists the palette with alternative-name aliases and keeps the marking menu out of it (internal)', () => {
     const a = app();
     expect(a.operators.get('ui.commandPalette')?.aliases).toContain('Search');
     expect(a.operators.get('ui.markingMenu')?.flags?.internal).toBe(true);

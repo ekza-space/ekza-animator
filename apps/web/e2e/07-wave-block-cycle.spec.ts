@@ -94,7 +94,7 @@ test('E2E-07: wave block + cycle', async ({ page }) => {
   await expect.poll(async () => (await call(page, 'state')).playing).toBe(false);
   const stopped = (await call(page, 'state')).clipFrame ?? 0;
   expect(stopped).toBeGreaterThan(0);
-  // `stop` keeps the current frame (Maya), and the pose there is the cycled curve's.
+  // `stop` keeps the current frame, and the pose there is the cycled curve's.
   await page.waitForTimeout(200);
   expect((await call(page, 'state')).clipFrame).toBe(stopped);
   const pose = (await call(page, 'channelValues', lowerArm)).rz ?? Number.NaN;

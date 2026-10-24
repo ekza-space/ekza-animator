@@ -7,8 +7,8 @@ export function defaultPrefs(platform: 'mac' | 'other'): Prefs {
   return {
     version: 1,
     firstRunDone: false,
-    navProfile: platform === 'mac' ? 'trackpad' : 'maya',
-    spaceBehaviour: 'maya',
+    navProfile: platform === 'mac' ? 'trackpad' : 'dcc',
+    spaceBehaviour: 'maximize',
     keymapOverrides: [],
     defaultTangents: { in: 'auto', out: 'auto' },
     autoKey: false,
@@ -42,7 +42,7 @@ export function defaultRiggingPrefs(): Prefs['rigging'] {
     influenceSort: 'hierarchy',
     influenceColours: {},
     optionDefaults: {},
-    orientPreset: 'maya',
+    orientPreset: 'xAim',
     holds: {},
   };
 }

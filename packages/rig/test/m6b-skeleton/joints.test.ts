@@ -247,8 +247,8 @@ const ORIENT = (
 ) => ({ joints: [] as JointId[], mode, primary, secondary, secondaryWorld: '+y', children: true, symmetry }) as const;
 const PRESETS = {
   world: ORIENT('world', '+x', '+y'),
-  maya: ORIENT('aim', '+x', '+y'),
-  blender: ORIENT('aim', '+y', '+z'),
+  xAim: ORIENT('aim', '+x', '+y'),
+  yAim: ORIENT('aim', '+y', '+z'),
   auto: ORIENT('aim', '-z', 'auto'),
 } as const;
 
@@ -333,7 +333,7 @@ describe('P-J2: Orient Joint is invisible to deformation; keys of bone-aligned c
       role: 'bone',
       key: `tail_0${i + 1}`,
     }));
-    const edit = orientJoints(chain, { ...PRESETS.maya, joints: [chain[0]?.id as JointId] });
+    const edit = orientJoints(chain, { ...PRESETS.xAim, joints: [chain[0]?.id as JointId] });
     expect(edit.rotationDeltas.size).toBe(4);
     for (const order of ['xyz', 'yzx', 'zxy', 'xzy', 'yxz', 'zyx'] as RotateOrder[]) {
       for (const joint of chain) {
@@ -377,7 +377,7 @@ describe('Orient Joint (§5.5)', () => {
 
   it('aim: the primary axis points at the child (1e-12), the secondary toward +Y; World resets to identity', () => {
     const joints = chain();
-    const edit = orientJoints(joints, { ...PRESETS.maya, joints: [id('x'), 'jnt_c0' as JointId] });
+    const edit = orientJoints(joints, { ...PRESETS.xAim, joints: [id('x'), 'jnt_c0' as JointId] });
     const after = apply(joints, edit);
     for (const [i, j] of [
       [0, 1],
@@ -417,7 +417,7 @@ describe('Orient Joint (§5.5)', () => {
       restPosition: [-j.restPosition[0], j.restPosition[1], j.restPosition[2]] as const,
       tail: j.tail === null ? null : ([-j.tail[0], j.tail[1], j.tail[2]] as const),
     }));
-    const edit = orientJoints([...left, ...right], { ...PRESETS.maya, joints: ['jnt_c0' as JointId], symmetry: true });
+    const edit = orientJoints([...left, ...right], { ...PRESETS.xAim, joints: ['jnt_c0' as JointId], symmetry: true });
     const after = apply([...left, ...right], edit);
     const l = get(after, 'jnt_c0').restRotation;
     const r = get(after, 'jnt_r0').restRotation;
@@ -453,7 +453,7 @@ describe('P-J3: Mirror Joint', () => {
 
   it('involution: twice restores positions bit-equal and rotations within 1e-12 (Behavior on an aim chain)', () => {
     const joints = human();
-    const aimed = apply(joints, orientJoints(joints, { ...PRESETS.maya, joints: [id('leftUpperArm')] }));
+    const aimed = apply(joints, orientJoints(joints, { ...PRESETS.xAim, joints: [id('leftUpperArm')] }));
     let n = 0;
     const newId = () => `jnt_new_${n++}` as JointId;
     const once = apply(

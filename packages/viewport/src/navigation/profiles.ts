@@ -13,14 +13,14 @@ export interface NavPointerInput {
 }
 
 /**
- * The drag gesture a pointer-down starts, or null when it belongs to the active tool. Every profile keeps Maya's
+ * The drag gesture a pointer-down starts, or null when it belongs to the active tool. Every profile keeps the DCC
  * Alt+LMB/MMB/RMB (tumble/track/dolly); the one-button profile (M1-stretch) adds Option+Cmd+LMB track and
  * Option+Ctrl+LMB dolly.
  */
 export function pointerGesture(profile: NavProfile, e: NavPointerInput): NavGesture | null {
   if (!e.altKey) return null;
   if (e.button === 0) {
-    if (profile === 'mayaOneButton') {
+    if (profile === 'oneButton') {
       if (e.metaKey) return 'track';
       if (e.ctrlKey) return 'dolly';
     }
@@ -52,8 +52,8 @@ const WHEEL_DOLLY_PER_PX = 0.0015;
 const PINCH_DOLLY_PER_PX = 0.01;
 
 /**
- * Maya: the wheel dollies (a pinch, `wheel` + Ctrl, too). Trackpad: two-finger scroll tumbles, Shift + scroll tracks,
- * pinch or Cmd + scroll dollies (research 09 §5.1).
+ * Mouse profiles: the wheel dollies (a pinch, `wheel` + Ctrl, too). Trackpad: two-finger scroll tumbles, Shift +
+ * scroll tracks, pinch or Cmd + scroll dollies (research 09 §5.1).
  */
 export function wheelAction(profile: NavProfile, e: NavWheelInput, pageHeightPx: number): WheelAction {
   const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? Math.max(pageHeightPx, 1) : 1;
@@ -69,15 +69,15 @@ export function wheelAction(profile: NavProfile, e: NavWheelInput, pageHeightPx:
 }
 
 /**
- * M6a pointer platform rule (b) (M6A-SPEC §5.17; B9): the MMB stand-in. In the `trackpad` and `mayaOneButton`
+ * M6a pointer platform rule (b) (M6A-SPEC §5.17; B9): the MMB stand-in. In the `trackpad` and `oneButton`
  * profiles an `Alt+Shift`+LMB press in a Model viewport pane is an MMB press for the tools (`button 1`, Alt and Shift
  * cleared; Ctrl stays, so `Ctrl+Alt+Shift`+LMB is Ctrl+MMB): the MMB rule, `B`+MMB radius, Target Weld centre, Slide
- * and the virtual slider work without a middle button. Animate and the `maya` profile keep Alt+LMB as tumble.
+ * and the virtual slider work without a middle button. Animate and the `dcc` profile keep Alt+LMB as tumble.
  */
 export function isMmbStandIn(profile: NavProfile, workspace: string, e: NavPointerInput): boolean {
   return (
     workspace === 'model' &&
-    (profile === 'trackpad' || profile === 'mayaOneButton') &&
+    (profile === 'trackpad' || profile === 'oneButton') &&
     e.button === 0 &&
     e.altKey &&
     e.shiftKey

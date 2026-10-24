@@ -1,7 +1,7 @@
 // Primitive parameters (M6A-SPEC §6.3): the low-poly defaults are the `ParamDef` defaults (prefs.modeling
-// .primitiveDefaults 'low-poly'); `MAYA_PRIMITIVE_DEFAULTS` holds Maya's (preference 'maya'). Every param is
-// value-bound; the primary field is the first subdivision count (humanoidBody: height). Plane lies in XZ facing +Y;
-// cylinder, cone and torus axes along +Y; all centred at the origin. Eager: plain data.
+// .primitiveDefaults 'low-poly'); `DCC_PRIMITIVE_DEFAULTS` holds the classic desktop-DCC set (preference 'dcc'). Every
+// param is value-bound; the primary field is the first subdivision count (humanoidBody: height). Plane lies in XZ
+// facing +Y; cylinder, cone and torus axes along +Y; all centred at the origin. Eager: plain data.
 import type { ParamDef, ParamValues } from '@ekza-studio/anim-core';
 import { distance, enumOf, int } from './paramKit';
 import type { PrimitiveKind } from './types';
@@ -81,8 +81,8 @@ export const PRIMITIVE_PARAMS: Readonly<Record<PrimitiveKind, readonly ParamDef[
   humanoidBody,
 });
 
-/** §6.3 Maya defaults (preference `primitiveDefaults: 'maya'`). */
-export const MAYA_PRIMITIVE_DEFAULTS: Readonly<Record<PrimitiveKind, ParamValues>> = Object.freeze({
+/** §6.3 classic desktop-DCC defaults, 20-segment spheres and the like (preference `primitiveDefaults: 'dcc'`). */
+export const DCC_PRIMITIVE_DEFAULTS: Readonly<Record<PrimitiveKind, ParamValues>> = Object.freeze({
   cube: { width: 1, height: 1, depth: 1, subdivisionsWidth: 1, subdivisionsHeight: 1, subdivisionsDepth: 1 },
   sphere: { radius: 0.5, subdivisionsAxis: 20, subdivisionsHeight: 20 },
   cylinder: { radius: 1, height: 2, subdivisionsAxis: 20, subdivisionsHeight: 1, subdivisionsCaps: 0 },

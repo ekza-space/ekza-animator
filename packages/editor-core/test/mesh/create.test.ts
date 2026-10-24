@@ -143,9 +143,9 @@ describe('mesh.create.* (§5.16)', () => {
     expect(t.app.store.get('meshes', (plain as { value: { mesh: MeshId } }).value.mesh)?.parent).toBeNull();
   });
 
-  it("uses Maya's defaults with the 'maya' preference", async () => {
+  it("uses the classic DCC defaults with the 'dcc' preference", async () => {
     const t = await meshTestApp();
-    t.app.prefs.setState({ modeling: { ...t.app.prefs.getState().modeling, primitiveDefaults: 'maya' } });
+    t.app.prefs.setState({ modeling: { ...t.app.prefs.getState().modeling, primitiveDefaults: 'dcc' } });
     const result = await t.app.run('mesh.create.cylinder');
     const id = (result as { value: { mesh: MeshId } }).value.mesh;
     expect(t.app.store.get('meshes', id)?.generator?.params).toMatchObject({

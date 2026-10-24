@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { assertParams, coerceArgs, type ParamDef, paramDefaults, primaryParam } from '@ekza-studio/anim-core';
 import { describe, expect, it } from 'vitest';
 import {
-  MAYA_PRIMITIVE_DEFAULTS,
+  DCC_PRIMITIVE_DEFAULTS,
   MESH_OP_DESCRIPTORS,
   MESH_SET_OP_DESCRIPTORS,
   PRIMITIVE_PARAMS,
@@ -137,13 +137,13 @@ describe('§6.3 primitive parameters', () => {
     torus: 'subdivisionsAxis',
     humanoidBody: 'height',
   };
-  it.each(Object.entries(PRIMITIVE_PARAMS))('%s: valid list, primary and low-poly/Maya defaults', (kind, params) => {
+  it.each(Object.entries(PRIMITIVE_PARAMS))('%s: valid list, primary and low-poly/DCC defaults', (kind, params) => {
     assertParams(params);
     expect(primaryParam(params)?.name).toBe(PRIMARY[kind]);
     expect(params.every((param) => param.bound === 'value')).toBe(true);
-    const maya = MAYA_PRIMITIVE_DEFAULTS[kind as keyof typeof MAYA_PRIMITIVE_DEFAULTS];
-    expect(Object.keys(maya)).toEqual(params.map((param) => param.name));
-    expect(coerceArgs(params, maya).problems).toEqual([]);
+    const dcc = DCC_PRIMITIVE_DEFAULTS[kind as keyof typeof DCC_PRIMITIVE_DEFAULTS];
+    expect(Object.keys(dcc)).toEqual(params.map((param) => param.name));
+    expect(coerceArgs(params, dcc).problems).toEqual([]);
   });
   it('has the §6.3 low-poly defaults', () => {
     expect(paramDefaults(PRIMITIVE_PARAMS.cube)).toEqual({

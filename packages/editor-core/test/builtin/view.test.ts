@@ -40,7 +40,7 @@ describe('view.tool / view.manipulatorSize / view.setManipSpace / view.setNavPro
     const app = opsApp();
     await runOk(app, 'view.setNavProfile', { profile: 'trackpad' });
     expect(app.prefs.getState().navProfile).toBe('trackpad');
-    expect((await runResult(app, 'view.setNavProfile', { profile: 'blender' })).status).toBe('cancelled');
+    expect((await runResult(app, 'view.setNavProfile', { profile: 'joystick' })).status).toBe('cancelled');
   });
 });
 

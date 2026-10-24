@@ -119,7 +119,7 @@ describe.skipIf(!SIBLINGS_READY)(`mirror animation on Seed-san ${BLOCKED}`, { ti
   });
 });
 
-// Acceptance fix round 1, bug 6: Polybot's secondary controls pair badly (sec.mixamorig_* against Right*), and a
+// Acceptance fix round 1, bug 6: Polybot's secondary controls pair badly (its prefixed sec.* names against Right*), and a
 // whole-character mirror listed every unpaired control in one toast of ~1,000 characters over the panels. Unpaired
 // controls are summarised in one short line (count and at most three names), for Mirror Animation and Mirror Pose.
 describe.skipIf(!SIBLINGS_READY)(`mirror warnings on Polybot ${BLOCKED}`, { timeout: 120_000 }, () => {

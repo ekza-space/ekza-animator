@@ -12,8 +12,8 @@ test('E2E-M2A-17: scale tool and region', async ({ page }) => {
   await openEditor(page, '&platform=mac');
   await expectKernelStarted(page);
   const seed = await seedWaveClip(page);
-  // The Maya navigation profile: the wheel zooms the Graph Editor (so frame 60 fits on the canvas).
-  await runOk(page, 'prefs.set', { patch: { navProfile: 'maya' } });
+  // The `dcc` navigation profile: the wheel zooms the Graph Editor (so frame 60 fits on the canvas).
+  await runOk(page, 'prefs.set', { patch: { navProfile: 'dcc' } });
 
   // Double-click the curve: all its keys.
   const on = await pointOf(page, () => call(page, 'screenOfCurve', seed.rz, 7.5), 'the rz curve at 7.5');

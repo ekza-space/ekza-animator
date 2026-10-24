@@ -4,7 +4,7 @@ import { seedWaveClip } from './helpers/seed';
 import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
 
 // E2E-10 (MVP-SPEC §6.2, §4.11.4 handle drag): on a weighted curve with free weights a handle drag changes the angle
-// and the length; with the weight locked a drag changes only the angle (the Maya weight keeps).
+// and the length; with the weight locked a drag changes only the angle (the tangent weight keeps).
 test('E2E-10: weighted handles', async ({ page }) => {
   await openEditor(page, '&platform=mac');
   await expectKernelStarted(page);

@@ -1,10 +1,10 @@
 // B0b DoD (M6A-SPEC §9): Animate's shipped bindings resolve exactly as before. `keymap-m2a-resolve.json` records what
-// the M2a `maya` table (v0.2.0) answered for every probe of `keymap-probes.ts` (each physical key under each modifier
-// set, over every Animate scope chain and trigger, on both platforms). Today's keymap must give the same answers,
-// except for the changes the spec names for Animate.
+// the M2a default keymap table (v0.2.0) answered for every probe of `keymap-probes.ts` (each physical key under each
+// modifier set, over every Animate scope chain and trigger, on both platforms). Today's keymap must give the same
+// answers, except for the changes the spec names for Animate.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { mayaKeymap } from './keymap-support';
+import { dccKeymap } from './keymap-support';
 import { resolveTable } from './keymap-probes';
 
 const M2A: readonly string[] = JSON.parse(
@@ -31,7 +31,7 @@ const NAMED_CHANGES: readonly RegExp[] = [
 ];
 
 function table(): string[] {
-  return [...resolveTable(mayaKeymap('other'), 'other'), ...resolveTable(mayaKeymap('mac'), 'mac')];
+  return [...resolveTable(dccKeymap('other'), 'other'), ...resolveTable(dccKeymap('mac'), 'mac')];
 }
 
 describe('Animate keymap (M2a snapshot)', () => {

@@ -1,7 +1,7 @@
 // ComponentPicker (M6A-SPEC §4.4, §5.6): vertex/edge/face picking on fixed cameras, depth order, occlusion (by the mesh
 // itself and by the meshes around it), back faces, the wire-shading dot rule, hidden elements, a pane's face isolate,
-// marquee counts and Maya's edge rule, transforms, BVH refit and rebuild, and a randomized check of vertex and face
-// picks against three.js's own raycaster over the same triangles.
+// marquee counts and the desktop-DCC edge rule, transforms, BVH refit and rebuild, and a randomized check of vertex and
+// face picks against three.js's own raycaster over the same triangles.
 import { BitSet, type HiddenSet, triangulate } from '@ekza-studio/mesh-core';
 import {
   BufferAttribute,
@@ -310,7 +310,7 @@ describe('ComponentPicker: edges', () => {
       expect(hit?.index).not.toBe(back);
     }
     expect(p.hover(camera, at(camera, [0.1, 0, -2]), VIEW, 'edge', NO_OCCLUSION)?.index).toBe(front);
-    // The marquee keeps Maya's rule: an end behind the camera is not inside any rectangle.
+    // The marquee keeps the desktop-DCC rule: an end behind the camera is not inside any rectangle.
     expect(Array.from(p.marquee(camera, { x0: 0, y0: 0, x1: W, y1: H }, VIEW, 'edge', NO_OCCLUSION))).toEqual([front]);
   });
 });
@@ -516,7 +516,7 @@ describe('ComponentPicker: marquee', () => {
     );
   });
 
-  it('selects an edge only when both projected endpoints are inside (Maya)', () => {
+  it('selects an edge only when both projected endpoints are inside (desktop-DCC convention)', () => {
     const d = plane({ width: 10, height: 10, subdivisionsWidth: 10, subdivisionsHeight: 10 });
     const p = pickerFor(d);
     const camera = orthoTop(12);

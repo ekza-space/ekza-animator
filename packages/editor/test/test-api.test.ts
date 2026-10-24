@@ -50,9 +50,9 @@ describe('URL parameters (e2e builds only)', () => {
       handoff: null, // AUTORIG-SPEC D1 (literal update, §4.4)
       from: null,
     });
-    expect(parseEditorParams('?e2e=1&nav=blender&platform=amiga', true)).toEqual({ ...DEFAULT_PARAMS, e2e: true });
+    expect(parseEditorParams('?e2e=1&nav=joystick&platform=amiga', true)).toEqual({ ...DEFAULT_PARAMS, e2e: true });
     expect(parseEditorParams('?e2e=1&firstRun=1', false)).toEqual(DEFAULT_PARAMS);
-    expect(isE2eRequested(true, '?nav=maya&e2e=1')).toBe(true);
+    expect(isE2eRequested(true, '?nav=dcc&e2e=1')).toBe(true);
     expect(isE2eRequested(true, '?e2e=0')).toBe(false);
   });
 

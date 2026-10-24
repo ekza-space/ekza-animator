@@ -54,7 +54,7 @@ interface Setup {
   readonly timers: ReturnType<typeof manualTimers>;
   hover(chain: KeyScopeChain): void;
   block(blocked: boolean): void;
-  space(behaviour: 'maya' | 'play'): void;
+  space(behaviour: 'maximize' | 'play'): void;
 }
 
 function setup(platform: 'mac' | 'other' = 'other', bindings: readonly KeyBinding[] = BINDINGS): Setup {
@@ -65,7 +65,7 @@ function setup(platform: 'mac' | 'other' = 'other', bindings: readonly KeyBindin
   const timers = manualTimers();
   let chain: KeyScopeChain = { scopes: [GLOBAL_SCOPE], panel: null, paneId: null };
   let blocked = false;
-  let behaviour: 'maya' | 'play' = 'maya';
+  let behaviour: 'maximize' | 'play' = 'maximize';
   const adapter = new KeyboardAdapter({
     keymap,
     scopeChain: () => chain,
@@ -310,7 +310,7 @@ describe('KeyboardAdapter', () => {
       keymap,
       scopeChain: () => ({ scopes: [GLOBAL_SCOPE], panel: null, paneId: null }),
       blocked: () => false,
-      spaceBehaviour: () => 'maya',
+      spaceBehaviour: () => 'maximize',
       dispatch: (d) => dispatched.push(d),
     });
     const first = key('keydown', { code: 'KeyS', key: 's', ctrlKey: true });
@@ -353,7 +353,7 @@ describe('KeyboardAdapter', () => {
       keymap,
       scopeChain: () => VIEWPORT,
       blocked: () => false,
-      spaceBehaviour: () => 'maya',
+      spaceBehaviour: () => 'maximize',
       dispatch: () => {},
       timers: manualTimers(),
     });

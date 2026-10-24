@@ -1,4 +1,4 @@
-// The `maya` keymap preset: MVP-SPEC §4.10, the M2A-SPEC §6 and the M6A-SPEC §7 additions as data. Chords use `KeyboardEvent.code`;
+// The `dcc` keymap preset (industry-standard DCC hotkeys): MVP-SPEC §4.10, the M2A-SPEC §6 and the M6A-SPEC §7 additions as data. Chords use `KeyboardEvent.code`;
 // `mod` is Cmd on macOS and Ctrl elsewhere. A more specific scope wins over 'global' (KeymapManager.resolve).
 import type { Chord, KeyBinding, KeyScope, KeyTrigger, OperatorId } from '../types';
 import { MODEL_SCOPE } from './scopes';
@@ -148,7 +148,7 @@ const COMPONENTS = ['vertex', 'edge', 'face'] as const;
 
 bind([key('F8')], 'select.mode', [MV], { mode: 'toggle' });
 COMPONENTS.forEach((mode, i) => {
-  // F9 vertex, F10 edge (F11 is never bound: browser fullscreen); 1/2/3 on every keyboard (Blender habit).
+  // F9 vertex, F10 edge (F11 is never bound: browser fullscreen); 1/2/3 on every keyboard (common DCC convention, Mac-safe).
   bind(i < 2 ? [key(`F${9 + i}`), key(`Digit${i + 1}`)] : [key('Digit3')], 'select.mode', [MV], { mode });
   bind([key(`F${9 + i}`, { mod: true })], 'select.mesh.convert', [MVC], { to: mode, mode: 'touching' });
 });
@@ -205,7 +205,7 @@ bind([key('KeyA', { mod: true })], 'select.objects', [MV], { all: 'meshes', mode
 bind([key('KeyK', { mod: true })], 'ui.commandPalette', [ANY]);
 
 // ---------- Layout presets for focused work (docs/LAYOUT-PRESETS.md) ----------
-// Ctrl+Space hides the UI around the viewport (Maya); macOS takes Ctrl+Space for the input-source switch when more
+// Ctrl+Space hides the UI around the viewport; macOS takes Ctrl+Space for the input-source switch when more
 // than one input source is set up (Windows: the Chinese IME toggle), so Alt+0 does the same everywhere. Space keys are
 // tap/hold keys: the Ctrl+Space row is a tap. Alt+1…4 apply the built-in presets; Shift+F toggles browser fullscreen.
 bind([key('Space', { ctrl: true })], 'workspace.toggleFocus', [ANY], undefined, 'tap');
@@ -215,5 +215,5 @@ bind([key('Digit0', { alt: true })], 'workspace.toggleFocus', [ANY]);
 );
 bind([key('KeyF', { shift: true })], 'view.toggleFullscreen', [ANY]);
 
-/** The `maya` preset (MVP-SPEC §4.10 + M2A-SPEC §6 + M6A-SPEC §7), registered by `registerBuiltins` through a keymap contribution. */
-export const MAYA_KEYMAP: readonly KeyBinding[] = Object.freeze(bindings.map((binding) => Object.freeze(binding)));
+/** The `dcc` preset (MVP-SPEC §4.10 + M2A-SPEC §6 + M6A-SPEC §7), registered by `registerBuiltins` through a keymap contribution. */
+export const DCC_KEYMAP: readonly KeyBinding[] = Object.freeze(bindings.map((binding) => Object.freeze(binding)));

@@ -6,7 +6,7 @@ import {
   GLOBAL_SCOPE,
   type KeyBinding,
   type KeyInput,
-  MAYA_KEYMAP,
+  DCC_KEYMAP,
   MODEL_MENU_ITEMS,
   MODEL_MENUS,
   MODEL_SCOPE,
@@ -16,7 +16,7 @@ import {
   TOOL_HOLD_CODES,
 } from '../src';
 import { createFakeEditorApp } from '../src/testing';
-import { allAnimateChains, allModelChains, ch, mayaKeymap, resolved } from './keymap-support';
+import { allAnimateChains, allModelChains, ch, dccKeymap, resolved } from './keymap-support';
 import { PROBE_MODS, probeInput } from './keymap-probes';
 
 /** Operators the shell, the viewport and the curve editor register (not editor-core built-ins). */
@@ -44,7 +44,7 @@ const OTHER_PACKAGES: ReadonlySet<string> = new Set([
   'view.toggleFullscreen',
 ]);
 
-const SCOPES_IN_USE = new Set(MAYA_KEYMAP.map((binding) => binding.scope));
+const SCOPES_IN_USE = new Set(DCC_KEYMAP.map((binding) => binding.scope));
 const ALL_CHAINS = [...allModelChains(), ...allAnimateChains(), ...[...SCOPES_IN_USE].map((s) => [s, GLOBAL_SCOPE])];
 const TRIGGERS = ['press', 'tap', 'hold'] as const;
 
@@ -52,7 +52,7 @@ const TRIGGERS = ['press', 'tap', 'hold'] as const;
 const KEY_CODE =
   /^(Key[A-Z]|Digit\d|F([1-9]|1[0-2])|Space|Escape|Enter|NumpadEnter|Tab|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Arrow(Up|Down|Left|Right)|Comma|Period|Slash|Backslash|Minus|Equal|Semicolon|Quote|BracketLeft|BracketRight|Backquote)$/;
 
-/** The fake app contributes the `maya` keymap; the built-in operators and workspaces come on top. */
+/** The fake app contributes the `dcc` keymap; the built-in operators and workspaces come on top. */
 function builtinApp() {
   const app = createFakeEditorApp();
   registerBuiltinOperators(app);
@@ -103,8 +103,8 @@ describe('keymap conformance (§7)', () => {
         ...Array.from({ length: 9 }, (_, i) => mod(`Digit${i + 1}`)),
         ctrl('KeyH'),
         ctrl('Digit1'),
-        // F11 (fullscreen) and F12 (DevTools) are never bound; §7 binds only Mod+F11 (Convert to Faces, Maya's
-        // Ctrl+F11), which the browser leaves alone.
+        // F11 (fullscreen) and F12 (DevTools) are never bound; §7 binds only Mod+F11 (Convert to Faces, the
+        // desktop-DCC Ctrl+F11), which the browser leaves alone.
         ...PROBE_MODS.filter((mods) => mods.mod !== true && mods.ctrl !== true).map((mods) =>
           probeInput('F11', mods, platform),
         ),
@@ -119,7 +119,7 @@ describe('keymap conformance (§7)', () => {
       ];
     };
     for (const platform of ['other', 'mac'] as const) {
-      const keymap = mayaKeymap(platform);
+      const keymap = dccKeymap(platform);
       for (const input of never(platform)) {
         for (const chain of ALL_CHAINS) {
           for (const trigger of TRIGGERS) {
@@ -137,10 +137,10 @@ describe('keymap conformance (§7)', () => {
   });
 
   it('never runs edit.escape (or anything) from RMB: bindings name keys only, and only Esc escapes', () => {
-    for (const binding of MAYA_KEYMAP) {
+    for (const binding of DCC_KEYMAP) {
       expect([binding.chord.code, KEY_CODE.test(binding.chord.code)]).toEqual([binding.chord.code, true]);
     }
-    expect(MAYA_KEYMAP.filter((binding) => binding.op === 'edit.escape').map((binding) => binding.chord)).toEqual([
+    expect(DCC_KEYMAP.filter((binding) => binding.op === 'edit.escape').map((binding) => binding.chord)).toEqual([
       { code: 'Escape' },
     ]);
     const app = builtinApp();
@@ -174,7 +174,7 @@ describe('keymap conformance (§7)', () => {
 
   it('resolves Mod+E to mesh.extrude everywhere in Model and to Export everywhere in Animate', () => {
     for (const platform of ['other', 'mac'] as const) {
-      const keymap = mayaKeymap(platform);
+      const keymap = dccKeymap(platform);
       for (const chain of allModelChains()) {
         expect([platform, chain[0], resolved(keymap, 'Mod+KeyE', chain)]).toEqual([
           platform,
@@ -198,7 +198,7 @@ describe('keymap conformance (§7)', () => {
   });
 
   it('reserves the tool modifiers in the Model viewport: no press binding, B only as the soft-select tap', () => {
-    const keymap = mayaKeymap();
+    const keymap = dccKeymap();
     const viewport = allModelChains().filter((chain) => chain.includes(MODEL_SCOPE.viewport));
     expect(viewport).toHaveLength(4);
     for (const chain of viewport) {

@@ -1,5 +1,6 @@
-// Maya's loop table (M6A-SPEC §5.6) through `loopGesture`: every row in edge, vertex and face mode on the torus, the
-// tie rule, the plain-Shift fallback and the `Mod`-double run removal (E2E-MOD-26 asserts the same through the UI).
+// The DCC-standard loop table (M6A-SPEC §5.6) through `loopGesture`: every row in edge, vertex and face mode on the
+// torus, the tie rule, the plain-Shift fallback and the `Mod`-double run removal (E2E-MOD-26 asserts the same through
+// the UI).
 import { describe, expect, it } from 'vitest';
 import { type ComponentSelection, edgeLoop, edgeRing, faceLoop, loopGesture, vertexLoop } from '../../src';
 import { faceVerts, hiddenSet, membersOf, mesh, sel, sorted } from './fixtures';

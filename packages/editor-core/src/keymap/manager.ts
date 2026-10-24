@@ -3,7 +3,7 @@
 // tap-hold keys whose timing the DOM adapter measures).
 //
 // Precedence on the same chord, scope and trigger: user overrides > preference bindings (e.g. Space = play) >
-// contributions, the latest contribution first (so the `maya` preset, contributed by the built-ins, is the base).
+// contributions, the latest contribution first (so the `dcc` preset, contributed by the built-ins, is the base).
 import type { Disposer } from '@ekza-studio/anim-core';
 import type { Chord, KeyBinding, KeyInput, KeymapManager, KeyScope, KeyTrigger, OperatorId } from '../types';
 import { chordLabel } from './labels';
@@ -76,7 +76,7 @@ export function createKeymapManager(
 
   return {
     platform,
-    preset: 'maya',
+    preset: 'dcc',
     bindings: () => [...contributed.flat(), ...preference, ...overrides],
     resolve(input: KeyInput, scopes: readonly KeyScope[], trigger: KeyTrigger): KeyBinding | null {
       const candidates = precedence();
@@ -116,7 +116,7 @@ export function createKeymapManager(
 }
 
 /** Bindings implied by preferences: `spaceBehaviour: 'play'` turns a Space tap into play/stop (§4.10). */
-export function preferenceBindings(spaceBehaviour: 'maya' | 'play'): readonly KeyBinding[] {
+export function preferenceBindings(spaceBehaviour: 'maximize' | 'play'): readonly KeyBinding[] {
   return spaceBehaviour === 'play'
     ? [{ chord: { code: 'Space' }, op: 'time.togglePlay', scope: 'global', trigger: 'tap' }]
     : [];

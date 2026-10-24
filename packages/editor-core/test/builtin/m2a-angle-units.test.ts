@@ -103,7 +103,7 @@ describe('graph.keys.setFields on an angle attribute (§5.1 rule 5, M2A-A4-12)',
     select(app, [roll.keys[1] as KeyId]);
     await expectUndoRedoExact(app, 'graph.keys.setFields', { outAngleDeg: 45 });
     const h = key(app, roll.keys[1] as KeyId).outHandle;
-    // Maya: angle = atan(dv·k / (dt/fps)) with k = 180/π for an angle unit.
+    // Tangent angle (AnimX-compatible model): atan(dv·k / (dt/fps)) with k = 180/π for an angle unit.
     expect(Math.atan((h.dv * RAD2DEG) / (h.dt / FPS)) / DEG).toBeCloseTo(45, 9);
     // The unified key's in side turns collinear.
     const hin = key(app, roll.keys[1] as KeyId).inHandle;
@@ -133,7 +133,7 @@ describe('graph.keys.setFields on an angle attribute (§5.1 rule 5, M2A-A4-12)',
       for (const id of [...rz.keys, ...roll.keys, ...blend.keys])
         tx.put('keys', { ...key(app, id), weightLocked: false });
     });
-    // Maya weight of @roll's out handle in display units after each edit: 3·hypot(dt seconds, dv degrees).
+    // Tangent weight of @roll's out handle in display units after each edit: 3·hypot(dt seconds, dv degrees).
     const weights: number[] = [];
     for (const args of edits) {
       for (const ids of [rz.keys, roll.keys, blend.keys]) {

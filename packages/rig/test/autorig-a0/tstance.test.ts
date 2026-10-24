@@ -142,7 +142,7 @@ describe('applyPoseAsRest (P-J5)', () => {
   it('identity-rest joints keep identity; an aimed chain keeps its local +X on its child (1e-9)', () => {
     const base = aposed();
     const hand = at(base, 'rightHand');
-    // A three-joint aimed chain under the right hand (a sword or a ponytail: Maya/Blender-oriented, local +X → child).
+    // A three-joint aimed chain under the right hand (a sword or a ponytail: DCC-oriented, local +X → child).
     const points: V3[] = [
       [hand.restPosition[0] - 0.02, hand.restPosition[1] - 0.01, 0.05],
       [hand.restPosition[0] - 0.05, hand.restPosition[1] - 0.06, 0.08],

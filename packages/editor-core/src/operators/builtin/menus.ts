@@ -358,7 +358,7 @@ export const BUILTIN_MENU_ITEMS: readonly MenuItemDef[] = [
     },
   ]),
   ...items('view.navigation', 'navigation', [
-    { name: 'maya', op: 'view.setNavProfile', args: { profile: 'maya' }, label: 'Maya (three-button mouse)' },
+    { name: 'dcc', op: 'view.setNavProfile', args: { profile: 'dcc' }, label: 'Three-button mouse (Alt + drag)' },
     { name: 'trackpad', op: 'view.setNavProfile', args: { profile: 'trackpad' }, label: 'Trackpad' },
   ]),
   ...items('view.manipulator', 'size', [

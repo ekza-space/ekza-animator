@@ -93,8 +93,8 @@ const ITEMS: readonly (readonly [string, string, string, string])[] = [
     'two clicks on opposite faces of a cube cut through the faces between them along the screen-space line',
   ],
   [
-    'Maya Normal orientation',
-    'Maya-style Normal axis orientation (each component moves along its own normal on the N handle)',
+    'Per-component Normal orientation',
+    'Normal axis orientation (each component moves along its own normal on the N handle)',
     'Component orientation (one averaged frame, §5.15)',
     'dragging N on a sphere’s face selection inflates every face along its own normal',
   ],

@@ -1,9 +1,9 @@
-// The Rig & Skin rows of the `maya` preset that come with the rig-workspace chunk (M6B-SPEC §7, cut to the MVP
+// The Rig & Skin rows of the `dcc` preset that come with the rig-workspace chunk (M6B-SPEC §7, cut to the MVP
 // operators of §0.6; C7). The shadow rows (`S` and the other keying chords → `rig.animateOnly`) are eager
-// (`keymap/maya.rig.ts`, M6B-C7-15). Rows of operators whose owners have not landed are bound anyway and poll-fail
+// (`keymap/dcc.rig.ts`, M6B-C7-15). Rows of operators whose owners have not landed are bound anyway and poll-fail
 // until they do (§7). Deferred rows (Shapes `3`, the Joint tool, Delete Joint, Duplicate, Parent, pick-walk over
 // joints, Paint Select, copy/paste vertex weights) are not bound (Q-MVP-15). Never bound: `Alt+F`, `Shift+B`.
-import { RIG_SCOPE, rigKey as key, rigRows } from '../../keymap/maya.rig';
+import { RIG_SCOPE, rigKey as key, rigRows } from '../../keymap/dcc.rig';
 import type { KeyBinding } from '../../types';
 
 const RV = RIG_SCOPE.viewport;

@@ -113,7 +113,7 @@ describe('key.set', () => {
 
   // Acceptance round 1 (§8.3 step 12): keying a typed, unkeyed edit used to strip the edit's own step, so the next
   // undo skipped it and the typed value stayed as an override no step owned.
-  it('keys a typed unkeyed edit without losing its undo step (Maya order: key, edit, older key)', async () => {
+  it('keys a typed unkeyed edit without losing its undo step (undo order: key, edit, older key)', async () => {
     const app = opsApp();
     select(app, [WAVE.upperArmL]);
     setSceneFrame(app, 0);

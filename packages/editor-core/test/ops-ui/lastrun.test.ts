@@ -490,11 +490,11 @@ describe('edit.adjustLast (§5.7)', () => {
     const t = await meshTestApp();
     await enterModel(t.app);
     const modeling = t.app.prefs.getState().modeling;
-    t.app.prefs.setState({ modeling: { ...modeling, primitiveDefaults: 'maya' } });
+    t.app.prefs.setState({ modeling: { ...modeling, primitiveDefaults: 'dcc' } });
     const created = await t.app.run('mesh.create.cylinder', {});
     const id = (created as { value: { mesh: MeshId } }).value.mesh;
     expect(live(t.app)).toMatchObject({ id: 'mesh.create.cylinder', targets: [id], kind: null });
-    // The Maya set was used and recorded (radius 1, height 2, 20 sides).
+    // The `dcc` primitive defaults were used and recorded (radius 1, height 2, 20 sides).
     expect(live(t.app)?.args).toMatchObject({ radius: 1, height: 2, subdivisionsAxis: 20 });
     const count = undoCount(t.app);
     await t.app.run('edit.adjustLast', { args: { subdivisionsAxis: 10 } });
