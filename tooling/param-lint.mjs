@@ -216,6 +216,8 @@ async function loadRegistry(root) {
   const load = (path) => import(pathToFileURL(join(root, path)).href);
   const core = await load('packages/editor-core/src/index.ts');
   const forms = await load('packages/editor-core/src/forms/index.ts');
+  // its own module, outside the forms index (P-T6A-6: keeps anim-core's assertParams out of every route)
+  const problems = await load('packages/editor-core/src/forms/problems.ts');
   const policy = await load('packages/agent-tools/src/policy.ts');
   const app = core.createHeadlessEditorApp();
   await Promise.all([app.rig.load(), app.library.load(), core.loadModelOperators(), core.loadUiWrappers(app)]);
@@ -224,7 +226,7 @@ async function loadRegistry(root) {
   return {
     operators: app.operators.list(),
     forms: [...forms.FORM_DEFS.values()],
-    formProblems: forms.formProblems,
+    formProblems: problems.formProblems,
     wrappers: [...core.UI_WRAPPER_IDS],
     policyOf: policy.tablePolicyOf,
     surfaces,

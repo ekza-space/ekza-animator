@@ -3,14 +3,7 @@
 // Last-op card (`LastRun`), Repeat Last / Adjust Last and the agent schemas never read it, and nothing in Studio Pro
 // depends on whether this chunk has loaded. There is no `addParams`: making an operator adjustable in Studio Pro is a
 // separate, per-operator change (OQ-15).
-import {
-  assertParams,
-  coerceArgs,
-  EkzaError,
-  type ParamDef,
-  type ParamValues,
-  paramDefaults,
-} from '@ekza-studio/anim-core';
+import { coerceArgs, type ParamDef, type ParamValues, paramDefaults } from '@ekza-studio/anim-core';
 import type { OperatorDef } from '../types';
 import {
   DELETE_TIME_FORM,
@@ -149,21 +142,4 @@ export function formArgs(
     setPath(args, param.name, value);
   }
   return { args, problems };
-}
-
-/** Why a form is unusable (bad params, a path inside another param's path, no operator id), else []. */
-export function formProblems(form: Pick<AnyFormDef, 'id' | 'params'>): string[] {
-  const problems: string[] = [];
-  if (!/^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z][A-Za-z0-9]*)+$/.test(form.id)) problems.push(`${form.id}: not an operator id`);
-  try {
-    assertParams(form.params);
-  } catch (error) {
-    problems.push(`${form.id}: ${error instanceof EkzaError ? error.message : String(error)}`);
-  }
-  const names = form.params.map((param) => param.name);
-  for (const name of names) {
-    const inner = names.find((other) => other !== name && other.startsWith(`${name}.`));
-    if (inner !== undefined) problems.push(`${form.id}: '${inner}' is inside '${name}'`);
-  }
-  return problems;
 }
