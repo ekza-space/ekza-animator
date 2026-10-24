@@ -157,6 +157,71 @@ export const TIMELINE_MENU_ITEMS: readonly MenuItemDef[] = [
 /** Menu items whose operator toggles a session flag: the menu shows them checked while it is on. */
 export const TIMELINE_CHECKED_OPS: ReadonlySet<string> = new Set(['key.toggleRipple']);
 
+/**
+ * A surface that shows the time band (STUDIO-TOUCH-SPEC §20.3 item 18): Studio Pro's time slider or Ekza Studio's
+ * Thread. `time.selectBand` asks the focused one to draw at once.
+ */
+export interface BandSource {
+  redraw(force?: boolean): void;
+}
+
+/** A provided band source: `focus()` makes it the one `time.selectBand` redraws; `dispose()` withdraws it. */
+export interface BandSourceHandle {
+  focus(): void;
+  dispose(): void;
+}
+
+interface BandSources {
+  readonly sources: BandSource[];
+  focused: BandSource | null;
+  unregister: Disposer | null;
+}
+
+const bandSources = new WeakMap<EditorApp, BandSources>();
+
+/**
+ * The focused band source seam (STUDIO-TOUCH-SPEC §20.3 item 18, T7): every surface that edits the band provides itself
+ * here, and `time.selectBand` with the `timeline.context.*` items act on the focused one — the most recently provided
+ * or focused. The first source registers the contributions unless another owner already has (Studio Pro's time slider
+ * host registers them itself and keeps owning them); the last source to go removes what this seam registered. So a
+ * shell without Pro's time slider (Halo's Thread) runs the same operators as Pro.
+ */
+export function provideBandSource(app: EditorApp, source: BandSource): BandSourceHandle {
+  let entry = bandSources.get(app);
+  if (entry === undefined) {
+    entry = { sources: [], focused: null, unregister: null };
+    bandSources.set(app, entry);
+  }
+  const current = entry;
+  current.sources.push(source);
+  current.focused = source;
+  if (current.unregister === null && app.operators.get('time.selectBand') === undefined) {
+    current.unregister = registerContributions(app, () => current.focused);
+  }
+  let disposed = false;
+  return {
+    focus() {
+      if (!disposed) current.focused = source;
+    },
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      const index = current.sources.indexOf(source);
+      if (index !== -1) current.sources.splice(index, 1);
+      if (current.focused === source) current.focused = current.sources.at(-1) ?? null;
+      if (current.sources.length > 0) return;
+      current.unregister?.();
+      current.unregister = null;
+      bandSources.delete(app);
+    },
+  };
+}
+
+/** The focused band source of an app (tests, the e2e probe), or null. */
+export function focusedBandSource(app: EditorApp): BandSource | null {
+  return bandSources.get(app)?.focused ?? null;
+}
+
 /** Registers `time.selectBand` and the slider's menu items; the disposer removes them again. */
 export function registerContributions(app: EditorApp, focused: FocusedSlider): Disposer {
   const disposers: Disposer[] = [];

@@ -31,6 +31,8 @@ import { arrivalStage, HALO_STAGES, PANE, parseStage, STAGE_BASICS, stageOfWorks
 import { createHaloStore, type HaloInput, type HaloStore, initialUi } from './store';
 import { countVisibleTargets } from './targets';
 import { coachMarks } from './coach';
+import { animateSlice } from '../stages/animate/slice';
+import { startAnimate } from '../stages/animate/start';
 import { homeSlice } from '../home/slice';
 import { startHome } from '../home/start';
 
@@ -399,6 +401,8 @@ export function createHaloController(host: HostShell): HaloController {
         );
       }
 
+      // T7: the Animate stage (Rec as the shell override, the fitting manipulator, Reach, the Library, the band source)
+      disposers.push(startAnimate(controller));
       // T11: Home › Continue (the recovery hook), the silent resume after a reload, the Share sheet (P-T6A-4)
       disposers.push(startHome(controller));
 
@@ -508,6 +512,7 @@ export function createHaloController(host: HostShell): HaloController {
                 hideUi: ui.hideUi,
                 focus: ui.focus?.kind ?? null,
               },
+              animate: animateSlice(controller),
               // T11: Continue, the resume record, the storage card, Share's prepared file
               t11: homeSlice(controller),
               // T6b's slice (the harness's, now the frame's): the readiness list and the Next chip shown

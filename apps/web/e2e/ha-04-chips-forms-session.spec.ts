@@ -1,8 +1,18 @@
 import { expect, type Page, type TestInfo, test } from '@playwright/test';
 import { expectStudioShown } from './helpers/ar-host';
-import { meshPoint, halo, haloMenu, loadCubeLadInMake, loadPolybot, openHalo, petal, tapStage } from './helpers/halo';
+import {
+  emptyPoint,
+  meshPoint,
+  halo,
+  haloMenu,
+  loadCubeLadInMake,
+  loadPolybot,
+  openHalo,
+  petal,
+  tapStage,
+} from './helpers/halo';
 import { call, runOk } from './helpers/test-api';
-import { fingerTap } from './helpers/touch';
+import { fingerHold, fingerTap } from './helpers/touch';
 
 // ha-04 Echo chips, forms and the session bar (STUDIO-TOUCH-SPEC §5.6, §5.7, §6.1, P15, ST-34; T6a exit test),
 // `chrome-touch`: after an adjustable operation its parameters float as chips beside the result and a change is one
@@ -70,7 +80,7 @@ test('a non-adjustable operator opens its pre-run form; ✓ runs it, ✕ runs no
   await openHalo(page);
   await loadPolybot(page);
   const clips = (await call(page, 'clips')).length;
-  // the tray is empty space's docked Halo: New animation (clip.new has a form, §5.6)
+  // empty space's Halo (its ring; in Animate the tray is the Thread, T7): New animation (clip.new has a form, §5.6)
   await fingerTap(page, await trayVerb(page, '\\+ New animation'));
   const form = page.getByTestId('halo-form');
   await expect(form).toBeVisible();
@@ -117,10 +127,10 @@ test('the session bar: ✓ Done keeps, ✕ Cancel discards, leaving for Pro comm
 });
 
 async function trayVerb(page: Page, label: string): Promise<{ x: number; y: number }> {
-  const box = await page
-    .getByTestId('halo-tray-verbs')
-    .getByRole('menuitem', { name: new RegExp(`^${label}`) })
-    .boundingBox();
-  if (box === null) throw new Error(`no tray verb ${label}`);
+  // T7: in Animate the tray is the Thread and the Animations row; empty space's verbs are its long-press ring
+  await fingerHold(page, await emptyPoint(page), 600);
+  await expect(haloMenu(page)).toHaveAttribute('data-mode', 'ring');
+  const box = await petal(page, label).boundingBox();
+  if (box === null) throw new Error(`no empty-space verb ${label}`);
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
