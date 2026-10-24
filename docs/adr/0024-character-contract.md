@@ -10,6 +10,12 @@
   `desktop/humanoid-glb-v2`, and its tier T3 plan), ADRs 0020, 0021, 0022 and 0023 (Halo, on `design/studio-touch`).
 - Extends ADR 0010 (realizes T2, replaces the T3 device-code plan for the MVP, opens the slot vocabulary per bound
   contract); does not supersede it.
+- Amended by [ADR 0025](0025-game-protocol.md) (2026-10-24, the Ekza Game Protocol): the contract is an
+  `ekza.game-contract.v1` document with the profile `omoba.character.v1` (was `omoba.character-contract.v1`), the
+  manifest key is `ekza_package_v1` (was `ekza_animation_set_v1`; contact as `markers.contact`), and rule ids
+  `pack.extras`, `pack.animation-ref`, `clip.contact`, `clip.basic-interval` are `pack.manifest`, `pack.ref`,
+  `clip.markers`, `clip.min-interval` ([CHARACTER-CONTRACT-SPEC](../CHARACTER-CONTRACT-SPEC.md) v0.2 §15). The
+  decisions below stand in substance.
 
 ## Context
 
