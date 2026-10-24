@@ -9,7 +9,7 @@ import type { StarterPackClip } from '@ekza-studio/io';
 import { Play, Repeat, Search, Square } from '@ekza-studio/ui';
 import { type JSX, useEffect, useState, useSyncExternalStore } from 'react';
 import { useDocQuery, useSession } from '../../hooks';
-import { BUTTON, EMPTY_STATE, INPUT, MUTED_TEXT, PRIMARY_BUTTON } from '../channel-box/kit/styles';
+import { BUTTON, EMPTY_STATE, INPUT, MUTED_TEXT, PRIMARY_BUTTON } from '../channels/kit/styles';
 import { ensurePreviewBadge } from './badge';
 import {
   CHECKSUM_FAILED,

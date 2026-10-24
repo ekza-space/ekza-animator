@@ -51,11 +51,11 @@ test('the Animate workspace: docks around the viewport, chrome above and below',
   }
   // M2a: the Dope Sheet is an inactive tab beside the Graph Editor (literal update, M2A-SPEC §3 rule 8).
   expect(new Set(await kinds(page))).toEqual(
-    new Set(['viewport', 'outliner', 'clips', 'channelBox', 'attributes', 'graph', 'dopeSheet']),
+    new Set(['viewport', 'outliner', 'clips', 'channels', 'attributes', 'graph', 'dopeSheet']),
   );
   const viewport = await boxOf(page, 'panel-viewport');
   const left = await boxOf(page, 'panel-outliner');
-  const right = await boxOf(page, 'panel-channelBox');
+  const right = await boxOf(page, 'panel-channels');
   const bottom = await boxOf(page, 'panel-graph');
   expect(left.x + left.width).toBeLessThanOrEqual(viewport.x + 1);
   expect(right.x).toBeGreaterThanOrEqual(viewport.x + viewport.width - 1);

@@ -12,7 +12,7 @@ Research inputs live in [`docs/research/`](docs/research/) and are cited as `R01
 ## 1. What we are building
 
 A browser-based, open-source character animation editor for glTF/GLB and VRM 0.x/1.0 humanoids with a professional
-DCC-grade interaction model: control rig of circle controls, Channel Box, time slider with range editing, Graph Editor
+DCC-grade interaction model: control rig of circle controls, Channels, time slider with range editing, Graph Editor
 with weighted/stepped tangent semantics (AnimX-compatible), split viewports (locked shot camera + free camera),
 keyframing, and exports that bake clips into the original file losslessly or write VRMA / animation-only GLB.
 
@@ -201,13 +201,13 @@ state.
 
 ### 4.5 Unkeyed pose changes
 
-Two cases, mirroring the desktop DCC ([MVP-SPEC §4.11.2](docs/MVP-SPEC.md#4112-value-edits--channel-box-manipulators-reset-paste-mirror-plant-feet)):
+Two cases, mirroring the desktop DCC ([MVP-SPEC §4.11.2](docs/MVP-SPEC.md#4112-value-edits--channels-panel-manipulators-reset-paste-mirror-plant-feet)):
 
 - A channel **without keys** (no curve, or a curve with zero keys) stores an edit as the curve's `staticValue` (D):
   a static (unanimated) attribute value. It is undoable, saved and exported (constant track). Static values are per
   clip, because clips are self-contained.
 - A channel **with keys**, edited with auto-key off, gets a **session pose override** (U), shown light pink in the
-  Channel Box (R01 CB-02 "changed"). Overrides are discarded on frame change and never saved; `S` turns them into
+  Channels panel (R01 CB-02 "changed"). Overrides are discarded on frame change and never saved; `S` turns them into
   keys; they **are undoable** through the editor history, one step per gesture or typed edit (ADR 0013).
 
 ---
@@ -402,7 +402,7 @@ PoseBuffers ──► SceneSync (three Bones ← L_b; node constraints) ──�
 - **Workspace**: dockview 8 (MIT core) behind a `WorkspaceHost` adapter so FlexLayout can replace it. MVP Animate
   workspace: menu bar; status line (tools Q/W/E, move/rotate space incl. gimbal, selection mask, auto-key, layout
   preset; M2a: key target and the Tween bar); left dock Outliner | Clips; centre Viewport panel (pane grid); right
-  dock Channel Box | Attributes; bottom dock Graph Editor | Dope Sheet (M2a); fixed time slider + range/playback
+  dock Channels panel | Attributes; bottom dock Graph Editor | Dope Sheet (M2a); fixed time slider + range/playback
   row; help line. Layout JSON persisted per user in `localStorage` with a schema version (v2 since M2a; the v1
   layout migrates once). Panels register explicitly.
 - **Frame loop**: R3F's single rAF. `addEffect` runs the tasks scheduled before the frame
@@ -414,7 +414,7 @@ PoseBuffers ──► SceneSync (three Bones ← L_b; node constraints) ──�
   chain starts at the panel under the pointer; Space tap/hold handled with 200 ms timers; blur and
   `visibilitychange` reset held keys.
 - **React rules**: no per-frame state; panels use `useSyncExternalStore`/zustand selectors on human-speed state;
-  channel values in the Channel Box refresh on gesture end and on frame change (throttled to rAF).
+  channel values in the Channels panel refresh on gesture end and on frame change (throttled to rAF).
 
 ---
 

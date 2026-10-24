@@ -1,4 +1,4 @@
-// M2A-SPEC §5.1 rule 5, §5.6, §5.18 (A2, browser mode): Channel Box attribute rows in their units, the IK/FK proxy
+// M2A-SPEC §5.1 rule 5, §5.6, §5.18 (A2, browser mode): Channels panel attribute rows in their units, the IK/FK proxy
 // row (raw @ikFk row hidden; edits and keys the IK control's curve; the switch button), the virtual slider on rows
 // (MMB press on any row, LMB drag ≥ 3 px on a name; one history step; a refused Pointer Lock falls back to capture),
 // and Lock disabled on attribute rows.
@@ -8,7 +8,7 @@ import { type EditorApp, registerBuiltinOperators } from '@ekza-studio/editor-co
 import { createFakeIkEditorApp, withLimbIkRecords } from '@ekza-studio/editor-core/testing';
 import { act } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { ChannelBoxPanel } from '../../src/panels/channel-box/ChannelBoxPanel';
+import { ChannelsPanel } from '../../src/panels/channels/ChannelsPanel';
 import { by, CLIP, cleanup, control, input, loadFixtures, maybe, mount, select, setSession, user } from './helpers';
 
 afterEach(cleanup);
@@ -31,7 +31,7 @@ function ikApp(): { readonly app: EditorApp; readonly runs: { id: string; args: 
 }
 
 const panel = (app: EditorApp) =>
-  mount(app, <ChannelBoxPanel app={app} instanceId="cb#1" />, { width: 320, height: 520 });
+  mount(app, <ChannelsPanel app={app} instanceId="cb#1" />, { width: 320, height: 520 });
 const field = (channel: string): HTMLInputElement => input(`cb-field-${channel}`);
 const IK_LEG = control('ik.leg.L');
 

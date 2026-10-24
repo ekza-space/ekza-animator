@@ -193,7 +193,7 @@ describe('layouts per workspace (§4.8, §5.17, §8.2)', () => {
     const storage = mounted.storage;
     if (storage === null) throw new Error('no storage');
     await waitFor(() => kinds().includes('viewport'));
-    expect(kinds()).toEqual(['attributes', 'channelBox', 'clips', 'dopeSheet', 'graph', 'outliner', 'viewport']);
+    expect(kinds()).toEqual(['attributes', 'channels', 'clips', 'dopeSheet', 'graph', 'outliner', 'viewport']);
     expect(query('timeline-region')).not.toBeNull();
     expect(app.session.getState().viewportLayout).toBe('split');
 
@@ -202,7 +202,7 @@ describe('layouts per workspace (§4.8, §5.17, §8.2)', () => {
     // Leaving Animate stored its layout under its own key (v2); Model must never change it.
     const animateLayout = storage.getItem(layoutStorageKey('animate'));
     expect(JSON.parse(animateLayout ?? '{}')).toMatchObject({ schemaVersion: 2, workspace: 'animate' });
-    expect(kinds()).toEqual(['attributes', 'channelBox', 'meshCheck', 'outliner', 'palette', 'toolkit', 'viewport']);
+    expect(kinds()).toEqual(['attributes', 'channels', 'meshCheck', 'outliner', 'palette', 'toolkit', 'viewport']);
     // The Model-only panels are placeholders until their owners land; the time slider is hidden (§8.2).
     expect(query('placeholder-toolkit') ?? query('panel-toolkit')).not.toBeNull();
     expect(query('timeline-region')).toBeNull();
@@ -219,7 +219,7 @@ describe('layouts per workspace (§4.8, §5.17, §8.2)', () => {
     await waitFor(() => query('timeline-region') !== null);
     await app.runUntyped('workspace.set', { workspace: 'animate' });
     await waitFor(() => kinds().includes('graph'));
-    expect(kinds()).toEqual(['attributes', 'channelBox', 'clips', 'dopeSheet', 'graph', 'outliner', 'viewport']);
+    expect(kinds()).toEqual(['attributes', 'channels', 'clips', 'dopeSheet', 'graph', 'outliner', 'viewport']);
     await settle(400); // the layout save debounce
     // The same panels in the same groups as when Animate was left (sizes are dockview's to recompute).
     const panelsOf = (text: string | null): string[] =>

@@ -1,4 +1,4 @@
-// pose_read (MCP-SPEC §6.2 tool 8, §5.2, §5.7): the pose at frames or sampled over a range — Channel Box values in
+// pose_read (MCP-SPEC §6.2 tool 8, §5.2, §5.7): the pose at frames or sampled over a range — Channels panel values in
 // exactly pose_set's item shape (plus the rotate order), so a read can be changed and written back as it is, and/or
 // bone positions, directions and named orientation angles in character space. The keyed animation by default; the
 // user's unkeyed overrides with `withUserOverrides` (they exist only at the user's frame of the active clip).
@@ -91,7 +91,7 @@ export function readFrames(
   return [user ?? target.record.range.start];
 }
 
-/** Channel Box values of controls at one frame, in pose_set's item shape (tool units, rounded). */
+/** Channels panel values of controls at one frame, in pose_set's item shape (tool units, rounded). */
 export function controlRows(
   runtime: CharacterRuntime,
   values: { readonly values: Float64Array; readonly attrs: Float64Array },

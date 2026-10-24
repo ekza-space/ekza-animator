@@ -53,7 +53,7 @@ Focus is the modeling base (M6a) first. These tracks are fully specified and par
       saved in prefs. ≈ 0.5 day. Done on `feat/focus-presets`: Windows › Tool Strip / Help Line / Time Slider
       check-box items per workspace, focus mode also on Alt+0 (macOS takes Ctrl+Space for the input source), Windows ›
       Presets with Save Current Layout as… / Rename or Delete; [docs/LAYOUT-PRESETS.md](docs/LAYOUT-PRESETS.md).
-- [x] **Basic shading without UVs** (after M6a): Lambert and Blinn materials (Hypershade-lite), assign to
+- [x] **Basic shading without UVs** (after M6a): Lambert and Blinn materials (a lite shader editor), assign to
       objects or selected faces, flat/smooth; export Lambert → roughness 1/metallic 0, Blinn → roughness from
       glossiness (+ `KHR_materials_specular`). ≈ 0.5 day. Done on `feat/shading`: every palette swatch is a shader
       (swatches table v2, core schema stays 3 for M6b — [ADR 0019](docs/adr/0019-swatch-shaders.md)); Palette panel
@@ -100,7 +100,7 @@ items (eager allowance, marquee budget miss, bevel limits, feel check, demo scri
 7. [x] When B1 merges (day ≈ 10.5): B2 selection + symmetry maps + hide (4), B3 core ops + extrude (8), B4 shape ops + Multi-Cut + slide + average + MeshSetOps (10), B5 bevel + Mesh Check + UV projections (8.5). When B9/B6/B0b and B9/B7 merge: B10 modes + selection UI + selection undo + hide/isolate (6.5), B11 operators UI + Last-op + capture window (5.5). Then B12a transform tools (after B10, B11, B2) and B12b topology tools (after B10, B11, B2, B3, B4), 5 + 5; B13 Outliner, palette, templates, image planes (7.5; after B1, B7, B8, B9).
 8. [ ] Owner feel check (30 min, Chrome) when B12a merges: component W/E/R, MMB-drag, snapping, pivot, soft select, symmetry.
 9. [x] M6a integration (6) + one fix round (≈ 4): E2E-MOD-01…32, AS-LP-S (parts A and B scripted), budgets ([M6A-SPEC §10–§11](docs/M6A-SPEC.md#10-acceptance-tests-e2e-scenarios-and-as-lp)). **Done 2026-10-20**, merged into `dev`.
-9b. [x] M6a acceptance fix round 1 on `dev` (2026-10-20): display of moved meshes (blocker), Combine origin, W/E/R double-click loops, status-line Symmetry, one-sided Bridge under symmetry, Channel Box lead, Mesh Check dock, template symmetry after a load, Last-op card fields — [DECISIONS-OPEN §J](docs/DECISIONS-OPEN.md#j-m6a-acceptance-fix-round-1-on-dev-2026-10-20).
+9b. [x] M6a acceptance fix round 1 on `dev` (2026-10-20): display of moved meshes (blocker), Combine origin, W/E/R double-click loops, status-line Symmetry, one-sided Bridge under symmetry, Channels panel lead, Mesh Check dock, template symmetry after a load, Last-op card fields — [DECISIONS-OPEN §J](docs/DECISIONS-OPEN.md#j-m6a-acceptance-fix-round-1-on-dev-2026-10-20).
 9c. [ ] M6a deferred UI items (§J M6A-INT-44…47): Offset Edge Loop as a drag tool; in-app glTF validator for static exports; `F` after Bevel; compact quad HUD.
 9d. [ ] M6a owner decisions from fix round 2 (§K M6A-INT-55, 56): Shift+double-click adds the edge's loop (desktop-DCC convention) or keeps the §5.6 toggle; whole character display at bind pose in Model.
 9a. [ ] Owner: AS-LP-A/B by hand, the demo script ([M6A-SPEC §11.3](docs/M6A-SPEC.md#113-owner-demo-script-10-minutes)), the §I review; then tag `v0.3.0` (owner's call).

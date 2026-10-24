@@ -44,7 +44,7 @@ describe('edit.copy / edit.paste / edit.delete', () => {
     const app = opsApp();
     app.session.setState({ selection: { ...app.session.getState().selection, controls: [WAVE.lowerArmL] } });
     setSceneFrame(app, 15);
-    expect((await app.runUntyped('edit.delete', undefined, { panel: 'channelBox' })).status).toBe('finished');
+    expect((await app.runUntyped('edit.delete', undefined, { panel: 'channels' })).status).toBe('finished');
     expect(app.store.get('keys', WAVE.keys[1])).toBeUndefined();
     await app.runUntyped('select.keys', { items: [{ key: WAVE.keys[0] }], mode: 'replace' });
     expect((await app.runUntyped('edit.copy', undefined, { panel: 'graph' })).status).toBe('finished');

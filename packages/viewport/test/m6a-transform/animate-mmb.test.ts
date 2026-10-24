@@ -1,6 +1,6 @@
-// B12a (M6A-SPEC §5.15): the MMB rule in Animate — with Channel Box channels selected the viewport's virtual slider
-// takes the MMB drag (shipped M2a); without them the Move/Rotate tools transform the selected controls through the
-// same channel-edit gesture as a handle drag (one gesture, one commit): in the view plane / about the view axis, or
+// B12a (M6A-SPEC §5.15): the MMB rule in Animate — with channels selected in the Channels panel the viewport's virtual
+// slider takes the MMB drag (shipped M2a); without them the Move/Rotate tools transform the selected controls through
+// the same channel-edit gesture as a handle drag (one gesture, one commit): in the view plane / about the view axis, or
 // along the last-picked handle (a LMB press-release on a handle picks it; a tool switch clears it).
 import type { ChannelId, ControlId, ControlRecord } from '@ekza-studio/doc';
 import type { ChannelEdit } from '@ekza-studio/editor-core';

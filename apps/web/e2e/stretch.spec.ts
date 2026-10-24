@@ -101,8 +101,8 @@ test.fixme(
   'M2a-stretch: the Dope Sheet shows all keyable channels, keyed or not',
   m2aStretch(
     "Dope Sheet 'show all keyable channels' (rows for channels without curves, FR-DS-01)",
-    'only animated channels get rows; key a channel from the Channel Box to give it a row',
-    'with the option on, every keyable channel of the shown controls has a row in the Channel Box order, an empty ' +
+    'only animated channels get rows; key a channel from the Channels panel to give it a row',
+    'with the option on, every keyable channel of the shown controls has a row in the Channels panel order, an empty ' +
       'row takes a key from `S` at the current frame, and the option off restores the animated-only rows',
   ),
   notBuiltBody('M2a-stretch'),

@@ -63,7 +63,7 @@ test('E2E-RIG-02 (MVP part): modes, digits, F8; S never keys; Mod+E; Alt+C on an
   await expect.poll(() => mode(page)).toBe('object');
   expect(await keysHash(page)).toBe(hash);
   // S over the other Rig panels keys nothing.
-  for (const panel of ['channelBox', 'outliner', 'timeline']) {
+  for (const panel of ['channels', 'outliner', 'timeline']) {
     expect((await call(page, 'resolveKey', { code: 'KeyS' }, { panel }))?.op, panel).toBe('rig.animateOnly');
   }
   // Alt+C toggles the controls in Object mode; Mod+E opens Export in Rig & Skin.
@@ -96,7 +96,7 @@ test('E2E-RIG-02 (MVP part): booting straight into Rig & Skin (?ws=rig): S never
   const hash = await keysHash(page);
   await hoverPersp(page);
   await page.keyboard.press('KeyS');
-  for (const panel of ['channelBox', 'outliner', 'timeline', 'graph', 'dopeSheet']) {
+  for (const panel of ['channels', 'outliner', 'timeline', 'graph', 'dopeSheet']) {
     expect((await call(page, 'resolveKey', { code: 'KeyS' }, { panel }))?.op, panel).toBe('rig.animateOnly');
   }
   expect(await keysHash(page)).toBe(hash);

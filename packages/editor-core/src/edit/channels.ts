@@ -1,4 +1,4 @@
-// Channel value edits (MVP-SPEC §4.11.2): the one path by which the Channel Box, manipulators, reset, paste, mirror
+// Channel value edits (MVP-SPEC §4.11.2): the one path by which the Channels panel, manipulators, reset, paste, mirror
 // and plant feet change channel values. Per edit the channel's state and the key policy decide between a key, a
 // static value (document) and a session pose override:
 //
@@ -155,7 +155,7 @@ function sameValues(a: ChannelValues, b: ChannelValues): boolean {
 let nextChannelGesture = 0;
 
 /**
- * One interactive channel edit (manipulator drag, Channel Box scrub): a preview session whose updates re-apply
+ * One interactive channel edit (manipulator drag, Channels panel scrub): a preview session whose updates re-apply
  * `applyChannelEdits` from the gesture's starting overrides, committed as ONE document transaction and ONE editor
  * history step (doc entry and override delta). `cancel` — or a preview cancelled by someone else (Esc) — restores
  * the document and the overrides.

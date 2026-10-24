@@ -105,6 +105,7 @@ export {
   type LegacyIdField,
   migrateLegacyArgs,
   migrateLegacyId,
+  migrateLegacyPanelId,
   migrateLegacyPrefs,
 } from './prefs/legacy';
 export { createMemoryAssetStore } from './services/assets';

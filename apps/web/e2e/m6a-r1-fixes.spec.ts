@@ -1,10 +1,10 @@
 // M6a acceptance fix round 1 (DECISIONS-OPEN §J): the defects the M6a acceptance found that only show in the real
 // build in real Chrome — a moved mesh drawn at its old transform, double-click loop selection with the transform
-// tools, the status-line Symmetry select, the Channel Box lead in Model and the collapsed Mesh Check dock.
+// tools, the status-line Symmetry select, the Channels panel lead in Model and the collapsed Mesh Check dock.
 import { expect, type Page, test } from '@playwright/test';
 import { controlIdOf, selectIds, typeCb } from './helpers/m2a-a2';
 import { createPrimitive, enterModel, MODEL_PANE, openModel, selectedComponents, setMode } from './helpers/m6a-model';
-import { showChannelBox } from './helpers/m6a-model-ops-ui';
+import { showChannelsPanel } from './helpers/m6a-model-ops-ui';
 import { edgeLoop, pressOver, reachable, sorted, topology } from './helpers/m6a-model-select-ui';
 import { seedSample } from './helpers/seed';
 import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
@@ -44,7 +44,7 @@ async function visibleFace(
   return found.hit;
 }
 
-test('a moved mesh is drawn at its new transform (Channel Box, then undo)', async ({ page }) => {
+test('a moved mesh is drawn at its new transform (Channels, then undo)', async ({ page }) => {
   await openModel(page);
   await expectKernelStarted(page);
   const cube = await createPrimitive(page, 'cube');
@@ -52,8 +52,8 @@ test('a moved mesh is drawn at its new transform (Channel Box, then undo)', asyn
   await expect.poll(async () => (await pixel(page, before)).join()).not.toBe('0,0,0,0');
   const drawn = await pixel(page, before);
 
-  // Translate X 1.5 from the Channel Box: the data, the picking and the drawing all move.
-  await showChannelBox(page);
+  // Translate X 1.5 from the Channels panel: the data, the picking and the drawing all move.
+  await showChannelsPanel(page);
   await typeCb(page, 'cb-field-tx', '1.5');
   // Nothing of the cube is left where it was.
   await expect.poll(async () => differs(await pixel(page, before), drawn), { timeout: 10_000 }).toBe(true);
@@ -125,7 +125,7 @@ test('the status-line Symmetry select is enabled as soon as a mesh is selected o
   await expect(sym).toHaveValue('object-x');
 });
 
-test('in Model the Channel Box shows the selected mesh, not the Animate control selection', async ({ page }) => {
+test('in Model the Channels panel shows the selected mesh, not the Animate control selection', async ({ page }) => {
   test.setTimeout(90_000);
   await openEditor(page);
   await expectKernelStarted(page);
@@ -134,7 +134,7 @@ test('in Model the Channel Box shows the selected mesh, not the Animate control 
   await enterModel(page);
   const cube = await createPrimitive(page, 'cube');
   expect((await call(page, 'state')).mode).toBe('object');
-  await showChannelBox(page);
+  await showChannelsPanel(page);
   await expect(page.getByTestId('cb-field-tx')).toBeVisible();
   await expect(page.getByTestId('cb-lead-name')).not.toHaveText('Head');
   expect((await call(page, 'meshes')).some((row) => row.id === cube)).toBe(true);

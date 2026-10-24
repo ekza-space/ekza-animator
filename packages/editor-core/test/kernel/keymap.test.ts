@@ -41,7 +41,7 @@ describe('DCC_KEYMAP (§4.10)', () => {
     ['KeyS', { ctrlKey: true }, 'viewport', 'file.save', undefined],
     ['KeyS', { ctrlKey: true, shiftKey: true }, null, 'file.saveAs', undefined],
     ['KeyC', { ctrlKey: true }, 'viewport', 'pose.copy', undefined],
-    ['KeyV', { ctrlKey: true }, 'channelBox', 'pose.paste', undefined],
+    ['KeyV', { ctrlKey: true }, 'channels', 'pose.paste', undefined],
     ['KeyC', { ctrlKey: true }, 'graph', 'graph.keys.copy', undefined],
     ['KeyV', { ctrlKey: true }, 'timeline', 'graph.keys.paste', undefined],
     ['KeyV', { ctrlKey: true, shiftKey: true }, 'outliner', 'pose.paste', { mirrored: true }],
@@ -57,12 +57,12 @@ describe('DCC_KEYMAP (§4.10)', () => {
     ['KeyS', {}, 'viewport', 'key.set', { channels: 'all' }],
     ['KeyS', {}, 'timeline', 'key.set', { channels: 'all' }],
     ['KeyS', {}, 'graph', 'graph.keys.keyCurves', undefined],
-    ['KeyW', { shiftKey: true }, 'channelBox', 'key.set', { channels: 'translate' }],
+    ['KeyW', { shiftKey: true }, 'channels', 'key.set', { channels: 'translate' }],
     ['KeyE', { shiftKey: true }, 'viewport', 'key.set', { channels: 'rotate' }],
     ['KeyR', { shiftKey: true }, 'outliner', 'key.set', { channels: 'scale' }],
     ['KeyK', { shiftKey: true }, null, 'key.toggleAutoKey', undefined],
     ['Delete', {}, 'viewport', 'key.deleteAtFrame', undefined],
-    ['Backspace', {}, 'channelBox', 'key.deleteAtFrame', undefined],
+    ['Backspace', {}, 'channels', 'key.deleteAtFrame', undefined],
     ['Delete', {}, 'graph', 'graph.keys.delete', undefined],
     ['Backspace', {}, 'timeline', 'graph.keys.delete', undefined],
     ['KeyF', {}, 'viewport', 'view.frame', { what: 'selection' }],
@@ -102,8 +102,8 @@ describe('DCC_KEYMAP (§4.10)', () => {
     expect(resolve(key('KeyS'), null)).toBeNull();
     expect(resolve(key('KeyB'), 'viewport')).toBeNull();
     expect(resolve(key('Digit1'), 'viewport')).toBeNull();
-    expect(resolve(key('KeyM', { altKey: true }), 'channelBox')).toBeNull();
-    expect(resolve(key('KeyA', { ctrlKey: true }), 'channelBox')).toBeNull();
+    expect(resolve(key('KeyM', { altKey: true }), 'channels')).toBeNull();
+    expect(resolve(key('KeyA', { ctrlKey: true }), 'channels')).toBeNull();
   });
 
   it('resolves Space by trigger: tap maximizes anywhere, hold opens the viewport radial, press is unbound', () => {
@@ -131,7 +131,7 @@ describe('DCC_KEYMAP (§4.10)', () => {
       ['KeyF', { altKey: true }],
       ...Array.from({ length: 12 }, (_, i): [string, Mods] => [`F${i + 1}`, {}]),
     ];
-    const scopes = ['viewport', 'graph', 'timeline', 'outliner', 'channelBox', 'clips', 'attributes'];
+    const scopes = ['viewport', 'graph', 'timeline', 'outliner', 'channels', 'clips', 'attributes'];
     for (const [code, mods] of reserved) {
       for (const scope of scopes) {
         for (const trigger of ['press', 'tap', 'hold'] as const) {
@@ -147,7 +147,7 @@ describe('DCC_KEYMAP (§4.10)', () => {
   it('binds Ctrl+Space only as the focus-mode tap (the OS may take it first; Alt+0 is the alternative)', () => {
     // Owner request (docs/LAYOUT-PRESETS.md): the desktop-DCC "hide UI" key. macOS and Windows IMEs may switch the
     // input source on Ctrl+Space before the page sees it, so Alt+0 runs the same operator everywhere.
-    const scopes = ['viewport', 'graph', 'timeline', 'outliner', 'channelBox', 'clips', 'attributes'];
+    const scopes = ['viewport', 'graph', 'timeline', 'outliner', 'channels', 'clips', 'attributes'];
     for (const platform of [other, dccKeymap('mac')]) {
       for (const scope of scopes) {
         expect(platform.resolve(key('Space', { ctrlKey: true }), [scope, 'global'], 'tap')?.op).toBe(

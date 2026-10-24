@@ -15,7 +15,7 @@ export const DEFAULT_BRUSH: BrushSettings = {
 
 /** The right and bottom dock tabs per mode (§5.24 table), remembered per mode once the user changes them. */
 const TAB_MEMORY: RigSessionState['tabMemory'] = {
-  object: { right: 'channelBox', bottom: 'validation' },
+  object: { right: 'channels', bottom: 'validation' },
   skeleton: { right: 'rigToolkit', bottom: 'validation' },
   // The Component Editor arrives after the MVP (§0.3, C6): Skin mode keeps Validation below (showing the absent
   // editor's tab would cover the viewport in the R-Side layout, which has no slot for it).

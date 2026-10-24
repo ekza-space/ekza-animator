@@ -125,7 +125,7 @@ output.
 | Bake Deformation to Skin Weights | fit LBS weights to sampled poses of another deformer | LATER | M7 cleanup |
 | Window ▸ General Editors ▸ **Component Editor** (Smooth Skins tab) | Weight table panel (§11.6) | BASE | |
 
-▫ = has an option box in the desktop DCC; ours shows the same options on the Last-op card and in Channel Box INPUTS
+▫ = has an option box in the desktop DCC; ours shows the same options on the Last-op card and in Channels panel INPUTS
 (adjust last operation, M6A-SPEC §5.7).
 
 ### 1.3 Hotkeys

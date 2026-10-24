@@ -1,6 +1,6 @@
 // M2A-SPEC §5.1 rules 1–6, §5.12, §5.19 (A2): attribute channels through the edit kernel, `key.set` with the
-// `keyAll` rule (explicit only as selected Channel Box channels), body-part keying, breakdown keys, `key.setTarget`,
-// `pose.resetToRest`, the pose clipboard and mirror with attributes, locks and Delete at frame.
+// `keyAll` rule (explicit only as channels selected in the Channels panel), body-part keying, breakdown keys,
+// `key.setTarget`, `pose.resetToRest`, the pose clipboard and mirror with attributes, locks and Delete at frame.
 import type { ChannelId, ControlId, DocSnapshot } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import { applyChannelEdits, keyTargetControls } from '../../src';
@@ -121,7 +121,7 @@ describe('key.set and the keyAll rule (§5.1 rule 4)', () => {
     expect(keyedAt(app, 4)['ik.leg.L']).toEqual(['tx', 'ty', 'tz']);
   });
 
-  it('with @ikFk a selected Channel Box channel, S keys it (all, attributes, selected)', async () => {
+  it('with @ikFk a channel selected in the Channels panel, S keys it (all, attributes, selected)', async () => {
     const { app } = ikApp();
     select(app, ['ik.leg.L'], [['ik.leg.L', '@ikFk']]);
     await runOk(app, 'key.set');
@@ -248,8 +248,8 @@ describe('pose tools with attributes (§5.1 rule 6, §5.8)', () => {
     await expectUndoRedoExact(app, 'pose.resetToRest');
     expect(app.evaluation.attrValues(ik)).toMatchObject({ roll: 0, twist: 0, ikFk: 0.25, soft: 0.1 });
     expect(app.evaluation.channelValues(ik).ty).toBe(0);
-    // Selected Channel Box channels do not change that (rule 6: a reset never flips a limb between IK and FK; the
-    // selected-channel exception of rule 4 is for keying and the clipboard).
+    // Channels selected in the Channels panel do not change that (rule 6: a reset never flips a limb between IK and FK;
+    // the selected-channel exception of rule 4 is for keying and the clipboard).
     await runOk(app, 'channel.setValues', { edits: [{ control: ik, channel: '@roll', value: 0.2 }] });
     select(
       app,

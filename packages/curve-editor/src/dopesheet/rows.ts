@@ -41,7 +41,7 @@ export function expandedByDefault(kind: DopeSheetRowKind): boolean {
 }
 
 /**
- * Keyed channels of a control in the clip's base layer, in the Channel Box's row order (§5.1 rule 5, M2A-INT-35:
+ * Keyed channels of a control in the clip's base layer, in the Channels panel's row order (§5.1 rule 5, M2A-INT-35:
  * TRS, then attributes in `attrs` order, IK/FK last).
  */
 function keyedChannels(

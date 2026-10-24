@@ -26,10 +26,10 @@ import {
 } from 'react';
 import { useDocQuery, useRunOperator, useSession } from '../../hooks';
 import type { PanelProps } from '../types';
-import { sameIds, useCharactersVersion } from '../channel-box/kit/hooks';
-import { CharacterIcon, ChevronIcon } from '../channel-box/kit/icons';
-import { type MenuEntry, useContextMenu } from '../channel-box/kit/menu';
-import { hasMod, selectModeOf } from '../channel-box/kit/run';
+import { sameIds, useCharactersVersion } from '../channels/kit/hooks';
+import { CharacterIcon, ChevronIcon } from '../channels/kit/icons';
+import { type MenuEntry, useContextMenu } from '../channels/kit/menu';
+import { hasMod, selectModeOf } from '../channels/kit/run';
 import {
   BUTTON,
   EMPTY_STATE,
@@ -40,7 +40,7 @@ import {
   ROW_SELECTED,
   SEL_LEAD_COLOR,
   TOOLBAR,
-} from '../channel-box/kit/styles';
+} from '../channels/kit/styles';
 import {
   buildModelOutlinerRows,
   type ContainerMeshes,

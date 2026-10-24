@@ -43,8 +43,8 @@ const FIELD =
 
 /**
  * Numeric field with expression entry (research 09 §6.4): Enter or blur commits, Esc reverts. `value` '' shows the
- * mixed placeholder '—'. `onCommit` returns an error message to mark the input invalid, or null. Like the Channel
- * Box, Enter (when the value is valid) and Esc give the keyboard back to the editor, so Mod+Z and the tangent digits
+ * mixed placeholder '—'. `onCommit` returns an error message to mark the input invalid, or null. Like the Channels
+ * panel, Enter (when the value is valid) and Esc give the keyboard back to the editor, so Mod+Z and the tangent digits
  * work at once (acceptance round 2); an invalid entry keeps the focus and its red border.
  */
 export function NumberField(props: {

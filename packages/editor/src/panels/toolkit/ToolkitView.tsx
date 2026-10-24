@@ -1,4 +1,4 @@
-// The Modeling Toolkit (M6A-SPEC §8.5; B11): the right dock's first tab in Model, a lazy chunk. Sections top to
+// The Modeling Tools panel (M6A-SPEC §8.5; B11): the right dock's first tab in Model, a lazy chunk. Sections top to
 // bottom: header (target meshes · hilite count · triangles) · mode switcher · Selection · Symmetry · Soft Selection ·
 // Components · Tools · Mesh · Active tool · Next. Buttons run operators (`source: 'toolkit'`); a disabled button shows
 // the operator's poll reason; `⋯` opens the operator's option box (defaults for its next run). Section collapse is
@@ -35,7 +35,7 @@ import { usePrefs, useSession } from '../../hooks';
 import { openOptionBox } from '../../overlays/menus/optionBox';
 import { useOptionalShell } from '../../shell/context';
 import { shortcutFor } from '../../shell/menus';
-import { BUTTON, CHECK, INPUT, MUTED_TEXT, SELECT } from '../channel-box/kit/styles';
+import { BUTTON, CHECK, INPUT, MUTED_TEXT, SELECT } from '../channels/kit/styles';
 import type { PanelProps } from '../types';
 import { ParamField } from './ParamField';
 

@@ -20,7 +20,7 @@ const SCOPE_LABEL: Readonly<Record<string, string>> = {
   graph: 'Graph Editor',
   timeline: 'Time slider',
   outliner: 'Outliner',
-  channelBox: 'Channel Box',
+  channels: 'Channels',
   clips: 'Clips',
   attributes: 'Attributes',
   [MODEL_SCOPE.model]: 'Model',

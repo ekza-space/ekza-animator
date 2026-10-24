@@ -1207,7 +1207,7 @@ describe('the extrude manipulator (§5.8) and the value handle (§5.9)', () => {
 
 // M6A-INT (cross-package): B12a's W/E/R tools and B12b's session meet here. `Shift` at the start of a W handle drag
 // is smart extrude (B12a never called B12b's `beginSmartExtrude`: the drag moved the face, "Move"); an MMB drag with
-// a Channel Box INPUTS field selected runs that field's slider while the session's manipulator tool is the active
+// a Channels panel INPUTS field selected runs that field's slider while the session's manipulator tool is the active
 // one after `Mod+E` (§5.15 MMB rule; B12b's tool only selected).
 describe('W/E/R and the extrude session together (M6A-INT-5, M6A-INT-9)', () => {
   async function topFaceSelected(): Promise<Scene> {

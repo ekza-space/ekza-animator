@@ -1,5 +1,5 @@
 // The test-pose channel-edit gesture (M6B-SPEC §5.17; C7): in Rig & Skin a manipulator drag (`W`/`E` on controls in
-// Object mode) or a Channel Box edit writes the character's test pose instead of overrides and keys — never a key,
+// Object mode) or a Channels panel edit writes the character's test pose instead of overrides and keys — never a key,
 // never the document. Updates write the pose without history (`record: false`); `commit` records ONE 'Test Pose'
 // step per character the drag touched (before = the pose at the drag start); `cancel` puts the start pose back.
 // Locked channels never move (as in Animate); keyability does not matter (a test pose is not a key).

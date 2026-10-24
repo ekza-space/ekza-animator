@@ -70,7 +70,7 @@ const M2A_PANELS: readonly string[] = [
   PANEL.timeline,
   PANEL.outliner,
   PANEL.clips,
-  PANEL.channelBox,
+  PANEL.channels,
   PANEL.attributes,
   PANEL.dopeSheet,
 ];

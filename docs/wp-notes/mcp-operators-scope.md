@@ -51,7 +51,7 @@ true` entries (it also checks that every scope-ready operator has one).
 - **MAI-P1-5 `key.write`.** A locked, non-keyable or Graph-Editor-locked channel in `keys` poll-fails naming it
   (`fk.lowerArm.L.rx is locked`); `poseAt` keys `keyChannelsOf(…, 'all')` without the session's channel choice
   (keyAll: false modes such as `@ikFk` stay unkeyed) and skips locked curves; `poseAt.channels: 'selected'` is
-  refused (it reads the user's Channel Box selection). Explicit `inType`/`outType` also apply to a key already at the
+  refused (it reads the user's Channels panel selection). Explicit `inType`/`outType` also apply to a key already at the
   frame; an explicit `breakdown` sets the flag on it. Empty `keys` → refusal.
   **Fix round 1:** the keys are written per curve in one merge pass (each curve read once, the items merged in call
   order, a later item at a frame wins); `pose.transfer`, `pose.setAt {mode: 'key'}` and agent `rig.ikFk.matchRange`

@@ -27,7 +27,7 @@ import { type JSX, type RefObject, useEffect, useMemo, useRef, useState } from '
 import { scopeChain } from '../../input/keyboard';
 import { useOptionalShell } from '../../shell/context';
 import { shortcutFor } from '../../shell/menus';
-import { BUTTON } from '../channel-box/kit/styles';
+import { BUTTON } from '../channels/kit/styles';
 import { ParamField, ParamSections, type ParamSliderHooks } from './ParamField';
 
 /** How long a closed card shows its reason before it disappears (§8.6). */

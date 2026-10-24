@@ -28,7 +28,7 @@ describe('edit.revertSteps', () => {
   it("reverts an older agent step around a user step: the user's and later agent keys stay", async () => {
     const app = opsApp();
     const a = await agentKey(app, UPPER, 10, 20);
-    // The user keys the arm at 10 (Channel Box + S) — a step of their own.
+    // The user keys the arm at 10 (Channels + S) — a step of their own.
     app.session.setState({ time: { ...app.session.getState().time, sceneFrame: 10 } });
     await runOk(app, 'channel.setValues', { edits: [{ control: ARM, channel: 'rz', value: 0.1 }], key: 'force' });
     await agentKey(app, UPPER, 20, 30);

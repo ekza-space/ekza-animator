@@ -82,7 +82,7 @@ const CONVENTIONS = `# Ekza Studio: conventions for agents
 - Pass \`project\` when more than one project is open.
 
 ## Units
-- Angles in **degrees** (fields ending in \`Deg\`, Channel Box rotations, angle attributes).
+- Angles in **degrees** (fields ending in \`Deg\`, Channels panel rotations, angle attributes).
 - Distances in **metres** (\`M\`); analysis reports centimetres or millimetres where it says so (\`Cm\`, \`Mm\`).
 - Scale as a **factor** (1 = rest); tween amounts in **percent**.
 - Time in **clip frames** of the clip you address (what the time slider shows); \`Seconds\` only where a field says so.
@@ -111,7 +111,7 @@ const CONVENTIONS = `# Ekza Studio: conventions for agents
 ## The edit–check loop
 1. \`scene_summary\` (once), \`rig_describe\` (once per character).
 2. \`history_checkpoint {label}\` — one per user request, before its first edit.
-3. Act: \`pose_aim\` and \`pose_ik_target\` for limbs, \`pose_set\` for Channel Box values, \`keys_*\` for keys and
+3. Act: \`pose_aim\` and \`pose_ik_target\` for limbs, \`pose_set\` for Channels panel values, \`keys_*\` for keys and
    timing, \`curves_*\` for tangents and cleanup, \`clip_*\` for clips.
 4. Check: \`analyze_*\` for numbers, \`view_capture\` for one contact sheet, \`pose_read\` / \`keys_read\` for values.
 5. Iterate; if a result is worse, \`history_revert {to}\`.
@@ -184,7 +184,7 @@ A loop's last frame must match its first in value and slope. \`analyze_loop\` re
 C1 = slope jump); \`clip_make_loop\` fixes it. Root travel in a walk continues with a cycle offset.
 
 ## Pops and flips
-A **pop** is a sudden rotation jump of a bone; an **Euler flip** is a Channel Box rotation that jumps by about 360°
+A **pop** is a sudden rotation jump of a bone; an **Euler flip** is a Channels panel rotation that jumps by about 360°
 or to the alternate solution while the bone barely turns. \`curves_euler_filter\` removes flips without changing
 the motion; \`analyze_motion {metrics: ["pops"]}\` finds real pops.
 

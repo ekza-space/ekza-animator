@@ -113,7 +113,7 @@ history, and asynchronous runtime creation from `seed-san.vrm` through the asset
     session marked clean and the project name taken; partition batches still repair the session and re-evaluate.
     Separately, whenever the doc undo stacks become empty (e.g. a `load` that changed nothing visible and so emitted
     no batch, or `undo.clear()`), every history step loses its document part.
-16. **Coalescing operators** (runner rule 7 needs a way for an operator to coalesce, e.g. Channel Box ↑/↓ nudges
+16. **Coalescing operators** (runner rule 7 needs a way for an operator to coalesce, e.g. Channels panel ↑/↓ nudges
     through `channel.setValues`): an operator definition may carry `coalesce(args) → { key, ms } | null`
     (`CoalescingOperatorDef`, exported). The runner passes `coalesceKey`/`coalesceMs` to its transaction, so the store
     merges the document part, and records the step with that `coalesceKey`, so override-only steps merge in the
@@ -141,7 +141,7 @@ history, and asynchronous runtime creation from `seed-san.vrm` through the asset
   `cancelChannelEditGestures` for `edit.escape`, `activeLocation` (`src/session/location.ts`). `registerBuiltins`
   must contribute `DCC_KEYMAP`. `file.new`/`file.openProject` get history clearing and session repair from the
   kernel on the `load` batch. `edit.escape` runs during gestures (18) and must not write the document while a
-  preview is active; `channel.setValues` should declare `coalesce` for Channel Box nudges (16).
+  preview is active; `channel.setValues` should declare `coalesce` for Channels panel nudges (16).
 - **WP-2**: the kernel assumes the memory store records a local batch's undo entry before emitting the batch (the
   naive store does; a lazy fallback attributes the entry at the next history access otherwise), that coalescing
   keeps the entry's `txId` in a new entry object (17), and that partition batches leave the undo stacks alone (15).

@@ -19,16 +19,16 @@
 
 | # | Decision | Evidence |
 |---|---|---|
-| D1 | **One paradigm: the desktop DCC's.** The default (and in the modeling iteration, only) preset keeps the desktop DCC's interaction model for modeling: component *selection modes* on a selected object (no separate Edit Mode wall), RMB / Shift+RMB / Ctrl+RMB marking menus, W/E/R manipulators, Channel Box, Alt navigation, industry-standard DCC hotkeys wherever the browser allows. | The animation side already follows the desktop DCC (09 §1, M1/M2a shipped); the project lead models in the desktop DCC; the open-source DCC's own *Industry Compatible* keymap converges on the same keys (1–3 component modes, Ctrl+E extrude, Ctrl+B bevel, B soft selection, W/E/R, double-click loop) [B-IC]; the desktop DCC already has native analogues of the open-source DCC's ideas we want (In-View Editor ≈ redo panel, `g` ≈ Shift+R) [M-IVE][M-HK14]. |
+| D1 | **One paradigm: the desktop DCC's.** The default (and in the modeling iteration, only) preset keeps the desktop DCC's interaction model for modeling: component *selection modes* on a selected object (no separate Edit Mode wall), RMB / Shift+RMB / Ctrl+RMB marking menus, W/E/R manipulators, Channels, Alt navigation, industry-standard DCC hotkeys wherever the browser allows. | The animation side already follows the desktop DCC (09 §1, M1/M2a shipped); the project lead models in the desktop DCC; the open-source DCC's own *Industry Compatible* keymap converges on the same keys (1–3 component modes, Ctrl+E extrude, Ctrl+B bevel, B soft selection, W/E/R, double-click loop) [B-IC]; the desktop DCC already has native analogues of the open-source DCC's ideas we want (In-View Editor ≈ redo panel, `g` ≈ Shift+R) [M-IVE][M-HK14]. |
 | D2 | **Adopt the open-source DCC's semantics, not its keys**: (a) Adjust Last Operation, (b) typed numbers during any modal interaction, (c) modal tools with live preview and clean cancel, (d) Mirror-modifier-style live symmetry, (e) Extrude Manifold, auto-merge, connected-only falloff, Select Similar criteria, smooth by angle, X-ray select-through. | These are where the open-source DCC is measurably faster for precise low-poly work [B-UNDO][B-NUM][B-EM][B-MIRROR][B-TS]; none needs an open-source-DCC hotkey. |
-| D3 | **"Last Operation" HUD** = the desktop DCC's In-View Editor look and placement (pane corner, MMB-drag values, also shown as Channel Box INPUTS) with the open-source DCC's F9 semantics: undo the last step and re-run the operator with new args. Only the last operation is adjustable; there is no persistent construction history. | Open-source DCC: Adjust Last Operation [B-UNDO]; desktop DCC: In-View Editor [M-IVE][M-EXT]; Blockbench implements exactly "undo + re-run with the amended form" in a web stack (`Undo.amendEdit`) [BB-SRC]. |
+| D3 | **"Last Operation" HUD** = the desktop DCC's In-View Editor look and placement (pane corner, MMB-drag values, also shown as Channels panel INPUTS) with the open-source DCC's F9 semantics: undo the last step and re-run the operator with new args. Only the last operation is adjustable; there is no persistent construction history. | Open-source DCC: Adjust Last Operation [B-UNDO]; desktop DCC: In-View Editor [M-IVE][M-EXT]; Blockbench implements exactly "undo + re-run with the amended form" in a web stack (`Undo.amendEdit`) [BB-SRC]. |
 | D4 | **Every modeling operator is a pure kernel call** `(mesh, componentSelection, args) → (mesh′, selection′)` registered as an operator with declarative `params`; tools are state machines that preview through the same kernel and commit with one `app.run(op, args)`. | ADR 0008 (operators compose through the edit kernel, never nested runs); prerequisite for D3, repeat-last, the operator log, scripting and the later AI/MCP bridge. |
 | D5 | **`G` = Repeat Last** (`edit.repeatLast`). | The desktop DCC's `g` = Edit › Repeat [M-HK14]; the open-source DCC's equivalent is Shift+R [B-UNDO], which our keymap already uses for "key scale". |
-| D6 | **Numeric input**: while a modeling tool's manipulator is live (right after Ctrl+E, during a drag, in the HUD), typed digits edit the primary value; Tab moves to the next field; Enter applies; Esc reverts. The 09 §6.4 expression grammar with units is always on (no simple/advanced split as in the open-source DCC). | Open-source DCC numeric input [B-NUM]; desktop-DCC numeric fields in Channel Box / In-View Editor [M-IVE]. |
+| D6 | **Numeric input**: while a modeling tool's manipulator is live (right after Ctrl+E, during a drag, in the HUD), typed digits edit the primary value; Tab moves to the next field; Enter applies; Esc reverts. The 09 §6.4 expression grammar with units is always on (no simple/advanced split as in the open-source DCC). | Open-source DCC numeric input [B-NUM]; desktop-DCC numeric fields in Channels panel / In-View Editor [M-IVE]. |
 | D7 | **Symmetry** = a status-line mode with the desktop DCC's semantics (Object/World axis, Topology via a seam edge) **plus** a per-mesh **live Mirror** with the open-source DCC's Mirror-modifier semantics (axis, merge distance, clipping, bisect), evaluated non-destructively and baked at export. | [M-SYM][B-MIRROR][B-TS]. |
 | D8 | **No general modifier stack and no per-op construction history** in the modeling iteration. A small `MeshModifierDef` registry with two built-ins (mirror, smoothing); triangulate / weld / decimate later (needed for AI-generated meshes). | The desktop DCC has no modifier stack and its history is node-per-op [M-EXT]; the open-source DCC moved even Auto Smooth into a modifier in 4.1 [B-41]; meshes are coarse blobs for collaboration (08 §9.8). |
 | D9 | **Low-poly shading defaults**: new meshes are faceted (flat); per-edge hard/soft flags plus an optional per-mesh smoothing angle (desktop-DCC Soften/Harden + Set Normal Angle ≈ open-source-DCC Mark Sharp + Smooth by Angle); the exporter splits vertices on hard edges. | [M-MM][B-SBA][B-41]. |
-| D10 | **Keymap**: add a `mesh` scope (viewport with a mesh in a component mode) to the `dcc` preset; bind F8–F11 (desktop DCC) **and** `1`/`2`/`3` (industry convention, Mac-safe) for component modes; move Export off `Mod+E` so `Mod+E` can be the desktop DCC's Extrude. | [M-MTK][M-HK14][B-IC]; 09 §7.5–7.6 (F-keys on Mac laptops, Ctrl+Tab reserved). |
+| D10 | **Keymap**: add a `mesh` scope (viewport with a mesh in a component mode) to the `dcc` preset; bind F8–F11 (desktop DCC) **and** `1`/`2`/`3` (industry convention, Mac-safe) for component modes; move Export off `Mod+E` so `Mod+E` can be the desktop DCC's Extrude. | [M-MT][M-HK14][B-IC]; 09 §7.5–7.6 (F-keys on Mac laptops, Ctrl+Tab reserved). |
 | D11 | **An alternative keymap preset (open-source-DCC style) later (V1+)**, as a data pack over the *same* operator ids plus one modal transform operator used only by that preset (G/R/S with X/Y/Z); open-source-DCC navigation is a navigation profile, not a keymap. A preset is always complete — never a mix of two DCCs' keymaps. | Blockbench ships keymaps for both reference DCCs and Cinema 4D over one action registry [BB-KEYMAPS]; ADR 0008 §5. |
 | D12 | **No code reuse** from the open-source DCC, LoopTools (GPL-2.0+), Blockbench (GPL-3.0); Plasticity, Spline, Womp, MagicaVoxel, Asset Forge, Crocotile 3D and Nomad Sculpt are proprietary. UX patterns only. | §10. |
 
@@ -55,21 +55,21 @@
 - **Component selection modes**, not an edit mode: with an object selected, the upper half of the RMB marking menu
   switches vertex / edge / face / UV / vertex-face; "objects remain selected even when switching between object and
   component modes" [M-MM]. Hotkeys F8 (object ↔ component), F9 / F10 / F11 (vertex / edge / face), Alt+F9 (vertex
-  face), F12 (UV), Ctrl+F9/F10/F11 (convert selection) [M-HK14]; Ctrl+Tab = multi-component mode in the Modeling
-  Toolkit [M-MTK].
+  face), F12 (UV), Ctrl+F9/F10/F11 (convert selection) [M-HK14]; Ctrl+Tab = multi-component mode in the modeling
+  tools [M-MT].
 - **Marking menus carry the modeling vocabulary**: Shift+RMB with a mesh selected lists the polygon tools (Target
   Weld, Fill Holes, Multi-Cut, Insert Edge Loop, Append to Polygon, Soften/Harden Edge, Extrude, Offset Edge Loop,
   Smooth, Mirror, Triangulate, Quadrangulate, Separate, Combine, Booleans, Reduce, Cleanup, Connect, Quad Draw…);
   Shift+RMB on empty space lists primitives; Ctrl+RMB lists selection conversions [M-MM].
 - **Operations are history nodes**: Extrude creates a `polyExtrudeFace` node; the Show Manipulator tool (`T`) and
   the **In-View Editor** show its attributes (Thickness, Offset, Divisions…); "select an attribute and middle-drag",
-  with Ctrl / Shift to slow down / speed up; the same attributes stay editable under INPUTS in the Channel Box until
+  with Ctrl / Shift to slow down / speed up; the same attributes stay editable under INPUTS in the Channels panel until
   history is deleted [M-EXT][M-IVE]. Ctrl+E = Extrude; **Shift+drag the Move/Rotate/Scale manipulator = smart
   extrude** [M-EXT].
-- **Modeling Toolkit (MTK)**: Multi-Cut (click to cut; Ctrl-click inserts an edge loop, Ctrl+MMB a centred loop,
+- **Modeling tools**: Multi-Cut (click to cut; Ctrl-click inserts an edge loop, Ctrl+MMB a centred loop,
   Ctrl+Shift-click snaps to the *Snap Step %*; MMB-drag slices; RMB completes; Esc cancels; `y` re-activates) [M-MC];
   Connect; Quad Draw; Target Weld (drag to merge, MMB-drag to merge at centre); tweak mode `` ` ``; soft select `b`;
-  pivot editing `d`; snapping holds `x` (grid), `c` (curve), `v` (point) [M-MTK].
+  pivot editing `d`; snapping holds `x` (grid), `c` (curve), `v` (point) [M-MT].
 - **Symmetry** is a global setting in the status line / tool settings: Object or World axis, or Topology (pick a
   seam edge); "the current Symmetry setting persists from one tool to another" [M-SYM].
 - **Soft Select** `b`, falloff modes Volume / Surface / Global / Object; `b` + drag resizes [M-SOFT].
@@ -122,7 +122,7 @@ lists the semantics we borrow.
 | # | Task | Desktop DCC (2027) | Open-source DCC (5.2) | Ekza default (`dcc` preset) | From open-source DCC |
 |---|---|---|---|---|---|
 | 1 | Enter a component mode | RMB menu top half; F8; F9/F10/F11 [M-MM][M-HK14] | Tab, then 1/2/3 | RMB menu (M); F8–F11 (M); `1`/`2`/`3` alias (E, §8) | — |
-| 2 | Multi-component selection | MTK Ctrl+Tab [M-MTK] | Shift+1/2/3 combine modes | RMB menu "Multi" only (Ctrl+Tab is browser-reserved, 09 §7.6) | — |
+| 2 | Multi-component selection | modeling tools: Ctrl+Tab [M-MT] | Shift+1/2/3 combine modes | RMB menu "Multi" only (Ctrl+Tab is browser-reserved, 09 §7.6) | — |
 | 3 | Loop / ring | double-click edge = loop; ring via Ctrl+RMB conversion | Alt+click / Ctrl+Alt+click | double-click loop, Shift+double-click adds (M); ring in the Ctrl+RMB menu (M) | — |
 | 4 | Grow, shrink, shell, similar | `>` `<`; Ctrl+RMB › To Shell; RMB › Select Similar [M-MM] | Ctrl+Num±; L / Ctrl+L; Shift+G [B-SIM] | Shift+. / Shift+, (M); To Shell; Select Similar | per-mode Similar criteria |
 | 5 | Extrude | Ctrl+E → manipulator + In-View Editor; Shift+drag manipulator = smart extrude [M-EXT] | E (region, follows normal), Extrude Manifold [B-EM] | `Mod+E` + Shift+drag (M); HUD with armed Thickness; option *Dissolve orthogonal* | Extrude Manifold; typed value |
@@ -131,18 +131,18 @@ lists the semantics we borrow.
 | 8 | Knife / cut | Multi-Cut points, RMB completes [M-MC] | K; angle snap; measurements [B-KNIFE] | Multi-Cut (M) + optional angle snap and length read-out | angle snap, measurements |
 | 9 | Bevel | Edit Mesh › Bevel; In-View Editor Fraction / Segments; 2027 Smart Bevel [M-2027] | Ctrl+B modal; wheel = segments | `Mod+B` (M~, see Q3) + HUD Fraction / Segments | typed value |
 | 10 | Bridge, fill, append | Bridge; Fill Hole; Append to Polygon [M-MM] | Bridge Edge Loops; F; Grid Fill | menu + Shift+RMB menu (M) | — |
-| 11 | Merge / weld | Merge (threshold); Merge to Center; Target Weld [M-MTK] | M menu; Auto Merge; Merge by Distance [B-TS] | Target Weld tool (M) + merge ops; **Auto-weld** toggle, off by default | Auto Merge |
+| 11 | Merge / weld | Merge (threshold); Merge to Center; Target Weld [M-MT] | M menu; Auto Merge; Merge by Distance [B-TS] | Target Weld tool (M) + merge ops; **Auto-weld** toggle, off by default | Auto Merge |
 | 12 | Delete cleanly | Ctrl+Delete = Delete Edge/Vertex [M-DEL] | Dissolve (Ctrl+X) | `Delete` (M); `Mod+Delete` / `Mod+Backspace` (M) | — |
 | 13 | Symmetric editing | Symmetry Object / World / Topology [M-SYM] | mirror axes + Topology Mirror [B-TS] | Symmetry mode in the status line (M) | — |
 | 14 | Half-model workflow | instance-mirror by hand; Mesh › Mirror bakes | Mirror modifier with clipping / merge [B-MIRROR] | per-mesh **live Mirror** (Attributes), baked at export | modifier semantics |
 | 15 | Soft selection | `b`; Volume / Surface / Global / Object [M-SOFT] | O; profiles; Connected Only [B-PROP] | `B` (M); desktop-DCC mode names; *Surface* = connected only | falloff profiles |
-| 16 | Snapping | hold `x` grid / `c` curve / `v` point [M-MTK] | Ctrl; snap base / target [B-SNAP] | hold `X` / `V` (M); `J` increment (09) | snap-base choice (later) |
-| 17 | Pivot | `d` / Insert [M-MTK] | 3D cursor, pivot point | hold `D` (M); **no 3D cursor** | — |
+| 16 | Snapping | hold `x` grid / `c` curve / `v` point [M-MT] | Ctrl; snap base / target [B-SNAP] | hold `X` / `V` (M); `J` increment (09) | snap-base choice (later) |
+| 17 | Pivot | `d` / Insert [M-MT] | 3D cursor, pivot point | hold `D` (M); **no 3D cursor** | — |
 | 18 | Hard / soft edges | Soften/Harden Edge; Set Normal Angle [M-MM] | Mark Sharp; Shade Flat / Smooth / Auto Smooth [B-SBA] | per-edge hard flag + per-mesh angle; faceted by default | smoothing as a live built-in |
 | 19 | X-ray | Shading › X-Ray; camera-based selection | Alt+Z also selects through | `Alt+X` (exists) also enables select-through in component modes | select-through |
 | 20 | Adjust after the fact | history node in the In-View Editor / INPUTS until Delete History [M-IVE] | Adjust Last Operation until the next operation [B-UNDO] | **Last Operation HUD**, last operation only (§6.2) | redo semantics |
 | 21 | Repeat | `g` [M-HK14] | Shift+R [B-UNDO] | `G` (M) | — |
-| 22 | Exact numbers | Channel Box, In-View Editor fields | type during the modal [B-NUM] | armed HUD field + digits during drags (§6.4) | typed input |
+| 22 | Exact numbers | Channels, In-View Editor fields | type during the modal [B-NUM] | armed HUD field + digits during drags (§6.4) | typed input |
 | 23 | Find a command | search / Find Menu | F3 | `Mod+K` palette (exists) with names used by other DCCs as aliases | aliases |
 | 24 | Primitives | Shift+RMB on empty; attributes editable | Add menu + redo panel | Shift+RMB on empty (M); size / subdivisions in the HUD | — |
 | 25 | Separate / combine | Separate / Combine [M-MM] | P / Ctrl+J | Separate / Combine (M), menu only | — |
@@ -172,7 +172,7 @@ keymap later as data.**
 1. The editor is one product with Animate and Model workspaces. A second paradigm in the Model workspace would give
    the same keys two meanings (`S`, `R`, `G`, RMB, wheel, `1`–`3`) and double the onboarding and test matrix.
 2. The things that make the open-source DCC fast are **semantics** — adjust-last, typed numbers, previewing modal
-   tools, live mirror — and each has a desktop-DCC-native surface to live on: the In-View Editor, Channel Box INPUTS,
+   tools, live mirror — and each has a desktop-DCC-native surface to live on: the In-View Editor, Channels panel INPUTS,
    manipulators and the Symmetry setting. Desktop-DCC users get the open-source DCC's speed without changing habits.
 3. Industry evidence: the open-source DCC ships a desktop-DCC-like *Industry Compatible* keymap [B-IC]; Blockbench,
    the most relevant web low-poly editor, ships keymaps for both reference DCCs and Cinema 4D over one action set
@@ -188,7 +188,7 @@ keymap later as data.**
 ### 6.1 Contract additions (`editor-core`, backwards compatible)
 
 ```ts
-/** Declarative parameter list: drives the Last Operation HUD, Channel Box INPUTS, palette prompts,
+/** Declarative parameter list: drives the Last Operation HUD, Channels panel INPUTS, palette prompts,
  *  the operator log and (V1) the JSON schema for scripting and agents. */
 interface ParamDef<A> {
   readonly key: keyof A & string;
@@ -244,7 +244,7 @@ Rules:
 - **Surfaces**: the HUD sits in the pane's lower-left corner, titled with the operator label; fields from `params`;
   MMB-drag anywhere on a row = the M2a virtual slider (`prefs.virtualSlider`), Ctrl slower / Shift faster as in the
   desktop DCC's In-View Editor [M-IVE]; values accept the 09 §6.4 grammar. The same fields appear under **INPUTS** in
-  the Channel Box, where desktop-DCC users look for them. `T` toggles the HUD (the desktop DCC's Show Manipulator
+  the Channels panel, where desktop-DCC users look for them. `T` toggles the HUD (the desktop DCC's Show Manipulator
   hotkey). Undo label: "Extrude (adjusted)".
 - **Not** construction history in the desktop DCC's sense: once another operation runs, earlier ones are baked.
   Parametric *generators* (primitives, and later sweep/loft from 08 §9.6) keep their own params on their record until
@@ -341,7 +341,7 @@ Shown as a short fixed list in the Attributes panel, not a reorderable stack. Re
 | `S` | set key | scale (modal) | set key |
 | `R` | scale tool | rotate (modal) | scale tool |
 | RMB | marking menu | context menu; cancels a modal | marking menu; **Esc** cancels |
-| `Tab` | — (MTK uses Ctrl+Tab) | toggle Edit Mode | unbound in the viewport (keyboard focus, WCAG "no keyboard trap") |
+| `Tab` | — (its modeling tools use Ctrl+Tab) | toggle Edit Mode | unbound in the viewport (keyboard focus, WCAG "no keyboard trap") |
 | Alt+LMB | tumble | loop select | tumble; loop = double-click |
 | `X` / `C` / `V` | snap holds | axis lock (X), select tools | snap holds |
 | `1`–`3` | smooth mesh preview | selection modes | selection modes (no subdivision preview in low-poly scope) |
@@ -389,7 +389,7 @@ New scope **`mesh`**: the viewport while its active object is a mesh in a compon
 | Loop select | select tool | double-click; Shift+double-click adds | mesh | M | |
 | Soft select | `mesh.softSelect.toggle`; `B`+drag radius | `B` | mesh | M | [M-SOFT] |
 | Snap holds | — | `X` grid, `V` point | viewport | M | `J` increment snap (09) stays |
-| Pivot edit hold | — | `D` | viewport | M | [M-MTK] |
+| Pivot edit hold | — | `D` | viewport | M | [M-MT] |
 | Repeat last | `edit.repeatLast` | `G` | global | M | [M-HK14] |
 | Last Operation HUD | `view.lastOpHud.toggle` | `T` | viewport | M~ | the desktop DCC's `T` = Show Manipulator [M-IVE] |
 | Hide / show / hide unselected faces | `mesh.hide` / `.reveal` | `H` / `Shift+H` / `Alt+H` | mesh | M~ | as 09 §7.2 for objects |
@@ -451,7 +451,7 @@ Must-have for the modeling iteration:
    wireframe-on-shaded cage in component modes, component pick-walk with the arrows (the desktop DCC walks loops and
    rings).
 2. `params` on operators, `LastRun`, `edit.adjustLast` with gesture preview, `edit.repeatLast`, the Last Operation HUD
-   and Channel Box INPUTS (§6.1–6.3).
+   and Channels panel INPUTS (§6.1–6.3).
 3. Numeric capture after an op and during drags (§6.4).
 4. Tools on the modal contract (§6.5): extrude manipulator with smart extrude, Multi-Cut (cut, Ctrl edge loop, snap
    step), bevel, inset, Target Weld, soft select, Symmetry mode, live Mirror, Auto-weld.
@@ -517,7 +517,7 @@ their URLs are omitted.
 - [B-50] Open-source DCC 5.0 coverage (modifiers on geometry nodes): CG Press; Digital Production (2025-11-20)
 - [B-52] Open-source DCC 5.2 LTS release notes (released 2026-07-14, supported until July 2028)
 - [M-HK14] Desktop DCC reference, 2014 help: PC hotkeys (F8–F12, Ctrl+F9–F11, g / Shift+G, 1/2/3, `<` `>`, macOS Exposé note)
-- [M-MTK] Desktop DCC reference, 2019 help: Modeling Toolkit hotkeys
+- [M-MT] Desktop DCC reference, 2019 help: Modeling Tools hotkeys
 - [M-MC] Desktop DCC reference, 2017 help: Multi-Cut Tool hotkeys
 - [M-MM] Desktop DCC reference, 2025 help: Marking Menus (polygon, Ctrl+RMB conversion, Shift+RMB polygon tools)
 - [M-EXT] Desktop DCC reference, 2022 help: Extrude a polygon face, edge, or vertex (Ctrl+E, smart extrude, In-View Editor)

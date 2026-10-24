@@ -2,7 +2,7 @@
 // and its persistence. Pure helpers over dockview's API and serialized JSON; each workspace's layout is stored under
 // its own versioned key (`ekza-animator:layout:v<N>:<workspace>`: Animate v2, Model v1) and every storage access is
 // guarded.
-import { PANEL, type PanelKind, type PrefsStorage } from '@ekza-studio/editor-core';
+import { migrateLegacyPanelId, PANEL, type PanelKind, type PrefsStorage } from '@ekza-studio/editor-core';
 import type { AddPanelOptions, DockviewApi, IDockviewPanel, SerializedDockview } from 'dockview-react';
 import { buildRigLayout, RIG_SLOTS } from './rig/layouts';
 
@@ -30,13 +30,13 @@ export const PLACEHOLDER_COMPONENT = 'ekza.placeholder';
 export type DockSlot = 'left' | 'center' | 'right' | 'bottom';
 
 /** Dock slots of the Animate workspace (MVP-SPEC §7 WP-8, M2A-SPEC §4.8): left Outliner | Clips, centre Viewport,
- *  right Channel Box | Attributes, bottom Graph Editor | Dope Sheet (an inactive tab). The timeline is fixed chrome
+ *  right Channels panel | Attributes, bottom Graph Editor | Dope Sheet (an inactive tab). The timeline is fixed chrome
  *  below the docks, not a dock panel. */
 export const ANIMATE_SLOTS: readonly { readonly kind: PanelKind; readonly slot: DockSlot; readonly title: string }[] = [
   { kind: PANEL.viewport, slot: 'center', title: 'Viewport' },
   { kind: PANEL.outliner, slot: 'left', title: 'Outliner' },
   { kind: PANEL.clips, slot: 'left', title: 'Clips' },
-  { kind: PANEL.channelBox, slot: 'right', title: 'Channel Box' },
+  { kind: PANEL.channels, slot: 'right', title: 'Channels' },
   { kind: PANEL.attributes, slot: 'right', title: 'Attributes' },
   { kind: PANEL.graph, slot: 'bottom', title: 'Graph Editor' },
   { kind: PANEL.dopeSheet, slot: 'bottom', title: 'Dope Sheet' },
@@ -47,13 +47,13 @@ export const ANIMATE_SLOTS: readonly { readonly kind: PanelKind; readonly slot: 
 /** M6a panel kinds (§4.8 `PANEL` additions; registered by B10, B11, B13 as lazy chunks). */
 export const MODEL_PANEL = { toolkit: PANEL.toolkit, palette: PANEL.palette, meshCheck: PANEL.meshCheck } as const;
 
-/** Dock slots of the Model workspace (§8.2): left Outliner, centre Viewport, right Toolkit (first tab) | Channel Box |
+/** Dock slots of the Model workspace (§8.2): left Outliner, centre Viewport, right Toolkit (first tab) | Channels |
  *  Attributes | Palette, bottom Mesh Check (collapsed to its tab strip). The time slider is hidden. */
 export const MODEL_SLOTS: readonly { readonly kind: PanelKind; readonly slot: DockSlot; readonly title: string }[] = [
   { kind: PANEL.viewport, slot: 'center', title: 'Viewport' },
   { kind: PANEL.outliner, slot: 'left', title: 'Outliner' },
   { kind: MODEL_PANEL.toolkit, slot: 'right', title: 'Toolkit' },
-  { kind: PANEL.channelBox, slot: 'right', title: 'Channel Box' },
+  { kind: PANEL.channels, slot: 'right', title: 'Channels' },
   { kind: PANEL.attributes, slot: 'right', title: 'Attributes' },
   { kind: MODEL_PANEL.palette, slot: 'right', title: 'Palette' },
   { kind: MODEL_PANEL.meshCheck, slot: 'bottom', title: 'Mesh Check' },
@@ -75,7 +75,7 @@ export const ALL_SLOTS: typeof ANIMATE_SLOTS = [
 ];
 
 /** Extra panels outside every workspace layout and where they open (M-AI INT: the Agent panel docks right, beside
- *  the Channel Box, so the viewport stays visible while the agent works). */
+ *  the Channels panel, so the viewport stays visible while the agent works). */
 const EXTRA_PANEL_SLOTS: Readonly<Record<string, 'left' | 'right' | 'bottom'>> = { agent: 'right' };
 
 /** Panel kinds rendered outside dockview (fixed regions). */
@@ -149,7 +149,7 @@ export function buildAnimateLayout(
     }
   };
   dock([PANEL.outliner, PANEL.clips], 'left', DOCK_SIZES.left);
-  dock([PANEL.channelBox, PANEL.attributes], 'right', DOCK_SIZES.right);
+  dock([PANEL.channels, PANEL.attributes], 'right', DOCK_SIZES.right);
 
   // Bottom dock: the Graph Editor with the Dope Sheet as an inactive tab of its group (M2A-SPEC §4.8).
   let bottom: IDockviewPanel | null = null;
@@ -172,7 +172,7 @@ export function buildAnimateLayout(
 
 /**
  * Builds the default Model layout (M6A-SPEC §8.2) into an empty dockview: the viewport in the centre, the Outliner on
- * the left, Toolkit (active) | Channel Box | Attributes | Palette on the right and Mesh Check below, collapsed.
+ * the left, Toolkit (active) | Channels | Attributes | Palette on the right and Mesh Check below, collapsed.
  */
 export function buildModelLayout(api: DockviewApi, resolve: (kind: PanelKind) => PanelComponent | null): void {
   const viewportEntry = resolve(PANEL.viewport);
@@ -204,7 +204,7 @@ export function buildModelLayout(api: DockviewApi, resolve: (kind: PanelKind) =>
   };
   dock([PANEL.outliner], 'left', { initialWidth: MODEL_DOCK_SIZES.left });
   dock(
-    [MODEL_PANEL.toolkit, PANEL.channelBox, PANEL.attributes, MODEL_PANEL.palette],
+    [MODEL_PANEL.toolkit, PANEL.channels, PANEL.attributes, MODEL_PANEL.palette],
     'right',
     { initialWidth: MODEL_DOCK_SIZES.right },
     { minimumWidth: MODEL_DOCK_SIZES.rightMin },
@@ -394,7 +394,7 @@ function parseStored(raw: string, workspace: string, version: number): StoredLay
   const focus = parseFocus(stored.focus);
   return {
     kind: 'ok',
-    layout: stored.dockview,
+    layout: migrateLegacyLayout(stored.dockview),
     ...(chrome === null ? {} : { chrome }),
     ...(focus === null ? {} : { focus }),
   };
@@ -416,7 +416,7 @@ function parseFocus(value: unknown): FocusSnapshot | null {
   if (typeof value !== 'object' || value === null) return null;
   const record = value as Partial<FocusSnapshot>;
   if (!isSerializedDockview(record.dockview)) return null;
-  return { dockview: record.dockview, chrome: parseChrome(record.chrome) ?? {} };
+  return { dockview: migrateLegacyLayout(record.dockview), chrome: parseChrome(record.chrome) ?? {} };
 }
 
 /**
@@ -466,6 +466,36 @@ export function clearStoredLayout(storage: PrefsStorage | null, workspace: strin
   } catch {
     // ignore
   }
+}
+
+/**
+ * A stored dock layout with the panel kinds renamed since it was saved (DECISIONS-OPEN TM-4) mapped to the current
+ * ones: the keys of `panels` and every panel id the layout refers to (each panel's `id`, `contentComponent` and
+ * `params.kind`, the groups' `views` and `activeView`, floating and tab groups). Returns `layout` itself when nothing
+ * was renamed. Panel ids are `<kind>` or `<kind>#<n>` (`addPanelToDefaultDock`); no other string a layout holds
+ * spells an old kind.
+ */
+export function migrateLegacyLayout(layout: SerializedDockview): SerializedDockview {
+  let changed = false;
+  const id = (value: string): string => {
+    const now = migrateLegacyPanelId(value);
+    if (now !== value) changed = true;
+    return now;
+  };
+  const walk = (value: unknown): unknown => {
+    if (typeof value === 'string') return id(value);
+    if (Array.isArray(value)) return value.map(walk);
+    if (typeof value !== 'object' || value === null) return value;
+    const out: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value)) out[key] = walk(item);
+    return out;
+  };
+  const panels: SerializedDockview['panels'] = {};
+  for (const [key, state] of Object.entries(layout.panels)) {
+    panels[id(key)] = walk(state) as SerializedDockview['panels'][string];
+  }
+  const migrated = walk({ ...layout, panels: {} }) as SerializedDockview;
+  return changed ? { ...migrated, panels } : layout;
 }
 
 export function isSerializedDockview(value: unknown): value is SerializedDockview {
