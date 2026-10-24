@@ -6,6 +6,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
   decideMemoryProfile,
   IOS_MEMORY,
+  memoryProfileApplied,
   memoryProfileOf,
   readDeviceFacts,
   STANDARD_PROFILE,
@@ -82,13 +83,14 @@ describe('memoryProfileOf (the page applies it once)', () => {
     history.replaceState(history.state, '', `${location.pathname}${search}`);
   };
 
-  it('lays the iOS budgets over the preferences in the device layer, never in storage', () => {
+  it('lays the iOS budgets over the preferences in the device layer, never in storage', async () => {
     withSearch('?e2e=1&memoryProfile=ios');
     const storage = createMemoryStorage();
     const app = createFakeEditorApp({ services: { storage } });
     const profile = memoryProfileOf({ app, params: { e2e: true } });
     expect(profile.id).toBe('ios');
     expect(memoryProfileOf({ app, params: { e2e: true } })).toBe(profile);
+    await memoryProfileApplied(app); // the override layer's chunk
     expect(app.prefs.getState().modeling).toMatchObject({ undoBudgetMB: 96, journalBudgetMB: 24 });
     app.prefs.setState({ uiScale: 1.25 });
     const stored = JSON.parse(storage.getItem(PREFS_KEY) ?? '{}') as { modeling: { undoBudgetMB: number } };
@@ -96,10 +98,11 @@ describe('memoryProfileOf (the page applies it once)', () => {
     app.dispose();
   });
 
-  it('honours the switch only in e2e mode; standard changes nothing', () => {
+  it('honours the switch only in e2e mode; standard changes nothing', async () => {
     withSearch('?memoryProfile=ios');
     const app = createFakeEditorApp();
     expect(memoryProfileOf({ app, params: { e2e: false } }).id).toBe('standard'); // the test browser is desktop
+    await memoryProfileApplied(app);
     expect(app.prefs.getState().modeling.undoBudgetMB).toBe(256);
     app.dispose();
   });
@@ -142,7 +145,7 @@ describe('the GL host under the iOS profile', () => {
     const context = canvas?.getContext('webgl2');
     // this desktop's screen is far below 5 MP at its native ratio: MSAA stays on
     expect(context?.getContextAttributes()?.antialias).toBe(true);
-    expect((app as FakeEditorApp | null)?.prefs.getState().modeling.undoBudgetMB).toBe(96);
+    await waitFor(() => app?.prefs.getState().modeling.undoBudgetMB === 96, 5000);
     await view.unmount();
   });
 });

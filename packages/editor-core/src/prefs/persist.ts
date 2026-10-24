@@ -6,7 +6,6 @@
 import type { TangentType } from '@ekza-studio/anim-core';
 import type { KeyBinding, KeyTrigger, Prefs, PrefsStorage } from '../types';
 import { migrateLegacyPrefs } from './legacy';
-import { basePrefs } from './overrides';
 
 /** Kept from the Ekza Animator name (DECISIONS-OPEN NAME-1) so saved preferences survive the rename. */
 export const PREFS_STORAGE_KEY = 'ekza-animator.prefs';
@@ -44,6 +43,19 @@ export function loadPrefs(storage: PrefsStorage | null, defaults: Prefs): Prefs 
     return defaults;
   }
   return sanitizePrefs(raw, defaults);
+}
+
+/** Effective preferences → the stored base under them (the override layer, `./overrides`, records each one). */
+const bases = new WeakMap<object, Prefs>();
+
+/** Records that `effective` was composed over `base` (the override layer; a save then writes `base`). */
+export function rememberBasePrefs(effective: Prefs, base: Prefs): void {
+  bases.set(effective, base);
+}
+
+/** The base (stored) preferences of an effective preferences value; the value itself when nothing overrides it. */
+export function basePrefs(prefs: Prefs): Prefs {
+  return bases.get(prefs) ?? prefs;
 }
 
 /**

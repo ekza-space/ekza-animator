@@ -15,6 +15,7 @@
 import type { Disposer } from '@ekza-studio/anim-core';
 import type { StoreApi } from 'zustand/vanilla';
 import type { Prefs } from '../types';
+import { rememberBasePrefs } from './persist';
 
 export type PrefsLayer = 'device' | 'shell';
 
@@ -42,8 +43,6 @@ interface Layered {
 }
 
 const layered = new WeakMap<StoreApi<Prefs>, Layered>();
-/** Effective state object → the base it was composed from (`savePrefs` writes the base). */
-const bases = new WeakMap<object, Prefs>();
 
 type Plain = Readonly<Record<string, unknown>>;
 
@@ -111,7 +110,7 @@ function publish(store: StoreApi<Prefs>, state: Layered, baseChanged: boolean): 
   if (composed === shown && !baseChanged) return;
   // A new top-level object even when only the base moved: the store's subscribers persist the base.
   const effective = composed === shown ? { ...composed } : composed;
-  bases.set(effective, state.base);
+  rememberBasePrefs(effective, state.base);
   state.setState(effective, true);
 }
 
@@ -164,11 +163,6 @@ export function overridePrefs(store: StoreApi<Prefs>, layer: PrefsLayer, patch: 
     publish(store, state, false);
     if (state.entries.length === 0 && layered.get(store) === state) uninstall(store, state);
   };
-}
-
-/** The base (stored) preferences of an effective preferences value; the value itself when nothing overrides it. */
-export function basePrefs(prefs: Prefs): Prefs {
-  return bases.get(prefs) ?? prefs;
 }
 
 /** The layers that override the store's preferences now (empty when none). */

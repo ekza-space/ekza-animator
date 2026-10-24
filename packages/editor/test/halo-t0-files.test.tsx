@@ -289,13 +289,13 @@ describe('the file service (S9: every export goes through tickets on iOS)', () =
     const service = createDownloadService((r) => records.push(r.fileName), { platform, queue, showPrompt });
     service.download('a.vrm', BYTES, 'model/gltf-binary');
     expect(records).toEqual(['a.vrm']); // the recorder does not wait for the tap
+    await vi.waitFor(() => expect(queue.tickets.map((t) => t.fileName)).toEqual(['a.vrm'])); // the ticket chunk
     expect(platform.downloads).toHaveLength(0);
-    expect(queue.tickets.map((t) => t.fileName)).toEqual(['a.vrm']);
-    expect(showPrompt).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(showPrompt).toHaveBeenCalledTimes(1));
     const detach = queue.attach();
     service.download('b.vrma', BYTES, 'model/gltf-binary');
+    await vi.waitFor(() => expect(queue.tickets).toHaveLength(2));
     expect(showPrompt).toHaveBeenCalledTimes(1); // an attached prompt shows it
-    expect(queue.tickets).toHaveLength(2);
     expect(await queue.tickets[0]?.deliver()).toBe('shared');
     expect(queue.tickets.map((t) => t.fileName)).toEqual(['b.vrma']); // delivered tickets leave
     detach();
@@ -321,10 +321,32 @@ describe('the file service (S9: every export goes through tickets on iOS)', () =
     const records: string[] = [];
     const service = createDownloadService((r) => records.push(r.fileName), { platform, queue: createSaveQueue() });
     const ticket = service.save({ name: 'Cube Lad.ekzanim', mime: 'application/zip', bytes: Promise.resolve(BYTES) });
+    expect([ticket.fileName, ticket.state, ticket.delivered]).toEqual(['Cube Lad.ekzanim', 'preparing', null]);
+    const seen = vi.fn<() => void>();
+    ticket.subscribe(seen);
     await ticket.ready;
+    expect(ticket.state).toBe('ready');
+    expect(seen).toHaveBeenCalled();
     expect(records).toEqual(['Cube Lad.ekzanim']);
     expect(platform.downloads).toHaveLength(0);
     expect(await ticket.deliver()).toBe('downloaded');
+    expect([ticket.state, ticket.delivered]).toEqual(['delivered', 'downloaded']);
+  });
+
+  it('save() before the ticket chunk arrives: deliver() waits for it; a chunk that fails fails the ticket', async () => {
+    const platform = fakePlatform(false);
+    const service = createDownloadService(undefined, { platform, queue: createSaveQueue() });
+    const early = service.save(VRM);
+    expect(await early.deliver()).toBe('downloaded');
+    const broken = createDownloadService(undefined, {
+      platform,
+      loadTickets: () => Promise.reject(new Error('chunk failed')),
+    }).save(VRM);
+    const seen = vi.fn<() => void>();
+    broken.subscribe(seen);
+    await expect(broken.ready).rejects.toThrow('chunk failed');
+    expect(broken.state).toBe('failed');
+    expect(seen).toHaveBeenCalled();
   });
 });
 

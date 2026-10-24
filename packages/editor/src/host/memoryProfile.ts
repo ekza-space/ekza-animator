@@ -7,12 +7,13 @@
 // - MSAA is off when the screen has more than 5 MP at its native ratio;
 // - textures above 2048² are drawn smaller at GPU upload only (`@ekza-studio/viewport` `applyTextureCap`);
 // - the undo history and the mesh journal budgets drop from 256 + 64 MB to 96 + 24 MB, through the `device` layer of
-//   the effective preferences (the stored preferences keep the user's values; `overridePrefs`);
+//   the effective preferences (the stored preferences keep the user's values; `overridePrefs`, loaded with its own
+//   chunk right after the decision, long before an edit could fill 96 MB);
 // - heavy models: a warning from 60k triangles, a refusal above 200k (Auto-Rig's gate, for intake surfaces to read).
 //
 // Everywhere else the profile is `standard`: today's DPR range [1, 2], MSAA on, no cap, no override. e2e builds can
 // force either with `?memoryProfile=ios|standard` (with `?e2e=1`), so the same browser runs both.
-import { type EditorApp, overridePrefs, type PrefsPatch } from '@ekza-studio/editor-core';
+import type { EditorApp, PrefsPatch } from '@ekza-studio/editor-core';
 import { TEXTURE_CAP_PX } from '@ekza-studio/viewport';
 import { isIosWebKit } from '../services/fileTypes';
 
@@ -100,10 +101,17 @@ function forcedProfile(e2e: boolean, search: string): MemoryProfileId | null {
 }
 
 const decided = new WeakMap<EditorApp, MemoryProfile>();
+const applied = new WeakMap<EditorApp, Promise<void>>();
+
+/** Resolves once the page's profile has laid its preference patch (at once when it has none or none was decided). */
+export function memoryProfileApplied(app: EditorApp): Promise<void> {
+  return applied.get(app) ?? Promise.resolve();
+}
 
 /**
  * The page's memory profile: decided at the first call (the GL host's first render, before its context exists) and
- * applied once — its preference patch goes into the `device` layer for the app's life. Later calls return it.
+ * applied once — its preference patch goes into the `device` layer for the app's life (`memoryProfileApplied`).
+ * Later calls return it.
  */
 export function memoryProfileOf(host: {
   readonly app: EditorApp;
@@ -115,6 +123,17 @@ export function memoryProfileOf(host: {
   const forced = forcedProfile(host.params.e2e, window.location.search);
   const profile = decideMemoryProfile(forced === null ? facts : { ...facts, ios: forced === 'ios' });
   decided.set(host.app, profile);
-  if (profile.prefs !== null) overridePrefs(host.app.prefs, 'device', profile.prefs);
+  const patch = profile.prefs;
+  if (patch !== null) {
+    const app = host.app;
+    applied.set(
+      app,
+      import('./deviceOverride')
+        .then((m) => {
+          m.applyDeviceOverride(app, patch);
+        })
+        .catch((error: unknown) => console.error('Ekza Studio: the memory profile could not be applied', error)),
+    );
+  }
   return profile;
 }

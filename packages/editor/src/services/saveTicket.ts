@@ -7,6 +7,8 @@
 // leaves the ticket ready for another tap. Elsewhere delivery is a plain download.
 //
 // The page's save queue (`pageSaveQueue`) holds the tickets that wait for the host's save prompt (`SavePrompt`).
+// This module is a lazy chunk: only iOS pages and callers of `FileService.save()` load it (`files.ts`).
+import { anchorDownload, blobPart, sharePreferred } from './files';
 
 /** A file to save: its bytes, or the promise of them (an export still baking). */
 export interface SaveFile {
@@ -54,51 +56,18 @@ export interface SaveTicketOptions {
 
 export const SHARE_TIMEOUT_MS = 10_000;
 
-/** Exactly `bytes` over an ArrayBuffer (a Blob part cannot be a view of a SharedArrayBuffer). */
-function blobPart(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
-  return bytes.buffer instanceof ArrayBuffer ? (bytes as Uint8Array<ArrayBuffer>) : bytes.slice();
-}
-
-/** Downloads `bytes` through a temporary object URL and a hidden `<a download>`. */
-export function anchorDownload(name: string, bytes: Uint8Array, mime: string): void {
-  const url = URL.createObjectURL(new Blob([blobPart(bytes)], { type: mime }));
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = name;
-  anchor.rel = 'noopener';
-  anchor.style.display = 'none';
-  document.body.append(anchor);
-  anchor.click();
-  anchor.remove();
-  // Some browsers read the URL after click() returns; revoke once the download has started.
-  setTimeout(() => URL.revokeObjectURL(url), 30_000);
-}
-
-/**
- * The browser's delivery: sharing is preferred on iOS WebKit when Web Share takes files (`isIos` is decided by the
- * caller, `fileTypes.isIosWebKit`); everything else downloads.
- */
-export function browserSavePlatform(isIos: () => boolean): SavePlatform {
-  // Web Share is missing in some browsers whatever lib.dom says.
-  const nav = (): Partial<Pick<Navigator, 'share' | 'canShare'>> | undefined =>
-    typeof navigator === 'undefined' ? undefined : navigator;
+/** The browser's delivery: the share sheet where `sharePreferred()` (iOS WebKit with Web Share), else downloads. */
+export function browserSavePlatform(): SavePlatform {
   return {
-    prefersShare: () => {
-      const n = nav();
-      return n !== undefined && typeof n.share === 'function' && typeof n.canShare === 'function' && isIos();
-    },
+    prefersShare: sharePreferred,
     canShare: (file) => {
       try {
-        return nav()?.canShare?.({ files: [file] }) === true;
+        return navigator.canShare({ files: [file] });
       } catch {
         return false;
       }
     },
-    share: (file) => {
-      const n = nav();
-      if (n?.share === undefined) return Promise.reject(new DOMException('Web Share is missing', 'NotAllowedError'));
-      return n.share({ files: [file] });
-    },
+    share: (file) => navigator.share({ files: [file] }),
     download: anchorDownload,
     setTimeout: (fn, ms) => globalThis.setTimeout(fn, ms),
     clearTimeout: (handle) => globalThis.clearTimeout(handle as ReturnType<typeof globalThis.setTimeout>),
