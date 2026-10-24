@@ -1,7 +1,8 @@
 // Window-level listeners of the DOM input adapter (MVP-SPEC §7 WP-8): keymap dispatch, hovered panel tracking,
 // Space tap/hold, blur/visibility reset, browser-default suppression (MMB autoscroll and paste, context menu,
 // pinch-zoom), global drag-and-drop of files and the unsaved-changes guard. The page's host installs them once
-// (AUTORIG-SPEC §4.4): they serve both shells.
+// (AUTORIG-SPEC §4.4): they serve every shell. STUDIO-TOUCH-SPEC §20.3 item 13 (T2): each press reports its pointer
+// type to the host, so after a touch or pen press the keyboard's scope is the panel last pressed.
 import { type RefObject, useEffect } from 'react';
 import { isClosedMenuTrigger, isDropdown, isInOverlay, isTextEntry, menuTriggerKeyRoute } from '../input/focus';
 import { keyInputOf } from '../input/keyboard';
@@ -59,7 +60,11 @@ export function useWindowInput(shell: HostShell, root: RefObject<HTMLElement | n
     const onKeyUp = (event: KeyboardEvent): void => {
       keyboard.keyUp(event);
     };
-    const onPointerMove = (event: PointerEvent): void => setHover(event.target, event.clientX, event.clientY);
+    const onPointerMove = (event: PointerEvent): void => {
+      // a mouse (or trackpad) moving again after a touch takes the key scope back to hover
+      if (event.pointerType === 'mouse') shell.notePointer('mouse');
+      setHover(event.target, event.clientX, event.clientY);
+    };
     // Intent prefetch (M2A-SPEC §5.21.2): hovering or pressing a sample button starts loading the model loader.
     let samplePrefetched = false;
     const onPointerOver = (event: PointerEvent): void => {
@@ -70,6 +75,7 @@ export function useWindowInput(shell: HostShell, root: RefObject<HTMLElement | n
       prefetchModelLoading();
     };
     const onPointerDown = (event: PointerEvent): void => {
+      shell.notePointer(event.pointerType);
       onPointerOver(event);
       pointerDropdown = isDropdown(event.target) ? event.target : null;
       setHover(event.target, event.clientX, event.clientY);

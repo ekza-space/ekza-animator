@@ -60,6 +60,8 @@ import { skeletonUiTestApi } from './m6b/skeleton-ui';
 import { skinUiTestApi } from './m6b/skin-ui';
 import { weightsKernelTestApi } from './m6b/weights-kernel';
 import { autorigTestApi } from './autorig';
+// STUDIO-TOUCH-SPEC §20.7 (T2): the Halo group, every route's mounted shell and the navigation port.
+import { haloTestApi } from './halo';
 import { maiTestApi } from './mai';
 import type { EkzaStudioTestApi } from './types';
 
@@ -320,6 +322,7 @@ export function createTestApi(host: HostShell, opts: { readonly engine?: CurveEn
     ...clipLibraryTestApi(m6a),
     ...m6bIntegrationTestApi(m6a),
     ...autorigTestApi(m6a),
+    ...haloTestApi(m6a),
     ready,
     get webgl() {
       const gl = ui.getState().gl;

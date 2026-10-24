@@ -1,7 +1,8 @@
 // Creates the HostShell of one page (AUTORIG-SPEC §4.4, D1): the UI store, the frame hooks and the fallback frame
 // scheduler, the help line, the confirm prompt, the operator runner for UI surfaces, the file pipeline, the export
 // recorder, the keyboard adapter, the probes, autosave, the command palette behind the overlay port, the host's
-// operators (`ui.open`, `ui.close`, `prefs.set`) and the navigation port. Both shells sit on top of it; it outlives every switch between them.
+// operators (`ui.open`, `ui.close`, `prefs.set`) and the navigation port. Every shell (Studio, Auto-Rig, Halo) sits on
+// top of it; it outlives every switch between them.
 import type { Disposer } from '@ekza-studio/anim-core';
 import {
   type EditorApp,
@@ -15,6 +16,7 @@ import {
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { createFallbackScheduler, createFrameHooks } from '../gl/frameLoop';
 import { KeyboardAdapter, scopeChain, viewportToolTarget } from '../input/keyboard';
+import type { HoverTarget } from '../input/pointer';
 import { createCommandPalette } from '../overlays/CommandPalette';
 import { simplifyMessage, toleranceOfArgs } from '../panels/graph/simplify';
 import type { ToastNotifier } from '../services/notify';
@@ -227,10 +229,18 @@ export function createHostShell(opts: CreateHostOptions): HostShell {
   );
   disposers.push(() => files.dispose());
 
+  // STUDIO-TOUCH-SPEC §20.3 item 13 (T2): after a touch or pen press the key scope is the last pressed panel (touch
+  // has no hover, and WebKit sends `pointerleave` after a lift); a mouse keeps the hovered one.
+  let coarse = false;
+  const keyTarget = (): HoverTarget | null => {
+    const state = ui.getState();
+    return state.hover ?? (coarse ? state.lastPanel : null);
+  };
+
   // M6A-SPEC §5.17 (B0b): the hierarchical scope chain, the capture window and the viewport tool-key bridge.
   const keyboard = new KeyboardAdapter({
     keymap: app.keymap,
-    scopeChain: () => scopeChain(app, ui.getState().hover),
+    scopeChain: () => scopeChain(app, keyTarget()),
     blocked: () => app.session.getState().dialog !== null || ui.getState().confirm !== null,
     spaceBehaviour: () => app.prefs.getState().spaceBehaviour,
     dispatch: ({ op, args, ctx }) => void runFromUi(op, args, ctx),
@@ -293,6 +303,9 @@ export function createHostShell(opts: CreateHostOptions): HostShell {
     keyboard,
     commandPalette,
     navigation,
+    notePointer: (type) => {
+      coarse = type === 'touch' || type === 'pen';
+    },
     mounted,
     mount(shell: MountedShell): Disposer {
       mounted.setState(shell, true);
