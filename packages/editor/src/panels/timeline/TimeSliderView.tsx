@@ -2,7 +2,7 @@
 // frame (same frame as the viewport during playback) and opens the RMB menu. No React state changes per frame:
 // the ARIA value and the cursor are written to the DOM directly.
 import { TimeSliderController } from '@ekza-studio/curve-editor';
-import { type EditorApp, PANEL, type ToolPointerEvent } from '@ekza-studio/editor-core';
+import { type EditorApp, isTargetSlotId, PANEL, type ToolPointerEvent } from '@ekza-studio/editor-core';
 import { addAfterEffect } from '@react-three/fiber';
 import {
   type JSX,
@@ -126,8 +126,23 @@ export function TimeSliderView(props: { readonly app: EditorApp }): JSX.Element 
     };
     showValue();
     const unsubscribe = subscribeToFrame(app, showValue);
+    // CHARACTER-CONTRACT-SPEC §8.8 (C2): the contract's marks load with the first clip that holds a contract slot.
+    let marks: (() => void) | null = null;
+    const wantMarks = (): void => {
+      const state = app.session.getState();
+      const id = state.activeCharacter === null ? undefined : state.activeClip[state.activeCharacter];
+      if (marks !== null || id === undefined || !isTargetSlotId(app.store.get('clips', id)?.slot)) return;
+      marks = () => {};
+      void import('./contractLayer').then((m) => {
+        if (sliderRef.current === slider) marks = m.attachContractLayer(app, slider, canvas);
+      });
+    };
+    wantMarks();
+    const offMarks = [app.session.subscribe(wantMarks), app.store.subscribe(wantMarks)];
 
     return () => {
+      for (const off of offMarks) off();
+      marks?.();
       unsubscribe();
       removeAfterEffect();
       observer.disconnect();

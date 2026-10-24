@@ -57,6 +57,7 @@ export function expectedFileName(
   const base = slugOf(name);
   switch (target) {
     case 'ekza-vrm':
+    case 'omoba-hero':
       return `${base}.vrm`;
     case 'glb':
       return `${base}.glb`;

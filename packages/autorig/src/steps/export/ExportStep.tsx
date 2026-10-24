@@ -37,7 +37,8 @@ const t = (): ReturnType<typeof messages>['export'] => messages().export;
 const coarse = 'pointer-coarse:min-h-11';
 const SPACE = 'ekza/space-avatar-v1';
 const LOCAL = 'local/generic';
-const TARGETS: readonly AutoRigExportTarget[] = ['ekza-vrm', 'glb', 'vrma', 'omoba-kit'];
+const PACKAGE = 'ekza/omoba-humanoid-v2';
+const TARGETS: readonly AutoRigExportTarget[] = ['ekza-vrm', 'omoba-hero', 'glb', 'vrma', 'omoba-kit'];
 /** Studio's Animate workspace (*Continue in Studio*: same-page switch through the navigation port, §5.6.6). */
 const STUDIO_ANIMATE = '/editor?ws=animate';
 const selectExport = (s: AutoRigSession): AutoRigSession['export'] => s.export;
@@ -192,6 +193,7 @@ function TargetLabel(props: {
     );
   }
   if (props.target === 'glb') return <>{props.clips === 0 ? m.targetGlbRigged : m.targetGlb}</>;
+  if (props.target === 'omoba-hero') return <>{m.targetHero}</>;
   return <>{props.target === 'vrma' ? m.targetVrma : m.targetKit}</>;
 }
 
@@ -202,6 +204,8 @@ function hintOf(target: AutoRigExportTarget, view: ExportView): string {
       return view.vrm0 ? m.targetVrm0Hint : m.targetVrmHint;
     case 'glb':
       return m.targetGlbHint;
+    case 'omoba-hero':
+      return m.targetHeroHint;
     case 'vrma':
       return m.targetVrmaHint(
         view.clips,
@@ -253,7 +257,10 @@ function Targets(props: { readonly ctx: WizardContext }): JSX.Element {
   const developers = ui.developers || view.target === 'omoba-kit';
   const main = view.available.filter((target) => target !== 'omoba-kit');
   const kit = view.available.includes('omoba-kit');
-  const meta = view.model && view.record !== null && (view.target === 'ekza-vrm' || view.target === 'omoba-kit');
+  const meta =
+    view.model &&
+    view.record !== null &&
+    (view.target === 'ekza-vrm' || view.target === 'omoba-kit' || view.target === 'omoba-hero');
   return (
     <div className="pointer-events-none absolute inset-0 overflow-auto p-3">
       <section
@@ -563,8 +570,8 @@ function Panel(props: { readonly ctx: WizardContext }): JSX.Element {
   const view = useExportView(ctx);
   const ui = useSmall(exportUi(ctx));
   const { record, target } = view;
-  const vrm = target === 'ekza-vrm' || target === 'omoba-kit';
-  const profile = target === 'glb' ? LOCAL : SPACE;
+  const vrm = target === 'ekza-vrm' || target === 'omoba-kit' || target === 'omoba-hero';
+  const profile = target === 'glb' ? LOCAL : target === 'omoba-hero' ? PACKAGE : SPACE;
   const live = useCharacterRows(
     app,
     view.model && record !== null && target !== 'vrma' ? record.id : null,
@@ -675,7 +682,11 @@ function useExportFooter(
         },
       }));
       recordDownload(ctx.session, saved);
-      if (saved && (target === 'ekza-vrm' || target === 'omoba-kit') && isModelCharacter(record)) {
+      if (
+        saved &&
+        (target === 'ekza-vrm' || target === 'omoba-kit' || target === 'omoba-hero') &&
+        isModelCharacter(record)
+      ) {
         rememberAuthor(ctx.app.store.get('characters', record.id)?.vrm?.authors[0]);
       }
     };
