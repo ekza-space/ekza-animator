@@ -6,6 +6,7 @@
 import { Cluster, TouchButton } from '@ekza-studio/ui/touch';
 import { type JSX, useEffect, useRef, useState } from 'react';
 import { en } from '../i18n/en';
+import { homeServices } from '../home/start';
 import { commitSession } from '../session/sessions';
 import type { HaloController } from './controller';
 
@@ -37,8 +38,11 @@ export default function ProjectMenu({ controller }: { readonly controller: HaloC
   const [file, setFile] = useState<HTMLInputElement | null>(null);
   const menu = useRef<HTMLDivElement>(null);
   const close = (): void => store.set({ projectMenu: false });
-  const pickFiles = (): void => {
-    file?.click();
+  // T11: Open starts a new project (the work stays in autosave), Import adds to this one (the picker remembers which)
+  const pickFiles = (as: 'new' | 'add') => (): void => {
+    if (file === null) return;
+    file.dataset['mode'] = as;
+    file.click();
   };
   useEffect(() => {
     menu.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true });
@@ -47,11 +51,12 @@ export default function ProjectMenu({ controller }: { readonly controller: HaloC
   const p = en.project;
   const entries: readonly { readonly label: string; readonly run: () => void; readonly testId?: string }[] = [
     { label: p.new, run: () => void ctx.run('file.new') },
-    { label: p.open, run: pickFiles, testId: 'halo-project-open' },
-    { label: p.import, run: pickFiles },
+    { label: p.open, run: pickFiles('new'), testId: 'halo-project-open' },
+    { label: p.import, run: pickFiles('add'), testId: 'halo-project-import' },
     { label: p.samples, run: () => void ctx.run('file.loadSample', { sample: 'polybot' }) },
-    { label: p.saveProject, run: () => void commitSession(ctx).then(sheet('share')) },
-    { label: p.recover, run: () => store.set({ home: true }) },
+    // T11: *Save project to Files* saves (`file.save`; on iOS the host's save prompt delivers it), Recover shows Home
+    { label: p.saveProject, run: () => void homeServices(controller).saveProject(), testId: 'halo-project-save' },
+    { label: p.recover, run: () => store.set({ home: true, halo: null }), testId: 'halo-project-recover' },
     { label: p.scene, run: sheet('scene') },
     // §18: the visible twins of the View puck's long-press and of the Path's ⚠ and the status pill
     { label: p.view, run: sheet('view'), testId: 'halo-project-view' },
@@ -103,8 +108,17 @@ export default function ProjectMenu({ controller }: { readonly controller: HaloC
         hidden
         onChange={(event) => {
           const files = [...(event.currentTarget.files ?? [])];
+          const mode = event.currentTarget.dataset['mode'] === 'add' ? 'add' : 'new';
           event.currentTarget.value = '';
-          if (files.length > 0) void ctx.host.files.openFiles(files);
+          // T11: the same intake as Home's *Bring a model* (the bytes sniffed, the shared routing)
+          if (files.length > 0) {
+            void import('../intake/intake').then(({ bringFiles }) =>
+              bringFiles(controller, files, {
+                ask: () => Promise.resolve(mode),
+                done: () => controller.leaveHome(),
+              }),
+            );
+          }
         }}
       />
     </>
