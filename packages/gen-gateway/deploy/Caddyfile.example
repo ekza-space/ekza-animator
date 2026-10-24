@@ -1,0 +1,11 @@
+# Caddy site for the generation gateway (dev VPS; DNS gen.dev.ekza.io → the VPS). TLS by Caddy, the gateway on
+# loopback with GEN_GATEWAY_TOKEN set. Response buffering off so job events (SSE) stream.
+gen.dev.ekza.io {
+	header X-Robots-Tag "noindex, nofollow"
+	request_body {
+		max_size 21MB
+	}
+	reverse_proxy 127.0.0.1:18787 {
+		flush_interval -1
+	}
+}

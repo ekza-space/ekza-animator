@@ -1,0 +1,31 @@
+# systemd unit for the standalone generation gateway (dev VPS). Node ≥ 24 runs the TypeScript sources directly.
+# Install: copy a checkout (or an export) of ekza-studio with `pnpm install --prod --frozen-lockfile` done, then
+#   cp gen-gateway.service.example /etc/systemd/system/ekza-gen-gateway.service
+#   systemctl daemon-reload && systemctl enable --now ekza-gen-gateway
+# Exit code 78 = the configuration was refused (see the journal): fix the env file, do not restart in a loop.
+[Unit]
+Description=Ekza Studio generation gateway (ekza-gen/v1)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ekza-gen
+Group=ekza-gen
+WorkingDirectory=/opt/ekza-gen-gateway/app
+EnvironmentFile=/opt/ekza-dev/secrets/gen-gateway.env
+ExecStart=/usr/bin/node packages/gen-gateway/src/node/main.ts
+Restart=on-failure
+RestartPreventExitStatus=78
+RestartSec=5
+StateDirectory=ekza-gen-gateway
+StateDirectoryMode=0700
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/ekza-gen-gateway
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target
