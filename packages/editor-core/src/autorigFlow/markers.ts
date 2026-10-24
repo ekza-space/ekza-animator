@@ -20,11 +20,12 @@ export function armPoseClass(armAngle: number): AutoRigPoseClass {
 }
 
 /**
- * The skeleton detail (§5.3 *Fingers*; STUDIO-TOUCH-SPEC §12.2 step 1): Quick Rig's presets. `thumb` is the default
- * (Thumb + 1, OMOBA's requirement); `minimal` has no shoulders and toes.
+ * The skeleton detail (§5.3 *Fingers*; STUDIO-TOUCH-SPEC §12.2 step 1): Quick Rig's presets, keyed as Halo's handoff
+ * names them (`HaloHandoffState.fingers`). `thumb` is the default (Auto-Rig's *Thumb + 1*, OMOBA's requirement);
+ * `mittens` is Auto-Rig's *None*; `minimal` has no shoulders and toes.
  */
 export const AUTORIG_FINGER_PRESETS = {
-  none: 'core21',
+  mittens: 'core21',
   thumb: 'standard33',
   all: 'full52',
   minimal: 'lite17',

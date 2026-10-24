@@ -7,6 +7,7 @@ import { exportFileName, omobaSlug } from '@ekza-studio/io';
 import { describe, expect, it } from 'vitest';
 import {
   AUTORIG_A_POSE_LIMIT,
+  AUTORIG_FINGER_PRESETS,
   AUTORIG_FIX_ORDER,
   armPoseClass,
   comparableArgs,
@@ -62,6 +63,15 @@ describe('② the start pose', () => {
     }
     expect(armPoseClass((35 * Math.PI) / 180).kind).toBe('a');
     expect(armPoseClass(0).kind).toBe('t');
+  });
+
+  it('names the finger detail as Halo’s handoff does; Thumb is Quick Rig’s default preset', () => {
+    expect(AUTORIG_FINGER_PRESETS).toEqual({
+      mittens: 'core21',
+      thumb: 'standard33',
+      all: 'full52',
+      minimal: 'lite17',
+    });
   });
 });
 
