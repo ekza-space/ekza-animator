@@ -77,8 +77,11 @@ export type AutoRigMarkersOutcome =
   | { readonly status: 'started'; readonly scene: boolean }
   | { readonly status: 'failed'; readonly reason: string };
 
-/** Opens Quick Rig on the subject (§5.3; the step start of ②, Halo's *Rig it* card). */
-export async function openMarkers(host: AutoRigFlowHost): Promise<AutoRigMarkersOutcome> {
+/**
+ * Opens Quick Rig on the subject (§5.3; the step start of ②, Halo's *Rig it* card). `starting` is called right before
+ * Quick Rig starts (not for `none` and `kept`): the shell shows that it is opening.
+ */
+export async function openMarkers(host: AutoRigFlowHost, starting?: () => void): Promise<AutoRigMarkersOutcome> {
   const { app } = host;
   const { meshes, scene } = markerMeshes(app, host.state.get().subject);
   if (meshes.length === 0) return { status: 'none' };
@@ -87,6 +90,7 @@ export async function openMarkers(host: AutoRigFlowHost): Promise<AutoRigMarkers
     recordStartPose(host);
     return { status: 'kept' };
   }
+  starting?.();
   try {
     if (scene) await host.quiet('select.objects', { ids: meshes, mode: 'replace' });
     const result = await host.quiet('skel.quickRig.start', { meshes });

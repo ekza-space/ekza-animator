@@ -32,7 +32,7 @@ export {
   type ResolvedAutoRigSubject,
   resolveAutoRigSubject,
 } from './subject';
-export { CONTACT_GRID, defaultParts, meshBounds, separateMeshes } from './parts';
+export { CONTACT_GRID, defaultParts, leftOutParts, meshBounds, separateMeshes } from './parts';
 export {
   type AutoRigIntakeOp,
   type AutoRigIntakeOutcome,
@@ -51,16 +51,8 @@ export {
   takeHandedSubject,
   takeIntakeReport,
 } from './intake';
-export {
-  applyFix,
-  AUTORIG_FIX_ORDER,
-  type AutoRigFixOutcome,
-  firstFix,
-  fixArgs,
-  leftOutParts,
-  nextFix,
-  transformsUniform,
-} from './fixes';
+export { AUTORIG_FIX_ORDER, firstFix, transformsUniform } from './checks';
+export { applyFix, type AutoRigFixOutcome, fixArgs, nextFix } from './fixes';
 export {
   armPoseClass,
   AUTORIG_A_POSE_LIMIT,

@@ -9,6 +9,7 @@
 import { quatRotateVec3 } from '@ekza-studio/anim-core';
 import type { MeshId } from '@ekza-studio/doc';
 import type { EditorApp } from '../types';
+import type { AutoRigFlowState } from './host';
 
 type Box = readonly [readonly [number, number, number], readonly [number, number, number]];
 type Vec = [number, number, number];
@@ -204,4 +205,12 @@ function classify(app: EditorApp, meshes: readonly MeshId[]): MeshId[] | null {
 export function defaultParts(app: EditorApp, meshes: readonly MeshId[]): MeshId[] {
   const separate = new Set(separateMeshes(app, meshes));
   return meshes.filter((id) => !separate.has(id));
+}
+
+/** The scene meshes of the loaded model left out of the character (the unticked parts that still exist). */
+export function leftOutParts(app: EditorApp, state: Pick<AutoRigFlowState, 'parts' | 'intake'>): MeshId[] {
+  const parts = state.parts;
+  if (parts === null || state.intake === null) return [];
+  const ticked = new Set(parts);
+  return state.intake.meshes.filter((id) => !ticked.has(id) && app.store.get('meshes', id) !== undefined);
 }
