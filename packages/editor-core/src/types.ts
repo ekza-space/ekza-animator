@@ -1442,9 +1442,9 @@ export interface AutoRigExportResult {
 
 // ---------- navigation port (§3.4, §4.4; D0 types, D1 provides it from the host, eager) ----------
 // STUDIO-TOUCH-SPEC §20.3 item 11, §20.4 (T2, additive): the third shell `halo` (`/app`, Ekza Studio's Simple layout),
-// the arrival action (`arrival`; the spec sketch's `then`, renamed: a `then` field makes the object a thenable)
-// and the Halo state a switch or a handoff record carries. `'studio'` keeps meaning the Pro
-// layout (`/editor`) everywhere internally (§1.3).
+// the arrival action (`arrival`: the spec sketch's `then`, renamed, since a `then` field makes the object a thenable;
+// ST-T2-1) and the Halo state a switch or a handoff record carries. `'studio'` keeps meaning the Pro layout
+// (`/editor`) everywhere internally (§1.3).
 export type ShellRoute = 'autorig' | 'studio' | 'halo' | 'chooser';
 /** A route that mounts a shell in the host (every route but the chooser page): `MountedShell.kind`, `from`. */
 export type ShellKind = Exclude<ShellRoute, 'chooser'>;
