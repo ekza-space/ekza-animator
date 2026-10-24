@@ -57,6 +57,9 @@
       "path": "./packages/autorig"
     },
     {
+      "path": "./packages/halo"
+    },
+    {
       "path": "./packages/headless-tests"
     },
     {

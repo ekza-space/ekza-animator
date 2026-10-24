@@ -2,14 +2,16 @@
 // (`library.preview` with the clip's parameters, U state), Add / Update (`autorig.clip.add`, one Use Clip step), the
 // clips on the character (▶ through the shipped path: `clip.setActive`, `time.setLoop`, `time.play`; ✕ `clip.delete`;
 // the slot through `clip.setSettings`), ✎ (the clip's `ar-*` tags, or a plain Use Clip's provenance, back into the
-// editor) and a dropped `.vrma` (`file.importAnimation`). Plus the step's transient UI state (`animationsUi`), shared by
-// the panel and the overlay instances of the view. Part of the view's lazy chunk.
+// editor) and a dropped `.vrma` (`file.importAnimation`). The preview and Add are editor-core's `autorigFlow` (T5b,
+// shared with Halo's library sheet). Plus the step's transient UI state (`animationsUi`), shared by the panel and the
+// overlay instances of the view. Part of the view's lazy chunk.
 import type { CharacterId, CharacterRecord, ClipId, ClipRecord } from '@ekza-studio/doc';
-import type { EditorApp } from '@ekza-studio/editor-core';
+import { addLibraryClip, type EditorApp, previewLibraryClip } from '@ekza-studio/editor-core';
 import { messages } from '../../i18n';
 import { resolveSubject } from '../../progress';
 import type { WizardContext } from '../../shell/context';
 import { smallStore, type SmallStore } from '../../shell/store';
+import { flowHost } from '../model/flowHost';
 import type { ClipParams } from '../../types';
 import { type ClipCategory, IDENTITY, isIdentity, paramsFromTags } from './data';
 import { editClip, endEdit, setDraft } from './slice';
@@ -116,7 +118,7 @@ export async function previewClip(ctx: WizardContext, clip: string): Promise<voi
   // Another card than the ✎-edited clip's own library clip leaves the edit: *Update* belongs to that clip only.
   if (ctx.session.getState().animations.editing !== null && editTarget(ctx, clip) === null) endEdit(ctx.session);
   patchUi(ctx, { selected: clip });
-  const result = await ctx.run('library.preview', { character: character.id, clip, params: draftOf(ctx, clip) });
+  const result = await previewLibraryClip(flowHost(ctx), character.id, clip, draftOf(ctx, clip));
   failedChecksum(ctx, clip, result);
   // A failed preview (a refused parameter, a checksum, a fetch) says why, as Add does; a later preview that plays
   // clears that error.
@@ -168,12 +170,7 @@ export async function addClip(ctx: WizardContext, clip: string): Promise<boolean
   // *Update* replaces the ✎-edited clip only with its own library clip; any other card adds a new clip.
   const replace = editTarget(ctx, clip);
   patchUi(ctx, { busy: clip, notice: { text: t().adding(entry.label), tone: 'info' } });
-  const result = await ctx.run('autorig.clip.add', {
-    character: character.id,
-    clip,
-    params: draftOf(ctx, clip),
-    ...(replace === null ? {} : { replace }),
-  });
+  const result = await addLibraryClip(flowHost(ctx), character.id, clip, draftOf(ctx, clip), replace);
   failedChecksum(ctx, clip, result);
   if (result.status === 'finished') {
     if (replace !== null) endEdit(ctx.session);

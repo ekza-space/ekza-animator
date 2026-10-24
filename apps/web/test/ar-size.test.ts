@@ -63,10 +63,18 @@ function build(chunks: Readonly<Record<string, string>> = CHUNKS): string {
 
 describe('check:size per route (AUTORIG-SPEC §7.2)', () => {
   it('declares the routes, the /autorig gate and the per-route boundaries', () => {
-    expect(ROUTES).toEqual(['editor', 'autorig']);
+    expect(ROUTES).toEqual(['editor', 'autorig', 'app']); // STUDIO-TOUCH-SPEC §20.6 (T2): + /app
     expect([AUTORIG_GATE_BYTES, AUTORIG_TARGET_BYTES]).toEqual([660_000, 620_000]);
-    expect(ROUTE_BOUNDARIES.editor?.map((b) => [b.id, b.markers])).toEqual([['autorig-shell', ['ekza-autorig-shell']]]);
-    expect(ROUTE_BOUNDARIES.autorig?.map((b) => b.id)).toEqual(['dockview', 'curve-editor', 'studio-shell']);
+    expect(ROUTE_BOUNDARIES.editor?.map((b) => [b.id, b.markers])).toEqual([
+      ['autorig-shell', ['ekza-autorig-shell']],
+      ['halo-shell', ['ekza-halo-shell']], // STUDIO-TOUCH-SPEC §20.6 (T2)
+    ]);
+    expect(ROUTE_BOUNDARIES.autorig?.map((b) => b.id)).toEqual([
+      'dockview',
+      'curve-editor',
+      'studio-shell',
+      'halo-shell',
+    ]);
     // /autorig checks every shipped lazy boundary too (first-run dialog, palette, marking menu, model operators, M6b)
     const autorig = boundariesFor('autorig').map((b) => b.id);
     for (const id of [

@@ -1,4 +1,4 @@
-// Contract file: MVP-SPEC §4.5 with the M2A-SPEC §4.5 additions, the M6A-SPEC §6 rows (B0a), the M6B-SPEC §6/§0.6 rows (C0) and the AUTORIG-SPEC §4.5/§10 rows (D0) and MCP-SPEC §4.10 additions, copied verbatim (shapes are normative; change the spec first).
+// Contract file: MVP-SPEC §4.5 with the M2A-SPEC §4.5 additions, the M6A-SPEC §6 rows (B0a), the M6B-SPEC §6/§0.6 rows (C0) and the AUTORIG-SPEC §4.5/§10 rows (D0), MCP-SPEC §4.10 and STUDIO-TOUCH-SPEC §20.3/§20.4 (T2) additions, copied verbatim (shapes are normative; change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
 import type { Fps, Frame, InfinityMode, ParamValues, Quat, ReadonlyVec3, ReadonlyXf, RotateOrder, TangentType, Vec3 } from '@ekza-studio/anim-core';
 import type { CameraId, ChannelId, CharacterId, CharacterVrmMeta, ClipId, ConstraintId, ControlId, CurveId, DerivedFrom, DocSnapshot,
@@ -16,6 +16,7 @@ import type { ComponentMode, MeshOpArgs, MeshOpOutcome, MeshSetCommitResult, Sce
 import type { BrushSettings, PaintMode, PoseView, RigMode } from '../types';
 import type { AutoRigExportResult, AutoRigExportTarget, AutoRigFix, AutoRigRigResult, AutoRigSampleId, ClipParams,
   IntakeReport, ShellRoute } from '../types';
+import type { ArrivalAction, ShellKind } from '../types';   // STUDIO-TOUCH-SPEC §20.4 (T2)
 
 export type SampleId = 'seed-san' | 'polybot' | 'quaternius-ual';
 export interface FileArgs { readonly name: string; readonly bytes: Uint8Array }
@@ -566,8 +567,11 @@ export interface OperatorMap {
     readonly replace?: ClipId; readonly slot?: string }; result: { readonly clip: ClipId } };                      // D5; `slot` CC C1
   'autorig.export': { args: { readonly character: CharacterId; readonly target: AutoRigExportTarget; readonly fileName: string };
     result: AutoRigExportResult };                                                                                 // D6
-  'autorig.navigate': { args: { readonly to: ShellRoute; readonly workspace?: WorkspaceId; readonly from?: 'studio' | 'autorig';
-    readonly newTab?: boolean }; result: void };                                                                   // D1 (U)
+  'autorig.navigate': { args: { readonly to: Exclude<ShellRoute, 'halo'>; readonly workspace?: WorkspaceId;
+    readonly from?: 'studio' | 'autorig'; readonly newTab?: boolean }; result: void };                            // D1 (U); T2: unchanged
+  // STUDIO-TOUCH-SPEC §20.3 item 11 (T2): the host-level shell switch of every route (agent-denied; U)
+  'shell.navigate': { args: { readonly to: ShellRoute; readonly workspace?: WorkspaceId; readonly from?: ShellKind;
+    readonly newTab?: boolean; readonly arrival?: ArrivalAction }; result: void };                                 // T2 (U)
   'autorig.controls': { args: { readonly hidden: boolean }; result: void };                                        // D9 (U, AR-D9-8)
   'autorig.parts': { args: { readonly hidden: readonly MeshId[] }; result: void };                                 // D10 (U, AR-D10-1)
 

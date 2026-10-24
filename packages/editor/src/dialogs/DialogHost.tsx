@@ -8,7 +8,8 @@
 // rejected load for good, so a failed attempt's lazy component is replaced).
 //
 // AUTORIG-SPEC §4.4 (D1): the dialog host is the HostShell's (mounted by `StudioHost` on every route). The dialogs read
-// `useShell()`: the mounted Studio shell is provided to them here, and on a route without it the host answers.
+// `useShell()`: the mounted Studio shell is provided to them here, and on a route without it (Auto-Rig, Halo —
+// STUDIO-TOUCH-SPEC T2) the host answers.
 import type { UiDialog } from '@ekza-studio/editor-core';
 import {
   Component,
@@ -280,7 +281,7 @@ function ConfirmPrompt(): JSX.Element | null {
   );
 }
 
-/** The Studio shell mounted in the host, else null (Auto-Rig, or between two shells). */
+/** The Studio shell mounted in the host, else null (Auto-Rig, Halo, or between two shells). */
 function useMountedStudio(): Shell | null {
   const mounted = useStoreSelector(useHost().mounted, (shell) => shell);
   return mounted?.kind === 'studio' ? (mounted as Shell) : null;

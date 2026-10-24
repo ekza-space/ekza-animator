@@ -190,7 +190,9 @@ describe('file pipeline', () => {
   it('reports failures once: unknown types reject, dropped files become toasts', async () => {
     const { shell, app, toasts } = createTestShell();
     app.contribute({ kind: 'importer', def: MODEL });
-    await expect(shell.files.openFile('notes.txt', new Uint8Array())).rejects.toThrow('No importer');
+    await expect(shell.files.openFile('notes.txt', new Uint8Array())).rejects.toThrow(
+      'not a 3D model or an Ekza Studio project',
+    );
     app.contribute({
       kind: 'operator',
       def: {
@@ -210,7 +212,7 @@ describe('file pipeline', () => {
     await shell.files.openFiles([new File([new Uint8Array([1])], 'bad.vrma'), new File(['x'], 'notes.txt')]);
     expect(toasts.store.getState().toasts.map((t) => t.text)).toEqual([
       'Import Animation failed: not a VRMA',
-      expect.stringContaining('notes.txt: No importer'),
+      expect.stringContaining('notes.txt: This file is not a 3D model'),
     ]);
     // The test API's loadFile path still rejects with the operator's message.
     await expect(shell.files.openFile('bad.vrma', new Uint8Array([1]))).rejects.toThrow('not a VRMA');

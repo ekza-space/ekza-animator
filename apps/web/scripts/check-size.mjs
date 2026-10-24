@@ -20,6 +20,11 @@
 // enforced, until D1 records its baseline under `routes.autorig` in `size-baseline.json`) adds the dockview,
 // curve-editor and Studio-shell boundaries and opens no First-run dialog.
 //
+// STUDIO-TOUCH-SPEC §20.6 (T2): a third route, `/app` (Ekza Studio's Simple layout, the Halo shell): gate 700,000 B,
+// target 660,000 B (ST-19, OQ-3), reported and not enforced until T12 records its baseline under `routes.app` (the
+// Auto-Rig D0→D7 pattern); it bans dockview, the Studio and Auto-Rig shells and the curve editor from its initial
+// scripts, and the Halo shell (`ekza-halo-shell`) is a banned boundary of `/editor` and `/autorig`.
+//
 // Usage: node scripts/check-size.mjs [--next <dir>] [--app <dir>] [--route <name>] [--json <file>] [--baseline <file>]
 // (`--app`: the app source whose routes are required; default this app unless `--next` names another build).
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -118,30 +123,41 @@ export const BOUNDARIES = [
  * load dockview, the curve editor (Graph Editor, Dope Sheet) or the Studio shell (marker referenced by the Studio
  * shell's entry, D1). Each is recognised by strings only its code contains.
  */
+const AUTORIG_SHELL = { id: 'autorig-shell', label: 'Auto-Rig shell', markers: ['ekza-autorig-shell'] };
+const DOCKVIEW = { id: 'dockview', label: 'dockview (Studio docking)', markers: ['dv-dockview'] };
+const CURVE_EDITOR = {
+  id: 'curve-editor',
+  label: 'curve editor (Graph Editor, Dope Sheet)',
+  markers: ['Absolute, normalized or stacked curves', 'DopeSheetController: the canvas'],
+};
+const STUDIO_SHELL = { id: 'studio-shell', label: 'Studio shell', markers: ['ekza-studio-shell'] };
+/** STUDIO-TOUCH-SPEC §20.6 (T2): the Halo shell's entry marker (`@ekza-studio/halo`). */
+const HALO_SHELL = { id: 'halo-shell', label: 'Halo shell (Ekza Studio)', markers: ['ekza-halo-shell'] };
+
 export const ROUTE_BOUNDARIES = {
-  editor: [{ id: 'autorig-shell', label: 'Auto-Rig shell', markers: ['ekza-autorig-shell'] }],
-  autorig: [
-    { id: 'dockview', label: 'dockview (Studio docking)', markers: ['dv-dockview'] },
-    {
-      id: 'curve-editor',
-      label: 'curve editor (Graph Editor, Dope Sheet)',
-      markers: ['Absolute, normalized or stacked curves', 'DopeSheetController: the canvas'],
-    },
-    { id: 'studio-shell', label: 'Studio shell', markers: ['ekza-studio-shell'] },
-  ],
+  editor: [AUTORIG_SHELL, HALO_SHELL],
+  autorig: [DOCKVIEW, CURVE_EDITOR, STUDIO_SHELL, HALO_SHELL],
+  // STUDIO-TOUCH-SPEC §20.6 (T2): `/app` never loads dockview, the other two shells or the curve editor at first.
+  app: [DOCKVIEW, STUDIO_SHELL, AUTORIG_SHELL, CURVE_EDITOR],
 };
 
-/** The routes `check:size` measures (AUTORIG-SPEC §7.2); `/editor` is required, the others when the build has them. */
-export const ROUTES = ['editor', 'autorig'];
+/** The routes `check:size` measures (AUTORIG-SPEC §7.2; `app` STUDIO-TOUCH-SPEC §20.6); `/editor` is required, the
+ *  others when the app source or the build has them. */
+export const ROUTES = ['editor', 'autorig', 'app'];
 
 /** `/autorig` first-visit gate and target (AUTORIG-SPEC §7.2, AR-D8; gzip -9, decimal bytes). */
 export const AUTORIG_GATE_BYTES = 660_000;
 export const AUTORIG_TARGET_BYTES = 620_000;
 
-/** Per-route gate, target and first-visit groups (the Auto-Rig shell never opens the First-run dialog, §4.4). */
+/** `/app` first-visit gate and target (STUDIO-TOUCH-SPEC §20.6, ST-19, OQ-3; gzip -9, decimal bytes). */
+export const HALO_GATE_BYTES = 700_000;
+export const HALO_TARGET_BYTES = 660_000;
+
+/** Per-route gate, target and first-visit groups (neither Auto-Rig nor Halo opens the First-run dialog). */
 export const ROUTE_LIMITS = {
   editor: { gate: 900_000, target: 850_000, firstVisit: ['dialog-first-run'] },
   autorig: { gate: AUTORIG_GATE_BYTES, target: AUTORIG_TARGET_BYTES, firstVisit: [] },
+  app: { gate: HALO_GATE_BYTES, target: HALO_TARGET_BYTES, firstVisit: [] },
 };
 
 /** The boundaries checked on a route: every shipped one plus the route's own. */

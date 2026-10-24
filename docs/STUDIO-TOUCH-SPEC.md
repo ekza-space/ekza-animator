@@ -2200,33 +2200,72 @@ export interface HaloHandoffState {
 // ToolPointerEvent (additive; absent = today's behaviour)
 //   pressure?, tiltX?, tiltY?, altitude?, azimuth?, pointerId?, isPrimary?,
 //   coalesced?: readonly { x: number; y: number; pressure: number; t: number }[], virtual?: boolean
+//   T1: `pressure`, `pointerId` and `coalesced` are set only on the arbiter's path (`coalesced` [] on the replayed down
+//   and up, every sample on moves); `virtual` while a virtual modifier is on. ToolKeyEvent gains `virtual?` (a virtual
+//   hold). The tilt fields stay T2's.
 
-// viewport (additive) — spiked in T1a, built in T1
+// viewport (additive) — spiked in T1a, built in T1 (amendments A1–A16, docs/wp-notes/halo-t1.md)
 interface ViewportManager {
-  navigate(paneId: string, gesture: 'orbit' | 'pan' | 'dolly', dx: number, dy: number): void;
+  navigate(paneId: string, gesture: 'orbit' | 'pan' | 'dolly', dx: number, dy: number,
+           at?: { readonly x: number; readonly y: number }): void;   // dolly: dx = ln(distance ratio), towards `at`
+  endNavigate(paneId?: string): void;                               // commits a shot camera's navigate gesture once
+  setPointerArbiter(stage: PointerArbiterStage | null): Disposer;   // the one stage slot: first step of every event
   setModifierSource(source: ModifierSource | null): Disposer;
-  setPointerArbiter(config: ArbiterConfig | null): Disposer;  // a stage inside pointerDown/Move/Up, not a DOM wrapper
+  readonly modifierSource: ModifierSource | null;                   // the rig runtime's held keys read its holds
   setDisplayOverlay(paneId: string, overlay: DisplayOverlay | null): Disposer;
+  pipe(paneId: string, e: PointerEvent, step: PipeStep, coalesced?: readonly CoalescedSample[]): boolean; // the stage's port only
 }
+function createPointerArbiter(config: ArbiterConfig): PointerArbiterStage;   // imported by the shell only (lazy)
+function createTwoFingerStage(): PointerArbiterStage;                       // Auto-Rig's two fingers (lazy)
+type PointerArbiterStage = (host: ArbiterHost) => PointerArbiter;           // the host is the manager
+interface PointerArbiter {
+  down(paneId: string, e: PointerEvent): boolean;                           // true: taken (the pipeline waits)
+  move(paneId: string, e: PointerEvent): boolean;
+  up(paneId: string, e: PointerEvent, cancelled: boolean): boolean;
+  cancel(): void;                                                           // Esc, blur, replaced or removed
+  touches(): number;                                                        // C15: ignore gesturechange at ≥ 2
+}
+type PipeStep = 'down' | 'move' | 'up' | 'cancel' | 'capture' | 'tumble' | 'track' | 'dolly';
+interface ArbiterConfig {
+  readonly buffered: readonly ('touch' | 'pen')[];                          // the mouse stays eager
+  readonly slopPx: { readonly touch: number; readonly pen: number };        // 10 / 4
+  readonly longPressMs: number;                                             // 450
+  readonly multiTapMs: { readonly touch: number; readonly pen: number; readonly mouse?: number };   // 450 / 350 / 500
+  readonly multiTapPx: { readonly touch: number; readonly pen: number; readonly mouse?: number };   // 24 / 8 / 4
+  readonly brushDelayMs: number;                                            // 120
+  readonly twoFingerTapMs: number;                                          // 250
+  readonly palmMs: number;                                                  // 500
+  readonly palmContactPx?: number;                                          // 30 once a pen was seen (D14); absent: off
+  readonly quickPinch?: { readonly ms: number; readonly scale: number };    // C5: 300 / 0.7; absent: off
+  routing(): 'shared' | 'pencilEdits' | 'pencilOnly';                       // read after claims()
+  claims(press: ArbiterTap & { readonly pointerType: 'touch' | 'pen' }): 'tool' | 'navigate' | 'brush';
+  onTap(tap: ArbiterTap): 'select' | 'consumed';                            // 'select': the tool's click (down + up)
+  onDoubleTap(tap: ArbiterTap): void;                                       // frames; the tool never sees the tap
+  onLongPress(tap: ArbiterTap): ArbiterFollow | undefined;                  // the ring; a follower gets moves and release
+  onTwoFingerTap(paneId: string): void;                                     // undo, after the pair's endNavigate
+  onQuickPinch?(paneId: string): void;                                      // frame all (C5)
+}
+interface ArbiterTap {
+  readonly paneId: string; readonly x: number; readonly y: number;         // pane CSS px
+  readonly clientX: number; readonly clientY: number;
+  readonly pointerType: 'mouse' | 'pen' | 'touch'; readonly hit: PickResult | null;
+}
+interface ArbiterFollow { move(x: number, y: number): void; up(x: number, y: number): void; cancel(): void }
+const POINTER_TOLERANCE: Record<'mouse' | 'pen' | 'touch',                  // §5.4; the mouse keeps Pro's values
+  { pickPx: number; slopPx: number; multiTapMs: number; multiTapPx: number }>;
+function setPointerTolerance(pointerType: string): void;                    // PICK for that pointer (the stage calls it)
 interface VirtualModifiers {
   readonly shift: boolean; readonly mod: boolean; readonly alt: boolean;
   readonly held: ReadonlySet<'KeyX' | 'KeyV' | 'KeyJ' | 'KeyD' | 'KeyB' | 'KeyM' | 'KeyN' | 'KeyI'>;
   readonly button?: 0 | 1 | 2;                                // 1 stands in for the middle button
 }
-interface ModifierSource { get(): VirtualModifiers; subscribe(onChange: () => void): Disposer }
-interface ArbiterConfig {
-  readonly buffered: readonly ('touch' | 'pen')[];            // mouse stays eager, as in Pro
-  readonly slopPx: { readonly touch: number; readonly pen: number };
-  readonly longPressMs: number;                               // 450
-  readonly multiTapMs: { readonly touch: number; readonly pen: number };
-  routing(): 'shared' | 'pencilEdits' | 'pencilOnly';
-  claims(paneId: string, hit: PickCandidate | null, type: 'touch' | 'pen'): 'tool' | 'navigate';
-  onTap(tap: ArbiterTap): 'select' | 'consumed';              // 'select': delivered to the select tool as a click
-  onDoubleTap(tap: ArbiterTap): void;                         // frames; the second tap never reaches the tool
-  onLongPress(tap: ArbiterTap): void;                         // the Halo ring; the tool never saw the press
-  onTwoFingerTap(paneId: string): void;                       // undo
+interface ModifierSource {
+  get(): VirtualModifiers;
+  attach(deliver: (e: ToolKeyEvent) => void): Disposer;       // the source sends its holds as downs/ups (`virtual`)
 }
-type DisplayOverlay = Partial<DisplayFlags> & { readonly xrayOpacity?: number; readonly shading?: ShadingMode };
+function createModifierSource(initial?: VirtualModifiers):
+  ModifierSource & { set(next: VirtualModifiers): void; subscribe(onChange: () => void): Disposer };
+type DisplayOverlay = Partial<DisplayFlags> & { readonly xrayOpacity?: number };   // DisplayFlags has `shading`
 
 // editor services (additive) — T0
 interface SaveTicket {
@@ -2257,20 +2296,48 @@ export type EntryChoice = 'autorig' | 'studio' | 'halo';
 export const ENTRY_ROUTES = { autorig: '/autorig', studio: '/editor', halo: '/app' } as const;
 ```
 
-**Arbiter semantics (normative after T1a):**
-- It is the first step of `ViewportManager.pointerDown` for buffered pointer types, before the navigation override,
-  profile gestures, the marking menu, the pointer layer and the tool. Pro installs no arbiter, so Pro is unchanged.
-- The pane is the one whose element contains the event target (`elementFromPoint` at the down point, honouring
-  stacking). Pointers whose target is chrome never enter it (§5.3 C6).
-- The manager captures the pointer on the real `pointerdown` and holds that event and the following moves, with their
-  `getCoalescedEvents()`.
-- Travel beyond the slop: the original down and the held moves are replayed into the normal pipeline in order, with
-  `coalesced` filled, so the tool sees every Pencil sample. Still at 450 ms: `onLongPress`, nothing is delivered. Up
-  before the slop: a tap (delivered to the select tool as a click, or consumed) or the second tap of a double-tap.
-- A second pointer that starts in the same pane while the first is held makes a two-finger gesture; the first pointer
-  is never delivered.
-- `claims()` implements the Shared-mode rule of §5.1 (selected thing, handle or brush → tool; else navigate) and the
-  brush delay.
+**Arbiter semantics (normative; confirmed by T1a, built in T1):**
+- **One stage slot, first on every event.** The manager calls the installed stage first in `pointerDown`, `pointerMove`
+  and `pointerUp` for every pointer type; `false` sends the event on to the pipeline (the navigation override, the
+  profile's chords, the marking menus, the pointer layer, the tool). Pro installs none, so its pipeline is the old
+  handler bodies behind one null check. The slot is exclusive: Auto-Rig's two-finger stage and a touch shell's
+  arbiter never both run, and installing one cancels the other.
+- **The state machine stays out of the manager** (A1): the shell builds the stage with `createPointerArbiter(config)`
+  and the manager binds it to itself (`ArbiterHost`); the stage reaches the pipeline through `pipe()`, never through
+  manager internals.
+- **Panes by DOM containment.** The manager listens on each pane element, so a pointer whose target is outside it never
+  reaches the stage; a target inside a pane that is chrome (`[data-ekza-chrome]`, e.g. a chip floating in it) is taken
+  and dropped, never delivered (C6).
+- **Hold, then decide.** The pointer is captured on the real `pointerdown`; it and the following moves (with their
+  `getCoalescedEvents()` snapshotted in pane px) are held. Beyond the slop the claim decides: `'tool'` replays the
+  original down and the held moves in order (`coalesced` filled); `'navigate'` starts the manager's own orbit (track
+  in an orthographic pane) from the original down; `'brush'` delivers at the slop or after `brushDelayMs`, and a
+  long-press after that cancels the stroke. Still at `longPressMs`: `onLongPress`, nothing delivered. Up before
+  either: `onTap` (`'select'` replays down + up) or a double-tap.
+- **Double-tap and the tool's double-click (C17).** A press within the second press's multi-tap window and radius of
+  the previous tap — whatever pointer made it — is the second tap of a double-tap: `onDoubleTap`, the tool never sees
+  it. Taps after a double-tap within the window are absorbed silently, and a press the tool would pair with the last
+  click it was handed is a double-tap too. With the tool's own double-click window and radius no wider than the
+  arbiter's per pointer type (`POINTER_TOLERANCE`), the tool never forms a double-click from what it is handed.
+- **Two fingers.** A second finger in the same pane while the first is held makes a pair: the first finger is never
+  delivered (or its tool drag is cancelled, its orbit ended and kept, its ring follower cancelled); the midpoint pans
+  and the spread dollies (`navigate`); a third finger is ignored; when a pair finger lifts the other is idle until it
+  lifts. The pair ends its navigation (`endNavigate`) before `onTwoFingerTap` runs (both lifted within
+  `twoFingerTapMs` and the slop), so the undo never meets an open camera preview.
+- **Pen and palm.** While a pen press is held, touches are ignored; within `palmMs` of the last pen event they only
+  navigate and their taps are consumed; once a pen was seen, a touch whose reported contact exceeds `palmContactPx` is
+  ignored (no reported size, no rule: D14). `routing()` is read after `claims()` (the first pen press may switch it).
+- **Quick pinch (C5).** A pair released within `quickPinch.ms` whose spread closed below `quickPinch.scale` with the
+  midpoint inside the touch slop runs `onQuickPinch` (frame all) instead of the two-finger tap; it dollied meanwhile.
+- **The mouse stays eager**; only a candidate second click (config `multiTapMs.mouse`) is held, so a double-click frames
+  for every input (C2).
+- **`navigate` is a gesture.** A shot camera's `navigate` moves are one preview, committed once by `endNavigate`
+  (off the undo stack), whatever the pauses; the wheel keeps its 120 ms idle commit.
+- **Tolerances and press policy.** Every event's pointer type first switches `PICK` (control, joint and manipulator
+  radii, cycle radius, marquee threshold) to that pointer's §5.4 values; `cancel()` restores the mouse's. A buffered
+  press puts `user-select: none` and `-webkit-touch-callout: none` on its pane (every pane already has
+  `touch-action: none`).
+- **`cancel()`** (Esc, blur, the stage replaced or removed) drops every press and ends a pair's navigation.
 
 ### 20.5 Parity CI: the Disclosure Manifest
 

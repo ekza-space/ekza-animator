@@ -21,6 +21,7 @@ import { Fragment, type JSX, useEffect } from 'react';
 import { useSession } from '../hooks';
 import { useRegistryList } from '../hooks/useRegistry';
 import { useShell } from './context';
+import { PRO_NAME } from './menuItems';
 import { type MenuSection, menuContents, topMenus } from './menus';
 import { prefetchForMenuItems } from './prefetch';
 import type { Shell } from './types';
@@ -124,9 +125,10 @@ export function MenuBar(): JSX.Element {
       className="flex h-[var(--size-menubar)] shrink-0 items-center gap-2 border-b border-line bg-header px-2"
       data-testid="menubar"
     >
-      <span className="flex items-center gap-1.5 pr-1 text-ui font-semibold text-fg" aria-label="Ekza Studio">
+      {/* STUDIO-TOUCH-SPEC §1.1, ST-30: "Ekza Studio Pro" once T12 turns on `PRO_TITLE`. */}
+      <span className="flex items-center gap-1.5 pr-1 text-ui font-semibold text-fg" aria-label={PRO_NAME}>
         <AppMarkIcon size={16} className="text-accent-text" />
-        <span className="hidden sm:inline">Ekza Studio</span>
+        <span className="hidden sm:inline">{PRO_NAME}</span>
       </span>
       <Menubar aria-label="Main menu">
         {menus.map((menu) => (

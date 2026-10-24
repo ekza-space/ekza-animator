@@ -13,6 +13,16 @@ export { createEditorApp } from './app/createEditorApp';
 export { createHeadlessEditorApp, createHeadlessServices, type HeadlessServicesOptions } from './app/headless';
 export { CHANGE_JOURNAL_CAP } from './history/history';
 export { AGENT_OPERATOR_IDS, loadAgentOperators } from './operators/builtin/agentChunk';
+// STUDIO-TOUCH-SPEC §20.3 item 7 (T5a): the public UI wrappers of the AI-only operators (a lazy chunk, denied to agents).
+export {
+  loadUiWrappers,
+  UI_WRAPPER_IDS,
+  type UiKeyScopeArgs,
+  type UiLoopMethod,
+  type UiLoopTravel,
+  type UiScalePivot,
+  type UiWrapperId,
+} from './operators/builtin/uiWrapperChunk';
 export {
   AI_LABEL_MAX,
   AI_LABEL_PREFIX,
@@ -108,6 +118,8 @@ export {
   migrateLegacyPanelId,
   migrateLegacyPrefs,
 } from './prefs/legacy';
+export { overridePrefs, type PrefsLayer, type PrefsPatch, prefsOverrideLayers } from './prefs/overrides';
+export { basePrefs } from './prefs/persist';
 export { createMemoryAssetStore } from './services/assets';
 export { activeClip, activeClipFrame, activeRuntime } from './session/active';
 export { defaultSession } from './session/defaults';
@@ -560,3 +572,14 @@ export {
   rebindRequest,
   unbindRequest,
 } from './operators/builtin/rig/bind';
+
+// Halo (STUDIO-TOUCH-SPEC §20.4, ST-T2 P1): shell.navigate, registered by the host on every route.
+export { NO_SHELL_NAVIGATION, registerShellNavigate, SHELL_ROUTES } from './operators/builtin/shellNavigate';
+
+// T5b (STUDIO-TOUCH-SPEC §20.3 item 10): Auto-Rig's orchestration, run by the Auto-Rig wizard and Halo alike; read by
+// lazy shell chunks only (tree-shaken here, so no route's first visit grows).
+export * from './autorigFlow';
+
+// T5c (STUDIO-TOUCH-SPEC §20.3 item 10): Auto-Rig's derived progress, read by the Auto-Rig wizard and Halo's readiness
+// (tree-shaken here; `/autorig` keeps its checklist chunk lazy).
+export * from './progress';

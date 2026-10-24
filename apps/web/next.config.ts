@@ -54,6 +54,8 @@ export default function nextConfig(phase: string): NextConfig {
       '@ekza-studio/ui',
       '@ekza-studio/editor',
       '@ekza-studio/autorig',
+      // STUDIO-TOUCH-SPEC §20.1 (T2): Ekza Studio's Simple layout, imported only by `/app`'s entry group.
+      '@ekza-studio/halo',
     ],
     // `sharp` is never installed (ADR 0009); images are served as is.
     images: { unoptimized: true },

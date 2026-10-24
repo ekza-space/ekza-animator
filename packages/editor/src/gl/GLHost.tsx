@@ -4,11 +4,21 @@
 // scheduled tasks first (`app.flushScheduled`, M2A-SPEC §4.5), then the clock and evaluation, `useFrame(…, 1)`
 // renders the dirty panes, `addAfterEffect` redraws the 2D canvases. Context loss is reported and recovered; without
 // WebGL the editor keeps running on the fallback frame scheduler.
+//
+// Halo T0 (STUDIO-TOUCH-SPEC S8): the page's memory profile is decided at the first render, before the context
+// exists — the canvas's DPR range, MSAA, the texture cap at GPU upload and the `device` preference override. The
+// host div names the profile (`data-memory-profile`).
 import { EkzaError } from '@ekza-studio/anim-core';
-import { registerViewportContributions, ViewportManager, viewportTestApi } from '@ekza-studio/viewport';
+import {
+  applyTextureCap,
+  registerViewportContributions,
+  ViewportManager,
+  viewportTestApi,
+} from '@ekza-studio/viewport';
 import { addAfterEffect, addEffect, Canvas, type RootState, useFrame } from '@react-three/fiber';
 import { Component, type ErrorInfo, type JSX, type ReactNode, useEffect, useRef, useState } from 'react';
 import { useHost } from '../host/context';
+import { type MemoryProfile, memoryProfileOf } from '../host/memoryProfile';
 import type { HostShell } from '../host/types';
 import { createFrameGate, type FrameGate } from './frameGate';
 import { probeWebGl, rendererName } from './webgl';
@@ -60,10 +70,12 @@ class CanvasBoundary extends Component<BoundaryProps, { readonly failed: boolean
 }
 
 /** Sets up the viewport for a created GL root; returns its teardown. */
-function attachRenderer(shell: HostShell, state: RootState, gate: FrameGate): () => void {
+function attachRenderer(shell: HostShell, state: RootState, gate: FrameGate, profile: MemoryProfile): () => void {
   const { app, ui } = shell;
   const gl = state.gl;
   gl.setClearColor(CLEAR_COLOR, 1);
+  // Before anything uploads a texture (the model loader gets the renderer next).
+  const restoreTextureCap = applyTextureCap(gl, profile.textureCapPx);
 
   try {
     app.services.models?.setRenderer(gl);
@@ -127,6 +139,7 @@ function attachRenderer(shell: HostShell, state: RootState, gate: FrameGate): ()
     disposeProbe();
     disposeContributions();
     gate.bind(null);
+    restoreTextureCap();
     shell.restoreFallbackFrames();
     if (ui.getState().viewport === vm) ui.setState({ viewport: null });
     try {
@@ -139,6 +152,8 @@ function attachRenderer(shell: HostShell, state: RootState, gate: FrameGate): ()
 
 export function GLHost(): JSX.Element | null {
   const shell = useHost();
+  // Decided before the canvas below creates its context (and applied to the preferences once per page).
+  const [profile] = useState(() => memoryProfileOf(shell));
   const [webgl] = useState(probeWebGl);
   const [failed, setFailed] = useState(false);
   const teardown = useRef<(() => void) | null>(null);
@@ -177,16 +192,21 @@ export function GLHost(): JSX.Element | null {
 
   if (!available) return null;
   return (
-    <div className="pointer-events-none fixed inset-0 z-0" aria-hidden data-testid="gl-host">
+    <div
+      className="pointer-events-none fixed inset-0 z-0"
+      aria-hidden
+      data-testid="gl-host"
+      data-memory-profile={profile.id}
+    >
       <CanvasBoundary onError={() => setFailed(true)}>
         <Canvas
           frameloop="demand"
-          dpr={[1, 2]}
-          gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
+          dpr={profile.dpr as [number, number]}
+          gl={{ antialias: profile.antialias, alpha: false, powerPreference: 'high-performance' }}
           style={{ pointerEvents: 'none' }}
           onCreated={(state) => {
             teardown.current?.();
-            teardown.current = attachRenderer(shell, state, gate);
+            teardown.current = attachRenderer(shell, state, gate, profile);
           }}
         >
           <FrameDriver shell={shell} gate={gate} />

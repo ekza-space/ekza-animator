@@ -24,6 +24,8 @@ const EDITOR = scope('editor');
 const MESH_CORE = scope('mesh-core');
 const MESH_VIEW = scope('mesh-view');
 const AUTORIG = scope('autorig');
+// STUDIO-TOUCH-SPEC §20.1 (T2): Ekza Studio's Simple layout (the Halo shell).
+const HALO = scope('halo');
 // M-AI (MCP-SPEC §2): the agent bridge packages.
 const MOTION_ANALYSIS = scope('motion-analysis');
 const SCHEMATIC_RENDER = scope('schematic-render');
@@ -241,9 +243,17 @@ export const ALLOWED = {
     dependencies: [ANIM_CORE, DOC, EDITOR_CORE, VIEWPORT, UI, EDITOR, 'react'],
     devDependencies: [...VITEST, '@types/react'],
   },
+  // STUDIO-TOUCH-SPEC §20.1 (T2): the Halo shell — anim-core, doc, editor-core, viewport, curve-editor (lazy imports
+  // only, oxlint), ui, React and the editor through its `./host` (and the measured T5c) subpaths only; never autorig,
+  // mesh-core, rig, io, mesh-view or dockview. Node unit tests; its browser tests are the app's `ha-*` e2e.
+  [HALO]: {
+    dependencies: [ANIM_CORE, DOC, EDITOR_CORE, VIEWPORT, CURVE_EDITOR, UI, EDITOR, 'react'],
+    devDependencies: [...VITEST, '@types/react'],
+  },
   web: {
-    // AUTORIG-SPEC §3.1 (D0): `/autorig` mounts the Auto-Rig shell (the only importer of @ekza-studio/autorig).
-    dependencies: [EDITOR, UI, AUTORIG, ...REACT, ...VRM, 'next', 'three'],
+    // AUTORIG-SPEC §3.1 (D0): `/autorig` mounts the Auto-Rig shell (the only importer of @ekza-studio/autorig);
+    // STUDIO-TOUCH-SPEC §20.1 (T2): `/app` mounts the Halo shell (the only importer of @ekza-studio/halo).
+    dependencies: [EDITOR, UI, AUTORIG, HALO, ...REACT, ...VRM, 'next', 'three'],
     // e2e specs may import io and doc (ARCHITECTURE §3).
     devDependencies: [
       ...VITEST,

@@ -7,6 +7,7 @@ import type { Disposer } from '@ekza-studio/anim-core';
 import type { JointId, MeshId } from '@ekza-studio/doc';
 import { type EditorApp, quickRigOf, rigGeometry } from '@ekza-studio/editor-core';
 import { projectedCenter, type QuickRigMarker } from '@ekza-studio/rig';
+import type { VirtualHoldCode } from '../input/modifiers';
 import type { ViewportManager, ViewportPointerLayer } from '../manager/ViewportManager';
 import { JointInput } from '../tools/rig/jointTransform/input';
 import { rigSkinRuntimes } from '../tools/rig/paint';
@@ -40,9 +41,13 @@ function typing(target: EventTarget | null): boolean {
   return element !== null && (TEXT_INPUT.test(element.tagName ?? '') || element.isContentEditable === true);
 }
 
-/** Keys held down (by `KeyboardEvent.code`), outside text fields. */
+/**
+ * Keys held down (by `KeyboardEvent.code`), outside text fields, and the viewport's virtual holds (a touch shell's
+ * Thumb key, STUDIO-TOUCH-SPEC §20.3 item 3).
+ */
 class Held implements HeldKeys {
   private readonly codes = new Set<string>();
+  constructor(private readonly virtual: (code: string) => boolean) {}
   readonly down = (e: KeyboardEvent): void => {
     if (!typing(e.target)) this.codes.add(e.code);
   };
@@ -51,14 +56,14 @@ class Held implements HeldKeys {
   };
   readonly clear = (): void => this.codes.clear();
   isHeld(code: string): boolean {
-    return this.codes.has(code);
+    return this.codes.has(code) || this.virtual(code);
   }
 }
 
 export function createRigRuntime(app: EditorApp, vm: ViewportManager): ViewportRigRuntime {
   const joints = new JointOverlay(vm, app);
   const markers = new QuickRigMarkerOverlay(vm, app);
-  const held = new Held();
+  const held = new Held((code) => vm.modifierSource?.get().held.has(code as VirtualHoldCode) === true);
   let preview: JointPreview | null = null;
   let dirty = true;
   let rebuildMs = 0;

@@ -8,12 +8,15 @@
 //   of the previous click selects the next marker of that set in list order (cycling).
 import type { ViewPreset } from '@ekza-studio/editor-core';
 import type { QuickRigMarker } from '@ekza-studio/rig';
+import { PICK } from '../../../theme';
 
 export type Vec3 = readonly [number, number, number];
 export type Axis = 0 | 1 | 2;
 
-/** Pick radius of markers and ghosts (CSS px). */
+/** Pick radius of markers and ghosts (CSS px) for the mouse. */
 export const MARKER_PICK_PX = 8;
+/** The marker pick radius for the pointer in use: never below a finger's or the pen's pick radius (§5.4, `PICK`). */
+export const markerPickPx = (): number => Math.max(MARKER_PICK_PX, PICK.controlPx);
 /** A click within this distance of the previous click cycles (CSS px). */
 export const MARKER_CYCLE_PX = 2;
 /** Pointer travel before a press on a marker becomes a drag (CSS px). */
@@ -73,7 +76,7 @@ export function pickMarker(
   hits: readonly MarkerHit[],
   selected: QuickRigMarker | null,
   order: readonly QuickRigMarker[],
-  radiusPx: number = MARKER_PICK_PX,
+  radiusPx: number = markerPickPx(),
 ): MarkerPick | null {
   const within = hits.filter((hit) => hit.distPx <= radiusPx);
   if (within.length === 0) return null;

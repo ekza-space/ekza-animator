@@ -18,7 +18,7 @@ test('E2E-03: drag-and-drop VRM 0.x', async ({ page }) => {
   await page.dispatchEvent('[data-testid="editor-root"]', 'drop', { dataTransfer });
 
   const dialog = page.getByTestId('import-dialog');
-  const noImporter = page.getByTestId('toast').filter({ hasText: 'No importer' });
+  const noImporter = page.getByTestId('toast').filter({ hasText: 'not a 3D model or an Ekza Studio project' });
   await expect(dialog.or(noImporter)).toBeVisible();
   await expect(noImporter, 'an importer is registered for .vrm').toHaveCount(0);
   await expect(page.getByTestId('import-summary-error')).toHaveCount(0);

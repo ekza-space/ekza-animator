@@ -18,7 +18,9 @@ import { type AnyOperator, defineOperator, fail, OK } from '../../define';
 /** The poll reason without a navigation port (headless hosts). */
 export const NO_NAVIGATION = 'No navigation in this host';
 
-const ROUTES: readonly ShellRoute[] = ['autorig', 'studio', 'chooser'];
+// STUDIO-TOUCH-SPEC §20.3 item 11 (T2): unchanged — `halo` is not one of its routes (its agent schema stays as it is);
+// every route, Halo's included, is `shell.navigate`'s (`../../shellNavigate.ts`).
+const ROUTES: readonly Exclude<ShellRoute, 'halo'>[] = ['autorig', 'studio', 'chooser'];
 const EXPECTS = `expects { to: ${ROUTES.map((route) => `'${route}'`).join(' | ')} }`;
 
 const navigate = defineOperator<'autorig.navigate'>({

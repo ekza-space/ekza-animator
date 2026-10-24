@@ -40,14 +40,32 @@ export const POLE_LINE = { color: '#c8ccd4', alpha: 0.6, width: 1 } as const;
 /** Hover lightens the side colour by this fraction of the remaining lightness (HSL). */
 export const HOVER_LIGHTEN = 0.2;
 
-/** Picking tolerances in CSS px (MVP-SPEC §4.11.16). */
-export const PICK = {
+/**
+ * Picking tolerances in CSS px (MVP-SPEC §4.11.16) of the pointer in use: these values are the mouse's (Studio Pro's);
+ * a touch shell's input stage switches them per event to the finger's or the pen's (STUDIO-TOUCH-SPEC §5.4,
+ * `input/tolerance.ts`), so consumers read them at call time.
+ */
+export const PICK: {
+  controlPx: number;
+  jointPx: number;
+  manipulatorPx: number;
+  cycleRadiusPx: number;
+  marqueeMinPx: number;
+} = {
   controlPx: 6,
   jointPx: 6,
   manipulatorPx: 7,
   cycleRadiusPx: 3,
   marqueeMinPx: 4,
-} as const;
+};
 
-/** Mesh opacity while a pane shows x-ray. */
-export const XRAY_OPACITY = 0.5;
+/**
+ * Mesh opacity while a pane shows x-ray: 0.5, or the x-ray opacity of the display overlay of the pane being drawn
+ * (STUDIO-TOUCH-SPEC §4.7; the manager sets it per pane, SceneSync reads it when it switches x-ray on).
+ */
+export let XRAY_OPACITY = 0.5;
+
+/** The manager's per-pane x-ray opacity (§20.3 item 17). */
+export function setXrayOpacity(opacity: number): void {
+  XRAY_OPACITY = opacity;
+}

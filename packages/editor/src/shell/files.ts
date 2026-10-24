@@ -7,6 +7,7 @@
 // one and an animation would run before its character exists.
 import type { EditorApp, OperatorResult } from '@ekza-studio/editor-core';
 import type { StoreApi } from 'zustand/vanilla';
+import { nameForKind, sniffFileKind, UNSUPPORTED_FILE_TEXT } from '../services/fileTypes';
 import { MODEL_IMPORT_OP, openOrderRank, PROJECT_OPEN_OP, resolveImporter } from './importers';
 import type { Summarizer } from './summary';
 import type { FilePipeline, OpenFileOptions, PendingImport, ShellUiState } from './types';
@@ -91,8 +92,10 @@ export function createFilePipeline(deps: FilePipelineDeps): FilePipeline {
   };
 
   async function openFile(name: string, bytes: Uint8Array, opts: OpenFileOptions = {}): Promise<void> {
+    // S10 (T0): the Files app can hand over a file under a name that hides its kind; sniff the bytes first.
+    name = nameForKind(name, sniffFileKind(bytes));
     const importer = resolveImporter(app.importers, name, bytes);
-    if (importer === null) throw new Error(`No importer for '${name}' (supported: .glb, .vrm, .vrma, .ekzanim)`);
+    if (importer === null) throw new Error(UNSUPPORTED_FILE_TEXT);
 
     if (importer.op === MODEL_IMPORT_OP && opts.auto !== true) {
       const { closed } = await openImportDialog(name, bytes, importer);

@@ -33,7 +33,8 @@ function blockedStorage(): EntryStorage {
 describe('the remembered choice (§3.3)', () => {
   it('uses the new ekza-studio key and the two routes', () => {
     expect(ENTRY_KEY).toBe('ekza-studio:entry:v1');
-    expect(ENTRY_ROUTES).toEqual({ autorig: '/autorig', studio: '/editor' });
+    // STUDIO-TOUCH-SPEC §1.2 (T2): + Ekza Studio's `/app` (honoured only with HALO_ENTRY, entry-contract.test.ts)
+    expect(ENTRY_ROUTES).toEqual({ autorig: '/autorig', studio: '/editor', halo: '/app' });
   });
 
   it.each([

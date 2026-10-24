@@ -3,6 +3,7 @@
 @source "./src";
 /* AUTORIG-SPEC §10 D3 (D0 note): the Auto-Rig shell's classes. */
 @source "../autorig/src";
+@source "../halo/src";
 
 /* Self-hosted fonts (OFL-1.1, no third-party requests; research 09 §8.4). */
 @import "@fontsource-variable/inter/wght.css";
@@ -95,6 +96,25 @@
   --text-dialog--line-height: var(--type-dialog-line);
   --text-dialog-title: var(--type-dialog-title-size);
   --text-dialog-title--line-height: var(--type-dialog-title-line);
+
+  /* The touch kit (@ekza-studio/ui/touch; STUDIO-TOUCH-SPEC §20.3 item 14). Sizes come from the touch scope below. */
+  --color-accent-soft: var(--accent-soft);
+  --color-touch-surface: var(--touch-surface);
+  --color-toast: var(--toast-bg);
+  --color-on-toast: var(--on-toast);
+  --radius-touch: var(--r-touch);
+  --radius-touch-inner: var(--r-touch-inner);
+  --radius-touch-card: var(--r-touch-card);
+  --shadow-touch: var(--elevation-touch);
+  --shadow-sheet: var(--elevation-sheet);
+  --text-touch: var(--touch-text);
+  --text-touch--line-height: var(--type-touch-ui-line);
+  --text-touch-label: var(--type-touch-label-size);
+  --text-touch-label--line-height: var(--type-touch-label-line);
+  --text-touch-value: var(--type-touch-value-size);
+  --text-touch-value--line-height: var(--type-touch-value-line);
+  --text-touch-title: var(--type-touch-title-size);
+  --text-touch-title--line-height: var(--type-touch-title-line);
 }
 
 html,
@@ -165,6 +185,104 @@ body {
   :is(.ekza-editor, :root[data-ekza-editor]) *,
   :is(.ekza-editor, :root[data-ekza-editor]) *::before,
   :is(.ekza-editor, :root[data-ekza-editor]) *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
+}
+
+/* ── The touch layout (Ekza Studio's Simple layout; STUDIO-TOUCH-SPEC §4.1, §18, §20.3 item 14) ──────────────────
+   `[data-density="touch"]` marks a touch scope (the shell's root, and a sheet or numpad portalled out of it):
+   targets of at least 44 × 44 px, input text of at least 16 px (so iOS never zooms on focus), 16 px gutters and the
+   safe-area insets, a visible focus ring, and the Text & touch size preference (`--ui-scale`, 0.85–1.5, set on the
+   scope's root by `touchScopeProps`) read last: it scales text and targets up, never a target below 44 px or an input
+   below 16 px. Studio's shared primitives (Button, IconButton, Toggle, fields) inside a scope take the same sizes. */
+:root {
+  /* The Text & touch size preference; a touch shell sets it on its root. */
+  --ui-scale: 1;
+}
+
+[data-density="touch"] {
+  --touch-hit: max(var(--size-touch-hit), calc(var(--size-touch-hit) * var(--ui-scale)));
+  --touch-key: max(var(--size-touch-key), calc(var(--size-touch-key) * var(--ui-scale)));
+  --touch-text: calc(var(--type-touch-ui-size) * var(--ui-scale));
+  --touch-input-text: max(var(--type-touch-input-size), calc(var(--type-touch-input-size) * var(--ui-scale)));
+  --touch-inset-left: max(var(--space-gutter), env(safe-area-inset-left, 0px));
+  --touch-inset-right: max(var(--space-gutter), env(safe-area-inset-right, 0px));
+  --touch-inset-top: env(safe-area-inset-top, 0px);
+  --touch-inset-bottom: max(var(--space-edge-bottom), env(safe-area-inset-bottom, 0px));
+  --size-row: var(--touch-hit);
+  --size-hit: var(--touch-hit);
+  --size-field: var(--touch-hit);
+  --size-field-dialog: var(--touch-hit);
+  --type-ui-size: var(--touch-text);
+  --type-ui-line: var(--type-touch-ui-line);
+  font-family: var(--font-ui);
+  font-size: var(--touch-text);
+  line-height: var(--type-touch-ui-line);
+  color: var(--text);
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+[data-density="touch"] :is(input, textarea, select) {
+  font-size: var(--touch-input-text);
+}
+
+[data-density="touch"] :is(input, textarea, [contenteditable="true"]) {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Keyboard focus only: a 2 px ring outside the target (WCAG 2.2 SC 2.4.7 / 2.4.13). */
+[data-density="touch"] :focus-visible,
+[data-density="touch"]:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
+
+/* A scrolling list inside the shell's no-pan policy (sheets, the More list). */
+[data-density="touch"] [data-touch-scroll] {
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+}
+
+/* The shell-wide policy (§4.1, S13; `installTouchPolicy`): while a touch shell is mounted the page never pinch-zooms,
+   scrolls, pulls to refresh or shows the long-press callout; text fields and scrolling sheets keep their behaviour.
+   The class is removed with the shell, so Studio Pro on the same page zooms and scrolls as before. */
+html.ekza-touch-policy,
+html.ekza-touch-policy body {
+  touch-action: none;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+html.ekza-touch-policy :is(input, textarea, [contenteditable="true"]) {
+  touch-action: manipulation;
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+html.ekza-touch-policy [data-touch-scroll] {
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+}
+
+@keyframes ekza-touch-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-density="touch"] *,
+  [data-density="touch"] *::before,
+  [data-density="touch"] *::after {
     transition-duration: 0ms !important;
     animation-duration: 0ms !important;
   }
