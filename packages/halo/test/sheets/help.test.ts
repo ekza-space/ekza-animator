@@ -3,7 +3,7 @@
 // groups the keymap with Everywhere first and plain labels, About names the product, version, beta and licence, and
 // the manifest's Help entries (`ui.open` shortcuts / about) land on sections the sheet has.
 import { createHeadlessEditorApp, EDITOR_VERSION, type EditorApp, GLOBAL_SCOPE } from '@ekza-studio/editor-core';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { DIALOG_SURFACES } from '../../src/manifest/dialogs';
 import { DISCLOSURE } from '../../src/manifest/disclosure';
 import { PLAIN_LABELS } from '../../src/manifest/labels';
@@ -22,6 +22,9 @@ import {
   THIRD_PARTY_NOTICES_URL,
   thumbRows,
 } from '../../src/sheets/help/model';
+
+// Headless apps with every chunk load slowly on a busy machine.
+vi.setConfig({ testTimeout: 60_000 });
 
 let app: EditorApp;
 

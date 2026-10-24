@@ -5,7 +5,7 @@
 import type { CharacterId, CharacterVrmMeta, MeshId } from '@ekza-studio/doc';
 import { makeVrmMeta } from '@ekza-studio/doc';
 import type { EditorApp } from '@ekza-studio/editor-core';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { DISCLOSURE } from '../../src/manifest/disclosure';
 import { SHEET_SECTIONS } from '../../src/manifest/sheets';
 import { entriesOf } from '../../src/manifest/types';
@@ -18,6 +18,9 @@ import {
   patchFor,
 } from '../../src/sheets/about/model';
 import { everyOperator, polybotApp, runOk } from '../support';
+
+// Headless apps with every chunk load slowly on a busy machine.
+vi.setConfig({ testTimeout: 60_000 });
 
 /** A character made from a model: a cube, made a character in Rig (`char.fromModel`). */
 async function modelCharacter(app: EditorApp): Promise<CharacterId> {

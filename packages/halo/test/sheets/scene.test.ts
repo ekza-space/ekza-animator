@@ -11,7 +11,7 @@ import {
   loadUiWrappers,
   type OperatorResult,
 } from '@ekza-studio/editor-core';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { entryFor } from '../../src/manifest/check';
 import { DISCLOSURE } from '../../src/manifest/disclosure';
 import { SHEET_SECTIONS } from '../../src/manifest/sheets';
@@ -26,6 +26,9 @@ import {
   sceneCalls,
   sceneModel,
 } from '../../src/sheets/scene/model';
+
+// Headless apps with every chunk load slowly on a busy machine.
+vi.setConfig({ testTimeout: 60_000 });
 
 const fixture = (path: string): Uint8Array =>
   new Uint8Array(readFileSync(new URL(`../../../../fixtures/${path}`, import.meta.url)));

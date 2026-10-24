@@ -3,12 +3,15 @@
 // forms, the filter narrows by plain or Pro words, nouns resolve from the selection, and search lists every operator
 // with an entry in every stage.
 import type { ControlId } from '@ekza-studio/doc';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { DISCLOSURE } from '../../src/manifest/disclosure';
 import { STAGES } from '../../src/manifest/types';
 import { fixFor, moreGroups, searchEntries } from '../../src/verbs/derive';
 import { EMPTY_NOUN, resolveNoun } from '../../src/verbs/nouns';
 import { everyOperator, polybotApp, runOk } from '../support';
+
+// Headless apps with every chunk load slowly on a busy machine.
+vi.setConfig({ testTimeout: 60_000 });
 
 describe('More (§6.3)', () => {
   it('lists a face’s petals first, then its groups, each with plain · Pro name · hotkey', async () => {

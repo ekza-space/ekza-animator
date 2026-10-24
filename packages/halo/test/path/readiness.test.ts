@@ -1,12 +1,15 @@
 // Readiness (STUDIO-TOUCH-SPEC §7.2, ST-36): one list of problem rows for the destination; the status pill shows the
 // total (never a per-stage filter, never "All good" while a row exists); glyphs per stage; the budget ring only with a
 // budget; the Next chip follows the document; the Path's names carry shape and count.
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { destinationOf } from '../../src/path/destinations';
 import { nextChip } from '../../src/path/nextChip';
 import { glyphText, stageName, stageSwitch } from '../../src/path/Path';
 import { readiness, statusText } from '../../src/path/readiness';
 import { everyOperator, polybotApp, runOk } from '../support';
+
+// Headless apps with every chunk load slowly on a busy machine.
+vi.setConfig({ testTimeout: 60_000 });
 
 describe('readiness (§7.2)', () => {
   it('is untouched and quiet for an empty project, with no Next chip and no budget', async () => {

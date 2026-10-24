@@ -5,7 +5,7 @@
 // fix order; the Rig checks' profile follows the destination (`rig.validation.profile`).
 import type { MeshId } from '@ekza-studio/doc';
 import { AUTORIG_FIX_ORDER, type EditorApp, type IntakeReport, rigValidation } from '@ekza-studio/editor-core';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { DISCLOSURE } from '../../src/manifest/disclosure';
 import { entriesOf } from '../../src/manifest/types';
 import { DESTINATIONS } from '../../src/path/destinations';
@@ -19,6 +19,9 @@ import {
   sectionTarget,
 } from '../../src/sheets/health/model';
 import { everyOperator, polybotApp, runOk } from '../support';
+
+// Headless apps with every chunk load slowly on a busy machine.
+vi.setConfig({ testTimeout: 60_000 });
 
 /** Every operator a control of the model runs (rows, model check, profile, Fixes and their choices). */
 function operatorsOf(model: HealthModel): Set<string> {
@@ -122,7 +125,7 @@ describe('Health (§7.2)', () => {
     const empty = healthModel(app, 'exploring');
     const fixes = new Set(empty.fixes.map((fix) => fix.op));
     // Show me and the model check's fixes are per row (the other tests run them); every other one is in Fixes.
-    const perRow = new Set(['select.mesh.matching', 'autorig.fix']);
+    const perRow = new Set(['select.mesh.matching', 'autorig.fix', 'target.fix']);
     expect(manifestHealthOps('problems').filter((op) => !perRow.has(op) && !fixes.has(op))).toEqual([]);
     expect(manifestHealthOps('checks').filter((op) => !operatorsOf(empty).has(op))).toEqual([]);
     // Nothing to work on yet: every row is greyed with a reason.

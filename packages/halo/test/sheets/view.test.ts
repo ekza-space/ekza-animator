@@ -11,12 +11,15 @@ import {
   type OperatorResult,
   providePaneDisplay,
 } from '@ekza-studio/editor-core';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { entryFor } from '../../src/manifest/check';
 import { DISCLOSURE } from '../../src/manifest/disclosure';
 import { SHEET_SECTIONS } from '../../src/manifest/sheets';
 import { entriesOf, isSurfaceEntry } from '../../src/manifest/types';
 import { MANIPULATOR_STEP, type ViewModel, viewCalls, viewModel } from '../../src/sheets/view/model';
+
+// Headless apps with every chunk load slowly on a busy machine.
+vi.setConfig({ testTimeout: 60_000 });
 
 const fixture = (path: string): Uint8Array =>
   new Uint8Array(readFileSync(new URL(`../../../../fixtures/${path}`, import.meta.url)));

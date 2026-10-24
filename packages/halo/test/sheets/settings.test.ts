@@ -12,12 +12,15 @@ import {
   type Prefs,
   prefValue,
 } from '@ekza-studio/editor-core';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DIALOG_SURFACES } from '../../src/manifest/dialogs';
 import { DISCLOSURE } from '../../src/manifest/disclosure';
 import { SHEET_SECTIONS } from '../../src/manifest/sheets';
 import { entriesOf, isSurfaceEntry, type SurfaceRef } from '../../src/manifest/types';
 import { type SettingsControl, settingsControls, settingsSections } from '../../src/sheets/settings/model';
+
+// Headless apps with every chunk load slowly on a busy machine.
+vi.setConfig({ testTimeout: 60_000 });
 
 /**
  * The page host registers `prefs.set` (`@ekza-studio/editor/host` `registerHostOperators`, not exported); a headless

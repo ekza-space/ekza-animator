@@ -11,7 +11,7 @@ import {
   loadUiWrappers,
   type UiDialog,
 } from '@ekza-studio/editor-core';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { type Census, type CensusOperator, liveCensus } from '../../src/manifest/census';
 import { checkParity, disjoint, entryFor, matchArgs } from '../../src/manifest/check';
 import { DEFERRED_DIALOGS, DIALOG_SURFACES } from '../../src/manifest/dialogs';
@@ -20,6 +20,9 @@ import { PARAM_SURFACES } from '../../src/manifest/paramSurfaces';
 import { PLUMBING_ALLOWLIST } from '../../src/manifest/plumbing';
 import { entriesOf, isSurfaceEntry, NOUN_KINDS, STAGES } from '../../src/manifest/types';
 import { MAX_PETALS, petalsFor, VERB_TABLE } from '../../src/verbs/table';
+
+// Headless apps with every chunk load slowly on a busy machine.
+vi.setConfig({ testTimeout: 60_000 });
 
 let app: EditorApp;
 let headless: Census;

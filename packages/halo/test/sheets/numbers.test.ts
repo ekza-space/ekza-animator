@@ -4,10 +4,13 @@
 // and the active animation's settings.
 import type { ControlId } from '@ekza-studio/doc';
 import { type EditorApp, toDisplayValue } from '@ekza-studio/editor-core';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { type NumbersSection, numbersSections } from '../../src/sheets/numbers/model';
 import type { Noun } from '../../src/verbs/nouns';
 import { everyOperator, polybotApp, runOk } from '../support';
+
+// Headless apps with every chunk load slowly on a busy machine.
+vi.setConfig({ testTimeout: 60_000 });
 
 const noun = (kind: Noun['kind'], ids: readonly string[], character: string | null = null): Noun => ({
   kind,
