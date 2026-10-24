@@ -61,7 +61,7 @@ describe('overridePrefs', () => {
   it('notifies subscribers when an override comes and goes, and leaves the store untouched afterwards', () => {
     const store = createStore<Prefs>()(() => defaultPrefs('other'));
     const setState = store.setState;
-    const seen = vi.fn();
+    const seen = vi.fn<(next: boolean, previous: boolean) => void>();
     store.subscribe((next, previous) => seen(next.autoKey, previous.autoKey));
     const off = overridePrefs(store, 'shell', { autoKey: true });
     expect(seen).toHaveBeenLastCalledWith(true, false);
@@ -77,7 +77,7 @@ describe('overridePrefs', () => {
 
   it('an override that changes nothing visible does not notify', () => {
     const store = createStore<Prefs>()(() => defaultPrefs('other'));
-    const seen = vi.fn();
+    const seen = vi.fn<() => void>();
     store.subscribe(seen);
     const off = overridePrefs(store, 'shell', { autoKey: false });
     expect(seen).not.toHaveBeenCalled();
@@ -92,7 +92,11 @@ describe('overridePrefs', () => {
     store.setState({ modeling: { ...store.getState().modeling, gridStep: 0.5 } });
     expect(store.getState().modeling.gridStep).toBe(0.5);
     expect(store.getState().modeling.undoBudgetMB).toBe(96);
-    expect(basePrefs(store.getState()).modeling).toMatchObject({ gridStep: 0.5, undoBudgetMB: 256, journalBudgetMB: 64 });
+    expect(basePrefs(store.getState()).modeling).toMatchObject({
+      gridStep: 0.5,
+      undoBudgetMB: 256,
+      journalBudgetMB: 64,
+    });
     // a functional update reads the effective value and is rebased the same way
     store.setState((prefs) => ({ modeling: { ...prefs.modeling, multiCutSnapStep: 0.5 } }));
     expect(basePrefs(store.getState()).modeling.undoBudgetMB).toBe(256);

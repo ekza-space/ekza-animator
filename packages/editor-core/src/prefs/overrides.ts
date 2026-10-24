@@ -127,8 +127,8 @@ function install(store: StoreApi<Prefs>): Layered {
     const next: Record<string, unknown> = replace === true ? {} : { ...state.base };
     for (const key of Object.keys(written)) {
       next[key] = rebase(
-        (state.base as Plain)[key],
-        (shown as Plain)[key],
+        (state.base as unknown as Plain)[key],
+        (shown as unknown as Plain)[key],
         (written as Plain)[key],
         overlay?.[key],
       );
@@ -138,7 +138,7 @@ function install(store: StoreApi<Prefs>): Layered {
     state.base = base;
     publish(store, state, changed);
   };
-  store.setState = write as StoreApi<Prefs>['setState'];
+  store.setState = write;
   layered.set(store, state);
   return state;
 }
