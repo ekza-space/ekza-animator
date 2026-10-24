@@ -92,7 +92,7 @@ export function paintGrid(ctx: CanvasRenderingContext2D, scene: GraphScene, them
     }
   }
   ctx.textAlign = 'center';
-  if (fLast - fFirst < MAX_LINES) {
+  if (scene.frameLabels !== false && fLast - fFirst < MAX_LINES) {
     let clear = column === 0; // frames run left to right: once one clears the column, the rest do
     for (let i = fFirst; i <= fLast; i++) {
       const frame = i * fStep;

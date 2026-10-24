@@ -122,7 +122,14 @@ export function HaloLayer({
       data-halo-layer=""
     >
       {noun !== null && halo?.mode !== 'ring' ? (
-        <Breadcrumb controller={controller} noun={noun} box={box} width={width} above={insetTop} />
+        // the chip stays above the tray (T10: Keys and Curves unfold over the feet a selection may sit on)
+        <Breadcrumb
+          controller={controller}
+          noun={noun}
+          box={box === null ? null : { ...box, top: Math.min(box.top, height - insetBottom + 8) }}
+          width={width}
+          above={insetTop}
+        />
       ) : null}
       {halo !== null && haloNoun !== null && compact && halo.mode === 'arc' ? (
         <div

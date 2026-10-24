@@ -329,7 +329,7 @@ function titleOf(app: EditorApp, noun: DockNoun, clip: ClipRecord | null, units:
     case 'clip':
       return clip?.name ?? '';
     case 'keyDot':
-      return `${w.key.title(1)} · ${timeText(noun.frame, fps, units)}`;
+      return `${w.key.title(noun.count ?? 1)} · ${timeText(noun.frame, fps, units)}`;
     case 'band': {
       const band = app.session.getState().time.band;
       return band === null ? '' : w.band.title(timeText(band.start, fps, units), timeText(band.end, fps, units));
@@ -518,6 +518,8 @@ export function DockedHalo({
             onMore={() => {
               count();
               ui.set({ more: docked, menu: null });
+              // the frame's More over that noun (its sheet slot, `sheetNoun`)
+              store.set({ sheet: 'more', sheetArgs: null, sheetNoun: noun, halo: null, focus: null });
             }}
             onReason={(_id, reason) => ctx.toasts.push({ key: 'reason', text: reason })}
           />

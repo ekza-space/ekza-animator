@@ -2,6 +2,7 @@
 // the Thread (its layer, the ruler's geometry in page px, the key dots, the playhead, the band, playing, Rec and the
 // Auto Key the kernel sees), the Animations row, the docked Halo and the Library's preview.
 import type { HaloController } from '../../shell/controller';
+import { curvesProbe } from '../../thread/curves/probe';
 import { stripProbe } from '../../thread/strip/ThreadStrip';
 import { currentFrame, keyDots, threadContext } from '../../thread/strip/model';
 import { PANE } from '../../shell/stage';
@@ -62,5 +63,7 @@ export function animateSlice(controller: HaloController): Record<string, unknown
     transport: ui.transport,
     preview: app.library.loaded ? (app.library.service.preview?.clip ?? null) : null,
     reachPoint: reachPoint(controller),
+    // T10: the Curves layer as drawn (null while it is closed or loading)
+    curves: curvesProbe(controller),
   };
 }

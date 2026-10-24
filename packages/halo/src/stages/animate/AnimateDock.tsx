@@ -1,11 +1,10 @@
 // The Animate stage's tray (STUDIO-TOUCH-SPEC §4.1, §7.1, §10; T7, P-T6A-4: it replaces the shell's stand-in tray in
 // Animate): empty space's Halo, docked — the docked Halo of a Thread noun when one is open, the Animations row, the
-// Thread with its layer switch, and the unfolded layer above the Thread (Keys; Curves is T10's). With no character to
+// Thread with its layer switch, and the unfolded layer above the Thread (Keys; Curves, T10). With no character to
 // animate it is the empty state that bridges to the next step instead of a lock (§7.1).
 import { Cluster, TouchButton } from '@ekza-studio/ui/touch';
 import { type JSX, lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { animateWords } from '../../i18n/animate';
-import { en } from '../../i18n/en';
 import type { HaloController } from '../../shell/controller';
 import { type SizeClass, useDocumentVersion } from '../../shell/hooks';
 import { useHaloStore } from '../../shell/store';
@@ -16,6 +15,7 @@ import { animateCharacter, animationsOf } from './model';
 import { animateUi } from './ui';
 
 const KeysLayer = lazy(() => import('../../thread/keys/KeysLayer'));
+const CurvesLayer = lazy(() => import('../../thread/curves/CurvesLayer'));
 
 const w = animateWords;
 
@@ -54,20 +54,6 @@ function EmptyState({ controller }: { readonly controller: HaloController }): JS
   );
 }
 
-/** Curves (layer 2) is work package T10's; until it lands the layer says so and opens Pro's Graph Editor. */
-function CurvesStandIn({ controller }: { readonly controller: HaloController }): JSX.Element {
-  return (
-    <Cluster
-      data-halo-chrome=""
-      data-testid="halo-thread-curves"
-      className="pointer-events-auto flex items-center gap-2 p-[5px] pl-4"
-    >
-      <span className="flex-1 text-fg-2">{w.thread.layers.curves}</span>
-      <TouchButton onClick={() => controller.proLayout(true)}>{en.toast.openInPro}</TouchButton>
-    </Cluster>
-  );
-}
-
 /**
  * The dock for the frame (P-T6A-4): `dock` replaces the shell's tray in Animate (null elsewhere), `lift` is the extra
  * height the dock takes above the tray's, for the floating grammar and the corner clusters, and `hideNext` hides the
@@ -97,7 +83,9 @@ export function useAnimateDock(
   const compact = size === 'compact';
   const character = animateCharacter(ctx.app);
   if (character === null) return { dock: <EmptyState controller={controller} />, lift: 0, hideNext: false };
-  const unfold = layer === 1 ? Math.round(height * 0.34) : 0;
+  // Keys unfold a third of the frame; Curves keep the canvas at 45 % or more of it (§4.2 D) and take the Animations
+  // row's place (the active animation is the layer's first chip)
+  const unfold = layer === 1 ? Math.round(height * 0.34) : layer === 2 ? Math.max(300, Math.round(height * 0.44)) : 0;
   const dock = (
     <div
       ref={measure}
@@ -105,14 +93,19 @@ export function useAnimateDock(
       data-testid="halo-animate-dock"
       data-layer={layer}
     >
-      <DockedHalo controller={controller} ui={ui} compact={compact} />
+      {/* in Curves the Halo docks in the layer's header (§4.1) */}
+      {layer === 2 ? null : <DockedHalo controller={controller} ui={ui} compact={compact} />}
       {layer === 1 ? (
         <Suspense fallback={null}>
           <KeysLayer controller={controller} ui={ui} height={unfold} />
         </Suspense>
       ) : null}
-      {layer === 2 ? <CurvesStandIn controller={controller} /> : null}
-      <AnimationsRow controller={controller} ui={ui} compact={compact} />
+      {layer === 2 ? (
+        <Suspense fallback={null}>
+          <CurvesLayer controller={controller} ui={ui} height={unfold} />
+        </Suspense>
+      ) : null}
+      {layer === 2 ? null : <AnimationsRow controller={controller} ui={ui} compact={compact} />}
       <Thread controller={controller} ui={ui} compact={compact} />
     </div>
   );

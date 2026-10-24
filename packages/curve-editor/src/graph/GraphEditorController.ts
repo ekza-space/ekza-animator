@@ -74,6 +74,9 @@ const WATCHED_TABLES = new Set(['curves', 'keys', 'controls', 'clips', 'project'
 /** Above this many edited curves in one batch the whole curve set is rebuilt. */
 const MAX_INCREMENTAL_CURVES = 64;
 
+/** The buffers of a scene that hides them (T10). */
+const NO_BUFFERS: ReadonlyMap<CurveId, CompiledAnimCurve> = new Map();
+
 /** PointerEvent.buttons bit of each PointerEvent.button (left, middle, right). */
 const BUTTON_BITS: readonly number[] = [1, 4, 2];
 
@@ -142,6 +145,12 @@ export class GraphEditorController {
   /** The document changed under a resting pointer: the hover target is recomputed before the next overlay. */
   private hoverStale = false;
   private tool: { readonly id: string; readonly def: ToolDef; readonly instance: ToolInstance } | null = null;
+
+  // ---------- T10 (STUDIO-TOUCH-SPEC §10.5): a touch shell's Curves layer ----------
+  /** Buffer curves are drawn (Pro: always; a touch shell shows them while *⇆ Before* is held). */
+  private showBuffers = true;
+  /** The frame numbers along the bottom (a touch shell draws its own time axis in its time unit). */
+  private frameLabels = true;
 
   // ---------- M2a (A4) ----------
   private mode: GraphViewMode = 'absolute';
@@ -250,6 +259,26 @@ export class GraphEditorController {
     this.fitValueAxis();
     this.invalidateBase();
     for (const listener of this.viewModeListeners) listener(mode);
+  }
+
+  /** T10: draws the buffer curves (true, Pro's way) or leaves them out until asked (a touch shell's ⇆ Before). */
+  setShowBuffers(show: boolean): void {
+    if (show === this.showBuffers) return;
+    this.showBuffers = show;
+    this.invalidateBase();
+  }
+
+  /** T10: draws the frame numbers along the bottom (true) or leaves them to the shell's own time axis. */
+  setFrameLabels(show: boolean): void {
+    if (show === this.frameLabels) return;
+    this.frameLabels = show;
+    this.invalidateBase();
+  }
+
+  /** T10: a view the user chose (a touch pan or pinch): it stops following newly shown curves, like a wheel zoom. */
+  navigate(view: GraphViewState): void {
+    this.autoFrame = false;
+    this.setView(view);
   }
 
   /** Called after every view-mode change (the panel persists it with the layout). */
@@ -874,7 +903,8 @@ export class GraphEditorController {
       range,
       playhead,
       mode: this.mode,
-      buffers: this.buffersOf(curves, state.curveBuffers),
+      buffers: this.showBuffers ? this.buffersOf(curves, state.curveBuffers) : NO_BUFFERS,
+      frameLabels: this.frameLabels,
       lanes: this.mode === 'stacked' ? this.lanesOf(curves) : null,
       region: null,
     };

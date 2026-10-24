@@ -9,7 +9,7 @@ import type { TimeUnit } from '../../thread/units';
 
 /** A Thread noun whose Halo is docked (§6.1: in the Thread, the Halo docks; it never floats over the keys). */
 export type DockNoun =
-  | { readonly kind: 'keyDot'; readonly frame: number }
+  | { readonly kind: 'keyDot'; readonly frame: number; readonly count?: number }
   | { readonly kind: 'band' }
   | { readonly kind: 'playhead' }
   | { readonly kind: 'clip'; readonly clip: ClipId };
