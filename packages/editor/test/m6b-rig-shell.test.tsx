@@ -30,7 +30,7 @@ import {
   templateJointRecords,
 } from '@ekza-studio/rig';
 import { TooltipProvider } from '@ekza-studio/ui';
-import { act, type JSX } from 'react';
+import { act, createElement, type JSX } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { RIG_MARKING_MENUS } from '../src/overlays/menus/rig';
 import RigToolkitView from '../src/panels/rigToolkit';
@@ -259,8 +259,8 @@ describe('the status line joint size (T6-INT, P-T6B-3)', () => {
       });
     };
     function JointSize(): JSX.Element | null {
-      const Body = useStatusGroup('jointDisplay');
-      return Body === null ? null : <Body app={app} run={runFromStatus} />;
+      const body = useStatusGroup('jointDisplay');
+      return body === null ? null : createElement(body, { app, run: runFromStatus });
     }
     await mountPlain(
       <EditorAppProvider app={app}>

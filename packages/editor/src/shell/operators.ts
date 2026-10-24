@@ -1,18 +1,19 @@
-// Operators owned by the Studio shell (MVP-SPEC §4.9 owner 8): `view.toggleMaximize` and the workspace and layout
-// preset commands (dockview's). Registered through `app.contribute` like every other operator (ADR 0008); none of them
-// writes the document. `ui.open`, `ui.close` and `prefs.set` are the page host's (AUTORIG-SPEC §4.4,
-// `host/operators.ts`) and so, since STUDIO-TOUCH-SPEC T3, are the shell-neutral `view.selectionMask` and
-// `view.toggleFullscreen` (`host/registrations/view.ts`): they exist on every route.
+// Operators owned by the Studio shell (MVP-SPEC §4.9 owner 8): the workspace and layout preset commands (dockview's).
+// Registered through `app.contribute` like every other operator (ADR 0008); none of them writes the document.
+// `ui.open`, `ui.close`, `prefs.set` and, since STUDIO-TOUCH-SPEC T6-INT, `view.toggleMaximize` are the page host's
+// (`host/operators.ts`; the shell provides its maximize port for the panel form, `registerShellOperators`), and since
+// T3 so are the shell-neutral `view.selectionMask` and `view.toggleFullscreen` (`host/registrations/view.ts`): they
+// exist on every route.
 import { type Disposer, EkzaError } from '@ekza-studio/anim-core';
 import {
   type Contribution,
   type EditorApp,
   type OperatorDef,
-  PANEL,
   type PanelKind,
   type PollResult,
 } from '@ekza-studio/editor-core';
 import type { StoreApi } from 'zustand/vanilla';
+import { type MaximizePort, provideMaximizePort } from '../host/operators';
 import { CHROME_PARTS, type ChromePart } from './layout';
 import type {} from './operator-map';
 import type * as PresetOps from './presetOps';
@@ -47,33 +48,6 @@ const ok: PollResult = true;
 const fail = (reason: string): PollResult => ({ ok: false, reason });
 
 export function shellOperatorDefs(app: EditorApp, deps: ShellOperatorDeps): Contribution[] {
-  const toggleMaximize: OperatorDef<{ readonly paneId?: string; readonly panel?: PanelKind } | void> = {
-    id: 'view.toggleMaximize',
-    label: 'Maximize Panel',
-    description: 'Maximize or restore the viewport pane or panel under the pointer.',
-    category: 'view',
-    scope: 'global',
-    apply(ctx, args) {
-      const explicit: { readonly paneId?: string; readonly panel?: PanelKind } =
-        typeof args === 'object' && args !== null ? args : {};
-      const hovered = app.session.getState().hoveredPanel;
-      const panel =
-        explicit.panel ?? (explicit.paneId === undefined ? null : PANEL.viewport) ?? ctx.panel ?? hovered?.kind ?? null;
-      const paneId = explicit.paneId ?? (panel === PANEL.viewport ? (ctx.paneId ?? hovered?.paneId ?? null) : null);
-      const session = app.session.getState();
-      if (panel === PANEL.viewport && paneId !== null) {
-        app.session.setState({ maximizedPane: session.maximizedPane === paneId ? null : paneId });
-        return;
-      }
-      if (panel !== null && deps.workspace.toggleMaximize({ kind: panel })) return;
-      if (session.maximizedPane !== null) {
-        app.session.setState({ maximizedPane: null });
-        return;
-      }
-      if (deps.workspace.hasMaximized()) deps.workspace.toggleMaximize({});
-    },
-  };
-
   const resetWorkspace: OperatorDef = {
     id: 'workspace.reset',
     label: 'Reset Workspace',
@@ -221,7 +195,6 @@ export function shellOperatorDefs(app: EditorApp, deps: ShellOperatorDeps): Cont
   };
 
   return [
-    toggleMaximize,
     resetWorkspace,
     showPanel,
     toggleTimeline,
@@ -234,8 +207,17 @@ export function shellOperatorDefs(app: EditorApp, deps: ShellOperatorDeps): Cont
   ].map((def) => ({ kind: 'operator', def: def as OperatorDef<unknown, unknown, unknown> }) as const);
 }
 
+/** `view.toggleMaximize`'s panel form over this shell's dockview groups (the host's operator asks it). */
+export function shellMaximizePort(workspace: WorkspaceApi): MaximizePort {
+  return {
+    toggle: (panel) => workspace.toggleMaximize({ kind: panel }),
+    restore: () => workspace.hasMaximized() && workspace.toggleMaximize({}),
+  };
+}
+
 export function registerShellOperators(app: EditorApp, deps: ShellOperatorDeps): Disposer {
   const disposers = shellOperatorDefs(app, deps).map((contribution) => app.contribute(contribution));
+  disposers.push(provideMaximizePort(app, shellMaximizePort(deps.workspace)));
   return () => {
     for (const dispose of disposers.reverse()) dispose();
   };
