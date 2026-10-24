@@ -34,6 +34,7 @@ import {
   type NavProfile,
   PANEL,
   type ToolInstance,
+  type ToolKeyEvent,
   type ToolPointerEvent,
   VIEWPORT_TOOL,
 } from '@ekza-studio/editor-core';
@@ -77,6 +78,7 @@ import type { NavigationController, NavState } from '../navigation/NavigationCon
 import type { NavigationOverride } from '../navigation/override';
 import { isMmbStandIn, type NavGesture, pointerGesture, wheelAction } from '../navigation/profiles';
 import { Backdrop, createGrid } from '../overlays/background';
+import { XRAY_DEFAULT_OPACITY, XRAY_OPACITY, setXrayOpacity } from '../theme';
 import { MarqueeBox } from '../overlays/marquee';
 import { SkeletonLayer } from '../overlays/skeleton';
 import { paneGl } from '../panes/layout';
@@ -99,6 +101,7 @@ import type {
   ViewPreset,
 } from '../types';
 import type { CoalescedSample, PipeStep, PointerArbiter, PointerArbiterStage, ViewGesture } from '../input/arbiter';
+import type { ModifierSource, VirtualHoldCode, VirtualModifiers } from '../input/modifiers';
 import type { ImagePlaneLayer, ImagePlaneSpec } from './imagePlanes';
 import { type MeshLayerHost, meshPaneDisplay } from './meshLayers';
 import { setManagerOf } from './registry';
@@ -166,11 +169,21 @@ export interface PaneState {
 /** Pane CSS px the radial keeps between its centre and the pane edges (when the pane is large enough). */
 export const RADIAL_MARGIN_PX = 96;
 
+/**
+ * STUDIO-TOUCH-SPEC §4.7, §20.3 item 17: a shell's display for a pane over its own (stage lighting), merged at render
+ * and pick time and never written to the pane memory, the pane state or the display port; `xrayOpacity` replaces the
+ * x-ray mesh opacity (0.5) in that pane.
+ */
+export type DisplayOverlay = Partial<DisplayFlags> & { readonly xrayOpacity?: number };
+
 interface PaneRuntime {
   readonly id: string;
   readonly element: HTMLElement;
   camera: PaneCamera;
-  display: DisplayFlags;
+  /** The pane's own display: what the pane memory, the pane state and the panel hold. */
+  base: DisplayFlags;
+  /** What it shows and picks: `base` under the shell's overlay (§20.3 item 17). */
+  display: DisplayFlags & { readonly xrayOpacity?: number };
   readonly abort: AbortController;
   readonly resize: ResizeObserver | null;
   readonly marquee: MarqueeBox;
@@ -303,6 +316,10 @@ export class ViewportManager {
   private navOverride: NavigationOverride | null = null;
   /** STUDIO-TOUCH-SPEC §20.4: a touch shell's pointer arbiter, the first stage of the pointer path (null in Pro). */
   private arbiter: PointerArbiter<PointerEvent> | null = null;
+  /** STUDIO-TOUCH-SPEC §20.3 item 3: a touch shell's virtual modifiers (null in Pro). */
+  private mods: ModifierSource | null = null;
+  /** STUDIO-TOUCH-SPEC §20.3 item 17: display overlays by pane id. */
+  private readonly overlays = new Map<string, DisplayOverlay>();
   /** M2a §5.18: a plain MMB drag running the Channels panel virtual slider on the selected channels. */
   private virtualDrag: VirtualSliderDrag | null = null;
   /** Pointer Lock for the virtual slider (the e2e URL switch `pointerLock=off` turns it off). */
@@ -392,7 +409,8 @@ export class ViewportManager {
       id: desc.id,
       element: desc.element,
       camera: desc.camera,
-      display: desc.display,
+      base: desc.display,
+      display: this.shown(desc.id, desc.display),
       abort,
       resize,
       marquee: new MarqueeBox(desc.element),
@@ -415,11 +433,12 @@ export class ViewportManager {
     const key = paneKey(this.workspace, id);
     const remembered = this.memory.get(key);
     const camera = patch.camera ?? pane?.camera ?? remembered?.camera ?? defaultCameraOf(this.workspace, id);
-    const display = patch.display ?? pane?.display ?? remembered?.display ?? defaultDisplayOf(this.workspace);
+    const display = patch.display ?? pane?.base ?? remembered?.display ?? defaultDisplayOf(this.workspace);
     this.memory.set(key, { camera, display });
     if (pane === undefined) return;
     pane.camera = camera;
-    pane.display = display;
+    pane.base = display;
+    pane.display = this.shown(id, display);
     this.autoFrame = true;
     this.manipulatorDirty = true;
     this.picker.forget(id);
@@ -499,7 +518,8 @@ export class ViewportManager {
     for (const pane of this.panes.values()) {
       const setup = this.paneSetup(pane.id);
       pane.camera = setup.camera;
-      pane.display = setup.display;
+      pane.base = setup.display;
+      pane.display = this.shown(pane.id, setup.display);
       this.memory.set(paneKey(workspace, pane.id), setup);
       this.picker.forget(pane.id);
     }
@@ -593,6 +613,62 @@ export class ViewportManager {
       arbiter?.cancel();
       this.arbiter = null;
     };
+  }
+
+  /**
+   * STUDIO-TOUCH-SPEC §5.5, §20.3 item 3: a touch shell's virtual modifiers (the Thumb key; `input/modifiers.ts`).
+   * Their Shift / Mod / Alt and stand-in button join every tool pointer event; a held code that comes or goes reaches
+   * the active tool's `key()` as a down or up; `virtualHeld` answers the rig runtime's held keys. All marked `virtual`.
+   * The disposer removes this source and releases its holds.
+   */
+  setModifierSource(source: ModifierSource | null): Disposer {
+    this.mods = source;
+    let held: ReadonlySet<string> = new Set();
+    const sync = (): void => {
+      const next: ReadonlySet<string> = (this.mods === source && source?.get().held) || new Set();
+      for (const code of held) if (!next.has(code)) this.tool()?.key?.(virtualKey('up', code));
+      for (const code of next) if (!held.has(code)) this.tool()?.key?.(virtualKey('down', code));
+      held = next;
+    };
+    const off = source?.subscribe(sync);
+    sync();
+    return () => {
+      off?.();
+      if (this.mods === source) this.mods = null;
+      sync();
+    };
+  }
+
+  /** Whether a virtual modifier holds a key (the rig runtime's held keys, §20.3 item 3). */
+  virtualHeld(code: string): boolean {
+    return this.mods?.get().held.has(code as VirtualHoldCode) === true;
+  }
+
+  /**
+   * STUDIO-TOUCH-SPEC §4.7, §20.3 item 17: sets (null clears) a pane's display overlay, also before the pane registers;
+   * the disposer clears this one. The pane's own display, its memory and its state are never touched.
+   */
+  setDisplayOverlay(paneId: string, overlay: DisplayOverlay | null): Disposer {
+    const apply = (next: DisplayOverlay | null): void => {
+      if (next === null) this.overlays.delete(paneId);
+      else this.overlays.set(paneId, next);
+      const pane = this.panes.get(paneId);
+      if (pane === undefined) return;
+      pane.display = this.shown(paneId, pane.base);
+      this.manipulatorDirty = true;
+      this.picker.forget(paneId);
+      this.invalidate();
+    };
+    apply(overlay);
+    return () => {
+      if (overlay !== null && this.overlays.get(paneId) === overlay) apply(null);
+    };
+  }
+
+  /** A pane's display under its overlay. */
+  private shown(paneId: string, base: DisplayFlags): PaneRuntime['display'] {
+    const overlay = this.overlays.get(paneId);
+    return overlay === undefined ? base : { ...base, ...overlay };
   }
 
   /**
@@ -1278,6 +1354,12 @@ export class ViewportManager {
       camera.layers.set(LAYER.helpers);
       renderer.render(planes.scene, camera);
     }
+    // §20.3 item 17: an overlay's x-ray opacity (SceneSync reads it when x-ray is switched on)
+    const opacity = display.xrayOpacity ?? XRAY_DEFAULT_OPACITY;
+    if (opacity !== XRAY_OPACITY) {
+      this.sync.setXray(false);
+      setXrayOpacity(opacity);
+    }
     this.sync.setXray(display.xray);
     applyMainLayers(camera, display);
     this.skeleton.lineMaterial.resolution.set(viewport.width, viewport.height);
@@ -1548,7 +1630,7 @@ export class ViewportManager {
     const mac = this.app.keymap.platform === 'mac';
     // M6a rule (b): the MMB stand-in reaches the tool as the middle button, Alt and Shift cleared.
     const standIn = this.standIn === e.pointerId;
-    return {
+    const event: ToolPointerEvent = {
       panel: PANEL.viewport,
       paneId: pane.id,
       x,
@@ -1565,6 +1647,8 @@ export class ViewportManager {
       // STUDIO-TOUCH-SPEC §20.3 item 5: only on the arbiter's path (absent = today's behaviour)
       ...(coalesced && { pressure: e.pressure, pointerId: e.pointerId, coalesced }),
     };
+    const mods = this.mods?.get();
+    return mods === undefined ? event : withVirtual(event, mods);
   }
 
   /**
@@ -2118,7 +2202,7 @@ export class ViewportManager {
       shotCameraId,
       cameraName,
       locked,
-      display: pane.display,
+      display: pane.base,
       lockFlash: pane.lockFlash,
       radial: pane.radial,
     };
@@ -2296,6 +2380,23 @@ function dragFlags(record: ControlRecord): {
       s: locked(record.keyable.s, record.locked.s),
     },
   };
+}
+
+/** §20.3 item 3: a virtual hold's key event for the active tool. */
+function virtualKey(type: 'down' | 'up', code: string): ToolKeyEvent {
+  return { type, code, shift: false, alt: false, mod: false, ctrl: false, repeat: false, virtual: true };
+}
+
+/** §20.3 item 3: a touch shell's virtual modifiers on a tool event (`virtual` when they change it). */
+function withVirtual(e: ToolPointerEvent, mods: VirtualModifiers): ToolPointerEvent {
+  const button = e.button === 0 && mods.button !== undefined ? mods.button : e.button;
+  const shift = e.shift || mods.shift;
+  const mod = e.mod || mods.mod;
+  const alt = e.alt || mods.alt;
+  if (button === e.button && shift === e.shift && mod === e.mod && alt === e.alt) return e;
+  // the stand-in button replaces the primary one in `buttons` too (middle 4, secondary 2)
+  const buttons = button !== e.button && e.buttons & 1 ? (e.buttons & ~1) | (button === 1 ? 4 : 2) : e.buttons;
+  return { ...e, button, buttons, shift, mod, alt, virtual: true };
 }
 
 function sameState(a: PaneState, b: PaneState | undefined): boolean {

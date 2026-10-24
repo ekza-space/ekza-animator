@@ -40,9 +40,13 @@ function typing(target: EventTarget | null): boolean {
   return element !== null && (TEXT_INPUT.test(element.tagName ?? '') || element.isContentEditable === true);
 }
 
-/** Keys held down (by `KeyboardEvent.code`), outside text fields. */
+/**
+ * Keys held down (by `KeyboardEvent.code`), outside text fields, and the viewport's virtual holds (a touch shell's
+ * Thumb key, STUDIO-TOUCH-SPEC §20.3 item 3).
+ */
 class Held implements HeldKeys {
   private readonly codes = new Set<string>();
+  constructor(private readonly virtual: (code: string) => boolean) {}
   readonly down = (e: KeyboardEvent): void => {
     if (!typing(e.target)) this.codes.add(e.code);
   };
@@ -51,14 +55,14 @@ class Held implements HeldKeys {
   };
   readonly clear = (): void => this.codes.clear();
   isHeld(code: string): boolean {
-    return this.codes.has(code);
+    return this.codes.has(code) || this.virtual(code);
   }
 }
 
 export function createRigRuntime(app: EditorApp, vm: ViewportManager): ViewportRigRuntime {
   const joints = new JointOverlay(vm, app);
   const markers = new QuickRigMarkerOverlay(vm, app);
-  const held = new Held();
+  const held = new Held((code) => vm.virtualHeld(code));
   let preview: JointPreview | null = null;
   let dirty = true;
   let rebuildMs = 0;

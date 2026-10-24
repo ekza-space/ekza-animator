@@ -481,6 +481,7 @@ export interface ToolPointerEvent {
   readonly pointerId?: number;
   /** Every sample of a move since the previous event (pane CSS px), the event itself when the browser gave none. */
   readonly coalesced?: readonly { readonly x: number; readonly y: number; readonly pressure: number; readonly t: number }[];
+  readonly virtual?: boolean;                                     // a touch shell's virtual modifier changed shift/mod/alt/button
 }
 export interface ToolWheelEvent {
   readonly panel: PanelKind; readonly paneId: string | null;
@@ -489,7 +490,8 @@ export interface ToolWheelEvent {
   readonly shift: boolean; readonly alt: boolean; readonly mod: boolean; readonly ctrl: boolean;
 }
 export interface ToolKeyEvent { readonly type: 'down' | 'up'; readonly code: string; readonly shift: boolean; readonly alt: boolean; readonly mod: boolean;
-  readonly ctrl: boolean; readonly repeat: boolean }   // M6a, changed (additive): literal Ctrl
+  readonly ctrl: boolean; readonly repeat: boolean;   // M6a, changed (additive): literal Ctrl
+  readonly virtual?: boolean }                        // STUDIO-TOUCH-SPEC §20.3 item 3 (T1, a line patch for T2): a virtual hold
 /** Handlers return true when the event was consumed. */
 export interface ToolInstance {
   activate?(): void;

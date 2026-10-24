@@ -5,6 +5,7 @@ export { resolveControl, type ViewportTestApi, viewportTestApi } from './manager
 export {
   type AgentOverlayPass,
   DEFAULT_DISPLAY,
+  type DisplayOverlay,
   type PanePointerMenus,
   type PanePointerPress,
   type PaneState,
@@ -40,6 +41,13 @@ export {
   pointerArbiter,
   type ViewGesture,
 } from './input/arbiter';
+export {
+  createModifierSource,
+  type ModifierSource,
+  NO_MODIFIERS,
+  type VirtualHoldCode,
+  type VirtualModifiers,
+} from './input/modifiers';
 export {
   handleGrowPx,
   POINTER_TOLERANCE,

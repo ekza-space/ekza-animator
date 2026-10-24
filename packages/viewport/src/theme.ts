@@ -60,4 +60,10 @@ export const PICK: {
 };
 
 /** Mesh opacity while a pane shows x-ray. */
-export const XRAY_OPACITY = 0.5;
+export const XRAY_DEFAULT_OPACITY = 0.5;
+/** The x-ray opacity of the pane being drawn (a display overlay may set its own, STUDIO-TOUCH-SPEC §4.7). */
+export let XRAY_OPACITY = XRAY_DEFAULT_OPACITY;
+
+export function setXrayOpacity(opacity: number): void {
+  XRAY_OPACITY = opacity;
+}
