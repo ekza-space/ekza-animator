@@ -1442,7 +1442,8 @@ export interface AutoRigExportResult {
 
 // ---------- navigation port (§3.4, §4.4; D0 types, D1 provides it from the host, eager) ----------
 // STUDIO-TOUCH-SPEC §20.3 item 11, §20.4 (T2, additive): the third shell `halo` (`/app`, Ekza Studio's Simple layout),
-// the arrival action `then` and the Halo state a switch or a handoff record carries. `'studio'` keeps meaning the Pro
+// the arrival action (`arrival`; the spec sketch's `then`, renamed: a `then` field makes the object a thenable)
+// and the Halo state a switch or a handoff record carries. `'studio'` keeps meaning the Pro
 // layout (`/editor`) everywhere internally (§1.3).
 export type ShellRoute = 'autorig' | 'studio' | 'halo' | 'chooser';
 /** A route that mounts a shell in the host (every route but the chooser page): `MountedShell.kind`, `from`. */
@@ -1458,7 +1459,7 @@ export interface NavigationRequest {
   readonly from?: ShellKind;                   // labels the entry (`?from=studio`, `?from=halo`)
   readonly newTab?: boolean;                   // the explicit new-tab flow through a handoff record
   readonly subject?: AutoRigSubject;           // in-memory hand-over to the arriving shell (never in the URL)
-  readonly then?: ArrivalAction;               // T2: in memory or in the record (never in the URL); optional
+  readonly arrival?: ArrivalAction;            // T2: in memory or in the record (never in the URL); optional
 }
 export interface NavigationPort {
   /** Switches shells: same-page navigation keeping the app (shared layout), or a handoff record (new tab, islands). */
@@ -1484,6 +1485,6 @@ export interface HandoffInfo {
   readonly subject: AutoRigSubject | null;
   readonly autorig: { readonly step: AutoRigStep; readonly startPose: AutoRigPoseClass | null } | null;
   readonly halo?: HaloHandoffState;            // T2 (additive): the leaving Halo shell's state; absent otherwise
-  readonly then?: ArrivalAction;               // T2 (additive): the request's arrival action
+  readonly arrival?: ArrivalAction;            // T2 (additive): the request's arrival action
   readonly createdAt: number;                  // ms since epoch (pruned after 10 minutes)
 }

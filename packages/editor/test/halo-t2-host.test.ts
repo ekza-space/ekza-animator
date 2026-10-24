@@ -1,6 +1,6 @@
 // STUDIO-TOUCH-SPEC §16, §20.3 items 11 and 13, §20.4 (T2): the host's side of the third shell. Every route is mapped
 // explicitly (`/app` for Halo, its workspace as `ws`, a stale `stage` dropped); a same-page `go` hands over the arrival
-// action and — only when Halo leaves — Halo's state, each read once; a received record's `then` and `halo` become the
+// action and — only when Halo leaves — Halo's state, each read once; a received record's arrival action and Halo state become the
 // arrival's; the new-tab flow names Ekza Studio when its record cannot be written; `from=halo` is a URL label; after a
 // touch or pen press the key scope is the last pressed panel, after a mouse it is the hovered one again.
 import { GLOBAL_SCOPE, type HandoffInfo, type NavigationRequest } from '@ekza-studio/editor-core';
@@ -23,7 +23,7 @@ describe('routeHref with Halo (T2)', () => {
     [{ to: 'halo', from: 'studio', workspace: 'rig' }, '?e2e=1&ws=animate', '/app?e2e=1&ws=rig&from=studio'],
     [{ to: 'studio', from: 'halo', workspace: 'animate' }, '?e2e=1&stage=rig', '/editor?e2e=1&ws=animate&from=halo'],
     [{ to: 'autorig', from: 'halo', workspace: 'rig' }, '?stage=make&from=studio', '/autorig?from=halo'],
-    [{ to: 'studio', then: { kind: 'dialog', dialog: 'export' } }, '', '/editor'],
+    [{ to: 'studio', arrival: { kind: 'dialog', dialog: 'export' } }, '', '/editor'],
   ] as [NavigationRequest, string, string][])('%j from %s → %s', (request, search, href) => {
     expect(routeHref(request, search)).toBe(href);
   });
@@ -76,11 +76,16 @@ describe('the navigation port with Halo (T2)', () => {
       },
     };
     host.mount(halo);
-    await host.navigation.go({ to: 'studio', from: 'halo', workspace: 'animate', then: { kind: 'preset', preset: 'polish' } });
+    await host.navigation.go({
+      to: 'studio',
+      from: 'halo',
+      workspace: 'animate',
+      arrival: { kind: 'preset', preset: 'polish' },
+    });
     expect(pushed).toEqual(['/editor?e2e=1&ws=animate&from=halo']);
     expect(order).toEqual(['leave', 'state']);
-    expect(host.navigation.takeThen()).toEqual({ kind: 'preset', preset: 'polish' });
-    expect(host.navigation.takeThen()).toBeNull();
+    expect(host.navigation.takeArrival()).toEqual({ kind: 'preset', preset: 'polish' });
+    expect(host.navigation.takeArrival()).toBeNull();
     expect(host.navigation.takeHalo()).toEqual({ stage: 'animate', threadLayer: 2 });
     expect(host.navigation.takeHalo()).toBeNull();
     expect(host.navigation.takeWorkspace()).toBe('animate');
@@ -91,12 +96,12 @@ describe('the navigation port with Halo (T2)', () => {
     const { host } = setup();
     const halo: MountedShell = { kind: 'halo', haloState: () => ({ stage: 'rig', fingers: 'mittens' }) };
     const dispose = host.mount(halo);
-    await host.navigation.go({ to: 'autorig', from: 'halo', then: { kind: 'dialog', dialog: 'export' } });
+    await host.navigation.go({ to: 'autorig', from: 'halo', arrival: { kind: 'dialog', dialog: 'export' } });
     dispose();
     host.mount({ kind: 'studio' });
     await host.navigation.go({ to: 'halo', from: 'studio' });
     expect(host.navigation.takeHalo()).toBeNull();
-    expect(host.navigation.takeThen()).toBeNull();
+    expect(host.navigation.takeArrival()).toBeNull();
     host.dispose();
   });
 
@@ -108,16 +113,16 @@ describe('the navigation port with Halo (T2)', () => {
       subject: null,
       autorig: null,
       halo: { stage: 'animate', sheet: 'share' },
-      then: { kind: 'dialog', dialog: 'export' },
+      arrival: { kind: 'dialog', dialog: 'export' },
       createdAt: 1,
     };
     host.navigation.arrive(info);
-    expect(host.navigation.takeThen()).toEqual({ kind: 'dialog', dialog: 'export' });
+    expect(host.navigation.takeArrival()).toEqual({ kind: 'dialog', dialog: 'export' });
     expect(host.navigation.takeHalo()).toEqual({ stage: 'animate', sheet: 'share' });
     expect(host.navigation.takeHandoffInfo()).toBe(info);
     // a record of an earlier build carries neither
     host.navigation.arrive({ route: 'autorig', workspace: null, subject: null, autorig: null, createdAt: 2 });
-    expect([host.navigation.takeThen(), host.navigation.takeHalo()]).toEqual([null, null]);
+    expect([host.navigation.takeArrival(), host.navigation.takeHalo()]).toEqual([null, null]);
     host.dispose();
   });
 
@@ -137,11 +142,17 @@ describe('the navigation port with Halo (T2)', () => {
 describe('the key scope after touch and pen (T2, §20.3 item 13)', () => {
   it('follows the last pressed panel after a touch or pen press, the hovered one after a mouse', async () => {
     const { app, host } = setup();
-    const ran: { op: string; panel: string | undefined }[] = [];
+    const ran: { op: string; panel: string | null | undefined }[] = [];
     for (const id of ['test.graphKey', 'test.globalKey'] as const) {
       app.contribute({
         kind: 'operator',
-        def: { id, label: id, category: 'test', scope: GLOBAL_SCOPE, apply: (ctx) => void ran.push({ op: id, panel: ctx.panel }) },
+        def: {
+          id,
+          label: id,
+          category: 'test',
+          scope: GLOBAL_SCOPE,
+          apply: (ctx) => void ran.push({ op: id, panel: ctx.panel }),
+        },
       });
     }
     app.contribute({

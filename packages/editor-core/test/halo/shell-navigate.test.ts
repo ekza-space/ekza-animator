@@ -1,6 +1,6 @@
 // STUDIO-TOUCH-SPEC §20.3 item 11 (T2): `shell.navigate` is the host-level switch of every route. The built-ins never
 // register it (a headless app has no navigation); the host does (`registerShellNavigate`). Without a port it refuses;
-// with one it forwards the request once — `then` included — records no history step and keeps the document; it is
+// with one it forwards the request once — its arrival action included — records no history step and keeps the document; it is
 // denied to agents; `autorig.navigate` keeps its three routes (no `halo`) and its messages.
 import { describe, expect, it } from 'vitest';
 import { type NavigationRequest, provideNavigation } from '../../src';
@@ -22,7 +22,8 @@ describe('shell.navigate (STUDIO-TOUCH-SPEC §20.3 item 11, T2)', () => {
     const dispose = registerShellNavigate(app);
     const def = app.operators.get('shell.navigate');
     expect(def?.label).toBe('Switch Layout');
-    expect(def?.agent).toEqual({ policy: 'denied', reason: expect.any(String) });
+    expect(def?.agent?.policy).toBe('denied');
+    expect(def?.agent?.reason).toMatch(/layout/);
     expect(def?.flags?.undo).toBeUndefined();
     dispose();
     expect(app.operators.get('shell.navigate')).toBeUndefined();
@@ -48,7 +49,7 @@ describe('shell.navigate (STUDIO-TOUCH-SPEC §20.3 item 11, T2)', () => {
       workspace: 'animate',
       from: 'halo',
       newTab: true,
-      then: { kind: 'preset', preset: 'polish' },
+      arrival: { kind: 'preset', preset: 'polish' },
     } as const;
     expect((await app.runUntyped('shell.navigate', request)).status).toBe('finished');
     expect((await app.runUntyped('shell.navigate', { to: 'halo', from: 'studio' })).status).toBe('finished');
@@ -64,8 +65,14 @@ describe('shell.navigate (STUDIO-TOUCH-SPEC §20.3 item 11, T2)', () => {
     [{ to: 'halo', workspace: 3 }, 'workspace must be a workspace id'],
     [{ to: 'halo', from: 'chooser' }, "from must be 'halo' | 'studio' | 'autorig'"],
     [{ to: 'studio', newTab: 'yes' }, 'newTab must be true or false'],
-    [{ to: 'studio', then: { kind: 'menu', menu: 'x' } }, "then expects { kind: 'preset' | 'panel' | 'dialog', <kind>: an id }"],
-    [{ to: 'studio', then: { kind: 'dialog' } }, "then expects { kind: 'preset' | 'panel' | 'dialog', <kind>: an id }"],
+    [
+      { to: 'studio', arrival: { kind: 'menu', menu: 'x' } },
+      "arrival expects { kind: 'preset' | 'panel' | 'dialog', <kind>: an id }",
+    ],
+    [
+      { to: 'studio', arrival: { kind: 'dialog' } },
+      "arrival expects { kind: 'preset' | 'panel' | 'dialog', <kind>: an id }",
+    ],
   ])('refuses %j with its reason', async (args, reason) => {
     const app = opsApp();
     registerShellNavigate(app);

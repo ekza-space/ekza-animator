@@ -91,6 +91,7 @@ describe('route-group-proof route scripts (AUTORIG-SPEC §7.2)', () => {
     expect(ROUTE_INITIAL_MARKERS).toEqual({
       editor: ['ekza-studio-host', 'ekza-studio-shell'],
       autorig: ['ekza-studio-host', 'ekza-autorig-shell'],
+      app: ['ekza-studio-host', 'ekza-halo-shell'], // STUDIO-TOUCH-SPEC §20.6 (T2)
     });
     // without markers the React.lazy shell is a lazy group (the definition is the markers, not a guess)
     expect(readRouteScripts(dir, 'editor', { initialMarkers: [] }).initial).not.toContain('static/chunks/shell.js');

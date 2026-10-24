@@ -109,7 +109,7 @@ export async function handOver(
     autorig: mounted?.handoffState?.() ?? null,
     // STUDIO-TOUCH-SPEC §16.2 (T2): the leaving Halo's state and the arrival action travel with the record
     ...(halo === undefined ? {} : { halo }),
-    ...(request.then === undefined ? {} : { then: request.then }),
+    ...(request.arrival === undefined ? {} : { arrival: request.arrival }),
     createdAt: Date.now(),
   };
   let id: string;

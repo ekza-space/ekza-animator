@@ -87,13 +87,13 @@ const ARRIVAL_OPS = { preset: 'workspace.preset.apply', panel: 'workspace.showPa
  * Applies a same-page switch's arrival action once the shell shows (Halo's Curves → the Polish preset, its Share
  * sheet → the Export dialog): presets and panels wait up to 60 frames for the dockview workspace to attach.
  */
-function applyArrival(shell: Shell, then: ArrivalAction, tries = 60): void {
+function applyArrival(shell: Shell, arrival: ArrivalAction, tries = 60): void {
   if (shell.mounted.getState() !== shell) return;
-  if (then.kind !== 'dialog' && shell.workspace.dockview === null && tries > 0) {
-    requestAnimationFrame(() => applyArrival(shell, then, tries - 1));
+  if (arrival.kind !== 'dialog' && shell.workspace.dockview === null && tries > 0) {
+    requestAnimationFrame(() => applyArrival(shell, arrival, tries - 1));
     return;
   }
-  void shell.runFromUi(ARRIVAL_OPS[then.kind], then);
+  void shell.runFromUi(ARRIVAL_OPS[arrival.kind], arrival);
 }
 
 export interface StudioShellProps {
@@ -107,12 +107,12 @@ export function StudioShell(props: StudioShellProps): JSX.Element {
   const host = useHost();
   // Arriving from Auto-Rig or Halo (a switch on this page, or `from=`): no first-run dialog over the hand-over
   // (AR-D8-6, STUDIO-TOUCH-SPEC §16.1). A same-page switch's arrival action is read once with the shell.
-  const [shell, arrived, then] = useConstant(
+  const [shell, arrived, arrival] = useConstant(
     () =>
       [
         startStudio(host, props.panels),
         shellShown.has(host) || host.params.from !== null,
-        host.navigation.takeThen(),
+        host.navigation.takeArrival(),
       ] as const,
   );
   const { onShell } = props;
@@ -141,8 +141,8 @@ export function StudioShell(props: StudioShellProps): JSX.Element {
 
   // STUDIO-TOUCH-SPEC §16.1 (T2): what the switch asked Studio to open (after the mount effect above made it current).
   useEffect(() => {
-    if (then !== null) applyArrival(shell, then);
-  }, [shell, then]);
+    if (arrival !== null) applyArrival(shell, arrival);
+  }, [shell, arrival]);
 
   // The first-run dialog is Studio's (AUTORIG-SPEC §4.4): Auto-Rig never shows it, nor a hand-over from it.
   useEffect(() => {

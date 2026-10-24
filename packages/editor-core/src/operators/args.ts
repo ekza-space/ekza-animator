@@ -570,7 +570,7 @@ export interface OperatorMap {
     readonly from?: 'studio' | 'autorig'; readonly newTab?: boolean }; result: void };                            // D1 (U); T2: unchanged
   // STUDIO-TOUCH-SPEC §20.3 item 11 (T2): the host-level shell switch of every route (agent-denied; U)
   'shell.navigate': { args: { readonly to: ShellRoute; readonly workspace?: WorkspaceId; readonly from?: ShellKind;
-    readonly newTab?: boolean; readonly then?: ArrivalAction }; result: void };                                    // T2 (U)
+    readonly newTab?: boolean; readonly arrival?: ArrivalAction }; result: void };                                 // T2 (U)
   'autorig.controls': { args: { readonly hidden: boolean }; result: void };                                        // D9 (U, AR-D9-8)
   'autorig.parts': { args: { readonly hidden: readonly MeshId[] }; result: void };                                 // D10 (U, AR-D10-1)
 

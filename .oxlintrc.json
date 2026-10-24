@@ -1910,6 +1910,90 @@
       }
     },
     {
+      "files": ["packages/halo/src/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-studio/anim-core",
+                  "!@ekza-studio/doc",
+                  "!@ekza-studio/editor-core",
+                  "!@ekza-studio/editor-core/forms",
+                  "!@ekza-studio/viewport",
+                  "!@ekza-studio/curve-editor",
+                  "!@ekza-studio/ui",
+                  "!@ekza-studio/ui/touch",
+                  "!@ekza-studio/editor/host",
+                  "!@ekza-studio/editor/bodies",
+                  "!@ekza-studio/editor/models",
+                  "!@ekza-studio/editor/overlays",
+                  "!@ekza-studio/editor/toolkit",
+                  "!@ekza-studio/editor/agent",
+                  "!react",
+                  "!react/**"
+                ],
+                "message": "@ekza-studio/halo may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/editor-core, @ekza-studio/editor-core/forms, @ekza-studio/viewport, @ekza-studio/curve-editor (lazy import() only: check:size bans it from /app's initial scripts), @ekza-studio/ui, @ekza-studio/ui/touch, @ekza-studio/editor/host, @ekza-studio/editor/bodies, @ekza-studio/editor/models, @ekza-studio/editor/overlays, @ekza-studio/editor/toolkit, @ekza-studio/editor/agent, react, react/** (STUDIO-TOUCH-SPEC \u00a720.1: the editor through its subpaths only, never its root; autorig, mesh-core, rig, io, mesh-view and dockview never)."
+              },
+              {
+                "regex": "^@ekza-studio/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/halo/test/**", "packages/halo/vitest.config.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-studio/anim-core",
+                  "!@ekza-studio/doc",
+                  "!@ekza-studio/editor-core",
+                  "!@ekza-studio/editor-core/forms",
+                  "!@ekza-studio/viewport",
+                  "!@ekza-studio/curve-editor",
+                  "!@ekza-studio/ui",
+                  "!@ekza-studio/ui/touch",
+                  "!@ekza-studio/editor/host",
+                  "!@ekza-studio/editor/bodies",
+                  "!@ekza-studio/editor/models",
+                  "!@ekza-studio/editor/overlays",
+                  "!@ekza-studio/editor/toolkit",
+                  "!@ekza-studio/editor/agent",
+                  "!react",
+                  "!react/**",
+                  "!@ekza-studio/editor-core/testing",
+                  "!vitest",
+                  "!vitest/**",
+                  "!node:*"
+                ],
+                "message": "@ekza-studio/halo tests may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/editor-core, @ekza-studio/editor-core/forms, @ekza-studio/viewport, @ekza-studio/curve-editor (lazy import() only: check:size bans it from /app's initial scripts), @ekza-studio/ui, @ekza-studio/ui/touch, @ekza-studio/editor/host, @ekza-studio/editor/bodies, @ekza-studio/editor/models, @ekza-studio/editor/overlays, @ekza-studio/editor/toolkit, @ekza-studio/editor/agent, react, react/**, @ekza-studio/editor-core/testing, vitest, vitest/**, node:* (STUDIO-TOUCH-SPEC \u00a720.1)."
+              },
+              {
+                "regex": "^@ekza-studio/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "files": ["apps/web/app/**"],
       "excludeFiles": ["apps/web/app/e2e/**", "apps/web/app/dev/**"],
       "rules": {
@@ -1925,6 +2009,7 @@
                   "!@ekza-studio/autorig",
                   "!@ekza-studio/editor",
                   "!@ekza-studio/editor/host",
+                  "!@ekza-studio/halo",
                   "!@ekza-studio/ui",
                   "!@ekza-studio/ui/styles.css",
                   "!next",
@@ -1934,7 +2019,7 @@
                   "!react-dom",
                   "!react-dom/**"
                 ],
-                "message": "apps/web may import only: @ekza-studio/autorig, @ekza-studio/editor, @ekza-studio/editor/host (the (studio) layout's StudioHost), @ekza-studio/ui, @ekza-studio/ui/styles.css, next, next/**, react, react/**, react-dom, react-dom/** (ARCHITECTURE \u00a73)."
+                "message": "apps/web may import only: @ekza-studio/autorig, @ekza-studio/editor, @ekza-studio/editor/host (the (studio) layout's StudioHost), @ekza-studio/halo (`/app`'s entry only), @ekza-studio/ui, @ekza-studio/ui/styles.css, next, next/**, react, react/**, react-dom, react-dom/** (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-studio/[^/]+/[^/]+/",

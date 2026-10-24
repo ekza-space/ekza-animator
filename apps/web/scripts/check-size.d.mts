@@ -7,7 +7,7 @@ export interface LazyGroup {
   readonly bytes: number;
 }
 export interface SizeReport {
-  /** AUTORIG-SPEC §7.2: the measured route ('editor', 'autorig') and its app-paths segment. */
+  /** AUTORIG-SPEC §7.2: the measured route ('editor', 'autorig', 'app') and its app-paths segment. */
   readonly route: string;
   readonly segment: string;
   readonly e2eBuild: boolean;
@@ -108,6 +108,9 @@ export declare function modelChunk(lazy: readonly LazyGroup[], baseline: SizeBas
 export declare const ROUTES: readonly string[];
 export declare const AUTORIG_GATE_BYTES: number;
 export declare const AUTORIG_TARGET_BYTES: number;
+/** STUDIO-TOUCH-SPEC §20.6 (T2): `/app`'s gate and target. */
+export declare const HALO_GATE_BYTES: number;
+export declare const HALO_TARGET_BYTES: number;
 export declare const ROUTE_BOUNDARIES: Readonly<
   Record<string, readonly { readonly id: string; readonly label: string; readonly markers: readonly string[] }[]>
 >;

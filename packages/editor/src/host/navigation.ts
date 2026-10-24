@@ -5,7 +5,7 @@
 // The new-tab flow and the page-load fallback (no `push`: a harness, or the two-island design) hand the document over
 // through a one-shot handoff record (`./handoff`, a lazy chunk). The chooser is a plain page load.
 // STUDIO-TOUCH-SPEC §16, §20.4 (T2): the third shell, Halo (`/app`); every route is mapped explicitly; a switch also
-// hands over the arrival action `then` and, when Halo leaves, Halo's state (`takeThen`, `takeHalo`, read once).
+// hands over the arrival action and, when Halo leaves, Halo's state (`takeArrival`, `takeHalo`, read once).
 import type {
   ArrivalAction,
   AutoRigSubject,
@@ -21,7 +21,11 @@ import type { HostNavigation, HostShell } from './types';
 const ARRIVAL_PARAMS = ['ws', 'handoff', 'from', 'step', 'sample', 'chooser', 'stage'] as const;
 
 /** The path of each shell's route (T2: every route explicitly; the chooser is `/?chooser=1`). */
-export const ROUTE_PATHS: Readonly<Record<ShellKind, string>> = { studio: '/editor', autorig: '/autorig', halo: '/app' };
+export const ROUTE_PATHS: Readonly<Record<ShellKind, string>> = {
+  studio: '/editor',
+  autorig: '/autorig',
+  halo: '/app',
+};
 
 /** The route path and query of a request: `/editor?…&ws=animate`, `/autorig?…&from=studio`, `/app?…&from=studio`. */
 export function routeHref(request: NavigationRequest, search: string): string {
@@ -49,7 +53,7 @@ export function createNavigation(
 ): HostNavigation {
   let subject: AutoRigSubject | null = null;
   let workspace: WorkspaceId | null = null;
-  let then: ArrivalAction | null = null;
+  let arrival: ArrivalAction | null = null;
   let halo: HaloHandoffState | null = null;
   let received: HandoffInfo | null = null;
   const loc = (): Pick<Location, 'search' | 'assign'> => opts.location ?? window.location;
@@ -84,7 +88,7 @@ export function createNavigation(
       halo = left?.kind === 'halo' ? (left.haloState?.() ?? null) : null;
       subject = request.subject ?? null;
       workspace = request.workspace ?? null;
-      then = request.then ?? null;
+      arrival = request.arrival ?? null;
       opts.push(href);
     },
     takeSubject(): AutoRigSubject | null {
@@ -101,7 +105,7 @@ export function createNavigation(
       received = info;
       subject = info.subject;
       workspace = info.workspace;
-      then = info.then ?? null;
+      arrival = info.arrival ?? null;
       halo = info.halo ?? null;
     },
     takeHandoffInfo(): HandoffInfo | null {
@@ -109,9 +113,9 @@ export function createNavigation(
       received = null;
       return taken;
     },
-    takeThen(): ArrivalAction | null {
-      const taken = then;
-      then = null;
+    takeArrival(): ArrivalAction | null {
+      const taken = arrival;
+      arrival = null;
       return taken;
     },
     takeHalo(): HaloHandoffState | null {

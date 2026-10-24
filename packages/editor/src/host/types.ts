@@ -54,11 +54,11 @@ export interface HostNavigation extends NavigationPort {
   /** The info of the handoff record this page received (`?handoff=`), once: the Auto-Rig shell reads its step. */
   takeHandoffInfo(): HandoffInfo | null;
   /** STUDIO-TOUCH-SPEC §16.1 (T2): the arrival action of the last `go` or of a received record, once, else null. */
-  takeThen(): ArrivalAction | null;
+  takeArrival(): ArrivalAction | null;
   /** STUDIO-TOUCH-SPEC §16.3 (T2): the state of the Halo shell the last `go` left (or a received record's), once —
    *  Auto-Rig ① reads the destination and the finger preset when entered from Halo — else null. */
   takeHalo(): HaloHandoffState | null;
-  /** Host-internal: a received handoff record's info (its subject, workspace, `then` and Halo state become the
+  /** Host-internal: a received handoff record's info (its subject, workspace, arrival action and Halo state become the
    *  arrival's). */
   arrive(info: HandoffInfo): void;
 }
