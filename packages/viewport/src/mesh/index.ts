@@ -55,8 +55,9 @@ export async function loadMeshDisplay(opts: MeshDisplayOptions): Promise<MeshDis
  * A pane's display flags as mesh-view reads them (§4.4). `dimmed` carries the pane's "Dim unhilited" flag; each mesh
  * host turns it on only for meshes outside the hilite set while a component mode is active (§5.6).
  */
-export function meshPaneDisplay(flags: DisplayFlags): MeshPaneDisplay {
+export function meshPaneDisplay(flags: DisplayFlags & { readonly xrayOpacity?: number }): MeshPaneDisplay {
   return {
+    ...(flags.xrayOpacity === undefined ? {} : { xrayOpacity: flags.xrayOpacity }),
     shading: flags.shading,
     wireOnShaded: flags.wireOnShaded,
     flat: flags.flat,

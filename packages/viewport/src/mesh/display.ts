@@ -126,6 +126,8 @@ function paneFor(out: PaneScratch, display: MeshPaneDisplay, dimmed: boolean): M
   out.flat = display.flat;
   out.cull = display.cull;
   out.xray = display.xray;
+  if (display.xrayOpacity === undefined) delete out.xrayOpacity;
+  else out.xrayOpacity = display.xrayOpacity;
   out.components = display.components;
   out.normals = display.normals;
   out.faceOrientation = display.faceOrientation;

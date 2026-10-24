@@ -18,6 +18,7 @@ export interface MeshPaneDisplay {
   readonly components: boolean; readonly normals: 'off' | 'face' | 'vertex' | 'both'; readonly faceOrientation: boolean;
   readonly triangulation: boolean; readonly hardEdges: boolean; readonly meshCheck: boolean;
   readonly symmetryPlane: boolean; readonly dimmed: boolean;   // dimmed = not hilited and the pane's Dim unhilited is on
+  readonly xrayOpacity?: number;   // STUDIO-TOUCH-SPEC §20.3 item 17: a display overlay's x-ray opacity (absent: the style's 0.5)
 }
 export interface MeshViewLayers { readonly surface: number; readonly components: number; readonly normals: number;
   readonly lint: number; readonly helpers: number }   // viewport LAYER values (§4.7)
