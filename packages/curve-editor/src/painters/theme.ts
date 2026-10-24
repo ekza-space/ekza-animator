@@ -44,34 +44,17 @@ export const DEFAULT_GRAPH_THEME: GraphTheme = {
 };
 
 /**
- * Tolerances of the curve editors by pointer type (STUDIO-TOUCH-SPEC §5.4, ST-8; T1), CSS px: the Graph Editor's hit
- * radii (key, tangent handle, curve), the Dope Sheet's key glyph and region handles, the drag slop and the Shift axis
- * lock's travel. The mouse's are today's (MVP-SPEC §4.11.18, research 09 §6.2); a finger's and the pen's follow the
- * pick radius (22 / 9) and slop (10 / 4) of §5.4.
+ * Sizes in CSS px (research 09 §4.7). The hit tolerances are the mouse's (MVP-SPEC §4.11.18) until a touch shell's
+ * curve adapter switches them to its pointer's (`setGraphPointer` in `./pointer`, STUDIO-TOUCH-SPEC §5.4).
  */
-export const CURVE_POINTER_TOLERANCE = {
-  mouse: { hitKey: 6, hitHandle: 5, hitCurve: 4, glyphPx: 6, regionHandlePx: 6, dragPx: 3, axisLockPx: 4 },
-  pen: { hitKey: 9, hitHandle: 9, hitCurve: 9, glyphPx: 9, regionHandlePx: 9, dragPx: 4, axisLockPx: 4 },
-  touch: { hitKey: 22, hitHandle: 22, hitCurve: 22, glyphPx: 22, regionHandlePx: 22, dragPx: 10, axisLockPx: 10 },
-} as const;
-
-type CurveTolerance = { -readonly [K in keyof (typeof CURVE_POINTER_TOLERANCE)['mouse']]: number };
-
-/**
- * The curve editors' tolerances of the pointer in use: the mouse's until a controller sees a pen or a finger
- * (`setCurvePointer`, called by the Graph Editor's and the Dope Sheet's controllers on every press and move).
- */
-export const CURVE_TOLERANCE: CurveTolerance = { ...CURVE_POINTER_TOLERANCE.mouse };
-
-/** Sizes in CSS px (research 09 §4.7). The hit tolerances are the pointer in use's (`setCurvePointer`). */
 export const GRAPH_METRICS: {
-  readonly key: number;
-  readonly keySelected: number;
-  readonly handleRadius: number;
-  readonly handleLength: number;
-  readonly curveWidth: number;
-  readonly selectedSegmentWidth: number;
-  readonly inactiveAlpha: number;
+  readonly key: 5;
+  readonly keySelected: 7;
+  readonly handleRadius: 2;
+  readonly handleLength: 40;
+  readonly curveWidth: 1.5;
+  readonly selectedSegmentWidth: 2;
+  readonly inactiveAlpha: 0.4;
   hitKey: number;
   hitHandle: number;
   hitCurve: number;
@@ -84,20 +67,11 @@ export const GRAPH_METRICS: {
   curveWidth: 1.5,
   selectedSegmentWidth: 2,
   inactiveAlpha: 0.4,
-  /** Hit tolerances (MVP-SPEC §4.11.18): the mouse's until `setCurvePointer` switches them. */
+  /** Hit tolerances (MVP-SPEC §4.11.18). */
   hitKey: 6,
   hitHandle: 5,
   hitCurve: 4,
 };
-
-/** Switches the curve editors' tolerances to a pointer type's (§5.4; any other type is the mouse). */
-export function setCurvePointer(pointerType: string): void {
-  const row = CURVE_POINTER_TOLERANCE[pointerType === 'pen' || pointerType === 'touch' ? pointerType : 'mouse'];
-  Object.assign(CURVE_TOLERANCE, row);
-  GRAPH_METRICS.hitKey = row.hitKey;
-  GRAPH_METRICS.hitHandle = row.hitHandle;
-  GRAPH_METRICS.hitCurve = row.hitCurve;
-}
 
 const TOKENS: readonly (readonly [keyof GraphTheme, string])[] = [
   ['background', '--bg-field'],

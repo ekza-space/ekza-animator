@@ -22,6 +22,7 @@ import {
   type ToolWheelEvent,
 } from '@ekza-studio/editor-core';
 import { applyKeySelection, KEY_PART, selectModeFor } from '../graph/selection';
+import { setDopeSheetPointer } from '../painters/pointer';
 import { bandMoveDelta, bandScale, snapFrame } from '../timeline/band';
 import type { DopeSheetHit, DopeSheetRow, DopeSheetRowKind, DopeSheetViewState } from '../types';
 import { DopeSheetData, SAME_TIME } from './data';
@@ -29,6 +30,7 @@ import {
   clampScale,
   clampScroll,
   DEFAULT_DOPE_VIEW,
+  DOPE_TOLERANCE,
   FRAME_PADDING,
   fitFrames,
   frameToX,
@@ -44,7 +46,6 @@ import {
 } from './layout';
 import { type DopeSheetScene, paintDopeSheet } from './painter';
 import { buildRows, expandedByDefault, shownControls } from './rows';
-import { CURVE_TOLERANCE, setCurvePointer } from '../painters/theme';
 import { type DopeSheetTheme, readDopeSheetTheme } from './theme';
 
 /** Wheel zoom rates per pixel of wheel delta (mouse wheel; pinch arrives as Ctrl+wheel). */
@@ -278,7 +279,7 @@ export class DopeSheetController {
         const span = region.end - region.start > SAME_TIME;
         // The handles reach the region handle tolerance outside the bar and at most a quarter of it inside, so the
         // middle of a narrow bar can still be grabbed (the time slider's band rule); by pointer type (§5.4).
-        const reach = CURVE_TOLERANCE.regionHandlePx;
+        const reach = DOPE_TOLERANCE.regionHandlePx;
         const inside = Math.min(reach, (x1 - x0) / 4);
         if (span && x >= x0 - reach && x <= x0 + inside) return { kind: 'region-start', frame };
         if (span && x >= x1 - inside && x <= x1 + reach) return { kind: 'region-end', frame };
@@ -292,7 +293,7 @@ export class DopeSheetController {
     if (row === undefined) return { kind: 'none', row: null, frame };
     const glyphs = this.data.glyphs(row);
     const nearest = nearestTime(glyphs.times, frame);
-    if (nearest !== null && Math.abs(frameToX(view, nearest) - x) <= CURVE_TOLERANCE.glyphPx) {
+    if (nearest !== null && Math.abs(frameToX(view, nearest) - x) <= DOPE_TOLERANCE.glyphPx) {
       return { kind: 'glyph', row: row.id, frame: nearest };
     }
     return { kind: 'none', row: row.id, frame };
@@ -385,7 +386,7 @@ export class DopeSheetController {
 
   pointerDown(e: ToolPointerEvent): void {
     if (this.disposed) return;
-    setCurvePointer(e.pointerType); // §5.4: the tolerances follow the pointer
+    setDopeSheetPointer(e.pointerType); // §5.4: the tolerances follow the pointer
     if (this.dragging) {
       // One gesture at a time; a press whose button is no longer down lost its release: start fresh.
       if ((e.buttons & (BUTTON_BITS[this.pressButton] ?? 0)) !== 0) return;
@@ -458,7 +459,7 @@ export class DopeSheetController {
 
   pointerMove(e: ToolPointerEvent): void {
     if (this.disposed) return;
-    setCurvePointer(e.pointerType);
+    setDopeSheetPointer(e.pointerType);
     const gesture = this.gesture;
     if (gesture !== null) {
       this.updateGesture(gesture, e);
@@ -466,7 +467,7 @@ export class DopeSheetController {
     }
     const pending = this.pending;
     if (pending !== null) {
-      if (Math.hypot(e.x - pending.start.x, e.y - pending.start.y) < CURVE_TOLERANCE.dragPx) return;
+      if (Math.hypot(e.x - pending.start.x, e.y - pending.start.y) < DOPE_TOLERANCE.dragPx) return;
       this.pending = null;
       this.gesture = pending.drag?.() ?? null;
       if (this.gesture !== null) this.updateGesture(this.gesture, e);

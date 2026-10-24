@@ -1,11 +1,11 @@
-// STUDIO-TOUCH-SPEC §5.4 (ST-8; T1): the curve editors' tolerances follow the pointer type. A press or a move by a
-// finger or the pen switches the Graph Editor's key / handle / curve hit radii, the Dope Sheet's glyph and region
-// handles, the drag slop and the axis-lock travel to theirs (22 / 9 px pick, 10 / 4 px slop); the mouse brings back
-// today's values, which Studio Pro's mouse input never leaves.
+// STUDIO-TOUCH-SPEC §5.4 (ST-8; T1): the curve editors' tolerances by pointer type. The Dope Sheet's controller
+// switches its glyph and region tolerances and its drag slop to the pointer of each press and move; the Graph
+// Editor's hit radii switch through `setGraphPointer` (a touch shell's curve adapter calls it; Studio Pro's mouse
+// never does). The mouse brings back today's values.
 import { afterEach, describe, expect, it } from 'vitest';
 import { GRAPH_METRICS } from '../src';
-import { resolveAxisLock } from '../src/graph/gestures';
-import { CURVE_POINTER_TOLERANCE, CURVE_TOLERANCE, setCurvePointer } from '../src/painters/theme';
+import { DOPE_TOLERANCE } from '../src/dopesheet/layout';
+import { CURVE_POINTER_TOLERANCE, setDopeSheetPointer, setGraphPointer } from '../src/painters/pointer';
 import {
   CONTROLS,
   dopeApp,
@@ -14,7 +14,7 @@ import {
   mountSheet,
   pointer as dopePointer,
 } from './dopesheet/fixture';
-import { type Mounted, mount, pointer, WAVE, waveApp } from './support/app';
+import { type Mounted, mount, WAVE, waveApp } from './support/app';
 
 let graph: Mounted | null = null;
 let sheet: MountedSheet | null = null;
@@ -23,39 +23,41 @@ afterEach(() => {
   graph = null;
   sheet?.dispose();
   sheet = null;
-  setCurvePointer('mouse');
+  setGraphPointer('mouse');
+  setDopeSheetPointer('mouse');
 });
+
+const hits = (): number[] => [GRAPH_METRICS.hitKey, GRAPH_METRICS.hitHandle, GRAPH_METRICS.hitCurve];
 
 describe('curve editor tolerances by pointer type (§5.4)', () => {
   it('a finger or the pen switches them; the mouse restores today’s', () => {
-    expect(CURVE_TOLERANCE).toEqual(CURVE_POINTER_TOLERANCE.mouse);
-    expect([GRAPH_METRICS.hitKey, GRAPH_METRICS.hitHandle, GRAPH_METRICS.hitCurve]).toEqual([6, 5, 4]);
-    setCurvePointer('touch');
-    expect(CURVE_TOLERANCE).toEqual(CURVE_POINTER_TOLERANCE.touch);
-    expect([GRAPH_METRICS.hitKey, GRAPH_METRICS.hitHandle, GRAPH_METRICS.hitCurve]).toEqual([22, 22, 22]);
-    expect(resolveAxisLock(null, true, 8, 0)).toBeNull(); // a finger's 10 px before Shift picks an axis
-    setCurvePointer('pen');
-    expect(CURVE_TOLERANCE.dragPx).toBe(4);
-    expect(resolveAxisLock(null, true, 8, 0)).toBe('time');
-    setCurvePointer('mouse');
-    expect([GRAPH_METRICS.hitKey, GRAPH_METRICS.hitHandle, GRAPH_METRICS.hitCurve]).toEqual([6, 5, 4]);
+    expect(hits()).toEqual([6, 5, 4]);
+    expect(DOPE_TOLERANCE).toEqual({ glyphPx: 6, regionHandlePx: 6, dragPx: 3 });
+    setGraphPointer('touch');
+    setDopeSheetPointer('touch');
+    expect(hits()).toEqual([22, 22, 22]);
+    expect(DOPE_TOLERANCE).toEqual({ glyphPx: 22, regionHandlePx: 22, dragPx: 10 });
+    setGraphPointer('pen');
+    expect(hits()).toEqual([9, 9, 9]);
+    setGraphPointer('');
+    setDopeSheetPointer('mouse');
+    expect(hits()).toEqual([6, 5, 4]);
+    expect(DOPE_TOLERANCE).toEqual({ glyphPx: 6, regionHandlePx: 6, dragPx: 3 });
+    expect(CURVE_POINTER_TOLERANCE.mouse).toMatchObject({ hitKey: 6, hitHandle: 5, hitCurve: 4 });
   });
 
-  it('the Graph Editor: a finger hovering 15 px off a key hits it, the mouse does not', async () => {
+  it('the Graph Editor: with a finger’s radii a key 15 px away is hit, with the mouse’s it is not', async () => {
     graph = mount(await waveApp());
     const { controller } = graph;
     const k15 = controller.keyPoint(WAVE.keys[1]);
     if (k15 === null) throw new Error('key 15 is not on the canvas');
     const probe = { x: k15.x, y: k15.y - 15 };
-    controller.pointerMove(pointer({ ...probe, buttons: 0 }));
     expect(controller.hitTest(probe.x, probe.y).kind).not.toBe('key');
-    controller.pointerMove(pointer({ ...probe, buttons: 0, pointerType: 'touch' }));
+    setGraphPointer('touch');
     expect(controller.hitTest(probe.x, probe.y)).toEqual({ kind: 'key', key: WAVE.keys[1], curve: WAVE.curve });
-    controller.pointerMove(pointer({ ...probe, buttons: 0 }));
-    expect(controller.hitTest(probe.x, probe.y).kind).not.toBe('key');
   });
 
-  it('the Dope Sheet: a pen press 8 px beside a glyph hits it, a mouse press does not', async () => {
+  it('the Dope Sheet: a pen move 8 px beside a glyph hits it, a mouse move does not', async () => {
     sheet = mountSheet(await dopeApp());
     keyCurve(sheet.app, CONTROLS.lowerArmL, 'rz', [[10, 0]]);
     sheet.sheet.redraw(true);
@@ -66,5 +68,7 @@ describe('curve editor tolerances by pointer type (§5.4)', () => {
     expect(sheet.sheet.hitTest(beside.x, beside.y).kind).toBe('none');
     sheet.sheet.pointerMove(dopePointer(beside.x, beside.y, { buttons: 0, pointerType: 'pen' }));
     expect(sheet.sheet.hitTest(beside.x, beside.y)).toEqual({ kind: 'glyph', row: 'summary', frame: 10 });
+    sheet.sheet.pointerMove(dopePointer(beside.x, beside.y, { buttons: 0 }));
+    expect(sheet.sheet.hitTest(beside.x, beside.y).kind).toBe('none');
   });
 });

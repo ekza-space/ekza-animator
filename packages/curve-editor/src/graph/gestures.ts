@@ -16,7 +16,6 @@ import {
   toDisplayValue,
 } from '@ekza-studio/editor-core';
 import type { OverlayState } from '../painters/overlay';
-import { CURVE_POINTER_TOLERANCE, CURVE_TOLERANCE } from '../painters/theme';
 import type { GraphViewState } from '../types';
 import { panView, zoomView } from '../view/transform';
 import type { CurveEntry } from './curveSet';
@@ -62,12 +61,10 @@ export interface Gesture {
 
 export type AxisLock = 'time' | 'value' | null;
 
-/**
- * Pixels of motion before Shift picks the dominant axis (MVP-SPEC §4.11.3) and pointer travel below which a press is
- * a click (research 09 §6.2), for the mouse; the pointer in use's are `CURVE_TOLERANCE`'s (STUDIO-TOUCH-SPEC §5.4).
- */
-export const AXIS_LOCK_PX = CURVE_POINTER_TOLERANCE.mouse.axisLockPx;
-export const DRAG_THRESHOLD_PX = CURVE_POINTER_TOLERANCE.mouse.dragPx;
+/** Pixels of motion before Shift picks the dominant axis (MVP-SPEC §4.11.3). */
+export const AXIS_LOCK_PX = 4;
+/** Pointer travel below which a press is a click (research 09 §6.2). */
+export const DRAG_THRESHOLD_PX = 3;
 /** Smallest |dt| of a dragged handle, in frames: keeps it on its side of the key (vertical = ±90°). */
 export const MIN_HANDLE_DT = 1e-6;
 
@@ -75,7 +72,7 @@ export const MIN_HANDLE_DT = 1e-6;
 export function resolveAxisLock(current: AxisLock, shift: boolean, dx: number, dy: number): AxisLock {
   if (!shift) return null;
   if (current !== null) return current;
-  if (Math.max(Math.abs(dx), Math.abs(dy)) < CURVE_TOLERANCE.axisLockPx) return null;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < AXIS_LOCK_PX) return null;
   return Math.abs(dx) >= Math.abs(dy) ? 'time' : 'value';
 }
 
