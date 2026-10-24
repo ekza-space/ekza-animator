@@ -98,6 +98,7 @@ import type {
   ScreenPoint,
   ViewPreset,
 } from '../types';
+import type { ArbiterPort, CoalescedSample, PointerArbiter, PointerArbiterStage, ViewGesture } from '../input/arbiter';
 import type { ImagePlaneLayer, ImagePlaneSpec } from './imagePlanes';
 import { type MeshLayerHost, meshPaneDisplay } from './meshLayers';
 import { setManagerOf } from './registry';
@@ -300,6 +301,8 @@ export class ViewportManager {
   private layerPointer: { readonly paneId: string; readonly pointerId: number } | null = null;
   /** AUTORIG-SPEC §8.1: the mounted shell's navigation override, asked before the profile on every press. */
   private navOverride: NavigationOverride | null = null;
+  /** STUDIO-TOUCH-SPEC §20.4: a touch shell's pointer arbiter, the first stage of the pointer path (null in Pro). */
+  private arbiter: PointerArbiter<PointerEvent> | null = null;
   /** M2a §5.18: a plain MMB drag running the Channels panel virtual slider on the selected channels. */
   private virtualDrag: VirtualSliderDrag | null = null;
   /** Pointer Lock for the virtual slider (the e2e URL switch `pointerLock=off` turns it off). */
@@ -574,6 +577,40 @@ export class ViewportManager {
   /** AUTORIG-SPEC §8.1 (D3): installs (or with null removes) a shell's navigation override. */
   setNavigationOverride(o: NavigationOverride | null): void {
     this.navOverride = o;
+  }
+
+  /**
+   * STUDIO-TOUCH-SPEC §20.4: installs (null removes) a touch shell's pointer arbiter, the first stage of every press in
+   * a pane (`createPointerArbiter`); the disposer removes this one. Studio Pro installs none.
+   */
+  setPointerArbiter(stage: PointerArbiterStage<PointerEvent> | null): Disposer {
+    this.arbiter?.cancel();
+    const arbiter = stage?.(this.arbiterPort()) ?? null;
+    this.arbiter = arbiter;
+    return () => {
+      if (this.arbiter !== arbiter) return;
+      arbiter?.cancel();
+      this.arbiter = null;
+    };
+  }
+
+  /**
+   * STUDIO-TOUCH-SPEC §20.3 item 1: moves a pane's camera by a view gesture — orbit and pan by (dx, dy) CSS px, dolly
+   * by `dx` (ln of the distance ratio, towards `at`, pane CSS px, default the centre). A shot camera's gesture commits
+   * once, after a burst of calls (as the wheel's).
+   */
+  navigate(paneId: string, gesture: ViewGesture, dx: number, dy: number, at?: { x: number; y: number }): void {
+    const pane = this.panes.get(paneId);
+    if (pane === undefined) return;
+    this.steer(pane, (controller, rect) => {
+      if (gesture === 'orbit') controller.tumble(dx, dy, rect.height);
+      else if (gesture === 'pan') controller.track(dx, dy, rect.width, rect.height);
+      else {
+        const w = Math.max(rect.width, 1);
+        const h = Math.max(rect.height, 1);
+        controller.dolly(dx, ((at?.x ?? w / 2) / w) * 2 - 1, 1 - ((at?.y ?? h / 2) / h) * 2);
+      }
+    });
   }
 
   /** M6b (C3): sets the pointer layer above the tool (null removes it); the disposer removes this layer. */
@@ -1505,7 +1542,7 @@ export class ViewportManager {
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   }
 
-  private toolEvent(pane: PaneRuntime, e: PointerEvent): ToolPointerEvent {
+  private toolEvent(pane: PaneRuntime, e: PointerEvent, coalesced?: readonly CoalescedSample[]): ToolPointerEvent {
     const { x, y } = this.local(pane, e);
     const mac = this.app.keymap.platform === 'mac';
     // M6a rule (b): the MMB stand-in reaches the tool as the middle button, Alt and Shift cleared.
@@ -1524,15 +1561,75 @@ export class ViewportManager {
       pointerType: e.pointerType === 'pen' || e.pointerType === 'touch' ? e.pointerType : 'mouse',
       timeStamp: e.timeStamp,
       detail: e.detail,
+      // STUDIO-TOUCH-SPEC §20.3 item 5: only on the arbiter's path (absent = today's behaviour)
+      ...(coalesced && { pressure: e.pressure, pointerId: e.pointerId, coalesced }),
     };
   }
 
+  /** The arbiter's view of the pipeline after its stage (§20.4). */
+  private arbiterPort(): ArbiterPort<PointerEvent> {
+    const run = (id: string, fn: (pane: PaneRuntime) => void): void => {
+      const pane = this.panes.get(id);
+      if (pane !== undefined) fn(pane);
+    };
+    return {
+      local: (id, e) => {
+        const pane = this.panes.get(id);
+        return pane === undefined ? null : this.local(pane, e);
+      },
+      pick: (id, x, y) => this.pick(id, x, y),
+      ortho: (id) => {
+        const preset = this.paneState(id)?.preset ?? null;
+        return preset !== null && preset !== 'persp';
+      },
+      capture: (id, pointerId) => run(id, (pane) => this.capture(pane, pointerId)),
+      down: (id, e) => run(id, (pane) => this.pressDown(pane, e, [])),
+      move: (id, e, coalesced) => run(id, (pane) => this.pressMove(pane, e, coalesced)),
+      up: (id, e, cancelled) => run(id, (pane) => this.pressUp(pane, e, cancelled, [])),
+      startNav: (id, e, gesture) => {
+        const pane = this.panes.get(id);
+        if (pane === undefined || this.busy()) return false;
+        this.capture(pane, e.pointerId);
+        this.startNav(pane, e, gesture);
+        return true;
+      },
+      navigate: (id, gesture, dx, dy, at) => this.navigate(id, gesture, dx, dy, at),
+      endNavigate: () => this.endWheelBurst(),
+    };
+  }
+
+  private busy(): boolean {
+    return this.nav !== null || this.toolPointer !== null || this.layerPointer !== null || this.virtualSliderActive;
+  }
+
   private pointerDown(pane: PaneRuntime, e: PointerEvent): void {
+    if (this.arbiter?.down(pane.id, e) === true) {
+      this.lastPointerPane = pane.id;
+      this.pointerAt = { paneId: pane.id, clientX: e.clientX, clientY: e.clientY };
+      return;
+    }
+    this.pressDown(pane, e);
+  }
+
+  private pointerMove(pane: PaneRuntime, e: PointerEvent): void {
+    if (this.arbiter?.move(pane.id, e) === true) {
+      this.pointerAt = { paneId: pane.id, clientX: e.clientX, clientY: e.clientY };
+      return;
+    }
+    this.pressMove(pane, e);
+  }
+
+  private pointerUp(pane: PaneRuntime, e: PointerEvent, cancelled = false): void {
+    if (this.arbiter?.up(pane.id, e, cancelled) === true) return;
+    this.pressUp(pane, e, cancelled);
+  }
+
+  /** The pipeline after the arbiter stage; `coalesced` only for presses the arbiter replays (§20.4). */
+  private pressDown(pane: PaneRuntime, e: PointerEvent, coalesced?: readonly CoalescedSample[]): void {
     this.lastPointerPane = pane.id;
     this.pointerAt = { paneId: pane.id, clientX: e.clientX, clientY: e.clientY };
     if (e.button === 1) e.preventDefault(); // no autoscroll / primary-selection paste
-    if (this.nav !== null || this.toolPointer !== null || this.layerPointer !== null || this.virtualSliderActive)
-      return;
+    if (this.busy()) return;
     // M6a rule (b) (§5.17): in Model on the trackpad and one-button profiles, Alt+Shift+LMB is the MMB stand-in.
     const standIn = isMmbStandIn(this.profile, this.workspace, e);
     this.standIn = standIn ? e.pointerId : null;
@@ -1581,7 +1678,7 @@ export class ViewportManager {
         return;
       }
     }
-    if (!standIn && this.pointerLayer?.pointerDown(this.toolEvent(pane, e)) === true) {
+    if (!standIn && this.pointerLayer?.pointerDown(this.toolEvent(pane, e, coalesced)) === true) {
       this.layerPointer = { paneId: pane.id, pointerId: e.pointerId };
       this.capture(pane, e.pointerId);
       this.setHover(null, null);
@@ -1590,7 +1687,7 @@ export class ViewportManager {
       this.invalidate();
       return;
     }
-    if (tool?.pointerDown?.(this.toolEvent(pane, e)) === true) {
+    if (tool?.pointerDown?.(this.toolEvent(pane, e, coalesced)) === true) {
       this.toolPointer = { paneId: pane.id, pointerId: e.pointerId };
       this.capture(pane, e.pointerId);
       this.setHover(null, null);
@@ -1622,7 +1719,7 @@ export class ViewportManager {
     return true;
   }
 
-  private pointerMove(pane: PaneRuntime, e: PointerEvent): void {
+  private pressMove(pane: PaneRuntime, e: PointerEvent, coalesced?: readonly CoalescedSample[]): void {
     this.pointerAt = { paneId: pane.id, clientX: e.clientX, clientY: e.clientY };
     if (this.virtualSliderActive) return;
     const nav = this.nav;
@@ -1633,14 +1730,14 @@ export class ViewportManager {
     const layer = this.layerPointer;
     if (layer !== null) {
       if (layer.pointerId === e.pointerId && layer.paneId === pane.id) {
-        this.pointerLayer?.pointerMove(this.toolEvent(pane, e));
+        this.pointerLayer?.pointerMove(this.toolEvent(pane, e, coalesced));
         this.invalidate();
       }
       return;
     }
     if (this.toolPointer !== null) {
       if (this.toolPointer.pointerId === e.pointerId && this.toolPointer.paneId === pane.id) {
-        this.tool()?.pointerMove?.(this.toolEvent(pane, e));
+        this.tool()?.pointerMove?.(this.toolEvent(pane, e, coalesced));
         this.invalidate();
       }
       return;
@@ -1651,7 +1748,12 @@ export class ViewportManager {
     this.pointerLayer?.hover?.(pane.id, x, y);
   }
 
-  private pointerUp(pane: PaneRuntime, e: PointerEvent, cancelled = false): void {
+  private pressUp(
+    pane: PaneRuntime,
+    e: PointerEvent,
+    cancelled: boolean,
+    coalesced?: readonly CoalescedSample[],
+  ): void {
     const nav = this.nav;
     if (nav !== null && nav.pointerId === e.pointerId) {
       this.endNav(false);
@@ -1663,7 +1765,7 @@ export class ViewportManager {
       this.layerPointer = null;
       this.removeDragListeners();
       if (cancelled) this.pointerLayer?.cancel();
-      else this.pointerLayer?.pointerUp(this.toolEvent(pane, e));
+      else this.pointerLayer?.pointerUp(this.toolEvent(pane, e, coalesced));
       this.release(pane, e.pointerId);
       this.invalidate();
       return;
@@ -1674,7 +1776,7 @@ export class ViewportManager {
       this.removeDragListeners();
       const tool = this.tool();
       if (cancelled) tool?.cancel?.();
-      else tool?.pointerUp?.(this.toolEvent(pane, e));
+      else tool?.pointerUp?.(this.toolEvent(pane, e, coalesced));
       this.release(pane, e.pointerId);
       this.invalidate();
     }
@@ -1683,6 +1785,7 @@ export class ViewportManager {
 
   /** Esc or window blur during a drag: cancel the tool gesture and any navigation in progress. */
   private cancelInteraction(): void {
+    this.arbiter?.cancel();
     this.standIn = null;
     this.virtualDrag?.end(false);
     if (this.layerPointer !== null) {
@@ -1839,8 +1942,23 @@ export class ViewportManager {
     this.lastPointerPane = pane.id;
     e.preventDefault();
     if (this.nav !== null || this.toolPointer !== null) return;
+    this.steer(pane, (controller, rect) => {
+      const action = wheelAction(this.profile, e, rect.height);
+      if (action.kind === 'dolly') {
+        const ndcX = ((e.clientX - rect.left) / Math.max(rect.width, 1)) * 2 - 1;
+        const ndcY = 1 - ((e.clientY - rect.top) / Math.max(rect.height, 1)) * 2;
+        controller.dolly(action.amount, ndcX, ndcY);
+      } else if (action.kind === 'tumble') {
+        controller.tumble(action.dx, action.dy, rect.height);
+      } else {
+        controller.track(action.dx, action.dy, rect.width, rect.height);
+      }
+    });
+  }
+
+  /** One step of a wheel or `navigate` gesture on a pane's camera; a shot camera's burst commits once when idle. */
+  private steer(pane: PaneRuntime, apply: (controller: NavigationController, rect: DOMRect) => void): void {
     const rect = pane.element.getBoundingClientRect();
-    const action = wheelAction(this.profile, e, rect.height);
     const resolved = this.resolve(pane);
     let controller = resolved.nav;
     if (resolved.kind === 'shot') {
@@ -1859,15 +1977,7 @@ export class ViewportManager {
       this.endWheelBurst();
       resolved.view.touched = true;
     }
-    if (action.kind === 'dolly') {
-      const ndcX = ((e.clientX - rect.left) / Math.max(rect.width, 1)) * 2 - 1;
-      const ndcY = 1 - ((e.clientY - rect.top) / Math.max(rect.height, 1)) * 2;
-      controller.dolly(action.amount, ndcX, ndcY);
-    } else if (action.kind === 'tumble') {
-      controller.tumble(action.dx, action.dy, rect.height);
-    } else {
-      controller.track(action.dx, action.dy, rect.width, rect.height);
-    }
+    apply(controller, rect);
     const burst = this.wheel;
     if (burst !== null && resolved.kind === 'shot') {
       this.writeShot(burst);

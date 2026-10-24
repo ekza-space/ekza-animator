@@ -18,6 +18,22 @@ export { type ImagePlaneCamera, type ImagePlaneSpec } from './manager/imagePlane
 export { defaultCameraOf, defaultDisplayOf, MODEL_DISPLAY } from './manager/workspaceViews';
 export { LAYER } from './layers';
 export { isMmbStandIn } from './navigation/profiles';
+// STUDIO-TOUCH-SPEC §20.4 (T1a spike): a touch shell's pointer arbiter (`ViewportManager.setPointerArbiter`).
+export {
+  type ArbiterClaim,
+  type ArbiterConfig,
+  type ArbiterFollow,
+  type ArbiterPointer,
+  type ArbiterPointerType,
+  type ArbiterPort,
+  type ArbiterRouting,
+  type ArbiterTap,
+  type CoalescedSample,
+  createPointerArbiter,
+  type PointerArbiter,
+  type PointerArbiterStage,
+  type ViewGesture,
+} from './input/arbiter';
 // AUTORIG-SPEC §8.1 (D3): a shell's per-press navigation override (`ViewportManager.setNavigationOverride`).
 export type { NavGesture, NavigationOverride, NavPointerInput } from './navigation/override';
 export { loadScaleKit } from './manipulators/scale/load';

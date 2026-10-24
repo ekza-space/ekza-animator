@@ -476,6 +476,11 @@ export interface ToolPointerEvent {
   readonly pointerType: 'mouse' | 'pen' | 'touch';
   readonly timeStamp: number;
   readonly detail: number;                                        // click count (double-click = 2)
+  // ---------- STUDIO-TOUCH-SPEC §20.3 item 5 (additive; absent = today's behaviour; T1, a line patch for T2) ----------
+  readonly pressure?: number;                                     // set on a touch shell's arbiter path only
+  readonly pointerId?: number;
+  /** Every sample of a move since the previous event (pane CSS px), the event itself when the browser gave none. */
+  readonly coalesced?: readonly { readonly x: number; readonly y: number; readonly pressure: number; readonly t: number }[];
 }
 export interface ToolWheelEvent {
   readonly panel: PanelKind; readonly paneId: string | null;
