@@ -1,8 +1,8 @@
 // The Animate stage while the shell is mounted (STUDIO-TOUCH-SPEC §7.1, §10; T7; P-T6A-4): ● Rec as the `shell`
 // override (removed on unmount, ha-12), the fitting manipulator of a selected control (§10.1: a turn ring for FK
-// controls, move for IK goals and the root), Reach and the touch count of canvas drags, the Library sheet, and the
-// focused band source the Thread provides for `time.selectBand` (a lazy chunk: the curve editor never loads with
-// `/app`'s first scripts). Leaving Animate closes the stage's transient surfaces and stops a library preview.
+// controls, move for IK goals and the root), Reach and the touch count of canvas drags, and the Library sheet (the
+// Thread provides the focused band source itself while it is mounted). Leaving Animate closes the stage's transient
+// surfaces and stops a library preview.
 import { PANEL, VIEWPORT_TOOL } from '@ekza-studio/editor-core';
 import { createElement, lazy, type JSX, Suspense } from 'react';
 import type { HaloController } from '../../shell/controller';
@@ -82,22 +82,6 @@ export function startAnimate(controller: HaloController): () => void {
   disposers.push(installFittingTool(controller));
   disposers.push(installReach(ctx, () => store.set((s) => ({ touches: s.touches + 1 }))));
   disposers.push(registerHaloSheet('library', LibraryHost));
-
-  // the focused band source (§20.3 item 18): the Thread's, so `time.selectBand` runs here as in Pro
-  let band: { dispose(): void } | null = null;
-  let disposed = false;
-  void import('../../thread/band/source').then(
-    ({ provideThreadBandSource }) => {
-      if (disposed) return;
-      band = provideThreadBandSource(app);
-    },
-    () => undefined,
-  );
-  disposers.push(() => {
-    disposed = true;
-    band?.dispose();
-    band = null;
-  });
 
   // leaving Animate (or the sheet slot taken by another sheet) closes the stage's transient surfaces
   disposers.push(

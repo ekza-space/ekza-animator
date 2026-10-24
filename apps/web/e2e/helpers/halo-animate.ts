@@ -33,6 +33,8 @@ export interface AnimateSlice {
   readonly newCard: boolean;
   readonly transport: boolean;
   readonly preview: string | null;
+  /** A page point on the lead selected control that Reach takes (null: not reachable). */
+  readonly reachPoint: { readonly x: number; readonly y: number } | null;
 }
 
 /** The Animate stage's slice of `halo()`. */

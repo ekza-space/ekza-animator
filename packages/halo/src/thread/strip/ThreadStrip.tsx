@@ -556,6 +556,17 @@ export function ThreadStrip({
     canvas.addEventListener('pointercancel', onPointerCancel);
     canvas.addEventListener('contextmenu', onContextMenu);
 
+    // the focused band source (§20.3 item 18): `time.selectBand` runs here as in Pro; a lazy chunk, so the curve
+    // editor loads with the Thread, never with `/app`'s first scripts (§20.6)
+    let band: { dispose(): void } | null = null;
+    let unmounted = false;
+    void import('../band/source').then(
+      ({ provideThreadBandSource }) => {
+        if (!unmounted) band = provideThreadBandSource(app);
+      },
+      () => undefined,
+    );
+
     const offSession = app.session.subscribe((next, previous) => {
       if (
         next.time !== previous.time ||
@@ -580,6 +591,8 @@ export function ThreadStrip({
     });
 
     return () => {
+      unmounted = true;
+      band?.dispose();
       clearTimer();
       if (raf !== 0) cancelAnimationFrame(raf);
       observer?.disconnect();

@@ -10,7 +10,9 @@
 //
 // The goal moves on the plane through the hand that faces the camera. While dragging, a ring marks where the hand
 // goes (the limb follows on lift: the solved preview needs `solveReach` exported from the wrappers' chunk, P-T7-1).
-// Head and hips are not reachable yet (`pose.goals` has no spine solve, P-T5A-5): they turn with the ring.
+// Head and hips are not reachable yet (`pose.goals` has no spine solve, P-T5A-5): they turn with the ring. A limb in FK
+// at the playhead keeps its own drag (ST-T7-4): `pose.reach` would switch it to IK over a time band only; *Hand leads*
+// makes the limb Reach.
 import type { CharacterId, ClipId, ControlId } from '@ekza-studio/doc';
 import { type EditorApp, limbOfControlApp } from '@ekza-studio/editor-core';
 import type { ViewportManager } from '@ekza-studio/viewport';
@@ -201,10 +203,12 @@ export function installReach(ctx: ShellContext, count: () => void): () => void {
       toolDrag = { pointerId: e.pointerId, x: e.clientX, y: e.clientY, slop: SLOP[type] };
     }
     if (hit?.kind === 'manipulator') {
-      const under = vm
+      // the nearest body part under the ring; a tap on the selected one stays the grammar's (it reopens its Halo)
+      const first = vm
         .pickCandidates(PANE, x, y)
         .map((c) => (c.kind === 'control' ? c.control : c.kind === 'mesh' ? c.control : null))
-        .find((id): id is ControlId => id !== null && !selected.includes(id));
+        .find((id): id is ControlId => id !== null);
+      const under = first === undefined || selected.includes(first) ? undefined : first;
       ringTap =
         under === undefined
           ? null
@@ -218,6 +222,9 @@ export function installReach(ctx: ShellContext, count: () => void): () => void {
     if (limb === null || clip === null) return;
     const end = endOf(app, lead);
     if (end === null || end.character !== clip.character) return;
+    // an FK limb here keeps its own drag (the goal would switch it to IK over a band only, P-T5A-5); *Hand leads*
+    // makes it Reach
+    if ((app.evaluation.ikFk(end.character, limb as never) ?? 0) < 0.5) return;
     candidate = {
       pointerId: e.pointerId,
       type,

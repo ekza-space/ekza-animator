@@ -161,9 +161,14 @@ export const FITTABLE_TOOLS: ReadonlySet<string> = new Set([
   VIEWPORT_TOOL.rotate,
 ]);
 
-/** The limb a selected control Reaches with (§10.1): the hand or foot at the end of an FK chain, else null. */
+/**
+ * The limb a selected control Reaches with (§10.1): the hand or foot at the end of a limb's FK chain, or the limb's IK
+ * goal itself; null for every other control (the pole included).
+ */
 export function reachLimbOf(app: EditorApp, control: ControlId): string | null {
   const limb = limbOfControlApp(app, control);
   if (limb === null) return null;
-  return limb.fkControls[limb.fkControls.length - 1] === control ? limb.id : null;
+  const end = limb.fkControls[limb.fkControls.length - 1] === control;
+  const goal = limb.ikControls[0] === control;
+  return end || goal ? limb.id : null;
 }

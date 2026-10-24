@@ -141,3 +141,36 @@ test('Pro opened with from=halo shows no first-run dialog; opened directly it do
   await waitForTestApi(page);
   await expect(page.getByTestId('firstrun-dialog')).toBeVisible();
 });
+
+// T7 (STUDIO-TOUCH-SPEC §10.2, §16.4, AS-ST-10): Rec is Ekza Studio's own setting laid over Auto Key as a removable
+// `shell` override while Halo is mounted with an animation active; it is gone in Pro (Pro's stored Auto Key decides
+// there) and back in Halo, and Pro's stored preference is never written.
+test('Rec is a shell override of Auto Key: on in Halo, removed in Pro, back in Halo', async ({ page }) => {
+  await openHalo(page, '&platform=mac');
+  await expectHaloShown(page);
+  await runOk(page, 'file.loadSample', { sample: 'polybot' });
+  await expect.poll(async () => (await call(page, 'halo'))?.stage).toBe('animate');
+  const storedAutoKey = (): Promise<unknown> =>
+    page.evaluate(() => {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i) ?? '';
+        const raw = localStorage.getItem(key) ?? '';
+        if (!raw.startsWith('{') || !raw.includes('"autoKey"')) continue;
+        return (JSON.parse(raw) as { autoKey?: unknown }).autoKey ?? null;
+      }
+      return null;
+    });
+  await expect.poll(async () => (await call(page, 'state')).autoKey).toBe(true);
+  const stored = await storedAutoKey();
+  expect(stored === null || stored === false).toBe(true);
+
+  await navigate(page, { to: 'studio', from: 'halo', workspace: 'animate' });
+  await expectStudioShown(page);
+  // the override left with the shell: Pro's own Auto Key (off by default) decides
+  await expect.poll(async () => (await call(page, 'state')).autoKey).toBe(false);
+  expect(await storedAutoKey()).toEqual(stored);
+
+  await navigate(page, { to: 'halo', from: 'studio' });
+  await expectHaloShown(page);
+  await expect.poll(async () => (await call(page, 'state')).autoKey).toBe(true);
+});
