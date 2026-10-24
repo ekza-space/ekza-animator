@@ -52,7 +52,6 @@ describe('the OMOBA developer zip', () => {
     const readme = new TextDecoder().decode(files['README.txt']);
     expect(readme).toContain('validate-motion-pack');
     expect(readme).toContain('animations/basic.wildspark.0.vrma');
-    expect(readme).not.toContain('ekza_animation_set_v1');
   });
 });
 

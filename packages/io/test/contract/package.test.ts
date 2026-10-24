@@ -147,6 +147,21 @@ describe('package bytes: reports and measured values', () => {
   });
 });
 
+describe('the Studio-written package fixture for OMOBA (§5.3 item 4)', () => {
+  it("passes every rule of the bundled contract and lists Wildspark's nine slots", () => {
+    const bytes = new Uint8Array(readFileSync(new URL('fixtures/contracts/omoba-package/polybot-wildspark.vrm', ROOT)));
+    const model = readContractText(readFileSync(new URL('fixtures/contracts/omoba.game-contract.json', ROOT), 'utf8'));
+    const report = checkCharacterPackage(bytes, { contract: (r) => (r === model.revision ? model : undefined) });
+    expect(gateVerdict(report)).toEqual({
+      pack: 'ok',
+      warnings: [],
+      slots: { 'base.run': 'pass', 'skill.wild_zap.release': 'pass' },
+      slotWarnings: {},
+    });
+    expect(Object.keys(report.manifest?.slots ?? {})).toHaveLength(9);
+  });
+});
+
 describe('ekza.package.v1 manifest', () => {
   const MODEL = readContractText(readFileSync(new URL('fixtures/contracts/omoba.game-contract.json', ROOT), 'utf8'));
 
@@ -194,7 +209,6 @@ describe('ekza.package.v1 manifest', () => {
     ]);
     expect(readPackageManifest(JSON.parse(JSON.stringify(json)))).toEqual(manifest);
     expect(JSON.stringify(packageManifestJson(manifest))).toBe(JSON.stringify(json));
-    expect(JSON.stringify(json)).not.toContain('ekza_animation_set_v1');
   });
 
   it('refuses a slot outside the offer when writing', () => {

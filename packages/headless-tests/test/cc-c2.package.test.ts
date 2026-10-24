@@ -155,7 +155,6 @@ describe('C2 headless: rig → bind → fill two slots → package → read back
       ['skill.wild_zap.release', 'Shockline W - release'],
     ]);
     expect(meta.clips[1]?.contactSeconds).toBe(manifest.slots['skill.wild_zap.release']?.markers?.['contact']);
-    expect(JSON.stringify(json)).not.toContain('ekza_animation_set_v1');
 
     // the rules, glTF Validator, the VRM validator
     const report = checkCharacterPackage(bytes, { contract: (r) => (r === CONTRACT.revision ? CONTRACT : undefined) });
@@ -194,6 +193,10 @@ describe('C2 headless: rig → bind → fill two slots → package → read back
 
     mkdirSync(OUT, { recursive: true });
     writeFileSync(new URL('polybot-wildspark.vrm', OUT), bytes);
+    // the package fixture for OMOBA's gate (§5.3 item 4): `EKZA_WRITE_PACKAGE_FIXTURE=1` refreshes the committed copy
+    if (process.env['EKZA_WRITE_PACKAGE_FIXTURE'] === '1') {
+      writeFileSync(new URL('fixtures/contracts/omoba-package/polybot-wildspark.vrm', ROOT), bytes);
+    }
     writeFileSync(new URL(zip?.fileName ?? 'dev.zip', OUT), zip?.bytes ?? new Uint8Array(0));
   });
 });

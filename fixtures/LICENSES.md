@@ -90,4 +90,8 @@ contracts and the generator's `manifest.json` with each file's SHA-256, generate
 `scripts/build_game_contract_fixtures.py` and published under **CC0 1.0** (`license` in the manifest). They are copied
 by `tooling/sync-contract.mjs --fixtures` (pinned to the manifest's SHA-256; `--check` in the local gate); files above
 1 MiB are not copied (`studio-copy.json` names them). The current copy is C0's draft (`omoba-bevy`
-`feat/character-contract-export` @ `f025981`).
+`feat/character-contract-export` @ `f025981`). `contracts/omoba-package/polybot-wildspark.vrm` is the Studio-written
+package fixture for OMOBA's gate (CHARACTER-CONTRACT-SPEC §5.3 item 4): the Polybot of `models/polybot-unskinned-tpose.glb`
+(CC0 1.0, Polygonal Mind) rigged by Auto-Rig and bound to Wildspark, with the starter pack's Run and Pistol Shoot
+(CC0 1.0, Quaternius) in two slots; written by `packages/headless-tests/test/cc-c2.package.test.ts`
+(`EKZA_WRITE_PACKAGE_FIXTURE=1`), CC0 1.0.
