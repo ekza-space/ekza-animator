@@ -14,6 +14,8 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   manifest: '/manifest.webmanifest',
+  appleWebApp: { capable: true, title: 'Ekza Studio', statusBarStyle: 'black-translucent' },
+  icons: { apple: '/apple-touch-icon.png' },
 };
 
 /** A segment layout below the shared `(studio)` one: it adds head tags only, so a switch keeps the host mounted. */

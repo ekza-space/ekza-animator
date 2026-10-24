@@ -282,7 +282,7 @@ describe('createTestApi', () => {
     });
     await api.loadFile('wave.vrma', [1, 2, 3] as unknown as Uint8Array);
     expect(received).toEqual([{ name: 'wave.vrma', bytes: new Uint8Array([1, 2, 3]) }]);
-    await expect(api.loadFile('notes.txt', new Uint8Array())).rejects.toThrow('No importer');
+    await expect(api.loadFile('notes.txt', new Uint8Array())).rejects.toThrow('not a 3D model or an Ekza Studio project');
   });
 });
 
