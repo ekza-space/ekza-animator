@@ -101,6 +101,17 @@ under `src/shell/**` and re-exports it from `index.ts` (a line patch). Every all
 | Entry contract | `entry-contract.test.ts` green (flag off = shipped script; flag on rules run in a VM) |
 | `/app` measured, unenforced | 635,275 B (gate 700,000, target 660,000: target met) |
 
+### Gate
+
+`EKZA_E2E_PORT=3163 pnpm run ci` at `e000a6bd` (dev `7af76d0d` merged): **green** — format, lint (`oxlint
+--type-aware`), typecheck, check:deps, fixtures, licences, 23 test tasks (editor-core 1,705, editor 627 + 1 skipped,
+halo 6, web 102, autorig 112, …), the production build, check:size (all three routes OK) and the e2e suite (369 passed,
+24 skipped stretch specs, 0 failed; ha-12 4/4). Two earlier runs failed in the unit step only, on the same
+timing-sensitive editor browser tests (`input.test.ts` dropdown hover, `shell.test.tsx` Space tap and the frame loop, then
+a cascade from editors the timed-out tests left mounted) and once on the MCP bridge's confirm-deadline test, while a VM on
+the machine held the load average at 60–120 (14 cores). Each passed alone, the whole editor suite passed alone (64 files),
+and nothing in them reaches T2's code paths (synthetic pointer events have an empty `pointerType`).
+
 ## 3. Measurements (production build, gzip -9, `check:size`)
 
 | Route | dev `d5d123c3` | T2 | Delta |
