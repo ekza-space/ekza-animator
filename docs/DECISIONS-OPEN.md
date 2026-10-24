@@ -1,6 +1,6 @@
 # Open owner decisions — defaults chosen
 
-Status: 2026-10-24 (rev. 15: section Q, the character contract — `CC-*` ([CHARACTER-CONTRACT-SPEC](CHARACTER-CONTRACT-SPEC.md) v0.1, ADR 0024); rev. 14: TM-4, neutral feature names; rev. 13: section P, the touch-first Ekza Studio shell "Halo" — defaults and owner questions of [STUDIO-TOUCH-SPEC](STUDIO-TOUCH-SPEC.md) v0.2 and ADR 0023; rev. 12: section O, third-party trademarks — TM-1); 2026-10-23 (rev. 11: section N, the agent bridge M-AI — its defaults of 2026-10-19 (section H on the `mcp/*` branches) and N.6, the MVP cut and the port onto `dev`); 2026-10-22 (rev. 10: section M, Auto-Rig — AR-B1 and AR-V1; rev. 9: section L, the M6b MVP deviations and owner review items); 2026-10-19, M2a merged into `dev` (rev. 8; rev. 8 revised section G after the modeling plan's design review
+Status: 2026-10-24 (rev. 16: section R, the game protocol — `GP-*` ([GAME-PROTOCOL-SPEC](GAME-PROTOCOL-SPEC.md) v0.1, ADR 0025; CHARACTER-CONTRACT-SPEC v0.2 becomes its OMOBA profile); rev. 15: section Q, the character contract — `CC-*` ([CHARACTER-CONTRACT-SPEC](CHARACTER-CONTRACT-SPEC.md) v0.1, ADR 0024); rev. 14: TM-4, neutral feature names; rev. 13: section P, the touch-first Ekza Studio shell "Halo" — defaults and owner questions of [STUDIO-TOUCH-SPEC](STUDIO-TOUCH-SPEC.md) v0.2 and ADR 0023; rev. 12: section O, third-party trademarks — TM-1); 2026-10-23 (rev. 11: section N, the agent bridge M-AI — its defaults of 2026-10-19 (section H on the `mcp/*` branches) and N.6, the MVP cut and the port onto `dev`); 2026-10-22 (rev. 10: section M, Auto-Rig — AR-B1 and AR-V1; rev. 9: section L, the M6b MVP deviations and owner review items); 2026-10-19, M2a merged into `dev` (rev. 8; rev. 8 revised section G after the modeling plan's design review
 (MODELING-PLAN v0.2 §12); rev. 7 added section G: the owner decisions of the modeling
 iteration M6a–M7 planned in [MODELING-PLAN](MODELING-PLAN.md), with defaults; rev. 5 added section F: the M2a build
 deviations, the integration decisions and
@@ -1235,6 +1235,25 @@ Defaults and owner questions of the touch-first shell ([STUDIO-TOUCH-SPEC](STUDI
 | ST-T2-8 | Lazy curve editor in Halo | `@ekza-studio/curve-editor` is in Halo's oxlint allow-list (oxlint's `no-restricted-imports` also matches `import()`, so "lazy only" cannot be a lint rule); `check:size`'s `/app` `curve-editor` boundary and ha-12 enforce it. The future subpaths (`editor-core/forms`, `ui/touch`, `editor/models`, `editor/overlays`, `editor/toolkit`, `editor/agent`) are pre-admitted | — | — |
 | ST-T2-9 | T2's measured delta (ST-B1 input) | Production build, gzip -9, against `dev` `d5d123c3`: `/editor` 891,790 → 892,064 B (**+274 B**), `/autorig` 652,528 → 652,691 B (**+163 B**), `/app` 635,275 B (unenforced placeholder in `size-baseline.json routes.app`). Proposed T2 allowance: 320 B `/editor`, 192 B `/autorig` | Counts against ST-B1's 2,048 B total | **owner**, after T1a |
 
+### P · T5a — forms, lint and wrappers (2026-10-24)
+
+Branch `halo/t5a-forms`; notes in [`wp-notes/halo-t5a.md`](wp-notes/halo-t5a.md).
+
+| ID | Decision | Default chosen | Impact if changed | Decide by |
+|---|---|---|---|---|
+| ST-T5A-1 | Wrapper names | `pose.hold` (Hold Pose), `pose.pasteAt` (Paste Pose at Frame), `pose.placeGoal` (Place IK Goal), `pose.lookAt` (Look At), `pose.reach` (Reach), `clip.loop` (Make Loop), `key.scaleValues` (Scale Key Values), `key.offsetValues` (Offset Key Values), `key.offsetInLoop` (Offset in Loop), `imagePlane.replace` (Replace Image): the spec's ids, Pro-style labels for More and search | Renaming later touches the manifest, forms and policy rows | T12 |
+| ST-T5A-2 | How a wrapper calls the wrapped operator | Its poll asks the wrapped poll; its `prepare` runs the wrapped `prepare` and full poll; its `apply` runs the wrapped `apply` in the wrapper's one transaction and annotates the wrapper's label. One step under the wrapper's label (also for override-only runs). Agent runs refused in the poll too | A dispatcher (`forward` from `prepare`) would record the wrapped operator's step and label, and `imagePlane.replace` would be two steps | — |
+| ST-T5A-3 | Argument types | Declared in `uiWrapperChunk.ts` by declaration merging into `OperatorMap`; `args.ts` (T2's contract file) untouched | Folding them into `args.ts` is a line patch, no behaviour change | T2 |
+| ST-T5A-4 | Registration | `loadUiWrappers(app)`: idempotent per app, never disposed, loads the M-AI operators first; not in Pro's eager registration nor in `lazyOperatorChunk`, so `/editor` gains 0 B. The host calls it at idle (T3) | Wiring it into `lazyOperatorChunk` lets any surface run a wrapper id before the load, for a few dozen eager bytes on `/editor` and `/autorig` | T3, T12 |
+| ST-T5A-5 | Session defaults | Clip = the active one; frame = the playhead (the active clip only, else required); time range = the band; key targets = selected keys → selected channels → animated channels of selected controls; positions in character space (`pose.goals`' space) | — | — |
+| ST-T5A-6 | Reach and Rec | `key` defaults to the effective auto key (Halo's Rec override): keyed through `pose.goals`, else unkeyed edits through `pose.setAt {propose}`, one step either way; `solveReach` is the preview. Hands and feet only: head and hips need a spine solve `pose.goals` lacks | Head / hips Reach: Look At, a Move, or a new kernel solve (ADR) | T7 |
+| ST-T5A-7 | An FK limb under Place Goal / Reach | Switched to IK over the time band only (`ensureIk: 'auto'`); without a band, refused with a pointer to *Hand leads* / *Foot leads*; Reach without Rec refuses an FK limb | Switching at a single frame would bend the neighbouring frames | T7 |
+| ST-T5A-8 | Replace Image | Delete + import + settings in one step; keeps name, view, offset, size, opacity, depth and visibility; the plane gets a new id and is drawn last among its view's planes (`imagePlane.set` has no order); a locked plane is refused | Keeping the id or order needs a new kernel field | — |
+| ST-T5A-9 | `FormDef` beyond the §20.4 sketch | Dotted param names into object arguments (`tolerance.rotationRad`, `params.speed`) and `base` (fixed starting values); `fromSession` stays `'time' \| 'target'` (playhead or band; selection, active animation, picked target, copied pose) | — | — |
+| ST-T5A-10 | Which operators have forms | 20: `graph.curves.simplify`, `graph.infinity.set`, `key.tween`, `time.insertTime`, `time.deleteTime`, `pose.mirrorAnimation`, `clip.new`, `rig.ikFk.switch`, `rig.ikFk.matchRange`, `library.useClip` and the ten wrappers. Defaults are the operator's own; non-adjustable operators with ParamDefs use those (`formOf` → `source: 'params'`) | More forms are additive (one entry each, param-lint checks them) | T6b–T9 |
+| ST-T5A-11 | param-lint | Runs in `test:tooling`; loads the TypeScript registry through a `typescript` transpile hook; the surface checks read `PARAM_SURFACES` from `packages/halo/src/manifest/paramSurfaces.ts` once T6b exports it; "a Pro option box" = a public operator with visible scalar ParamDefs (48 today) | — | T6b |
+| ST-T5A-12 | Turbo inputs of `test:tooling` | Needs `packages/*/src/**` (param-lint reads sources); not changed in T5a (shared file) | Without it a cached pass can hide a source change | T12 |
+
 ## Q. Character contract, defaults chosen (2026-10-24)
 
 Defaults and owner questions of the character contract between Ekza Studio, Ekza Hub and OMOBA
@@ -1285,3 +1304,52 @@ Section P (the touch shell, `ST-*`) lives on `design/studio-touch` until that sp
 | CC-Q12 | **owner** — Final hosted origins | Editor `https://studio.ekza.io`, Hub `https://hub.ekza.io`; dev: Hub `hub.dev.ekza.io`, editor dev origin to be named (also answers `M-AI-INT-9`) | Allow-lists and links follow | C5, C7 |
 | CC-Q13 | **owner** — Withdrawal and takedown | A withdrawn consent or a takedown removes the release pointers; clients drop the character at the next catalogue refresh; no claim on copies already shown | Legal wording | C5 |
 | CC-Q14 | **owner** — A skill removed from the roster | Its slot ids are retired, never reused; packages that filled them keep working for the remaining slots | — | C0 freeze |
+
+## R. Game protocol, defaults chosen (2026-10-24)
+
+Defaults and owner questions of the Ekza Game Protocol ([GAME-PROTOCOL-SPEC](GAME-PROTOCOL-SPEC.md) v0.1,
+[ADR 0025](adr/0025-game-protocol.md), Proposed), which turns the character contract of section Q into a protocol any
+game can adopt; the OMOBA contract becomes its profile `omoba.character.v1`
+([CHARACTER-CONTRACT-SPEC](CHARACTER-CONTRACT-SPEC.md) v0.2). Where a `GP-*` row renames something a `CC-*` row names
+(CC-1 document and file, CC-6 manifest key, CC-8 rule ids), the `GP-*` row wins; the substance of every `CC-*` row
+stands.
+
+- Every row has a default, so that work can start; the owner may override any of them.
+- Rows `GP-Q*` are the spec's open questions (§15). The default stands until the owner answers.
+- Build-time decisions are added by the work packages as `GP-<wp>-*` rows.
+
+| ID | Question | Default chosen | Impact if changed | Decide by |
+|---|---|---|---|---|
+| GP-1 | One protocol for every game? | **Yes**: the Ekza Game Protocol (EGP) 1.0 with five documents — `ekza.game-contract.v1`, `ekza.package.v1`, `ekza.validation-report.v1`, `ekza.event.v1`, `ekza.contract-index.v1` — and per-game **profiles** whose data lives only under `ext` and in namespaced rules | Per-game formats make every tool and Hub learn each game | C0 freeze |
+| GP-2 | OMOBA's contract under the protocol | `ekza.game-contract.v1` with profile `omoba.character.v1` (used, not required); `omoba.character-contract.v1` is never published | Keeping the old name makes OMOBA a special case forever | C0 freeze |
+| GP-3 | Versioning | Major in the schema id; additive minors in `schemaVersion` (`"1.0"`); `minReaderVersion` for safe forward reading; strict parsing for understood minors; `revision` = `sha256-` of canonical JSON (asset-catalog rule, RFC 8785 subset) | Without minors every addition is a breaking change | C0 freeze |
+| GP-4 | Ids | Stable; removed ids go to `retired` and are never reused (Hub refuses); slots keyed by gameplay identity; OMOBA asset slots use the `omoba.asset-catalog.v1` requirement ids | — | C0 freeze |
+| GP-5 | Model | game → targets (`character`, `any`, `item`, `vehicle`, `prop`) → slots of kind `animation`, `asset` (handheld, projectile, throwable, deployable, attachment, effect) or `socket`; `variant` and `audio` reserved; **families** for extensible lists (`idPrefix`, `maxFills`) | — | C0 freeze |
+| GP-6 | How a target says what it accepts | **Offers** (`accepts[]`): one per package kind, with its slots, `listing` and `mustFill`, each mapped to one Hub requirement id (`character.<hero>`, `wildspark.handheld.set`) | Requirements stay hand-seeded in SQL | C4 |
+| GP-7 | Generic timing and placement vocabulary | **Markers** (`contact`, `release`, `fire`, footsteps, `land`) and **anchors** (`muzzle`, `trail`, `grip_off`, `impact`); OMOBA's `contact` becomes `animation.markers.contact` | A single `contact` field cannot express throws and shots | C0 freeze |
+| GP-8 | Package manifest | One `ekza.package.v1` for every kind, in `asset.extras.ekza_package_v1` (replaces `ekza_animation_set_v1`, never shipped); fills bind by index (animation, root node) | Per-kind manifests multiply parsers | C2 |
+| GP-9 | Monolithic or fragments? | **Both**; one package per review unit and per reuse unit; **bundles** (author as one, submit several, approve atomically). OMOBA 1.0: the character package is one VRM with clips; gear is one `asset-pack` GLB per set (the Wildspark set), later also filling the rocket and the trap | Embedding gear in the body couples body and hero | C5 |
+| GP-10 | Runtime composition | Per slot: equipped fragment → character package → default; per-slot fallback; `mustFill` sets all or none | — | C3, GP5 |
+| GP-11 | Rule vocabulary | Core ids `pack.*`, `rig.*`, `clip.*`, `asset.*`, `socket.*`, `rights.*` with contract parameters; OMOBA renames `pack.extras` → `pack.manifest`, `pack.animation-ref` → `pack.ref`, `clip.contact` → `clip.markers`, `clip.basic-interval` → `clip.min-interval`; adds `pack.target`, explicit `rig.humanoid`, and (GP5) `asset.*` and `omoba.asset.grip` | — | C0 freeze |
+| GP-12 | Game-specific rules | Namespaced (`<game>.<scope>.<name>`) with `checkedBy`; run only in the game's sandboxed builder and its runtime; tools without them show *deferred* and do not block; unknown **core** ids fail closed | Fail-closed on game rules would block every generic tool | C0 freeze |
+| GP-13 | Reference implementations | TypeScript `@ekza/gp` (MIT, extracted from Studio) and Rust `ekza-gp` (MIT OR Apache-2.0, used by the SDK and OMOBA's passport for core rules; written fresh from the spec, no relicensing); Python in the registry for the structural subset only | A third full implementation would drift | GP0 |
+| GP-14 | Events | CloudEvents 1.0 structured JSON, types `io.ekza.gp.<object>.<verb>`, a transactional outbox, per-project `ekzaseq`, at-least-once, 30-day feed | Polling only keeps third-party games blind | GP3 |
+| GP-15 | Delivery | Standard Webhooks (HMAC-SHA256, `webhook-id/-timestamp/-signature`, rotation, retries 1 min … 24 h, SSRF guard) and a cursor pull feed for static games | — | GP3 |
+| GP-16 | Commands | HTTP + JSON with `Idempotency-Key` on every state-changing POST (24 h) and RFC 9457 problem details carrying the validation report | — | GP2 |
+| GP-17 | Game auth | Project keys: publishable `ekza_pk_…` (test channel read) and secret `ekza_sk_…` with scopes `contract:publish`, `events:read`, `usage:write`, `webhooks:manage`, `admission:read`; hashed, shown once, revocable | User tokens in game CI are fragile | GP3 |
+| GP-18 | Offline | Contracts committed and bundled; release snapshots (`ekza.release-snapshot.v1`) pulled by `ekza-gp snapshot pull` and pinned by SHA-256; manifests inside the hashed package | — | GP4 |
+| GP-19 | Rights | Per package and per fragment revision (`revision_rights` + `share_bps`); bundle approvable only when every member's rights are complete; derivatives declared in `requires` and licence-checked | — | C5 |
+| GP-20 | Second game | Ekza Space as the pilot (GP8): a minimal contract with no profile, consumed with no registry code change | Without a second game the generality is untested | after GP4 |
+| GP-21 | Work in flight | C0 and C1 adopt the protocol names before the C0 freeze (GAME-PROTOCOL-SPEC §12.3), about one agent-day each | Renaming after the freeze needs a breaking revision | now |
+| GP-Q1 | **owner** — Protocol name and home | "Ekza Game Protocol" (EGP); a new public repository `ekza-game-protocol` for schemas, fixtures and reference code | Keeping it in ekza-studio ties every game to the editor's repo | GP0 |
+| GP-Q2 | **owner** — Licences | Schemas, fixtures and spec text CC0-1.0; reference code MIT OR Apache-2.0 | Copyleft would keep games from embedding the validator | GP0 |
+| GP-Q3 | **owner** — Asset slots in OMOBA's first contract? | No: C0 ships animation slots; GP5 adds the asset slots as a compatible revision | +≈ 2 agent-days in C0 | C0 freeze |
+| GP-Q4 | **owner** — Bundles approved atomically? | Yes (approve, promote and revoke the bundle as one; members stay separately equippable) | Per-member approval lets a body go live without its gear | C5 |
+| GP-Q5 | **owner** — Gear equip semantics in OMOBA | Slot-keyed: a gear set applies wherever its slots are used, on any body; sets all or none | Hero-locked gear needs catalogue flags and admission checks | GP5 |
+| GP-Q6 | **owner** — Outbound webhooks from the registry | Yes, HTTPS only with an egress guard, after GP3; until then the pull feed | Feed only: third-party games must poll | GP3 |
+| GP-Q7 | **owner** — Usage aggregates from games | Yes, opt-in per game, aggregates only (no player, account, device or IP data) | Without them creators never see "works in game" | GP3 |
+| GP-Q8 | **owner** — Portable rule modules (WebAssembly) so tools can run game rules | Later | Earlier: a sandboxed runtime in Studio and Hub | after GP8 |
+| GP-Q9 | **owner** — Signed release snapshots for mirrors | Later; SHA pins in builds suffice | — | after GP4 |
+| GP-Q10 | **owner** — Who may create a Hub project for a third-party game | Curated by Ekza (operator CLI), self-serve later | Self-serve needs abuse controls and billing | GP8 |
+| GP-Q11 | **owner** — Register a glTF vendor prefix (`EKZA_`) and move the manifest into an extension | No for 1.0; `asset.extras` | A registered extension is more visible to other tools | 1.x |
+| GP-Q12 | **owner** — Store revenue shares now | Yes, `share_bps` per rights row, inactive until the commerce ledger pays out | Adding it later needs a migration and re-consent | C5 |

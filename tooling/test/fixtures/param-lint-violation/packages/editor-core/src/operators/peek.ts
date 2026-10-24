@@ -1,0 +1,1 @@
+export { formOf } from '../forms';

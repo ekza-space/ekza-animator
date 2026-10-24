@@ -13,6 +13,16 @@ export { createEditorApp } from './app/createEditorApp';
 export { createHeadlessEditorApp, createHeadlessServices, type HeadlessServicesOptions } from './app/headless';
 export { CHANGE_JOURNAL_CAP } from './history/history';
 export { AGENT_OPERATOR_IDS, loadAgentOperators } from './operators/builtin/agentChunk';
+// STUDIO-TOUCH-SPEC §20.3 item 7 (T5a): the public UI wrappers of the AI-only operators (a lazy chunk, denied to agents).
+export {
+  loadUiWrappers,
+  UI_WRAPPER_IDS,
+  type UiKeyScopeArgs,
+  type UiLoopMethod,
+  type UiLoopTravel,
+  type UiScalePivot,
+  type UiWrapperId,
+} from './operators/builtin/uiWrapperChunk';
 export {
   AI_LABEL_MAX,
   AI_LABEL_PREFIX,
