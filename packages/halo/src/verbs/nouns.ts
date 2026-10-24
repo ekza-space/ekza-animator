@@ -40,6 +40,13 @@ const COMPONENT_WORD: Readonly<Record<ComponentKind, readonly [string, string]>>
 const plural = (count: number, [one, many]: readonly [string, string]): string =>
   `${count} ${count === 1 ? one : many}`;
 
+/** The character a control's rig belongs to. */
+function characterOfRig(app: EditorApp, rig: string | null): string | null {
+  if (rig === null) return null;
+  const record = app.store.get('rigs' as never, rig as never) as { character?: string } | undefined;
+  return record?.character ?? null;
+}
+
 /** Foot controls (§6.2 "Foot / IK goal control"): the leg IK goals and the foot-roll controls. */
 function isFootControl(key: string): boolean {
   return /foot|ankle|toe|heel|leg\.ik|legik/i.test(key);
@@ -48,9 +55,7 @@ function isFootControl(key: string): boolean {
 function controlNoun(app: EditorApp, ids: readonly string[]): Noun | null {
   const first = ids.at(-1);
   if (first === undefined) return null;
-  const record = app.store.get('controls', first as never) as
-    | { key?: string; name?: string; character?: string }
-    | undefined;
+  const record = app.store.get('controls', first as never) as { key?: string; name?: string; rig?: string } | undefined;
   if (record === undefined) return null;
   const key = record.key ?? '';
   const label = ids.length > 1 ? `${ids.length} parts` : (record.name ?? key);
@@ -60,7 +65,7 @@ function controlNoun(app: EditorApp, ids: readonly string[]): Noun | null {
     ids,
     label,
     count: ids.length,
-    character: record.character ?? null,
+    character: characterOfRig(app, record.rig ?? null),
   };
 }
 

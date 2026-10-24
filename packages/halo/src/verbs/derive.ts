@@ -193,7 +193,7 @@ export function moreGroups(
       const base = entry.plain ?? plainLabel(app, op);
       for (const args of argRows(entry)) {
         const values = Object.values(args);
-        const single = values.length === 1 ? VALUE_WORDS[String(values[0])] : undefined;
+        const single = values.map((value) => VALUE_WORDS[String(value)]).find((word) => word !== undefined);
         const plain = values.length === 0 || entry.plain === undefined ? base : (single ?? base);
         add(more.group, row(app, op as OperatorId, values.length === 0 ? undefined : args, plain, false));
       }

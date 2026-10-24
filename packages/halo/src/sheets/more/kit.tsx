@@ -86,10 +86,12 @@ export function FieldRow(props: {
   readonly pro?: ReactNode;
   readonly children?: ReactNode;
   readonly testId?: string;
+  /** Handlers on the label area only (a long-press menu), so a chip in the row keeps its own drag. */
+  readonly labelHandlers?: Readonly<Record<string, unknown>>;
 }): JSX.Element {
   return (
     <div className="flex min-h-[52px] items-center gap-3 px-2.5 py-1.5" data-testid={props.testId}>
-      <span className="flex min-w-0 flex-1 flex-col">
+      <span className="flex min-w-0 flex-1 flex-col" {...props.labelHandlers}>
         <span className="font-medium text-fg">{props.label}</span>
         {props.pro === undefined || props.pro === '' ? null : (
           <span className="truncate text-touch-label text-fg-3">{props.pro}</span>
