@@ -19,10 +19,10 @@ import {
 } from 'react';
 import { useDocQuery, useSession } from '../../hooks';
 import type { PanelProps } from '../types';
-import { sameIds, selectedControls, useCharactersVersion } from '../channel-box/kit/hooks';
-import { BoneIcon, CharacterIcon, ChevronIcon, ClipIcon, ControlIcon, RigIcon } from '../channel-box/kit/icons';
-import { type MenuEntry, useContextMenu } from '../channel-box/kit/menu';
-import { runOperator, selectModeOf } from '../channel-box/kit/run';
+import { sameIds, selectedControls, useCharactersVersion } from '../channels/kit/hooks';
+import { BoneIcon, CharacterIcon, ChevronIcon, ClipIcon, ControlIcon, RigIcon } from '../channels/kit/icons';
+import { type MenuEntry, useContextMenu } from '../channels/kit/menu';
+import { runOperator, selectModeOf } from '../channels/kit/run';
 import {
   BUTTON,
   EMPTY_STATE,
@@ -34,7 +34,7 @@ import {
   SEL_LEAD_COLOR,
   SIDE_COLOR,
   TOOLBAR,
-} from '../channel-box/kit/styles';
+} from '../channels/kit/styles';
 import { ClipNameInput } from '../clips/ClipNameInput';
 import { LazyBody } from '../palette/lazy';
 import { setHoveredControl } from './hover';
@@ -289,7 +289,7 @@ function AnimateOutliner({ app, instanceId }: PanelProps): JSX.Element {
           label: 'Select Hierarchy',
           testId: 'outliner-menu-select-hierarchy',
           onSelect: () => {
-            // Descendants first, the original selection last: the lead (Channel Box) stays where it was.
+            // Descendants first, the original selection last: the lead (Channels panel) stays where it was.
             const all = controlHierarchy(controls, targets, showSecondary);
             const original = new Set(targets);
             selectControls([...all.filter((c) => !original.has(c)), ...targets], 'replace');

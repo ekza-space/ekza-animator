@@ -308,7 +308,7 @@ describe('operator runner (§4.11.0)', () => {
     expect(app.history.peekUndo()?.label).toBe('Delete 1 Key');
   });
 
-  it('coalesces opted-in runs (Channel Box nudges): doc parts through the store, override parts in the history', async () => {
+  it('coalesces opted-in runs (Channels panel nudges): doc parts through the store, override parts in the history', async () => {
     let now = 1_000;
     const store = createNaiveStore({ now: () => now });
     store.load(waveDoc());
@@ -321,7 +321,7 @@ describe('operator runner (§4.11.0)', () => {
       id: 'test.nudge',
       label: 'Nudge',
       category: 'channel',
-      scope: 'channelBox',
+      scope: 'channels',
       flags: { undo: true },
       coalesce: (args) => ({ key: `nudge:${args.control}.rz`, ms: 500 }),
       apply: (ctx, args) => {

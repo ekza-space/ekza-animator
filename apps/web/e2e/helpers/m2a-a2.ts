@@ -1,4 +1,4 @@
-// Helpers of the A2 scenarios (M2A-SPEC §9.1 E2E-M2A-01…07, 18, 19, 25): the A1 gate, world reads, Channel Box
+// Helpers of the A2 scenarios (M2A-SPEC §9.1 E2E-M2A-01…07, 18, 19, 25): the A1 gate, world reads, Channels panel
 // typing, viewport picks and MMB drags at test-API coordinates (MVP-SPEC §6.1: real input, assertions through the
 // test API).
 import { expect, type Page } from '@playwright/test';
@@ -66,7 +66,7 @@ export function rotate(q: Quat, v: Vec3): [number, number, number] {
   return [v[0] + w * t[0] + c[0], v[1] + w * t[1] + c[1], v[2] + w * t[2] + c[2]];
 }
 
-/** Types a value into a Channel Box field (display units) and commits it with Enter. */
+/** Types a value into a Channels panel field (display units) and commits it with Enter. */
 export async function typeCb(page: Page, testId: string, text: string): Promise<void> {
   const field = page.getByTestId(testId);
   await expect(field).toBeVisible();

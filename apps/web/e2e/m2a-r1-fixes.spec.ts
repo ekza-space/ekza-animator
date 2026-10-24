@@ -68,7 +68,7 @@ test('fix round 1: the arrow nudge on the time slider moves the band with the ke
   await expect.poll(async () => (await call(page, 'state')).band).toEqual({ start: 12, end: 12 });
 });
 
-test('fix round 1: the Channel Box shows whole channel names with the IK/FK row', async ({ page }) => {
+test('fix round 1: the Channels panel shows whole channel names with the IK/FK row', async ({ page }) => {
   await openEditor(page, '&platform=mac');
   await expectKernelStarted(page);
   await seedSample(page, 'polybot');

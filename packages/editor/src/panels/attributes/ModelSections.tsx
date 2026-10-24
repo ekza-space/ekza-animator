@@ -20,9 +20,9 @@ import { BUDGET_PRESETS, type EditorApp, type SessionState, TOON_REASON } from '
 import { PRIMITIVE_PARAMS } from '@ekza-studio/mesh-core/descriptors';
 import { type JSX, useCallback, useId, useState } from 'react';
 import { useDocQuery, useRunOperator, useSession } from '../../hooks';
-import { NumberField } from '../channel-box/kit/fields';
-import { formatFixed } from '../channel-box/kit/kernel';
-import { CHECK, INPUT, INVALID, MUTED_TEXT, SELECT } from '../channel-box/kit/styles';
+import { NumberField } from '../channels/kit/fields';
+import { formatFixed } from '../channels/kit/kernel';
+import { CHECK, INPUT, INVALID, MUTED_TEXT, SELECT } from '../channels/kit/styles';
 import { useSelectedPlane } from '../outliner/planeSelection';
 import { Field, Fields, Section } from './layout';
 

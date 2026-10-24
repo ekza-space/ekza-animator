@@ -1,16 +1,16 @@
 import { createFakeEditorApp } from '@ekza-studio/editor-core/testing';
 import { act, type JSX, useState } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { ExpressionField, NumberField } from '../../src/panels/channel-box/kit/fields';
+import { ExpressionField, NumberField } from '../../src/panels/channels/kit/fields';
 import {
   formatChannelValue,
   formatFixed,
   fromDisplayValue,
   parseNumericInput,
   toDisplayValue,
-} from '../../src/panels/channel-box/kit/kernel';
-import { type MenuEntry, useContextMenu } from '../../src/panels/channel-box/kit/menu';
-import { selectModeOf } from '../../src/panels/channel-box/kit/run';
+} from '../../src/panels/channels/kit/kernel';
+import { type MenuEntry, useContextMenu } from '../../src/panels/channels/kit/menu';
+import { selectModeOf } from '../../src/panels/channels/kit/run';
 import { by, cleanup, input, maybe, mountPlain as render, user } from './helpers';
 
 afterEach(cleanup);

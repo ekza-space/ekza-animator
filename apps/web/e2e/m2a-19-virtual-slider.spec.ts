@@ -4,11 +4,11 @@ import { centreOfTestId, controlIdOf, DEG, horizontalDrag, selectIds } from './h
 import { seedSample } from './helpers/seed';
 import { call, expectKernelStarted, openEditor } from './helpers/test-api';
 
-// E2E-M2A-19 (M2A-SPEC §9.1, §5.18; FR-CB-05): the Channel Box virtual slider. `pointerLock=off` makes it use pointer
-// capture (CDP-synthesised moves cannot drive Pointer Lock); both modes integrate `movementX`. An MMB drag on a channel
-// name scrubs 0.5° per pixel (Shift ×0.1) as one history step; with the channel name selected, a plain MMB drag in a
-// viewport pane does the same.
-test('E2E-M2A-19: virtual slider on a Channel Box row and through MMB in the viewport', async ({ page }) => {
+// E2E-M2A-19 (M2A-SPEC §9.1, §5.18; FR-CB-05): the Channels panel virtual slider. `pointerLock=off` makes it use
+// pointer capture (CDP-synthesised moves cannot drive Pointer Lock); both modes integrate `movementX`. An MMB drag on a
+// channel name scrubs 0.5° per pixel (Shift ×0.1) as one history step; with the channel name selected, a plain MMB drag
+// in a viewport pane does the same.
+test('E2E-M2A-19: virtual slider on a Channels panel row and through MMB in the viewport', async ({ page }) => {
   await openEditor(page, '&platform=mac&pointerLock=off');
   await expectKernelStarted(page);
   await seedSample(page, 'polybot');

@@ -1,10 +1,10 @@
 import { expect, type Page, test } from '@playwright/test';
-import { showChannelBox, topFace } from './helpers/m6a-model-ops-ui';
+import { showChannelsPanel, topFace } from './helpers/m6a-model-ops-ui';
 import { clickComponent, createPrimitive, MODEL_PANE, modKey, openModel } from './helpers/m6a-model';
 import { paneRect, pressOver, reachable, undoOver } from './helpers/m6a-model-select-ui';
 import { call, runOk } from './helpers/test-api';
 
-// E2E-MOD-23 "MMB-drag rule" (M6A-SPEC §10.1, §5.15; owner B12a). With the Move tool and no Channel Box channel
+// E2E-MOD-23 "MMB-drag rule" (M6A-SPEC §10.1, §5.15; owner B12a). With the Move tool and no Channels panel channel
 // selected, an MMB drag away from the manipulator moves the selection in the view plane (both vertices by the same
 // delta, perpendicular to the camera's forward axis); after a LMB press-release on the `tx` handle (it is picked,
 // nothing moves) an MMB drag moves along X only. Part (b): the same first drag through the trackpad profile's MMB
@@ -150,8 +150,8 @@ test('E2E-MOD-23 — the INPUTS field’s virtual slider after an extrude', asyn
   expect(await call(page, 'meshPositions', cube)).toEqual(extruded);
   const steps = (await call(page, 'history')).undo.length;
   const start = Number((await call(page, 'lastOp'))?.args['localTranslateZ'] ?? 0);
-  // The INPUTS entry is in the Channel Box tab of the right dock (Model shows the Toolkit tab first, §8.2).
-  await showChannelBox(page);
+  // The INPUTS entry is in the Channels tab of the right dock (Model shows the Toolkit tab first, §8.2).
+  await showChannelsPanel(page);
   await page.getByTestId('cb-inputs-name-localTranslateZ').click();
   await mmbDrag(page, await awaySpot(page), 40, 0);
   const metresPerPx = 0.01; // prefs.virtualSlider.metresPerPx (default)

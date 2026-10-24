@@ -32,7 +32,7 @@ test('NFR-12: the shell runs with localStorage blocked and falls back to the def
   await expect(page.getByTestId('panel-viewport')).toBeVisible();
   // M2a: the Dope Sheet tab is part of the Animate layout (literal update, M2A-SPEC §3 rule 8).
   expect(new Set(await kinds(page))).toEqual(
-    new Set(['viewport', 'outliner', 'clips', 'channelBox', 'attributes', 'graph', 'dopeSheet']),
+    new Set(['viewport', 'outliner', 'clips', 'channels', 'attributes', 'graph', 'dopeSheet']),
   );
   // A layout change has nowhere to be saved; nothing breaks.
   await page.evaluate(() => {

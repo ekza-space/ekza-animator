@@ -18,12 +18,12 @@ import { type EditorApp, PANEL, type SessionState } from '@ekza-studio/editor-co
 import { type JSX, useCallback, useId, useMemo, useState } from 'react';
 import { useDocQuery, useSession } from '../../hooks';
 import type { PanelProps } from '../types';
-import { NumberField } from '../channel-box/kit/fields';
-import { sameIds, selectedControls, useCharactersVersion } from '../channel-box/kit/hooks';
-import { LockIcon } from '../channel-box/kit/icons';
-import { formatFixed, readVrmLicense } from '../channel-box/kit/kernel';
-import { canRun, runOperator, runUntypedOperator } from '../channel-box/kit/run';
-import { BUTTON, CHECK, MUTED_TEXT, PANEL_ROOT, SELECT, SIDE_COLOR, SIDE_LABEL } from '../channel-box/kit/styles';
+import { NumberField } from '../channels/kit/fields';
+import { sameIds, selectedControls, useCharactersVersion } from '../channels/kit/hooks';
+import { LockIcon } from '../channels/kit/icons';
+import { formatFixed, readVrmLicense } from '../channels/kit/kernel';
+import { canRun, runOperator, runUntypedOperator } from '../channels/kit/run';
+import { BUTTON, CHECK, MUTED_TEXT, PANEL_ROOT, SELECT, SIDE_COLOR, SIDE_LABEL } from '../channels/kit/styles';
 import { ClipNameInput } from '../clips/ClipNameInput';
 import { ClipSettingsForm } from '../clips/ClipSettingsForm';
 import {

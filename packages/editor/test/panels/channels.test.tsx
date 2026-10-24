@@ -3,9 +3,9 @@ import type { ChannelState, EditorApp } from '@ekza-studio/editor-core';
 import type { FakeServices } from '@ekza-studio/editor-core/testing';
 import { act, Profiler } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { ChannelBoxPanel } from '../../src/panels/channel-box/ChannelBoxPanel';
-import { ChannelReadout, type FrameScheduler } from '../../src/panels/channel-box/readout';
-import { CHANNEL_STATE_STYLE, channelStateTitle } from '../../src/panels/channel-box/states';
+import { ChannelsPanel } from '../../src/panels/channels/ChannelsPanel';
+import { ChannelReadout, type FrameScheduler } from '../../src/panels/channels/readout';
+import { CHANNEL_STATE_STYLE, channelStateTitle } from '../../src/panels/channels/states';
 import {
   by,
   callsOf,
@@ -33,7 +33,7 @@ beforeAll(async () => {
 });
 
 const panel = (app: EditorApp) =>
-  mount(app, <ChannelBoxPanel app={app} instanceId="cb#1" />, { width: 300, height: 400 });
+  mount(app, <ChannelsPanel app={app} instanceId="cb#1" />, { width: 300, height: 400 });
 const rad = (degrees: number): number => degrees * DEG2RAD;
 const field = (channel: string): HTMLInputElement => input(`cb-field-${channel}`);
 const stateOf = (channel: string): string | undefined =>
@@ -48,7 +48,7 @@ function pointer(type: string, target: Element, init: PointerEventInit = {}): Pr
   });
 }
 
-describe('Channel Box rows and header (FR-CB-01, FR-CB-06)', () => {
+describe('Channels panel rows and header (FR-CB-01, FR-CB-06)', () => {
   it('asks for a selection when there is none', async () => {
     const view = await panel(waveApp());
     expect(by('cb-empty').textContent).toContain('Select a control');
@@ -88,7 +88,7 @@ describe('Channel Box rows and header (FR-CB-01, FR-CB-06)', () => {
   });
 });
 
-describe('Channel Box colour states (FR-CB-02)', () => {
+describe('Channels panel colour states (FR-CB-02)', () => {
   it('maps every evaluation.channelState to a fill, a shape cue and a tooltip', () => {
     const states: readonly ChannelState[] = ['keyed-on-frame', 'keyed', 'changed', 'locked', 'static', 'non-keyable'];
     const cues = states.map((state) => CHANNEL_STATE_STYLE[state].bar);
@@ -140,7 +140,7 @@ describe('Channel Box colour states (FR-CB-02)', () => {
   });
 });
 
-describe('Channel Box numeric entry (FR-CB-03, US-11)', () => {
+describe('Channels panel numeric entry (FR-CB-03, US-11)', () => {
   it('types absolute and relative values through channel.setValues (degrees in, radians out)', async () => {
     const app = waveApp();
     const view = await panel(app);
@@ -257,7 +257,7 @@ describe('Channel Box numeric entry (FR-CB-03, US-11)', () => {
   });
 });
 
-describe('Channel Box channel selection and menu (FR-CB-04)', () => {
+describe('Channel selection and menu in the Channels panel (FR-CB-04)', () => {
   const channels = (app: EditorApp) => app.session.getState().selection.channels;
 
   it('selects channel names with click, Shift (toggle), Mod (remove) and drag; typing applies to all of them', async () => {
@@ -340,14 +340,14 @@ describe('Channel Box channel selection and menu (FR-CB-04)', () => {
   });
 });
 
-describe('Channel Box updates (WP-9 DoD)', () => {
+describe('Channels panel updates (WP-9 DoD)', () => {
   it('commits once per animation frame however often time changes, and not at all when no value changes', async () => {
     const app = waveApp();
     let commits = 0;
     const view = await mount(
       app,
-      <Profiler id="channel-box" onRender={() => commits++}>
-        <ChannelBoxPanel app={app} instanceId="cb#1" />
+      <Profiler id="channels" onRender={() => commits++}>
+        <ChannelsPanel app={app} instanceId="cb#1" />
       </Profiler>,
     );
     await select(app, [LOWER_ARM_L]);

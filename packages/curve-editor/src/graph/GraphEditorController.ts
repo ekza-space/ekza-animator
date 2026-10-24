@@ -117,7 +117,7 @@ export class GraphEditorController {
   private pendingFrame: 'all' | 'selection' | null = null;
   /**
    * The view follows the shown curves until the user works in the Graph Editor (v0.3 integration): a newly shown set
-   * is framed, and again after document edits made elsewhere (keys set from the viewport or the Channel Box), so
+   * is framed, and again after document edits made elsewhere (keys set from the viewport or the Channels panel), so
    * the first keys — whose curve appeared with a static value and no key — and later ones stay on screen. Any press,
    * wheel, pan or zoom in the editor and an explicit F/A hand the view to the user until the next new curve set.
    */

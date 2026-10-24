@@ -52,7 +52,7 @@ export function formatFixed(value: number, digits: number): string {
  */
 export const parseNumericInput: (text: string, current: number) => number | null = coreParseNumericInput;
 
-/** One channel-edit gesture of the edit kernel (Channel Box nudge bursts: one history step). */
+/** One channel-edit gesture of the edit kernel (Channels panel nudge bursts: one history step). */
 export function startChannelEditGesture(
   app: EditorApp,
   label: string,

@@ -174,8 +174,8 @@ describe('keymap (§6)', () => {
     ...(['up', 'down', 'left', 'right'] as const).flatMap((direction) => {
       const code = `Arrow${direction.charAt(0).toUpperCase()}${direction.slice(1)}`;
       return [
-        [{ code }, 'select.pickWalk', ['viewport', 'channelBox'], { direction }] as const,
-        [{ code, shift: true }, 'select.pickWalk', ['viewport', 'channelBox'], { direction, add: true }] as const,
+        [{ code }, 'select.pickWalk', ['viewport', 'channels'], { direction }] as const,
+        [{ code, shift: true }, 'select.pickWalk', ['viewport', 'channels'], { direction, add: true }] as const,
       ];
     }),
     [{ code: 'ArrowLeft' }, 'graph.keys.move', ['graph', 'dopeSheet', 'timeline'], { dFrames: -1, dValue: 0 }],
@@ -183,7 +183,7 @@ describe('keymap (§6)', () => {
     [
       { code: 'KeyS', alt: true },
       'key.set',
-      ['viewport', 'outliner', 'channelBox', 'timeline', 'dopeSheet'],
+      ['viewport', 'outliner', 'channels', 'timeline', 'dopeSheet'],
       { breakdown: true },
     ],
     [{ code: 'KeyQ' }, 'view.tool', ['dopeSheet'], { panel: 'dopeSheet', tool: 'select' }],

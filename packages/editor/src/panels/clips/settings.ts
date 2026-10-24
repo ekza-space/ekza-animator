@@ -4,7 +4,7 @@
 import type { Fps, Frame } from '@ekza-studio/anim-core';
 import type { ClipRecord, DerivedFrom, Redistributable, RootMotionMode } from '@ekza-studio/doc';
 import type { ClipSettingsArgs } from '@ekza-studio/editor-core';
-import { formatFixed, parseNumericInput } from '../channel-box/kit/kernel';
+import { formatFixed, parseNumericInput } from '../channels/kit/kernel';
 
 // ---------- names ----------
 

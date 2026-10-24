@@ -14,11 +14,11 @@ import {
 import type { FootRollParams, LimbDesc, LimbId } from '@ekza-studio/rig';
 import { type JSX, useCallback, useId, useMemo, useSyncExternalStore } from 'react';
 import { useDocQuery, usePrefs } from '../../hooks';
-import { NumberField } from '../channel-box/kit/fields';
-import { useCharactersVersion } from '../channel-box/kit/hooks';
-import { formatFixed } from '../channel-box/kit/kernel';
-import { runOperator } from '../channel-box/kit/run';
-import { BUTTON, MUTED_TEXT, SELECT } from '../channel-box/kit/styles';
+import { NumberField } from '../channels/kit/fields';
+import { useCharactersVersion } from '../channels/kit/hooks';
+import { formatFixed } from '../channels/kit/kernel';
+import { runOperator } from '../channels/kit/run';
+import { BUTTON, MUTED_TEXT, SELECT } from '../channels/kit/styles';
 import { Field, Fields, Section } from './layout';
 
 const PANEL_KIND = PANEL.attributes;

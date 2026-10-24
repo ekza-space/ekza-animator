@@ -292,7 +292,7 @@ export function subscribeLastOpCard(app: EditorApp, listener: () => void): Dispo
 
 // ---------- the selected INPUTS field name (§8.6; the viewport MMB-drag runs its virtual slider, §5.15) ----------
 
-/** A Channel Box INPUTS field name the user selected (B12a's MMB rule drags it). */
+/** A Channels panel INPUTS field name the user selected (B12a's MMB rule drags it). */
 export interface InputsFieldSelection {
   /** 'lastop': the last-op entry (`edit.adjustLast`); 'primitive': the primitive entry of `mesh`. */
   readonly entry: 'lastop' | 'primitive';

@@ -5,7 +5,7 @@
 //
 // M2a (M2A-SPEC §5.1 rules 4 and 6, §5.8; A2): attribute channels ('@name') take part like TRS channels, except
 // `keyAll: false` ones (`ikFk`, `soft`: modes and settings): reset always leaves them alone (rule 6), and the pose
-// clipboard carries and pastes them only when they are selected Channel Box channels (rule 4). Mirroring maps
+// clipboard carries and pastes them only when they are channels selected in the Channels panel (rule 4). Mirroring maps
 // attributes by `AttrDef.mirror` ('copy' or 'negate'), so a mirrored pose carries the limb mode with it.
 import {
   type ChannelId,
@@ -30,7 +30,7 @@ export function currentValues(app: EditorApp, controls: Iterable<ControlId>): Ma
   return values;
 }
 
-/** The selected Channel Box channels of a control (explicit choices that override the `keyAll` rule). */
+/** The channels selected in the Channels panel of a control (explicit choices that override the `keyAll` rule). */
 export function selectedChannelsOf(app: EditorApp, control: ControlId): ReadonlySet<ChannelId> {
   const out = new Set<ChannelId>();
   for (const ref of app.session.getState().selection.channels) if (ref.control === control) out.add(ref.channel);
@@ -39,7 +39,7 @@ export function selectedChannelsOf(app: EditorApp, control: ControlId): Readonly
 
 /**
  * The attribute channels a pose tool acts on for a control (§5.1 rule 4): keyable attributes, without
- * `keyAll: false` ones unless they are selected Channel Box channels.
+ * `keyAll: false` ones unless they are channels selected in the Channels panel.
  */
 export function poseAttrChannels(app: EditorApp, control: ControlRecord): readonly `@${string}`[] {
   const explicit = selectedChannelsOf(app, control.id);
@@ -112,7 +112,7 @@ export function editsFromValues(
 /**
  * The rest values of the given controls: 0 for translate/rotate and 1 for scale on every keyable TRS channel, and
  * `AttrDef.default` on the keyable pose attributes. `keyAll: false` attributes are always left alone, selected
- * Channel Box channels included, so a reset never flips a limb between IK and FK (§5.1 rule 6; the selected-channel
+ * Channels panel channels included, so a reset never flips a limb between IK and FK (§5.1 rule 6; the selected-channel
  * exception of rule 4 is for keying and the clipboard).
  */
 export function restValues(app: EditorApp, controls: Iterable<ControlId>): Map<ControlId, ChannelValues> {
@@ -212,8 +212,8 @@ export function withClipboardAttrs(
 /**
  * Attribute values to paste from a pose clipboard onto the controls of `controls` (by template key; `mirrored`
  * pastes the counterpart's entry mapped by `AttrDef.mirror`), keyable attributes only. A `keyAll: false` value is
- * pasted only when that channel is a selected Channel Box channel of the target control (`explicit`), the same rule
- * as the copy (§5.1 rule 4); otherwise it is dropped (a clipboard written elsewhere may carry it).
+ * pasted only when that channel is a channel selected in the Channels panel of the target control (`explicit`), the
+ * same rule as the copy (§5.1 rule 4); otherwise it is dropped (a clipboard written elsewhere may carry it).
  */
 export function clipboardAttrValues(
   view: ReadView,

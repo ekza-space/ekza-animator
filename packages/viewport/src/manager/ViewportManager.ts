@@ -300,7 +300,7 @@ export class ViewportManager {
   private layerPointer: { readonly paneId: string; readonly pointerId: number } | null = null;
   /** AUTORIG-SPEC §8.1: the mounted shell's navigation override, asked before the profile on every press. */
   private navOverride: NavigationOverride | null = null;
-  /** M2a §5.18: a plain MMB drag running the Channel Box virtual slider on the selected channels. */
+  /** M2a §5.18: a plain MMB drag running the Channels panel virtual slider on the selected channels. */
   private virtualDrag: VirtualSliderDrag | null = null;
   /** Pointer Lock for the virtual slider (the e2e URL switch `pointerLock=off` turns it off). */
   private pointerLockAllowed = true;
@@ -1539,8 +1539,8 @@ export class ViewportManager {
     if (standIn) e.preventDefault();
     const button = standIn ? 1 : e.button;
     const alt = standIn ? false : e.altKey;
-    // M2a §5.18: a plain MMB drag (no Alt) with Channel Box channels selected runs the virtual slider; Alt+MMB stays
-    // navigation, and without selected channels a plain MMB drag does nothing (M1).
+    // M2a §5.18: a plain MMB drag (no Alt) with channels selected in the Channels panel runs the virtual slider;
+    // Alt+MMB stays navigation, and without selected channels a plain MMB drag does nothing (M1).
     if (button === 1 && !alt && this.startVirtualSlider(pane, e, standIn)) {
       this.standIn = null;
       return;

@@ -115,7 +115,7 @@ describe('select.pickWalk (§5.17)', () => {
     );
   });
 
-  it('the arrow keys run select.pickWalk in the viewport and Channel Box scopes', () => {
+  it('the arrow keys run select.pickWalk in the viewport and Channels panel scopes', () => {
     const app = opsApp();
     const input = (code: string, shiftKey = false) => ({
       code,
@@ -125,7 +125,7 @@ describe('select.pickWalk (§5.17)', () => {
       altKey: false,
       repeat: false,
     });
-    for (const scope of ['viewport', 'channelBox']) {
+    for (const scope of ['viewport', 'channels']) {
       expect(app.keymap.resolve(input('ArrowUp'), [scope, 'global'], 'press')).toMatchObject({
         op: 'select.pickWalk',
         args: { direction: 'up' },

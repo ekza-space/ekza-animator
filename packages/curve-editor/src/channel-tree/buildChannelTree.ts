@@ -1,6 +1,6 @@
 // Graph Editor channel list (research 09 §4.7): character › control › channel, with X/Y/Z swatches, the curve of
 // each channel in the clip's base layer, a name filter and "only animated". Channels are named and ordered like the
-// Channel Box's rows (§5.1 rule 5).
+// Channels panel's rows (§5.1 rule 5).
 import {
   type ChannelId,
   type CharacterId,
@@ -59,7 +59,8 @@ export function buildChannelTree(
         if (canonical !== undefined) curves.set(curve.channel, canonical);
       }
     }
-    // The Channel Box's order and names (§5.1 rule 5, M2A-INT-35): TRS, then attributes in `attrs` order, IK/FK last.
+    // The Channels panel's order and names (§5.1 rule 5, M2A-INT-35): TRS, then attributes in `attrs` order, IK/FK
+    // last.
     const channels = sortChannelsForDisplay(control, new Set([...keyableChannels(control), ...curves.keys()]));
     const controlMatches =
       filter === '' || control.name.toLowerCase().includes(filter) || control.key.toLowerCase().includes(filter);
