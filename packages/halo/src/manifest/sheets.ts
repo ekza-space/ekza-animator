@@ -30,18 +30,21 @@ export const SHEET_SECTIONS: Readonly<Record<SheetId, readonly string[] | null>>
   ],
   scene: ['objects', 'characters', 'references', 'cameras', 'reparent', 'visibility'],
   view: ['look', 'show', 'panes', 'cameras', 'selection', 'manipulator', 'hideUi', 'fullScreen'],
+  // Start in (the remembered entry) and the descriptor table's sections (`PREF_SECTIONS`); Advanced holds the rest.
   settings: [
     'startIn',
     'input',
     'keyboard',
+    'display',
     'animation',
     'import',
-    'export',
+    'advanced',
+    'transform',
     'modeling',
     'rigging',
+    'export',
+    'undo',
     'autosave',
-    'display',
-    'advanced',
   ],
   health: ['problems', 'checks', 'legend'],
   help: ['gestures', 'glyphs', 'shortcuts', 'about', 'licences'],
@@ -87,6 +90,8 @@ export interface HaloSheetContext {
   run(op: string, args?: unknown): Promise<OperatorResult<unknown>>;
   /** Opens the Pro layout (§16.1), e.g. the More sheet's footer *Open this in the Pro layout ▸*. */
   openPro(): void;
+  /** Hide UI (§4.7): only the canvas and a faint restore button; absent where the frame has none. */
+  hideUi?(): void;
 }
 
 export interface HaloSheetProps {
