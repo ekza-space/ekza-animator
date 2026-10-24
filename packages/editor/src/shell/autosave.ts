@@ -1,6 +1,7 @@
 // The shell's side of autosave and crash recovery (M2A-SPEC §5.20): starts the kernel's autosave controller when the
-// host provides an autosave store (`EditorServices.autosave` present: the browser services) and removes this page's
-// snapshot on `beforeunload` while the project is not dirty (best effort). The Recovery prompt — once per page load,
+// host provides an autosave store (`EditorServices.autosave` present: the browser services), removes this page's
+// snapshot on `beforeunload` while the project is not dirty (best effort) and writes unsaved work on `pagehide` and when
+// the page is hidden (iPad Safari, STUDIO-TOUCH-SPEC §16.4). The Recovery prompt — once per page load,
 // when orphaned slots exist, after the first-run dialog — is a host registration since STUDIO-TOUCH-SPEC T3
 // (`host/registrations/recovery.ts`): the page's host watches for it and the mounted shell provides how it offers the
 // slots (Pro its Recovery dialog, Halo Home › Continue, Auto-Rig its own card). `promptRecovery` is both halves at
@@ -52,8 +53,21 @@ export function startShellAutosave(opts: ShellAutosaveOptions): Disposer {
     const onBeforeUnload = (): void => {
       if (!app.session.getState().dirty) void controller.clean().catch(() => {});
     };
+    // STUDIO-TOUCH-SPEC §16.4, S24 (T0's patch): iPad Safari fires `beforeunload` but never shows its prompt, and a
+    // hidden tab may be discarded: unsaved work is written when the page is hidden or put away. Clean work is not (on a
+    // desktop that would leave the snapshot `beforeunload` just removed as an orphan; T0's iOS store keeps it anyway).
+    const flush = (event: Event): void => {
+      if (event.type === 'visibilitychange' && document.visibilityState !== 'hidden') return;
+      if (app.session.getState().dirty) void controller.writeNow().catch(() => {});
+    };
     target.addEventListener('beforeunload', onBeforeUnload);
-    disposers.push(() => target.removeEventListener('beforeunload', onBeforeUnload));
+    target.addEventListener('pagehide', flush);
+    target.addEventListener('visibilitychange', flush);
+    disposers.push(() => {
+      target.removeEventListener('beforeunload', onBeforeUnload);
+      target.removeEventListener('pagehide', flush);
+      target.removeEventListener('visibilitychange', flush);
+    });
   }
 
   return () => {

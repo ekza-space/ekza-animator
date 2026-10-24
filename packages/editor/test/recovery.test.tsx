@@ -184,6 +184,34 @@ describe('shell autosave', () => {
     stop();
   });
 
+  it('unsaved work is written on pagehide and when the page is hidden; clean work is not (S24, T0 patch)', async () => {
+    const { app } = createTestShell();
+    const store = storeWith([]);
+    const writes: string[] = [];
+    const write = store.write;
+    store.write = (...args) => {
+      writes.push(args[0]);
+      return write(...args);
+    };
+    Object.assign(app.services, { autosave: store });
+    const target = new EventTarget();
+    const stop = startShellAutosave({ app, target });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    const before = writes.length;
+    target.dispatchEvent(new Event('pagehide'));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(writes.length).toBe(before);
+    app.session.setState({ dirty: true });
+    // the test page is visible: a visibilitychange to visible writes nothing
+    target.dispatchEvent(new Event('visibilitychange'));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(writes.length).toBe(before);
+    target.dispatchEvent(new Event('pagehide'));
+    await waitFor(() => writes.length === before + 1);
+    expect(writes.at(-1)).toBe('as_ownownownownown1');
+    stop();
+  });
+
   it('a page without a first-run dialog (from=autorig) prompts at once, before the first run is done (AR-D9-2)', async () => {
     const { app, shell } = createTestShell();
     Object.assign(app.services, { autosave: storeWith(SLOTS) });
