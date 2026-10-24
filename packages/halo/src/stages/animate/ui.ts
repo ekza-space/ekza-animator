@@ -5,6 +5,7 @@
 import type { ClipId } from '@ekza-studio/doc';
 import { useSyncExternalStore } from 'react';
 import type { HaloStore } from '../../shell/store';
+import type { TimeUnit } from '../../thread/units';
 
 /** A Thread noun whose Halo is docked (§6.1: in the Thread, the Halo docks; it never floats over the keys). */
 export type DockNoun =
@@ -35,6 +36,8 @@ export interface AnimateUi {
   readonly renaming: ClipId | null;
   /** The Library card that is expanded (Speed, Trim, Swap sides, Stay in place, Arms out). */
   readonly libraryCard: string | null;
+  /** Settings › Time (§10.3, ST-T7-UNIT): the unit time shows in; frames by default. */
+  readonly units: TimeUnit;
 }
 
 export const INITIAL_ANIMATE_UI: AnimateUi = {
@@ -49,6 +52,7 @@ export const INITIAL_ANIMATE_UI: AnimateUi = {
   allClips: false,
   renaming: null,
   libraryCard: null,
+  units: 'frames',
 };
 
 export interface AnimateUiStore {

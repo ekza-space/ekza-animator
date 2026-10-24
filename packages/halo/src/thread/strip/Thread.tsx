@@ -226,7 +226,9 @@ function Readout({
   useDocumentVersion(app);
   const expanded = useAnimateUi(ui, (s) => s.transport);
   const thread = threadContext(app);
-  const text = thread === null ? timeText(0, sceneFps(app)) : timeText(currentFrame(app, thread), thread.fps);
+  const units = useAnimateUi(ui, (s) => s.units);
+  const text =
+    thread === null ? timeText(0, sceneFps(app), units) : timeText(currentFrame(app, thread), thread.fps, units);
   return (
     <button
       type="button"

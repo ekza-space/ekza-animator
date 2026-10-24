@@ -15,6 +15,7 @@ import { useDocumentVersion, useSessionValue } from '../../shell/hooks';
 import { PANE } from '../../shell/stage';
 import { useHaloStore } from '../../shell/store';
 import { threadContext, timeText } from '../../thread/strip/model';
+import type { TimeUnit } from '../../thread/units';
 import { PETAL_VARIANTS, type PetalChoice, type PetalDef, petalsFor } from '../../verbs/table';
 import { ClipSettings } from './ClipSettings';
 import { AnimateGlyph, type AnimateIcon } from './icons';
@@ -321,20 +322,20 @@ function pollOf(app: EditorApp, call: OpCall | undefined): string | undefined {
 }
 
 /** The title of a docked noun ("Wave", "Key at 0.50 s", "0.50 s – 1.00 s", "At 0.50 s"). */
-function titleOf(app: EditorApp, noun: DockNoun, clip: ClipRecord | null): string {
+function titleOf(app: EditorApp, noun: DockNoun, clip: ClipRecord | null, units: TimeUnit): string {
   const thread = threadContext(app);
   const fps = thread?.fps ?? { num: 30, den: 1 };
   switch (noun.kind) {
     case 'clip':
       return clip?.name ?? '';
     case 'keyDot':
-      return `${w.key.title(1)} · ${timeText(noun.frame, fps)}`;
+      return `${w.key.title(1)} · ${timeText(noun.frame, fps, units)}`;
     case 'band': {
       const band = app.session.getState().time.band;
-      return band === null ? '' : w.band.title(timeText(band.start, fps), timeText(band.end, fps));
+      return band === null ? '' : w.band.title(timeText(band.start, fps, units), timeText(band.end, fps, units));
     }
     case 'playhead':
-      return w.playhead.title(timeText(app.evaluation.clipFrame(thread?.character ?? ('' as never)) ?? 0, fps));
+      return w.playhead.title(timeText(app.evaluation.clipFrame(thread?.character ?? ('' as never)) ?? 0, fps, units));
   }
 }
 
@@ -401,6 +402,7 @@ export function DockedHalo({
   const menu = useAnimateUi(ui, (s) => s.menu);
   const renaming = useAnimateUi(ui, (s) => s.renaming);
   const settings = useAnimateUi(ui, (s) => s.settings);
+  const units = useAnimateUi(ui, (s) => s.units);
   if (docked === null) return null;
   const clip = docked.kind === 'clip' ? (app.store.get('clips', docked.clip) ?? null) : null;
   if (docked.kind === 'clip' && clip === null) return null;
@@ -463,7 +465,7 @@ export function DockedHalo({
   const noun = threadNoun(
     docked.kind,
     docked.kind === 'clip' ? docked.clip : null,
-    titleOf(app, docked, clip),
+    titleOf(app, docked, clip, units),
     animateCharacter(app),
   );
   return (
@@ -478,6 +480,28 @@ export function DockedHalo({
     >
       {renaming !== null && clip !== null && renaming === clip.id ? (
         <RenameRow key={clip.id} controller={controller} ui={ui} clip={clip} />
+      ) : clip !== null && settings === clip.id ? (
+        // ST-T7-19: open Settings take the verbs' row (back, the title, ✕), so the Halo stays within 36 targets
+        <div className="flex min-w-0 items-center gap-1.5">
+          <TouchIconButton
+            label={w.settings.back}
+            icon={<AnimateGlyph name="back" />}
+            data-testid="halo-clip-settings-back"
+            onClick={() => {
+              count();
+              ui.set({ settings: null });
+            }}
+          />
+          <span className="min-w-0 flex-1 truncate px-2 font-medium text-fg" data-testid="halo-docked-title">
+            {compact ? w.clip.settings : `${w.clip.settings} · ${noun.label}`}
+          </span>
+          <TouchIconButton
+            label={w.dock.close}
+            icon={<AnimateGlyph name="close" />}
+            data-testid="halo-docked-close"
+            onClick={() => ui.set({ docked: null, menu: null, renaming: null, settings: null })}
+          />
+        </div>
       ) : (
         <div className="flex min-w-0 items-center gap-1.5">
           {compact ? null : (

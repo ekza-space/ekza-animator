@@ -7,6 +7,7 @@ import type { Fps, Frame } from '@ekza-studio/anim-core';
 import type { CharacterId, ClipRecord, ControlId, KeyId } from '@ekza-studio/doc';
 import type { EditorApp } from '@ekza-studio/editor-core';
 import { animateCharacter } from '../../stages/animate/model';
+import type { TimeUnit } from '../units';
 
 /** Key times closer than this share one dot. */
 export const SAME_TIME = 1e-6;
@@ -150,17 +151,47 @@ export function beatTicks(
   return out;
 }
 
-/** "0.50 s" or "15 f" (§10.3 Settings › Time: seconds by default). */
-export function timeText(frame: Frame, fps: Fps, units: 'seconds' | 'frames' = 'seconds'): string {
+/** "15 f" or "0.50 s" (§10.3 Settings › Time: frames by default, ST-T7-UNIT). */
+export function timeText(frame: Frame, fps: Fps, units: TimeUnit): string {
   if (units === 'frames') return `${Math.round(frame)} f`;
   const seconds = (frame * fps.den) / fps.num;
   return `${seconds.toFixed(2)} s`;
 }
 
-/** A compact label for a ruler tick ("0", "0.5", "1 s"). */
+/** A compact label for a ruler tick in seconds ("0", "0.5", "1 s"). */
 export function tickLabel(seconds: number, last: boolean): string {
   const text = Number.isInteger(seconds) ? String(seconds) : String(Number(seconds.toFixed(2)));
   return last ? `${text} s` : text;
+}
+
+/**
+ * The ruler's frame-label step (§10.3, ST-T7-UNIT): whole frames, the smallest step that leaves `minPx` between
+ * labels at this zoom — 0 · 12 · 24 … for a rate twelve divides (24, 48 fps), 0 · 10 · 20 … otherwise (25, 30, 60 fps).
+ */
+export function frameStep(fps: Fps, pxPerFrame: number, minPx = 56): number {
+  const rate = fps.num / fps.den;
+  const dozens = Number.isInteger(rate) && rate % 12 === 0 && rate % 5 !== 0;
+  // 1 2 3 6 12 24 48 … or 1 2 5 10 20 50 100 …
+  const steps = dozens ? [1, 2, 3, 6] : [];
+  for (let step = dozens ? 12 : 1; steps.length < 40; ) {
+    steps.push(step);
+    if (dozens) step *= 2;
+    else step = String(step).startsWith('2') ? (step * 5) / 2 : step * 2;
+  }
+  return steps.find((step) => step * pxPerFrame >= minPx) ?? (steps.at(-1) as number);
+}
+
+/** The labelled frames of the ruler: the multiples of `step` inside the span. */
+export function frameLabels(span: { readonly start: Frame; readonly end: Frame }, step: number): readonly number[] {
+  const out: number[] = [];
+  const first = Math.ceil(span.start / step - 1e-9) * step;
+  for (let frame = first; frame <= span.end + 1e-9; frame += step) out.push(Math.round(frame) + 0);
+  return out;
+}
+
+/** A ruler label in frames ("0", "12", "48 f" for the last one). */
+export function frameLabel(frame: number, last: boolean): string {
+  return last ? `${frame} f` : String(frame);
 }
 
 /**

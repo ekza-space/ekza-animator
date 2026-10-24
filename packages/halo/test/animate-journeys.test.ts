@@ -16,7 +16,7 @@ import type { EditorApp } from '@ekza-studio/editor-core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHaloStore, initialUi } from '../src/shell/store';
 import { addCall, IDENTITY_PARAMS } from '../src/sheets/library/model';
-import { loopItCall, newAnimationCall, sceneFps, swapSidesCalls } from '../src/stages/animate/model';
+import { loopItCall, newAnimationCall, newLengths, sceneFps, swapSidesCalls } from '../src/stages/animate/model';
 import { installRec } from '../src/stages/animate/rec';
 import { everyOperator, runOk } from './support';
 
@@ -92,12 +92,15 @@ async function wavePoses(app: EditorApp): Promise<void> {
 }
 
 describe('AS-ST-5: the Animate stage’s operator sequences export what Studio Pro’s do', () => {
-  it('J3: + New “Wave” 2 s, Rec poses at 0 / 0.5 / 1 / 1.5 s, Loop it — the same VRMA as Pro', async () => {
+  it('J3: + New “Wave” 60 f (2 s), Rec poses at 0 / 15 / 30 / 45 f, Loop it — the same VRMA as Pro', async () => {
     // Halo
     const halo = await seedSan();
     const store = createHaloStore({ ...initialUi('animate') });
     const offRec = installRec(halo.app, store);
-    const call = newAnimationCall(halo.character, 'Wave', 2, sceneFps(halo.app));
+    // the 60-frame preset (ST-T7-UNIT): two seconds at the project's 30 fps
+    const preset = newLengths('frames', sceneFps(halo.app)).find((length) => length.primary);
+    expect(preset).toEqual({ shown: 60, frames: 60, primary: true });
+    const call = newAnimationCall(halo.character, 'Wave', preset?.frames ?? 0);
     const { clip: haloClip } = await runOk<{ clip: ClipId }>(halo.app, call.op, call.args);
     expect(halo.app.prefs.getState()).toMatchObject({ autoKey: true, autoKeyMode: 'all' });
     await wavePoses(halo.app);

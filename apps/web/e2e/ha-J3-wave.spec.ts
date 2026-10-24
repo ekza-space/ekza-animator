@@ -43,16 +43,18 @@ test('ha-J3: pose and key a two-second wave in ≤ 15 touches', async ({ page },
   const upper = await control('R Upper Arm');
   const forearm = await control('R Lower Arm');
 
-  // 1. + New › name › 2 s (3)
+  // 1. + New › name › 60 f (3): two seconds at 30 fps, the UI counts in frames (ST-T7-UNIT)
   await fingerTap(page, await centreOf(page, 'halo-new'));
   await expect(page.getByTestId('halo-new-animation')).toBeVisible();
   await fingerTap(page, await centreOf(page, 'halo-new-name'));
   await page.keyboard.type('Wave');
-  await fingerTap(page, await centreOf(page, 'halo-new-length-2'));
+  await expect(page.getByTestId('halo-new-length-60')).toHaveText('60 f');
+  await fingerTap(page, await centreOf(page, 'halo-new-length-60'));
   await expect.poll(async () => (await animate(page)).active).toBe('Wave');
   const slice = await animate(page);
   expect(slice.thread.range).toEqual({ start: 0, end: 60 });
   expect(slice.thread.frame).toBe(0);
+  await expect(page.getByTestId('halo-thread-readout')).toHaveText('0 f');
 
   // 2. tap the right upper arm, drag its ring: a key at 0 s (2)
   await fingerTap(page, await controlFree(page, 'R Upper Arm'));

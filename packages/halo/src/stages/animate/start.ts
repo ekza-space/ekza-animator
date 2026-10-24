@@ -8,6 +8,7 @@ import { type ComponentType, createElement, type JSX, lazy, Suspense } from 'rea
 import type { HaloSheetProps } from '../../manifest/sheets';
 import type { HaloController } from '../../shell/controller';
 import { registerHaloSheet } from '../../shell/Sheets';
+import { loadTimeUnit } from '../../thread/units';
 import { FITTABLE_TOOLS, fittingTool } from './model';
 import { installReach } from './reach';
 import { installRec } from './rec';
@@ -73,6 +74,8 @@ export function startAnimate(controller: HaloController): () => void {
   const { app, store } = ctx;
   const ui = animateUi(store);
   const disposers: (() => void)[] = [];
+  // Settings › Time: this device's choice, else frames (ST-T7-UNIT)
+  loadTimeUnit(controller);
   disposers.push(installRec(app, store));
   disposers.push(installFittingTool(controller));
   disposers.push(installReach(ctx, () => store.set((s) => ({ touches: s.touches + 1 }))));

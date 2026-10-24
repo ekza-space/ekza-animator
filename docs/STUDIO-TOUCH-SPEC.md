@@ -375,7 +375,7 @@ drag already wrote a key; there is no question card and no "not keyed" pill.
 │ (Hand leads)╱  (⋯)                                                               │
 │                                                                                  │
 │ ↶        Animations: [Idle] [Walk] [Wave ▾] [+ New]                  Library ▸   │
-│ ⊕ ≈ Fine  ▶ 0.50 s ·◆····◆····┃···◆······◆· 2 s  ● Rec  [Timeline│Keys│Curves]   │
+│ ⊕ ≈ Fine  ▶ 15 f   ·◆····◆····┃···◆······◆· 60 f ● Rec  [Timeline│Keys│Curves]   │
 └──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -397,7 +397,7 @@ visible together. The key Halo is docked in the layer header, not over the keys.
 │ │0.0│──────────────o====o── 2 keys ──────────────          │ │ Heel ⟨0°⟩ Ball ⟨0°⟩│
 │ └─────────────────────────────────────────────────────────┘ │                    │
 │ ⟨Time 0.40 s⟩ ⟨Value 0.000 m⟩ ⟨In 0°⟩ ⟨Out 0°⟩   Fewer keys · Fix flips · Cycle ▾ ⋯│
-│ ▶ 0.40 s ··········┃································· 1 s   ● Rec                 │
+│ ▶ 12 f   ··········┃································· 30 f  ● Rec                 │
 └──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -459,7 +459,7 @@ The Path moves under the top row. Sheets rise from the bottom. Halo, Thread, Thu
 │ ↶                                     ┌───┐    │
 │ ⊕ ≈ Fine                              │ P │    │
 │ Animations: [Idle][Walk][Wave ▾][+]   └───┘    │
-│ ▶ 0.5 s ·◆··◆·┃·◆··◆· 2 s  ●Rec  [Tl│Keys│Crv] │
+│ ▶ 15 f  ·◆··◆·┃·◆··◆· 60 f ●Rec  [Tl│Keys│Crv] │
 │ ═════════════ Numbers (peek) ══════════════    │
 │ Forearm R   Bend ⟨34°⟩  Twist ⟨0°⟩  Side ⟨−5°⟩ │
 └────────────────────────────────────────────────┘
@@ -1130,9 +1130,10 @@ the same canvas (§12.2): drag a dot (1 per dot), ✓ Done (1); no other UI open
 
 ### J3 — Pose and key a two-second wave
 
-1. Animate on Seed-san: **+ New** (1) → name it "Wave" (1) → length chip **2 s** (1).
-2. Tap the right upper arm on the mesh (1) → drag the ring (1). Rec is on, so this is a key at 0 s.
-3. Tap 0.5 s on the ruler (1) → tap the forearm (1) → drag (1); tap 1.0 s (1) → drag (1); tap 1.5 s (1) → drag (1).
+1. Animate on Seed-san: **+ New** (1) → name it "Wave" (1) → length chip **60 f** (1): two seconds at 30 fps; the UI
+   counts in frames (ST-T7-UNIT).
+2. Tap the right upper arm on the mesh (1) → drag the ring (1). Rec is on, so this is a key at frame 0.
+3. Tap frame 15 on the ruler (1) → tap the forearm (1) → drag (1); tap 30 (1) → drag (1); tap 45 (1) → drag (1).
 4. Tap the *Wave* chip (1) › **Loop it** (1) → **▶** (1).
 
 **15 touches.** Today in Pro: ≈ 35. With the *wave twice* recipe in search: 3 touches.
@@ -1296,7 +1297,7 @@ never imports Pro's `TimeSliderView`.
 | Element | Behaviour |
 |---|---|
 | At rest (L0) | ▶ · the time readout · the ruler · ● Rec · the layer switch `[Timeline │ Keys │ Curves]` |
-| Scale and units | Seconds by default; Settings › Time: *Seconds · Frames* applies to the Thread, every chip and the Curves axis. Keys always land on whole frames. Beat ticks every 0.25 s snap to the whole frame nearest each beat; when the fps does not divide 0.25 s (30 fps gives 7.5 frames), the ticks are drawn at those whole frames, so Halo and Pro always show the same timing. |
+| Scale and units | **Frames** by default (owner, 2026-10-24: cycles are usually about 50 frames, at most 100, and animators count in frames; ST-T7-UNIT). Settings › Time: *Frames · Seconds* applies to the Thread's readout and ruler, every chip, an animation's Settings and the Curves axis; it is a per-device Halo preference, and a choice someone already made is kept. The ruler labels whole frames, its step chosen by the zoom: 0 · 10 · 20 … (0 · 12 · 24 … when twelve divides the fps). Keys always land on whole frames. Beat ticks every 0.25 s snap to the whole frame nearest each beat; when the fps does not divide 0.25 s (30 fps gives 7.5 frames), the ticks are drawn at those whole frames, so Halo and Pro always show the same timing. |
 | Expanded transport | Tap the time readout: start, previous key, previous frame, next frame, next key, end (`time.step` ±1 for the frame steps, Pro's Alt+, / Alt+.); Speed: *Realtime · Every frame · Half · Double* (the four `PlaybackSpeed` values; a 0.25× for Perform would be a new kernel value, T16); *Range* shows the range brackets. Tap outside to collapse. |
 | ▶ | Tap: play / pause. Long-press: loop / once / oscillate, and play backwards. |
 | Key dots | Only the selection's keys, plus a faint summary row when nothing is selected. Hollow dots are in-betweens. |
@@ -1353,9 +1354,11 @@ adapter registers `graph.frame`, `select.curveKeys` and `graph.view.setMode` exa
 
 - **Animations row**: animation chips above the Thread.
   - The first tap on a chip makes it active and opens its Halo.
-  - `+ New` asks for a name and a length (1, 2 or 4 s).
-  - The animation Halo (§6.2) holds Settings: fps (keep seconds or frames), range, scene start, loop, root motion,
-    contact frame, tags, provenance and redistribution.
+  - `+ New` asks for a name and a length: **30 · 60 · 100 frames** (60 the default), or *Other…* with the numpad
+    (whole frames). The animation is made at the project's fps with that frame count. With Settings › Time on Seconds
+    the chips read 1 · 2 · 4 s (ST-T7-UNIT).
+  - The animation Halo (§6.2) holds Settings: fps (keep seconds or frames), start, end and length (in frames by
+    default), scene start, loop, root motion, contact frame, tags, provenance and redistribution.
 - **Library drawer**: the 14 CC0 animations, with search and categories.
   - Tap a card to preview it on your character at once; *Stop preview* (`library.stop`) is on the card and in its Halo.
   - Expand a card for Speed (a dial), Trim (on the strip), *Swap sides*, *Stay in place* and *Arms out*, all previewed

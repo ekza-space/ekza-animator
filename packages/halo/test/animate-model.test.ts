@@ -23,6 +23,7 @@ import {
   framesOf,
   loopItCall,
   newAnimationCall,
+  newLengths,
   nextAnimationName,
   reachLimbOf,
   rowChips,
@@ -33,6 +34,9 @@ import {
   beatTicks,
   between,
   dotAt,
+  frameLabel,
+  frameLabels,
+  frameStep,
   frameToX,
   type KeyDot,
   snapFrame,
@@ -49,11 +53,13 @@ describe('the Animations row (§10.6, §4.8)', () => {
   it('shows up to three chips — the active one among them, in order — and folds the rest into +n', () => {
     const clips = ['a', 'b', 'c', 'd', 'e'].map((id) => clip(id, id.toUpperCase()));
     expect(rowChips(clips.slice(0, 3), 'a' as never)).toEqual({ shown: clips.slice(0, 3), folded: 0 });
+    // past three: the active one, the most recent other and +n — never more than three animation targets
     const folded = rowChips(clips, 'b' as never);
-    expect(folded.shown.map((c) => c.id)).toEqual(['b', 'd', 'e']);
-    expect(folded.folded).toBe(2);
+    expect(folded.shown.map((c) => c.id)).toEqual(['b', 'e']);
+    expect(folded.folded).toBe(3);
+    expect(rowChips(clips.slice(0, 4), 'd' as never)).toEqual({ shown: [clips[2], clips[3]], folded: 2 });
     // no active one: the most recent
-    expect(rowChips(clips, null).shown.map((c) => c.id)).toEqual(['c', 'd', 'e']);
+    expect(rowChips(clips, null).shown.map((c) => c.id)).toEqual(['d', 'e']);
     // a phone shows the active one only
     expect(rowChips(clips, 'a' as never, 1).shown.map((c) => c.id)).toEqual(['a']);
   });
@@ -65,10 +71,17 @@ describe('the Animations row (§10.6, §4.8)', () => {
     );
     expect(framesOf(2, FPS30)).toBe(60);
     expect(framesOf(1, { num: 24000, den: 1001 })).toBe(24);
-    expect(newAnimationCall('chr_1' as never, 'Wave', 2, FPS30)).toEqual({
+    expect(newAnimationCall('chr_1' as never, 'Wave', 60)).toEqual({
       op: 'clip.new',
       args: { character: 'chr_1', name: 'Wave', range: { start: 0, end: 60 } },
     });
+    // ST-T7-UNIT: 30 · 60 · 100 frames by default; 1 · 2 · 4 s with Settings › Time on Seconds
+    expect(newLengths('frames', FPS30).map((l) => [l.shown, l.frames, l.primary])).toEqual([
+      [30, 30, false],
+      [60, 60, true],
+      [100, 100, false],
+    ]);
+    expect(newLengths('seconds', { num: 24, den: 1 }).map((l) => l.frames)).toEqual([24, 48, 96]);
     expect(loopItCall('clp_1' as never)).toEqual({ op: 'clip.loop', args: { clip: 'clp_1' } });
   });
 });
@@ -133,8 +146,19 @@ describe('the Thread’s strip (§10.3)', () => {
     expect(between(dots, 20)).toEqual({ before: 10, after: 30 });
     expect(between(dots, 30)).toBeNull();
     expect(between(dots, 50)).toBeNull();
-    expect(timeText(15, FPS30)).toBe('0.50 s');
+    expect(timeText(15, FPS30, 'seconds')).toBe('0.50 s');
     expect(timeText(15, FPS30, 'frames')).toBe('15 f');
+    // the ruler's frame labels: 0 · 10 · 20 … at 30 fps, 0 · 12 · 24 … at 24 fps, the step from the zoom
+    expect(frameStep(FPS30, 10.4)).toBe(10);
+    expect(frameStep(FPS30, 1.5)).toBe(50);
+    expect(frameStep(FPS30, 60)).toBe(1);
+    expect(frameStep({ num: 24, den: 1 }, 5)).toBe(12);
+    expect(frameStep({ num: 24, den: 1 }, 1.5)).toBe(48);
+    expect(frameStep({ num: 24, den: 1 }, 10)).toBe(6);
+    expect(frameLabels({ start: 0, end: 60 }, 10)).toEqual([0, 10, 20, 30, 40, 50, 60]);
+    expect(frameLabels({ start: 7, end: 31 }, 12)).toEqual([12, 24]);
+    expect(frameLabel(60, true)).toBe('60 f');
+    expect(frameLabel(10, false)).toBe('10');
   });
 });
 

@@ -7,25 +7,28 @@
 import type { ClipRecord } from '@ekza-studio/doc';
 import { Cluster, TouchButton, TouchIconButton, ValueChip } from '@ekza-studio/ui/touch';
 import { type EditorApp, loadTargetKit } from '@ekza-studio/editor-core';
-import { type JSX, useEffect, useState } from 'react';
+import { type JSX, lazy, Suspense, useEffect, useState } from 'react';
 import { animateWords } from '../../i18n/animate';
 import type { HaloController } from '../../shell/controller';
 import { useDocumentVersion, useSessionValue } from '../../shell/hooks';
 import { between, currentFrame, keyDots, threadContext } from '../../thread/strip/model';
+import { useTimeUnit } from '../../thread/units';
 import { AnimateGlyph } from './icons';
 import {
   activeClip,
   animateCharacter,
   animationsOf,
   cleanClipName,
-  NEW_LENGTHS,
-  type NewLength,
   newAnimationCall,
+  newLengths,
   nextAnimationName,
   rowChips,
   sceneFps,
 } from './model';
+import { framesFromShown } from './TimeChip';
 import { type AnimateUiStore, useAnimateUi } from './ui';
+
+const NumpadPanel = lazy(() => import('../../chips/NumpadPanel'));
 
 const w = animateWords.dock;
 
@@ -134,12 +137,16 @@ function NewAnimationCard({
     const result = await ctx.run('target.slot.create', { character, slot, from: 'blank' });
     if (result.status === 'finished') ui.set({ newCard: false, docked: null });
   };
-  const create = async (seconds: NewLength): Promise<void> => {
+  const units = useTimeUnit(controller);
+  const fps = sceneFps(app);
+  const lengths = newLengths(units, fps);
+  const [other, setOther] = useState(false);
+  const create = async (frames: number): Promise<void> => {
     store.set((s) => ({ touches: s.touches + 1 }));
     const character = animateCharacter(app);
     if (character === null) return;
     const chosen = cleanClipName(name) === '' ? placeholder : cleanClipName(name);
-    const call = newAnimationCall(character, chosen, seconds, sceneFps(app));
+    const call = newAnimationCall(character, chosen, frames);
     const result = await ctx.run(call.op, call.args);
     if (result.status === 'finished') ui.set({ newCard: false, docked: null });
   };
@@ -166,7 +173,7 @@ function NewAnimationCard({
           onPointerDown={() => store.set((s) => ({ touches: s.touches + 1 }))}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') void create(2);
+            if (e.key === 'Enter') void create(lengths.find((length) => length.primary)?.frames ?? 60);
             if (e.key === 'Escape') ui.set({ newCard: false });
           }}
         />
@@ -174,17 +181,51 @@ function NewAnimationCard({
       <span className="text-fg-3" aria-hidden="true">
         {w.lengthLabel}
       </span>
-      {NEW_LENGTHS.map((seconds) => (
+      {lengths.map((length) => {
+        const label = units === 'frames' ? w.frames(length.shown) : w.seconds(length.shown);
+        const spoken = units === 'frames' ? w.framesLong(length.shown) : w.secondsLong(length.shown);
+        return (
+          <TouchButton
+            key={length.shown}
+            variant={length.primary ? 'primary' : 'default'}
+            data-testid={`halo-new-length-${length.shown}`}
+            aria-label={`${w.lengthLabel} ${spoken}: ${w.lengthHint}`}
+            onClick={() => void create(length.frames)}
+          >
+            {label}
+          </TouchButton>
+        );
+      })}
+      <span className="relative inline-flex">
         <TouchButton
-          key={seconds}
-          variant={seconds === 2 ? 'primary' : 'default'}
-          data-testid={`halo-new-length-${seconds}`}
-          aria-label={`${w.lengthLabel} ${w.seconds(seconds)}: ${w.lengthHint}`}
-          onClick={() => void create(seconds)}
+          aria-expanded={other}
+          data-testid="halo-new-length-other"
+          onClick={() => {
+            store.set((s) => ({ touches: s.touches + 1 }));
+            setOther(!other);
+          }}
         >
-          {w.seconds(seconds)}
+          {w.other}
         </TouchButton>
-      ))}
+        {other ? (
+          <Suspense fallback={null}>
+            <NumpadPanel
+              label={w.otherTitle}
+              value={units === 'frames' ? 60 : 2}
+              unit={units === 'frames' ? 'f' : 's'}
+              min={units === 'frames' ? 1 : 0.01}
+              max={units === 'frames' ? 100_000 : 3600}
+              data-testid="halo-new-length-numpad"
+              style={{ position: 'absolute', right: 0, bottom: '100%', marginBottom: 8 }}
+              onDone={(value) => {
+                setOther(false);
+                void create(framesFromShown(value, fps, units));
+              }}
+              onCancel={() => setOther(false)}
+            />
+          </Suspense>
+        ) : null}
+      </span>
       <TouchIconButton
         label={w.close}
         icon={<AnimateGlyph name="close" />}
@@ -290,7 +331,14 @@ export function AnimationsRow({
   const count = (): void => store.set((s) => ({ touches: s.touches + 1 }));
   const pick = (clip: ClipRecord): void => {
     count();
-    ui.set({ docked: { kind: 'clip', clip: clip.id }, menu: null, more: null, newCard: false, allClips: false });
+    ui.set({
+      docked: { kind: 'clip', clip: clip.id },
+      menu: null,
+      more: null,
+      settings: null,
+      newCard: false,
+      allClips: false,
+    });
     if (clip.id !== active?.id) void ctx.run('clip.setActive', { clip: clip.id });
   };
   return (

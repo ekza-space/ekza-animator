@@ -12,12 +12,26 @@ import { type EditorApp, isKeyable, limbOfControlApp, VIEWPORT_TOOL } from '@ekz
 export const DEFAULT_FPS: Fps = { num: 30, den: 1 };
 
 /** The lengths *+ New* offers (§10.6). */
-export const NEW_LENGTHS = [1, 2, 4] as const;
-export type NewLength = (typeof NEW_LENGTHS)[number];
+/**
+ * *+ New*'s lengths (§10.6, ST-T7-UNIT): 30 · 60 · 100 frames at the project's rate ("cycles are usually 50, at most
+ * 100 frames"), 60 the default; with Settings › Time on Seconds, 1 · 2 · 4 s. *Other…* takes any length on the numpad.
+ */
+export const NEW_FRAMES = [30, 60, 100] as const;
+export const NEW_SECONDS = [1, 2, 4] as const;
+
+/** The length presets in the unit time shows in: the shown number, its whole frames at `fps`, the default one. */
+export function newLengths(
+  units: 'frames' | 'seconds',
+  fps: Fps,
+): readonly { readonly shown: number; readonly frames: Frame; readonly primary: boolean }[] {
+  return units === 'frames'
+    ? NEW_FRAMES.map((frames) => ({ shown: frames, frames, primary: frames === 60 }))
+    : NEW_SECONDS.map((seconds) => ({ shown: seconds, frames: framesOf(seconds, fps), primary: seconds === 2 }));
+}
 
 /**
- * The Animations row shows this many chips, the active one among them, and `+n` for the rest (§4.8's row of wireframe
- * C: `[Idle] [Walk] [Wave ▾] [+ New]`; ST-T7-2): one tap switches between them.
+ * The Animations row holds at most this many animation targets (§4.8's row of wireframe C: `[Idle] [Walk] [Wave ▾]
+ * [+ New]`; ST-T7-2): up to three chips, or two and `+n`. One tap switches between them.
  */
 export const MAX_CHIPS = 3;
 
@@ -49,8 +63,9 @@ export function animationsOf(app: EditorApp, character: CharacterId | null): rea
 }
 
 /**
- * The chips the row shows (§4.8, ST-T7-2): the active animation (else the most recent one), at most `max`; the rest
- * fold into one `+n` chip that lists them all.
+ * The chips the row shows (§4.8, ST-T7-2): every animation up to `max`; past that, `max − 1` of them — the active one
+ * (else the most recent) and the most recent others — and one `+n` chip for the rest, so the row never holds more than
+ * `max` animation targets.
  */
 export function rowChips(
   clips: readonly ClipRecord[],
@@ -60,7 +75,8 @@ export function rowChips(
   if (clips.length <= max) return { shown: clips, folded: 0 };
   const head = clips.find((clip) => clip.id === active);
   const rest = clips.filter((clip) => clip.id !== active).reverse();
-  const shown = [...(head === undefined ? [] : [head]), ...rest].slice(0, Math.max(1, max));
+  const room = Math.max(1, max - 1);
+  const shown = [...(head === undefined ? [] : [head]), ...rest].slice(0, room);
   const order = new Map(clips.map((clip, index) => [clip.id, index]));
   const sorted = [...shown].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
   return { shown: sorted, folded: clips.length - sorted.length };
@@ -103,12 +119,11 @@ export function nextAnimationName(clips: readonly Pick<ClipRecord, 'name'>[], wo
 export function newAnimationCall(
   character: CharacterId,
   name: string,
-  seconds: NewLength,
-  fps: Fps,
+  frames: number,
 ): OpCall & { readonly args: { character: CharacterId; name: string; range: { start: Frame; end: Frame } } } {
   return {
     op: 'clip.new',
-    args: { character, name, range: { start: 0, end: framesOf(seconds, fps) } },
+    args: { character, name, range: { start: 0, end: Math.max(1, Math.round(frames)) } },
   };
 }
 

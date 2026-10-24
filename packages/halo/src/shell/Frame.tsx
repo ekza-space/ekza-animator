@@ -144,7 +144,8 @@ export function Frame({ controller }: { readonly controller: HaloController }): 
             className="pointer-events-none absolute inset-x-0 flex flex-col items-stretch gap-2 px-(--touch-inset-left) transition-opacity duration-(--motion-touch)"
             style={{ ...fade, bottom: 'var(--touch-inset-bottom)' }}
           >
-            <FrameNext controller={controller} />
+            {/* ST-T7-18: in Animate the Next chip gives way while the Animations row shows two or more chips */}
+            {animate.hideNext ? null : <FrameNext controller={controller} />}
             <div className="flex justify-center">
               {animate.dock ?? <Tray controller={controller} compact={compact} />}
             </div>

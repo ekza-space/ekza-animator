@@ -1,16 +1,21 @@
 // An animation's Settings (STUDIO-TOUCH-SPEC §10.6, §15.9 row 9.2; T7): the clip settings in the animation's docked
 // Halo — frames per second (keeping its seconds or its frames), the range in seconds, loop, how the root travels, the
 // contact frame and the tags. Every change is one `clip.setSettings` run (one undo step), the operator Studio Pro's
-// clip settings popover runs; the numbers are Pro's (P14), shown in the Thread's units.
+// clip settings popover runs; the numbers are Pro's (P14), shown in Settings › Time's unit (frames by default,
+// ST-T7-UNIT): start, end and length.
 import type { ClipRecord } from '@ekza-studio/doc';
-import { Segmented, ToggleChip, TouchButton, ValueChip } from '@ekza-studio/ui/touch';
+import { Segmented, ToggleChip, TouchButton } from '@ekza-studio/ui/touch';
 import { type JSX, useState } from 'react';
 import { animateWords } from '../../i18n/animate';
 import type { HaloController } from '../../shell/controller';
-import { currentFrame, threadContext } from '../../thread/strip/model';
-import { framesOf, secondsOf } from './model';
+import { currentFrame, threadContext, timeText } from '../../thread/strip/model';
+import { useTimeUnit } from '../../thread/units';
+import { TimeChip } from './TimeChip';
 
 const w = animateWords.settings;
+
+/** The longest range the Settings' chips offer (frames). */
+const MAX_LENGTH = 100_000;
 
 /** The frame rates the Settings offer (any other the clip has stays listed). */
 export const FPS_CHOICES = [24, 30, 60] as const;
@@ -43,8 +48,7 @@ export function ClipSettings({
   const fps = clip.fps.num / clip.fps.den;
   const [keep, setKeep] = useState<'keep-seconds' | 'keep-frames'>('keep-seconds');
   const choices = [...new Set<number>([...FPS_CHOICES, Math.round(fps)])].sort((a, b) => a - b);
-  const startS = secondsOf(clip.range.start, clip.fps);
-  const endS = secondsOf(clip.range.end, clip.fps);
+  const units = useTimeUnit(controller);
   const thread = threadContext(app);
   const playhead = thread !== null && thread.clip.id === clip.id ? Math.round(currentFrame(app, thread)) : null;
   return (
@@ -58,46 +62,46 @@ export function ClipSettings({
           onValueChange={(next) => set({ fps: { num: Number(next), den: 1 }, fpsMode: keep })}
           items={choices.map((value) => ({ value: String(value), label: String(value) }))}
         />
-        <Segmented<'keep-seconds' | 'keep-frames'>
-          label={w.fpsMode}
+        <ToggleChip
+          label={w.keepFrames}
+          pressed={keep === 'keep-frames'}
           data-testid="halo-clip-fps-mode"
-          value={keep}
-          onValueChange={(next) => {
+          onPressedChange={(on) => {
             count();
-            setKeep(next);
+            setKeep(on ? 'keep-frames' : 'keep-seconds');
           }}
-          items={[
-            { value: 'keep-seconds', label: w.keepSeconds },
-            { value: 'keep-frames', label: w.keepFrames },
-          ]}
         />
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <ValueChip
+        <TimeChip
           label={w.start}
-          value={startS}
-          step={0.01}
+          frames={clip.range.start}
+          fps={clip.fps}
+          units={units}
           min={0}
-          max={Math.max(0, endS - 1 / fps)}
-          unit="s"
-          data-testid="halo-clip-start"
-          onCommit={(seconds) => {
-            const start = framesOf(seconds, clip.fps);
-            if (start < clip.range.end) set({ range: { start, end: clip.range.end } });
-          }}
+          max={clip.range.end - 1}
+          testId="halo-clip-start"
+          onCommit={(start) => set({ range: { start, end: clip.range.end } })}
         />
-        <ValueChip
+        <TimeChip
           label={w.end}
-          value={endS}
-          step={0.01}
-          min={startS + 1 / fps}
-          max={600}
-          unit="s"
-          data-testid="halo-clip-end"
-          onCommit={(seconds) => {
-            const end = framesOf(seconds, clip.fps);
-            if (end > clip.range.start) set({ range: { start: clip.range.start, end } });
-          }}
+          frames={clip.range.end}
+          fps={clip.fps}
+          units={units}
+          min={clip.range.start + 1}
+          max={clip.range.start + MAX_LENGTH}
+          testId="halo-clip-end"
+          onCommit={(end) => set({ range: { start: clip.range.start, end } })}
+        />
+        <TimeChip
+          label={w.length}
+          frames={clip.range.end - clip.range.start}
+          fps={clip.fps}
+          units={units}
+          min={1}
+          max={MAX_LENGTH}
+          testId="halo-clip-length"
+          onCommit={(length) => set({ range: { start: clip.range.start, end: clip.range.start + length } })}
         />
         <ToggleChip
           label={w.loop}
@@ -119,7 +123,7 @@ export function ClipSettings({
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-fg-3">{w.contact}</span>
         <span className="tabular-nums text-fg" data-testid="halo-clip-contact">
-          {clip.contact === null ? w.none : `${secondsOf(clip.contact, clip.fps).toFixed(2)} s`}
+          {clip.contact === null ? w.none : timeText(clip.contact, clip.fps, units)}
         </span>
         <TouchButton
           disabled={playhead === null}

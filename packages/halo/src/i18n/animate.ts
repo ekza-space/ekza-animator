@@ -15,6 +15,11 @@ export const animateWords = {
     namePlaceholder: (n: number): string => `Animation ${n}`,
     lengthLabel: 'Length',
     seconds: (n: number): string => `${n} s`,
+    frames: (n: number): string => `${n} f`,
+    framesLong: (n: number): string => `${n} frames`,
+    secondsLong: (n: number): string => `${n} seconds`,
+    other: 'Other…',
+    otherTitle: 'Length of the new animation',
     lengthHint: 'Tap a length to make it',
     forSlot: 'For the game’s',
     library: 'Library',
@@ -99,12 +104,14 @@ export const animateWords = {
     active: 'playing in the Thread',
   },
   settings: {
+    back: 'Back to the verbs',
     fps: 'Frames per second',
     fpsMode: 'When the rate changes',
     keepSeconds: 'Keep seconds',
     keepFrames: 'Keep frames',
     start: 'Starts at',
     end: 'Ends at',
+    length: 'Length',
     loop: 'Loops',
     travel: 'Travel',
     travels: 'With the hips',
@@ -170,5 +177,11 @@ export const animateWords = {
   },
   reach: {
     hint: 'Drag the hand or foot: the limb follows',
+  },
+  time: {
+    label: 'Time',
+    frames: 'Frames',
+    seconds: 'Seconds',
+    help: 'How the timeline and its chips count time: frames or seconds. Keys always land on whole frames.',
   },
 } as const;

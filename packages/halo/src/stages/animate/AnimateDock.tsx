@@ -12,7 +12,7 @@ import { useHaloStore } from '../../shell/store';
 import { Thread } from '../../thread/strip/Thread';
 import { AnimationsRow } from './AnimationsRow';
 import { DockedHalo } from './DockedHalo';
-import { animateCharacter } from './model';
+import { animateCharacter, animationsOf } from './model';
 import { animateUi } from './ui';
 
 const KeysLayer = lazy(() => import('../../thread/keys/KeysLayer'));
@@ -69,14 +69,15 @@ function CurvesStandIn({ controller }: { readonly controller: HaloController }):
 }
 
 /**
- * The dock for the frame (P-T6A-4): `dock` replaces the shell's tray in Animate (null elsewhere), and `lift` is the
- * extra height the dock takes above the tray's, for the floating grammar and the corner clusters.
+ * The dock for the frame (P-T6A-4): `dock` replaces the shell's tray in Animate (null elsewhere), `lift` is the extra
+ * height the dock takes above the tray's, for the floating grammar and the corner clusters, and `hideNext` hides the
+ * Path's Next chip while the Animations row shows two or more chips (ST-T7-18, §4.8).
  */
 export function useAnimateDock(
   controller: HaloController,
   size: SizeClass,
   height: number,
-): { readonly dock: JSX.Element | null; readonly lift: number } {
+): { readonly dock: JSX.Element | null; readonly lift: number; readonly hideNext: boolean } {
   const { ctx } = controller;
   const stage = useHaloStore(ctx.store, (s) => s.stage);
   const layer = useHaloStore(ctx.store, (s) => s.threadLayer);
@@ -91,11 +92,11 @@ export function useAnimateDock(
     observer.observe(element);
     return () => observer.disconnect();
   }, [element]);
-  if (stage !== 'animate') return { dock: null, lift: 0 };
+  if (stage !== 'animate') return { dock: null, lift: 0, hideNext: false };
   const ui = animateUi(ctx.store);
   const compact = size === 'compact';
   const character = animateCharacter(ctx.app);
-  if (character === null) return { dock: <EmptyState controller={controller} />, lift: 0 };
+  if (character === null) return { dock: <EmptyState controller={controller} />, lift: 0, hideNext: false };
   const unfold = layer === 1 ? Math.round(height * 0.34) : 0;
   const dock = (
     <div
@@ -119,5 +120,7 @@ export function useAnimateDock(
     dock,
     // the shell's tray is one 54 px row; the dock is two rows at rest, more with a docked Halo, a card or Keys
     lift: measured > 0 ? Math.max(0, measured - 54) : 60 + unfold,
+    // ST-T7-18: two or more animation chips take the Next chip's place (the Path's glyphs still say what is next)
+    hideNext: animationsOf(ctx.app, character).length >= 2,
   };
 }

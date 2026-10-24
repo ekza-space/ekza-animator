@@ -1,6 +1,6 @@
 import { expect, type Page, type TestInfo, test } from '@playwright/test';
 import { animate, centreOf, controlFree, dockedPetal, loadSample, ringPoint, rulerPoint } from './helpers/halo-animate';
-import { halo, openHalo, selectedControls } from './helpers/halo';
+import { halo, openHalo, openSheetFromShell, selectedControls } from './helpers/halo';
 import { call, runOk } from './helpers/test-api';
 import { cdp, fingerDrag, fingerHold, fingerTap, type Point, touchEvent, twoFingers } from './helpers/touch';
 
@@ -19,7 +19,7 @@ import { cdp, fingerDrag, fingerHold, fingerTap, type Point, touchEvent, twoFing
 
 const touchOnly = (info: TestInfo): void => test.skip(info.project.name !== 'chrome-touch', 'chrome-touch only (CDP)');
 
-/** A clean animation of `seconds` on the loaded character (setup through the test API, not counted). */
+/** A clean 60-frame animation on the loaded character (setup through the test API, not counted). */
 async function freshAnimation(page: Page, name: string): Promise<void> {
   const character = (await call(page, 'characters'))[0]?.id;
   await runOk(page, 'clip.new', { character, name, range: { start: 0, end: 60 } });
@@ -50,7 +50,9 @@ test.describe('ha-06: the Thread', () => {
     touchOnly(testInfo);
     await openHalo(page);
     await loadSample(page, 'seed-san');
-    // §4.8: the Animate stage at rest stays within 22 visible targets
+    // §4.8: the Animate stage at rest stays within 22 visible targets — with one animation the Path's Next chip shows
+    await expect(page.getByTestId('halo-clip-others')).toHaveCount(0);
+    await expect(page.getByTestId('halo-next-chip')).toBeVisible();
     expect((await halo(page)).visibleTargets).toBeLessThanOrEqual(22);
     await expect(page.getByTestId('halo-thread-layer').getByRole('radio')).toHaveCount(3);
     await expect(page.getByTestId('halo-thread-ruler')).toHaveAttribute('role', 'slider');
@@ -281,39 +283,102 @@ test.describe('ha-06: the Thread', () => {
     const character = (await call(page, 'characters'))[0]?.id;
     await runOk(page, 'clip.new', { character, name: 'Idle', range: { start: 0, end: 30 } });
     await runOk(page, 'clip.new', { character, name: 'Walk', range: { start: 0, end: 45 } });
+    // three animations: three chips; the Next chip gives way (ST-T7-18) and the stage stays within 22 at rest
+    await expect(page.getByTestId('halo-clip-chip-Walk')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('halo-clip-chip-clip1')).toBeVisible();
+    await expect(page.getByTestId('halo-clip-chip-Idle')).toBeVisible();
+    await expect(page.getByTestId('halo-next-chip')).toHaveCount(0);
+    expect((await halo(page)).visibleTargets).toBeLessThanOrEqual(22);
     await runOk(page, 'clip.new', { character, name: 'Wave', range: { start: 0, end: 60 } });
-    // four animations: three chips (the active one among them) and +1
+    // four: the active one, the most recent other and +2 — still within 22
     await expect(page.getByTestId('halo-clip-chip-Wave')).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByTestId('halo-clip-others')).toHaveText('+1');
-    // one tap switches: the Thread shows the animation's own length, in seconds
-    await fingerTap(page, await centreOf(page, 'halo-clip-chip-Idle'));
-    await expect.poll(async () => (await animate(page)).active).toBe('Idle');
-    expect((await animate(page)).thread.range).toEqual({ start: 0, end: 30 });
-    await expect(page.getByTestId('halo-thread-readout')).toHaveText('0.00 s');
+    await expect(page.getByTestId('halo-clip-chip-Walk')).toBeVisible();
+    await expect(page.getByTestId('halo-clip-chip-Idle')).toHaveCount(0);
+    await expect(page.getByTestId('halo-clip-others')).toHaveText('+2');
+    await expect(page.getByTestId('halo-next-chip')).toHaveCount(0);
+    expect((await halo(page)).visibleTargets).toBeLessThanOrEqual(22);
+    // one tap switches: the Thread shows the animation's own length, in frames (ST-T7-UNIT)
     await fingerTap(page, await centreOf(page, 'halo-clip-chip-Walk'));
     await expect.poll(async () => (await animate(page)).active).toBe('Walk');
     expect((await animate(page)).thread.range).toEqual({ start: 0, end: 45 });
-    // the folded one through +n
-    await fingerTap(page, await centreOf(page, 'halo-clip-others'));
-    const listed = await page.getByTestId('halo-all-clips').getByTestId('halo-clip-chip-clip1').boundingBox();
-    if (listed === null) throw new Error('clip1 is not listed');
-    await fingerTap(page, { x: listed.x + listed.width / 2, y: listed.y + listed.height / 2 });
-    await expect.poll(async () => (await animate(page)).active).toBe('clip1');
+    await expect(page.getByTestId('halo-thread-readout')).toHaveText('0 f');
+    await fingerTap(page, await centreOf(page, 'halo-clip-chip-Wave'));
+    await expect.poll(async () => (await animate(page)).active).toBe('Wave');
+    expect((await animate(page)).thread.range).toEqual({ start: 0, end: 60 });
+    // the folded ones through +n
+    const pick = async (name: string): Promise<void> => {
+      await fingerTap(page, await centreOf(page, 'halo-clip-others'));
+      const listed = await page.getByTestId('halo-all-clips').getByTestId(`halo-clip-chip-${name}`).boundingBox();
+      if (listed === null) throw new Error(`${name} is not listed`);
+      await fingerTap(page, { x: listed.x + listed.width / 2, y: listed.y + listed.height / 2 });
+      await expect.poll(async () => (await animate(page)).active).toBe(name);
+    };
+    await pick('Idle');
+    expect((await animate(page)).thread.range).toEqual({ start: 0, end: 30 });
+    await pick('clip1');
 
-    // the animation's Halo holds its Settings: loop, travel, the range in seconds (one undo step each)
-    await fingerTap(page, await centreOf(page, 'halo-clip-chip-Walk'));
+    // the animation's Halo holds its Settings: loop, travel, the range in frames (one undo step each)
+    await fingerTap(page, await centreOf(page, 'halo-clip-chip-Wave'));
     await expect(page.getByTestId('halo-docked')).toHaveAttribute('data-noun', 'clip');
     await fingerTap(page, await dockedPetal(page, 'Settings'));
     await expect(page.getByTestId('halo-clip-settings')).toBeVisible();
+    // open Settings take the verbs' row: the Halo stays within 36 visible targets (§4.8)
+    await expect(page.getByTestId('halo-docked-verbs')).toHaveCount(0);
+    expect((await halo(page)).visibleTargets).toBeLessThanOrEqual(36);
     const steps = (await call(page, 'history')).undo.length;
     await fingerTap(page, await centreOf(page, 'halo-clip-loop'));
-    await expect.poll(async () => (await call(page, 'clips')).find((c) => c.name === 'Walk')?.loop).toBe(true);
+    await expect.poll(async () => (await call(page, 'clips')).find((c) => c.name === 'Wave')?.loop).toBe(true);
     expect((await call(page, 'history')).undo.length).toBe(steps + 1);
     await page.getByTestId('halo-clip-travel').getByRole('radio', { name: 'In place' }).tap();
     await expect.poll(async () => (await call(page, 'history')).undo.length).toBe(steps + 2);
     await fingerTap(page, await rulerPoint(page, 20));
     await fingerTap(page, await centreOf(page, 'halo-clip-contact-here'));
-    await expect(page.getByTestId('halo-clip-contact')).toHaveText('0.67 s');
+    await expect(page.getByTestId('halo-clip-contact')).toHaveText('20 f');
+    await expect(page.getByTestId('halo-clip-length')).toHaveAttribute('aria-valuenow', '60');
+    // back to the animation's verbs
+    await fingerTap(page, await centreOf(page, 'halo-clip-settings-back'));
+    await expect(page.getByTestId('halo-clip-settings')).toHaveCount(0);
+    await expect(page.getByTestId('halo-docked-verbs')).toBeVisible();
+  });
+
+  test('time in frames by default; Settings › Time switches to seconds and the device keeps it; + New › Other…', async ({
+    page,
+  }, testInfo) => {
+    touchOnly(testInfo);
+    test.setTimeout(90_000);
+    await openHalo(page);
+    await loadSample(page, 'seed-san');
+    // ST-T7-UNIT: frames by default — the readout, the ruler and + New's lengths
+    await expect(page.getByTestId('halo-thread-readout')).toHaveText('0 f');
+    await expect(page.getByTestId('halo-thread-ruler')).toHaveAttribute('aria-valuetext', '0 f');
+    await fingerTap(page, await centreOf(page, 'halo-new'));
+    for (const frames of [30, 60, 100]) {
+      await expect(page.getByTestId(`halo-new-length-${frames}`)).toHaveText(`${frames} f`);
+    }
+    // Other…: any whole number of frames on the numpad
+    await fingerTap(page, await centreOf(page, 'halo-new-length-other'));
+    const numpad = page.getByTestId('halo-new-length-numpad');
+    await expect(numpad).toBeVisible();
+    const field = numpad.locator('input');
+    await field.fill('75');
+    await field.press('Enter');
+    await expect.poll(async () => (await animate(page)).thread.range).toEqual({ start: 0, end: 75 });
+
+    // Settings › Time: Seconds — the Thread speaks seconds at once
+    await openSheetFromShell(page, 'settings', true);
+    const time = page.getByTestId('halo-settings-time');
+    await time.scrollIntoViewIfNeeded();
+    await expect(time.getByRole('radio', { name: 'Frames' })).toHaveAttribute('aria-checked', 'true');
+    await time.getByRole('radio', { name: 'Seconds' }).tap();
+    await expect(time.getByRole('radio', { name: 'Seconds' })).toHaveAttribute('aria-checked', 'true');
+    await page.keyboard.press('Escape');
+    await expect.poll(async () => (await halo(page)).sheet).toBeNull();
+    await expect(page.getByTestId('halo-thread-readout')).toHaveText('0.00 s');
+    // the device keeps a choice someone made
+    expect(await page.evaluate(() => window.localStorage.getItem('ekza-studio:halo:time:v1'))).toBe('seconds');
+    await openHalo(page);
+    await loadSample(page, 'seed-san');
+    await expect(page.getByTestId('halo-thread-readout')).toHaveText('0.00 s');
   });
 
   test('two fingers on the ruler zoom time; a double-tap shows the whole animation again', async ({

@@ -15,6 +15,7 @@ import { type JSX, useEffect, useRef } from 'react';
 import { animateWords } from '../../i18n/animate';
 import type { HaloController } from '../../shell/controller';
 import type { AnimateUiStore } from '../../stages/animate/ui';
+import type { TimeUnit } from '../units';
 import {
   beatTicks,
   currentFrame,
@@ -27,6 +28,9 @@ import {
   stripLayout,
   type ThreadContext,
   threadContext,
+  frameLabel,
+  frameLabels,
+  frameStep,
   tickLabel,
   timeText,
   xToFrame,
@@ -73,6 +77,8 @@ interface Scene {
   readonly dots: readonly KeyDot[];
   readonly faint: boolean;
   readonly band: { readonly start: number; readonly end: number } | null;
+  /** Settings › Time (ST-T7-UNIT). */
+  readonly units: TimeUnit;
 }
 
 /** The strip's geometry for the test API (page px) — set by the mounted strip. */
@@ -143,6 +149,7 @@ export function ThreadStrip({
         dots,
         faint,
         band: thread === null ? null : app.session.getState().time.band,
+        units: ui.get().units,
       };
     };
 
@@ -185,9 +192,22 @@ export function ThreadStrip({
           g.moveTo(x, mid - (tick.major ? 7 : 4));
           g.lineTo(x, mid + (tick.major ? 7 : 4));
           g.stroke();
-          const label = tick.major && (room > 9 || Number.isInteger(tick.seconds));
+          const label = s.units === 'seconds' && tick.major && (room > 9 || Number.isInteger(tick.seconds));
           if (label) g.fillText(tickLabel(tick.seconds, index === ticks.length - 1), x, mid - 11);
         });
+        if (s.units === 'frames') {
+          // whole-frame labels (ST-T7-UNIT), their step from the zoom: 0 · 10 · 20 … or 0 · 12 · 24 …
+          const perFrame = (layout.x1 - layout.x0) / Math.max(1, layout.end - layout.start);
+          const labels = frameLabels(layout, frameStep(s.ctx.fps, perFrame));
+          labels.forEach((frame, index) => {
+            const x = Math.round(frameToX(layout, frame)) + 0.5;
+            g.beginPath();
+            g.moveTo(x, mid - 5);
+            g.lineTo(x, mid + 5);
+            g.stroke();
+            g.fillText(frameLabel(frame, index === labels.length - 1), x, mid - 11);
+          });
+        }
       }
       // the band
       if (s.band !== null) {
@@ -236,7 +256,7 @@ export function ThreadStrip({
       g.beginPath();
       g.arc(px, 6, 5, 0, Math.PI * 2);
       g.fill();
-      canvas.setAttribute('aria-valuetext', s.ctx === null ? w.noClip : timeText(s.frame, s.ctx.fps));
+      canvas.setAttribute('aria-valuetext', s.ctx === null ? w.noClip : timeText(s.frame, s.ctx.fps, s.units));
       canvas.setAttribute('aria-valuenow', String(Math.round(s.frame)));
       canvas.setAttribute('aria-valuemin', String(s.ctx?.range.start ?? 0));
       canvas.setAttribute('aria-valuemax', String(s.ctx?.range.end ?? 60));
@@ -585,6 +605,7 @@ export function ThreadStrip({
     });
     const offStore = app.store.subscribe(() => invalidate());
     const offPose = app.evaluation.subscribe(() => invalidate());
+    const offUnits = ui.subscribe(() => invalidate());
     probes.set(controller, () => {
       const rect = canvas.getBoundingClientRect();
       const s = scene();
@@ -611,6 +632,7 @@ export function ThreadStrip({
       offSession();
       offStore();
       offPose();
+      offUnits();
       probes.delete(controller);
     };
   }, [app, ctx, store, ui, controller]);
