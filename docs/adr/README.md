@@ -29,7 +29,7 @@ Code sketches inside ADRs are illustrative. The normative TypeScript contracts a
 | [0013](0013-editor-history.md) | Editor history: document undo plus unkeyed session edits | Accepted |
 | [0014](0014-mesh-kernel.md) | Mesh kernel: radial-edge structure of arrays, write log, deterministic operations | Accepted (2026-10-19, M6A-SPEC v1.0) |
 | [0015](0015-mesh-storage-in-the-document.md) | Mesh storage in the document: revision refs, content-addressed chunks, claims, undo | Accepted (2026-10-19, M6A-SPEC v1.0) |
-| [0016](0016-modeling-interaction-paradigm.md) | Modeling interaction paradigm: Maya base, Blender semantics, one keymap per preset | Accepted (2026-10-19, M6A-SPEC v1.0) |
+| [0016](0016-modeling-interaction-paradigm.md) | Modeling interaction paradigm: desktop-DCC base, open-source-DCC semantics, one keymap per preset | Accepted (2026-10-19, M6A-SPEC v1.0) |
 | [0017](0017-ai-generation-boundary.md) | AI 3D generation boundary: server gateway, provider-agnostic contract, provenance by construction | Proposed (2026-10-18, rev. 2026-10-19); items 7–8 Accepted with M6A-SPEC v1.0 |
 | [0018](0018-agent-bridge-mcp.md) | Agent bridge: MCP over the operator registry, a paired loopback bridge to the open tab, a headless runtime | Proposed (2026-10-19, M-AI spec; rev. 2026-10-19 design review) |
 | [0019](0019-swatch-shaders.md) | Swatch shaders: a palette swatch is the material, versioned by its table | Accepted (2026-10-21, SHADING-SPEC v1.0) |

@@ -13,6 +13,8 @@
 > [0004](../adr/0004-rig-model.md), [0005](../adr/0005-export-strategy.md), [0010](../adr/0010-ekza-integration-tiers.md),
 > [0011](../adr/0011-project-file-format.md); the code on `dev` after the M2a merge (`io/skeleton`, `rig/autorig`,
 > `doc/records`).
+> Reference tools are named generically: a leading commercial desktop DCC ("the desktop DCC") and a popular
+> open-source DCC ("the open-source DCC").
 
 ---
 
@@ -21,19 +23,19 @@
 | # | Decision | Why |
 |---|---|---|
 | D1 | **A character can be sourced from the document, not only from an asset.** `CharacterRecord` gains `source: { kind: 'asset' } \| { kind: 'model' }`; a model-sourced character is skeleton + skin + meshes as document records. Everything downstream (`SkeletonDesc`, `autoRig`, IK, exports of clips) is reused unchanged by deriving `SkeletonDesc` from records instead of from GLB bytes. | Today the whole rig pipeline starts at `skeletonFromGltf(GlbContainer)` (pure data). `SkeletonDesc` is already pure data, so a second producer (`skeletonFromDoc`) is the smallest change that makes the pipeline turnkey. Round-tripping through GLB bytes on every joint move or brush stroke would be slow and would churn content hashes. |
-| D2 | **Bind pose = skeleton rest pose = VRM T-pose**, always, for humanoids. Inverse bind matrices are derived (`IBM_j = (W⁰_j)⁻¹`), never stored. A-pose modeling is allowed and converted with **Apply Pose as Rest** (Maya's "T-Stance Correction"). | VRM 1.0 makes the T-pose normative ("VRM models must follow the specification of the rest pose"); VRMA, Ekza Space and OMOBA retarget from T-pose rests (OMOBA's `RetargetBasis` applies source deltas on the target's rest). One invariant removes a whole class of bind/rest bugs. |
+| D2 | **Bind pose = skeleton rest pose = VRM T-pose**, always, for humanoids. Inverse bind matrices are derived (`IBM_j = (W⁰_j)⁻¹`), never stored. A-pose modeling is allowed and converted with **Apply Pose as Rest** (the desktop DCC's "T-Stance Correction"). | VRM 1.0 makes the T-pose normative ("VRM models must follow the specification of the rest pose"); VRMA, Ekza Space and OMOBA retarget from T-pose rests (OMOBA's `RetargetBasis` applies source deltas on the target's rest). One invariant removes a whole class of bind/rest bugs. |
 | D3 | **Joints store their rest world position in character space** (+Y up, +Z forward, left = +X) and an **identity rest rotation** by default. Leaf joints carry a `tail` (display and skinning segment only). | Same rule as controls in ADR 0004 (rest world stored, locals derived; concurrent edits to different joints never conflict). Identity rest rotations are VRM-valid and make the normalized humanoid space equal to the raw space, so export, VRMA and the kernel agree trivially. |
 | D4 | **Humanoid template = VRM 1.0 bone set** in three presets (Lite 17, Standard 33 with mitten hands, Full 52), node names = VRM bone names, under a non-humanoid `root`. | Canonical names (03 §6.2), unique names for Bevy name paths, required bones for Space/OMOBA/registry, fewer joints for low-poly. |
-| D5 | **Joint placement is Maya-first**: Joint tool with **Snap to Projected Center**, X-symmetry on by default, and a **Quick Rig** wizard (markers → guides → skeleton → skin) modeled on Maya's Quick Rig Step-by-Step flow. | The owner is a Maya user; Maya's Quick Rig already defines the right stages (embed guides, mirror, T-stance correction, Geodesic Voxel skinning by default). |
-| D6 | **Auto-skin default for low-poly = "Auto (low-poly)"**: mesh islands that fit one bone are bound rigidly; continuous parts get **bone-heat diffusion** (Baran & Popović 2007, the algorithm behind Blender's Automatic Weights), solved in TS in a Worker. Geodesic voxel binding (Maya's default) is the later path for AI/polygon-soup meshes. | Measured on the CC0 low-poly fixture Polybot: 95.3% of its vertices have one influence; 30 of its 37 islands are bound to one joint; "island centroid → nearest bone, rigid" reproduces the artist's dominant joint on **90.5%** of vertices and is within one joint on **100%**, while per-vertex nearest-bone gets 69.9% / 92.6% (§5.3). The heat solve itself costs ≈ 0.1 s for 10k vertices × 55 bones in plain JS (§5.4). |
-| D7 | **Max 4 influences, always normalized** (Maya "Interactive" normalization + "Maintain Max Influences"), stored as `JOINTS_0`-ready data. | glTF clients "MAY support only a single set of up to four" (three.js r186 `GLTFLoader` maps only `JOINTS_0`/`WEIGHTS_0`; Bevy 0.19.1 only `Joints(0)`/`Weights(0)`). What you paint is exactly what exports. |
+| D5 | **Joint placement is desktop-DCC-first**: Joint tool with **Snap to Projected Center**, X-symmetry on by default, and a **Quick Rig** wizard (markers → guides → skeleton → skin) modeled on the desktop DCC's Quick Rig Step-by-Step flow. | The owner is a desktop-DCC user; its Quick Rig already defines the right stages (embed guides, mirror, T-stance correction, Geodesic Voxel skinning by default). |
+| D6 | **Auto-skin default for low-poly = "Auto (low-poly)"**: mesh islands that fit one bone are bound rigidly; continuous parts get **bone-heat diffusion** (Baran & Popović 2007, the algorithm behind the open-source DCC's Automatic Weights), solved in TS in a Worker. Geodesic voxel binding (the desktop DCC's default) is the later path for AI/polygon-soup meshes. | Measured on the CC0 low-poly fixture Polybot: 95.3% of its vertices have one influence; 30 of its 37 islands are bound to one joint; "island centroid → nearest bone, rigid" reproduces the artist's dominant joint on **90.5%** of vertices and is within one joint on **100%**, while per-vertex nearest-bone gets 69.9% / 92.6% (§5.3). The heat solve itself costs ≈ 0.1 s for 10k vertices × 55 bones in plain JS (§5.4). |
+| D7 | **Max 4 influences, always normalized** (desktop-DCC "Interactive" normalization + "Maintain Max Influences"), stored as `JOINTS_0`-ready data. | glTF clients "MAY support only a single set of up to four" (three.js r186 `GLTFLoader` maps only `JOINTS_0`/`WEIGHTS_0`; Bevy 0.19.1 only `Joints(0)`/`Weights(0)`). What you paint is exactly what exports. |
 | D8 | **Weights live in a per-mesh skin blob** (content-addressed, ~24 B/vertex) referenced by a `SkinRecord`; topology operators carry weights through **registered attribute interpolators** of the `MeshData` layer system. | Research 06: binary data by hash, never per-vertex CRDT. A paint stroke rewrites the small skin blob, not the geometry blob. |
-| D9 | **Weight tools (MVP)**: component weight table, assign-to-joint / rigid islands, Paint Skin Weights (Replace / Add / Scale / Smooth + Flood, joint locks), weight display, Mirror Skin Weights, copy/paste, prune, normalize, smooth ("hammer"), closest-point transfer. | The minimum that fixes the 7–10% of vertices any auto-skin gets wrong on a low-poly character, with Maya names and Blender's Auto-Normalize/Lock semantics. |
+| D9 | **Weight tools (MVP)**: component weight table, assign-to-joint / rigid islands, Paint Skin Weights (Replace / Add / Scale / Smooth + Flood, joint locks), weight display, Mirror Skin Weights, copy/paste, prune, normalize, smooth ("hammer"), closest-point transfer. | The minimum that fixes the 7–10% of vertices any auto-skin gets wrong on a low-poly character, with desktop-DCC names and the open-source DCC's Auto-Normalize/Lock semantics. |
 | D10 | **Deformation testing reuses the existing auto-rig** on the derived `SkeletonDesc` (radii and foot support computed from our weights), plus a generated **range-of-motion (ROM) clip** and painting on the posed mesh. | No second rig system; M2a IK legs work on our own characters on day one. |
 | D11 | **Exports**: a **fresh deterministic writer** (glTF Transform document) for model-sourced characters → `.vrm` (VRM 1.0 with `VRMC_vrm`: meta, humanoid, thumbnail) and `.glb`; a **skin surgeon** (append new `JOINTS_0`/`WEIGHTS_0` accessors, keep everything else) for weight edits on imported VRM/GLB; a **geometry surgeon** later for topology edits on imports. | The ADR 0005 rule holds: never round-trip a user's VRM through a library that drops extensions; fresh documents are ours to write. |
 | D12 | **Ekza**: T0 = export VRM 1.0 and upload it as an avatar in Studio (the registry's `avatar` kind and Space's `vrm-humanoid-v1` already exist). **T3 "Publish avatar"** needs only the `studio-upload` scope, so it can ship before the animation kind (T1). | The avatar path needs no registry migration; the animation path does (ADR 0010). |
 | D13 | **Licence gates**: an imported VRM whose meta says `modification: prohibited` (VRM 1.0) cannot be made editable or re-exported with changed geometry or weights; the export dialog requires explicit VRM meta for our own models. | Respects creators' terms; VRM meta is required (`name`, `authors`, `licenseUrl`) and its defaults are restrictive. |
-| D14 | **No GPL/LGPL code**: Blender's heat code (GPL) and Pinocchio's library (LGPL) are read for ideas only; we implement from the papers. | The project is MIT (ADR 0009). |
+| D14 | **No GPL/LGPL code**: the open-source DCC's heat code (GPL) and Pinocchio's library (LGPL) are read for ideas only; we implement from the papers. | The project is MIT (ADR 0009). |
 
 ---
 
@@ -85,21 +87,21 @@ load as VRM. We need a T-pose lint and a correction tool (§4.4).
 
 ---
 
-## 2. Interaction model for this area: Maya first, Blender ideas where they are better
+## 2. Interaction model for this area: desktop-DCC first, open-source-DCC ideas where they are better
 
-| Topic | Maya | Blender | Ours |
+| Topic | Desktop DCC | Open-source DCC | Ours |
 |---|---|---|---|
-| Overall flow | Rigging menu set: Skeleton ▸ Create Joints / **Quick Rig**; Skin ▸ Bind Skin, Paint Skin Weights, Mirror / Copy Skin Weights | Armature edit mode, Ctrl+P ▸ With Automatic Weights, Weight Paint mode | **Rig workspace** (09 §9.3) with a *Character Setup* panel: Skeleton → Bind → Weights → Test, Maya names |
+| Overall flow | Rigging menu set: Skeleton ▸ Create Joints / **Quick Rig**; Skin ▸ Bind Skin, Paint Skin Weights, Mirror / Copy Skin Weights | Armature edit mode, Ctrl+P ▸ With Automatic Weights, Weight Paint mode | **Rig workspace** (09 §9.3) with a *Character Setup* panel: Skeleton → Bind → Weights → Test, desktop-DCC names |
 | Joint placement | Joint tool + **Snap to Projected Center** ("each joint is centered automatically") | Bone head/tail, X-Axis Mirror, Snap to Volume | Joint tool, projected-center snapping, symmetry on by default |
 | Auto weights | Bind methods: Closest Distance, Closest in Hierarchy (default), Heat Map, **Geodesic Voxel** (Quick Rig default); falloff 0.2 default | **Bone heat** ("With Automatic Weights"), envelopes | "Auto (low-poly)" = rigid islands + bone heat (§5); voxel later |
 | Normalization | Normalize Weights: None / **Interactive** (default) / Post; Max Influences (default 5), Maintain Max Influences | **Auto Normalize**, **Lock-Relative** display, Normalize All with locked groups | Always interactive, max 4 maintained, joint locks, Lock-Relative display option |
-| Paint ops | Replace, Add, Scale, Smooth, Flood; B+drag brush size | Mix/Add/Subtract/Blur/Average/Smear brushes, Gradient tool, Sample Weight | Replace, Add, Scale, Smooth, Flood (Maya), + Gradient and Sample later (Blender) |
+| Paint ops | Replace, Add, Scale, Smooth, Flood; B+drag brush size | Mix/Add/Subtract/Blur/Average/Smear brushes, Gradient tool, Sample Weight | Replace, Add, Scale, Smooth, Flood (desktop DCC), + Gradient and Sample later (open-source DCC) |
 | Mirror | Skin ▸ Mirror Skin Weights: mirror plane, direction, surface association (closest point default), influence association (closest joint, label, name, one-to-one) | Weight paint Mirror tool (active group, X only) | Mirror Skin Weights across YZ, closest-point fallback, humanoid L/R joint map |
 | Re-running an operator with new parameters | Option boxes before running | **Adjust Last Operation** panel | Bind/Auto-skin show an *adjust last operation* panel (operator args are JSON-schema, 08 §5.2) |
 
-Keymap: Maya preset first (the owner's muscle memory), a Blender preset as data later (08 §5.3). Paint-tool keys
-follow Maya Artisan: `B`+drag brush radius (documented by Autodesk), `N`+drag value (Maya Artisan convention,
-to verify against the hotkey editor), `Ctrl`+drag sample weight.
+Keymap: the `dcc` preset first (the owner's muscle memory), an alternative keymap preset (open-source-DCC style) as
+data later (08 §5.3). Paint-tool keys follow the desktop DCC's Artisan: `B`+drag brush radius (documented by the
+vendor), `N`+drag value (Artisan convention, to verify against the hotkey editor), `Ctrl`+drag sample weight.
 
 ---
 
@@ -219,9 +221,9 @@ rotations are identity (D3). All node transforms are positive uniform scale 1 (V
 
 | Tool / operator | Behaviour |
 |---|---|
-| **Joint tool** (`skel.joint.create`) | Click to place a joint, continue the chain; `Enter` ends; `Shift` click branches from the selected joint (Maya Joint tool feel). Placing in an orthographic view sets the two in-plane coordinates from the click and the third from **projected center** |
-| **Snap to Projected Center** (status-line toggle, default on in the Rig workspace) | Cast the view ray through the cursor, collect *all* mesh hits (three-mesh-bvh, both sides), pair entry/exit hits by facing, and put the joint at the midpoint of the slab. A new joint uses the nearest slab; moving an existing joint uses the slab containing its current depth (Maya: "minimizes displacement and centers the joint among layers"). An open mesh with one hit falls back to the hit pushed inward by 0.5 × the local bone-radius estimate |
-| Move / Rotate joint (`skel.joint.move`) | W manipulator; moves `restPosition`; with **Move Skinned Joints** semantics after binding: weights stay, `IBM` is re-derived, the mesh does not move, deformation changes (Maya tool of the same name; Blender edit-mode bone moves) |
+| **Joint tool** (`skel.joint.create`) | Click to place a joint, continue the chain; `Enter` ends; `Shift` click branches from the selected joint (desktop-DCC Joint tool feel). Placing in an orthographic view sets the two in-plane coordinates from the click and the third from **projected center** |
+| **Snap to Projected Center** (status-line toggle, default on in the Rig workspace) | Cast the view ray through the cursor, collect *all* mesh hits (three-mesh-bvh, both sides), pair entry/exit hits by facing, and put the joint at the midpoint of the slab. A new joint uses the nearest slab; moving an existing joint uses the slab containing its current depth (desktop DCC: "minimizes displacement and centers the joint among layers"). An open mesh with one hit falls back to the hit pushed inward by 0.5 × the local bone-radius estimate |
+| Move / Rotate joint (`skel.joint.move`) | W manipulator; moves `restPosition`; with **Move Skinned Joints** semantics after binding: weights stay, `IBM` is re-derived, the mesh does not move, deformation changes (desktop-DCC tool of the same name; open-source-DCC edit-mode bone moves) |
 | Symmetry (`SkeletonRecord.symmetry`, default on for humanoids) | Editing an `L`/`R` joint writes its pair at `(−x, y, z)`; centre joints are clamped to `x = 0` |
 | Insert / split / delete / reparent joint | `skel.joint.insert` (on a bone, at a parameter), `skel.joint.delete` (children re-parent; its weights go to the parent, §6.6), `skel.joint.reparent` |
 | Map bone (`skel.joint.setHumanBone`) | Pick a `HumanBoneName` from a list filtered by the parent map; uniqueness enforced |
@@ -233,8 +235,8 @@ Lints (Validation list of the Rig workspace): `skel.required-bones` (15), `skel.
 
 ### 4.3 Quick Rig (wizard)
 
-Modeled on Maya's Quick Rig *Step-by-Step* (Geometry → Guides → User Adjustment of Guides → Skeleton and Rig
-Generation → Skinning) and Mixamo's marker step (chin, wrists, elbows, knees, groin):
+Modeled on the desktop DCC's Quick Rig *Step-by-Step* (Geometry → Guides → User Adjustment of Guides → Skeleton and
+Rig Generation → Skinning) and the marker step of a web auto-rigging service (chin, wrists, elbows, knees, groin):
 
 1. **Geometry**: pick the meshes (body, separate eyes, accessories). Check: facing +Z, Y-up, grounded, roughly
    symmetric (offer *Center and ground* and *Rotate to face +Z* fixes).
@@ -301,8 +303,8 @@ So: LBS, 4 influences, float32 weights renormalized **after** float32 rounding, 
 |---|---|---|---|---|---|
 | **Closest bone (rigid)** | each vertex → nearest bone segment, weight 1 | O(V·B); < 10 ms for 10k × 55 | 69.9% exact / 92.6% within one joint on Polybot | wrong across limbs and on big pieces (head → shoulders) | trivial, ours |
 | **Rigid islands** | each mesh island → bone nearest its centroid | O(V + islands·B) | **90.5% / 100%** on Polybot (segmented robot) | fails on single-piece bodies (one island) | trivial, ours |
-| **Bone heat** (Baran & Popović 2007; Blender "With Automatic Weights"; Maya "Heat Map") | solve `(L + H) w_j = H p_j` per bone on the surface; `H` from distance to the nearest *visible* bone | build ≈ 5–17 ms, solves ≈ 20–80 ms for 1.5k–10k vertices × 55 bones (measured, §5.4) + visibility rays | smooth joints; good on continuous low-poly bodies; vertices are the only samples, so joints blend over edge loops | singular on islands that see no bone (Blender: "failed to find solution") → per-island fallback | paper; Blender (GPL) and Pinocchio library (LGPL) are references only |
-| **Geodesic voxel** (Dionne & de Lasa 2013; Maya default) | voxelize the solid, geodesic distance inside the volume from bone voxels, weights from distance with a falloff (Maya default 0.2) | 64³–128³ grids, one geodesic pass per bone: ≈ 0.5–5 s in a Worker (estimate) | good; "Falloff" gives a rigid ↔ smooth slider | handles non-manifold, non-watertight, intersecting, multi-component meshes; needs joints inside the volume; coarse grids merge nearby parts | paper; ours |
+| **Bone heat** (Baran & Popović 2007; open-source DCC "With Automatic Weights"; desktop DCC "Heat Map") | solve `(L + H) w_j = H p_j` per bone on the surface; `H` from distance to the nearest *visible* bone | build ≈ 5–17 ms, solves ≈ 20–80 ms for 1.5k–10k vertices × 55 bones (measured, §5.4) + visibility rays | smooth joints; good on continuous low-poly bodies; vertices are the only samples, so joints blend over edge loops | singular on islands that see no bone (open-source DCC: "failed to find solution") → per-island fallback | paper; the open-source DCC (GPL) and Pinocchio library (LGPL) are references only |
+| **Geodesic voxel** (Dionne & de Lasa 2013; desktop-DCC default) | voxelize the solid, geodesic distance inside the volume from bone voxels, weights from distance with a falloff (desktop-DCC default 0.2) | 64³–128³ grids, one geodesic pass per bone: ≈ 0.5–5 s in a Worker (estimate) | good; "Falloff" gives a rigid ↔ smooth slider | handles non-manifold, non-watertight, intersecting, multi-component meshes; needs joints inside the volume; coarse grids merge nearby parts | paper; ours |
 | Bounded biharmonic weights (Jacobson et al. 2011) | constrained QP over a tet mesh | needs tetrahedralization + QP solver | very smooth | tet meshing is the failure point | libigl core MPL-2.0 (file-level copyleft), solvers heavy |
 | Pinocchio | automatic skeleton embedding + heat weights | discrete embedding, heavy | — | needs watertight meshes | library LGPL, demo MIT |
 | ML (UniRig, SIGGRAPH 2025) | autoregressive skeleton + learned weights | Python + GPU; not in-browser | trained on varied assets | for generated meshes | MIT (`VAST-AI-Research/UniRig`) |
@@ -344,21 +346,21 @@ Runs in the IO/geometry Worker, deterministic (float64, fixed iteration order), 
                solve (L + H) w_j = H p_j for each joint j with any p_j > 0 in the island
                (Jacobi-preconditioned CG, tol 1e-6; or one sparse LDLᵀ factorization reused for all j)
                an island where H ≡ 0 (no visible bone) → rigid to c (step 4 fallback) + warning `skin.unreachable-island`
-6  Post        w < 0.025 → 0, 0.025–0.05 ramp (Blender's limits), keep the 4 largest, normalize;
+6  Post        w < 0.025 → 0, 0.025–0.05 ramp (open-source-DCC limits), keep the 4 largest, normalize;
                option "rigidify ≥ x": snap dominant weights ≥ x to 1 (low-poly look)
 7  Write       skin blob + SkinRecord.bindMethod = args (for the adjust-last-operation panel)
 ```
 
 Arguments (operator JSON schema): `method: 'auto-lowpoly' | 'heat' | 'rigid-islands' | 'closest' | 'voxel'`,
-`stiffness` (heat `c_stiff`, default 1; higher = more rigid, the role of Maya's falloff), `maxInfluences` (fixed 4),
-`pruneBelow` (0.025), `rigidifyAbove` (off), `joints` (subset: "auto weights for selected joints"), `vertices`
-(mask: "auto weights for selected vertices", as Blender's weight-paint mask).
+`stiffness` (heat `c_stiff`, default 1; higher = more rigid, the role of the desktop DCC's falloff), `maxInfluences`
+(fixed 4), `pruneBelow` (0.025), `rigidifyAbove` (off), `joints` (subset: "auto weights for selected joints"),
+`vertices` (mask: "auto weights for selected vertices", as the open-source DCC's weight-paint mask).
 
 Measured solve cost (plain JS, single thread, Apple M4 Pro under load; tube meshes; 55 bones; 40% of vertices with
 no visible bone so the diffusion actually iterates): 1,464 vertices 20 ms, 4,840 vertices 43 ms, 10,050 vertices
 82 ms, CSR build 4–17 ms, 12–14 CG iterations per bone. Visibility needs only rays to the nearest few segments
-(Blender casts rays only for the closest sources), ≈ V × 1–3 BVH raycasts. Budget: **≤ 1 s for 10k vertices × 60
-joints** including rays, in the Worker.
+(the open-source DCC casts rays only for the closest sources), ≈ V × 1–3 BVH raycasts. Budget: **≤ 1 s for 10k vertices
+× 60 joints** including rays, in the Worker.
 
 Low-poly specifics: (1) triangulate n-gons for the solve only; (2) long thin triangles make cotans negative, hence
 the clamp; Sharp & Crane's robust Laplacian (MIT, C++ in geometry-central) is the upgrade if artefacts appear;
@@ -370,8 +372,8 @@ spacing; the *stiffness* slider and *rigidify* cover the style range from segmen
 Voxelize the meshes (solid fill, flood fill from outside; resolution 64–128 along the longest axis), mark voxels
 crossed by each bone segment, run one multi-source Dijkstra / fast-marching pass per bone over non-exterior voxels,
 map each vertex to its voxel (trilinear over the 8 neighbours), weight `w_j ∝ (1/d_j)^p` blended by a falloff
-parameter, prune to 4 and normalize. Maya's notes apply: all joints must lie inside the volume; coarse grids connect
-nearby parts (hand to hip), so start coarse and refine. Generated meshes (§11) are the main customer.
+parameter, prune to 4 and normalize. The desktop DCC's notes apply: all joints must lie inside the volume; coarse grids
+connect nearby parts (hand to hip), so start coarse and refine. Generated meshes (§11) are the main customer.
 
 ---
 
@@ -392,23 +394,23 @@ prune: while non-zero count > 4, drop the smallest unlocked weight and renormali
 ```
 
 Property tests (fast-check): sums within 1e-9 (float64), non-negative, ≤ 4 influences, locked weights bit-equal,
-idempotent normalize. Display option **Lock-Relative** (Blender): show weights as if locked joints were removed.
+idempotent normalize. Display option **Lock-Relative** (open-source DCC): show weights as if locked joints were removed.
 
 ### 6.2 Tools
 
 | Tool / operator | MVP | Behaviour |
 |---|---|---|
-| **Component weight table** (`skin.weights.set`) | yes | Rows: selected vertices (or one averaged row), columns: joints with non-zero weight; type a value → normalization §6.1; *Hold* (lock) per joint; *Prune < x*; *Normalize*. Maya Component Editor ▸ Smooth Skins tab |
-| **Assign to joint** (`skin.weights.assign`) | yes | Selected vertices/faces/islands → weight 1 on the active joint. The 80% tool for segmented low-poly; Maya legacy "rigid bind" per selection |
+| **Component weight table** (`skin.weights.set`) | yes | Rows: selected vertices (or one averaged row), columns: joints with non-zero weight; type a value → normalization §6.1; *Hold* (lock) per joint; *Prune < x*; *Normalize*. Desktop-DCC Component Editor ▸ Smooth Skins tab |
+| **Assign to joint** (`skin.weights.assign`) | yes | Selected vertices/faces/islands → weight 1 on the active joint. The 80% tool for segmented low-poly; desktop-DCC legacy "rigid bind" per selection |
 | **Rigid islands** (`skin.weights.rigidIslands`) | yes | Step 4 of §5.4 on demand for selected islands |
 | **Paint Skin Weights** (tool, `skin.weights.paint` modal) | yes | Operations **Replace** (`w_a → lerp(w_a, value, s)`), **Add** (`w_a + value·s`), **Scale** (`w_a · (1 − (1 − value)·s)`), **Smooth** (weight vector → lerp toward the 1-ring average, all unlocked joints); **Flood** applies the current operation to all (selected) vertices. `s` = strength × falloff (smooth/linear/constant). Brush radius in screen pixels; *Surface* mode (only vertices connected to the hit vertex within the radius — no painting through to the other leg) or *Volume* (sphere); front faces only by default; X-mirror stroke (mirror vertex, mirror joint). One stroke = one interactive transaction (preview overlay, one undo step, 08 §5.1) |
-| **Weight display** | yes | Active joint as greyscale (Maya) or heat ramp (Blender); *Influence colours* mode (each joint its colour, blended); highlight vertices with > 4 or unnormalized weights (imports). Shader-side: `w = dot(skinWeight, vec4(equal(skinIndex, vec4(uActive))))`, so switching joints uploads nothing |
+| **Weight display** | yes | Active joint as greyscale (desktop DCC) or heat ramp (open-source DCC); *Influence colours* mode (each joint its colour, blended); highlight vertices with > 4 or unnormalized weights (imports). Shader-side: `w = dot(skinWeight, vec4(equal(skinIndex, vec4(uActive))))`, so switching joints uploads nothing |
 | **Mirror Skin Weights** (`skin.weights.mirror`) | yes | §6.3 |
-| **Copy / Paste vertex weights** | yes | Copy the active vertex's weights, paste onto the selection (Maya Copy/Paste Vertex Weights) |
-| **Weight Hammer** (`skin.weights.hammer`) | yes | Selected vertices ← average of their unselected neighbours (Maya) — fixes spikes on low-poly in one click |
-| **Transfer weights** (`skin.weights.transfer`) | yes | From another skinned mesh (same skeleton): closest point on the source surface + barycentric interpolation of its triangle's weights (Maya Copy Skin Weights, surface association "closest point", the default) |
+| **Copy / Paste vertex weights** | yes | Copy the active vertex's weights, paste onto the selection (desktop-DCC Copy/Paste Vertex Weights) |
+| **Weight Hammer** (`skin.weights.hammer`) | yes | Selected vertices ← average of their unselected neighbours (as in the desktop DCC) — fixes spikes on low-poly in one click |
+| **Transfer weights** (`skin.weights.transfer`) | yes | From another skinned mesh (same skeleton): closest point on the source surface + barycentric interpolation of its triangle's weights (desktop-DCC Copy Skin Weights, surface association "closest point", the default) |
 | Prune / Normalize / Remove unused influences | yes | `skin.weights.prune {below}`, `skin.weights.normalize`, palette cleanup |
-| Gradient tool, Sample weight, Smear | later | Blender weight-paint tools |
+| Gradient tool, Sample weight, Smear | later | open-source-DCC weight-paint tools |
 | Paint on posed mesh | yes | §7.3 |
 
 ### 6.3 Mirror Skin Weights
@@ -430,7 +432,7 @@ If the modeling core maintains a symmetry vertex map (symmetry modeling mode), s
 |---|---|
 | Joint moved (rest change) | unchanged; IBM re-derived; deformation updates live |
 | Joint added | no weights; offer "Auto weights for the new joint" (masked solve with the new joint and its neighbours) |
-| Joint deleted | its weight moves to its parent joint (deterministic, unlike Maya's proportional redistribution) |
+| Joint deleted | its weight moves to its parent joint (deterministic, unlike the desktop DCC's proportional redistribution) |
 | Joint re-parented | unchanged; humanoid lint re-runs |
 | Humanoid bone remapped | unchanged; the control rig update re-runs (§7.1) |
 
@@ -574,7 +576,7 @@ from them (03 §6.5), so clip embedding stays an option with the ADR 0010 intero
 | Mode | Content | Who consumes it |
 |---|---|---|
 | **GLB + VRM humanoid** | the VRM document saved as `.glb` | OMOBA treats it as humanoid (`VRM`/`VRMC_vrm` present) and retargets its own motion library; embedded clips only through operator aliases (03 §5.3) |
-| **Plain GLB (game clips)** | no `VRMC_vrm`; embedded `idle, walk, attack, cast, death` (+ any slot) | OMOBA's non-VRM path plays embedded clips by name substring; Bevy, Godot, Blender |
+| **Plain GLB (game clips)** | no `VRMC_vrm`; embedded `idle, walk, attack, cast, death` (+ any slot) | OMOBA's non-VRM path plays embedded clips by name substring; Bevy, Godot, the open-source DCC |
 
 OMOBA `validate_humanoid_profile` rules we lint locally (`omoba-bevy/passport/src/lib.rs:131`): non-empty `skins`
 with valid joint indices; no `uri` in `buffers`/`images`; the five clips present with non-empty channels whose
@@ -590,7 +592,7 @@ is for local OMOBA testing and other engines, not for Studio.
 | `vrm-validator` (Apache-2.0, npm `2.0.0-dev.3.10`, a fork of glTF-Validator with VRM 1.0 checks; last published 2024-11) | CI dev dependency only; pinned; replaceable |
 | Read-back: `skeletonFromGltf(written)` equals `skeletonFromDoc(records)` (fingerprint, humanoid map, radii within 1e-4 H); three-vrm `VRMLoaderPlugin` loads it, `humanoid.getRawBoneNode` for all mapped bones, a VRMA clip plays and the T-pose check passes | Vitest (Node GLTFLoader harness from the test kit) |
 | Ekza lints (ADR 0010 table + `skel.*`, `skin.*`, `vrm.meta-required`) | export dialog per profile |
-| Blender VRM add-on (MIT) and UniVRM import smoke | manual / V1 |
+| The open-source DCC's VRM add-on (MIT) and UniVRM import smoke | manual / V1 |
 
 ### 9.5 Model metadata
 
@@ -633,7 +635,7 @@ gives them the same path with a cleanup front end:
    service, never in the browser bundle.
 4. Skin: geodesic voxel binding (§5.5) — the method built for polygon soup — or bone heat on the remeshed proxy plus
    transfer back.
-5. Vendor auto-rig APIs (Meshy, Tripo) return rigged GLBs with Mixamo-like skeletons; they enter through import +
+5. Vendor auto-rig APIs (Meshy, Tripo) return rigged GLBs with common auto-rigger skeletons; they enter through import +
    humanoid inference (FR-IO-13, M2b) + Make editable. Credits per call vary by vendor and are not verified here.
 6. Provenance → `ekza_model_v1.provenance.generator = { kind: 'ai', service }` and the VRM `thirdPartyLicenses`.
 
@@ -679,7 +681,7 @@ VRM export → re-import → VRMA plays; **-06** OMOBA plain GLB with five clips
 | R3 | Vertex duplicates at UV/normal seams tear apart when weights differ | Weld for solving, painting and mirroring; write identical weights to all duplicates |
 | R4 | A-pose assets fail VRM T-pose expectations (Polybot does) | `skel.tpose` lint, Apply Pose as Rest before animating, warning about shifted clips |
 | R5 | Exporting an edited import drops VRM data (spring bones, MToon, expressions) | Skin surgeon for weight-only edits; explicit list of dropped data in the fresh-writer dialog; geometry surgeon later |
-| R6 | Licence violations (editing `modification: prohibited` avatars; GPL/LGPL code entering the MIT repo) | D13 gate; implement from papers (Baran & Popović, Dionne & de Lasa), never from Blender or Pinocchio sources |
+| R6 | Licence violations (editing `modification: prohibited` avatars; GPL/LGPL code entering the MIT repo) | D13 gate; implement from papers (Baran & Popović, Dionne & de Lasa), never from the open-source DCC's or Pinocchio's sources |
 | R7 | Float32 rounding breaks the weight-sum rule (validator threshold 2e-7 × count) | Renormalize after float32 rounding, push the residual into the largest weight; unit test against the validator |
 | R8 | Schema v3 (`CharacterRecord.source`) breaks older apps | `minWriterVersion` bump → older apps open read-only (ADR 0011 §4); migration is pure and idempotent |
 | R9 | Bundle size (three-mesh-bvh, solvers) pushes the editor route past its 900 kB gate | Rig workspace code and the skinning Worker load lazily (the M2a M-2 pattern) |
@@ -728,19 +730,20 @@ Papers
 - Sharp, Crane, "A Laplacian for Nonmanifold Triangle Meshes", SGP 2020: https://diglib.eg.org/handle/10.1111/cgf14069 ; geometry-central (MIT): https://github.com/nmwsharp/geometry-central
 - UniRig, SIGGRAPH 2025 (MIT): https://github.com/VAST-AI-Research/UniRig
 
-Maya documentation (Autodesk)
-- Bind Skin options (bind methods, normalize modes, max influences default 5, falloff 0.2): https://help.autodesk.com/cloudhelp/2019/ENU/Maya-CharacterAnimation/files/GUID-CF2C698A-44BB-4CA0-BCB9-DB36500DA812.htm
-- Geodesic Voxel binding: https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-5EFDB81B-E332-4D6C-B1BB-0B989AD2F2C7.htm
-- Paint Skin Weights tool: https://help.autodesk.com/cloudhelp/2022/ENU/Maya-CharacterAnimation/files/GUID-99189E9D-237F-471E-A02C-BE6593B4828B.htm
-- Mirror Skin Weights: https://help.autodesk.com/cloudhelp/2019/ENU/Maya-CharacterAnimation/files/GUID-27FE7EDB-4078-473A-B001-C9AFAB3A77A3.htm ; Surface Association: https://help.autodesk.com/cloudhelp/2023/ENU/Maya-CharacterAnimation/files/GUID-23A76179-A77B-4595-823D-59EA028F0298.htm ; `copySkinWeights`: https://download.autodesk.com/us/maya/2009help/Commands/copySkinWeights.html
-- Quick Rig: https://help.autodesk.com/cloudhelp/2026/ENU/Maya-CharacterAnimation/files/GUID-6CAEA6C2-D4F9-422D-8E0F-522171B47C35.htm ; Step-by-Step settings: https://help.autodesk.com/cloudhelp/2026/ENU/Maya-CharacterAnimation/files/GUID-DC29C982-D04F-4C20-9DBA-4BBB33E027EF.htm
-- Create joints with Snap to Projected Center: https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-142CB5D5-5609-4D23-B40E-F26FB08A55AB.htm ; Status line: https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Basics/files/GUID-86E5CEDA-4100-40AE-8F95-346206CF8456.htm
+Desktop DCC documentation (vendor help; vendor URLs omitted)
+- Bind Skin options (bind methods, normalize modes, max influences default 5, falloff 0.2), 2019 help
+- Geodesic Voxel binding, 2017 help
+- Paint Skin Weights tool, 2022 help
+- Mirror Skin Weights, 2019 help; Surface Association, 2023 help; `copySkinWeights`, 2009 command reference
+- Quick Rig, 2026 help; Step-by-Step settings, 2026 help
+- Create joints with Snap to Projected Center, 2017 help; Status line, 2026 help
 
-Blender documentation and source (reference only; GPL)
-- Armature Deform Parent, With Automatic Weights ("bone heat"), Blender 5.2 LTS manual: https://docs.blender.org/manual/en/latest/animation/armatures/skinning/parenting.html
-- Weight Paint tools: https://docs.blender.org/manual/en/latest/sculpt_paint/weight_paint/tools.html ; options (Auto Normalize, Lock-Relative, Mirror): https://docs.blender.org/manual/en/latest/sculpt_paint/weight_paint/tool_settings/options.html
-- Snapping to Volume: https://docs.blender.org/manual/en/2.93/editors/3dview/controls/snapping.html
-- Bone heat implementation (`C_WEIGHT 1.0`, weight limits 0.025/0.05, visibility rays, "failed to find solution"): https://projects.blender.org/blender/blender/src/branch/main/source/blender/editors/armature/meshlaplacian.cc
+Open-source DCC documentation and source (reference only; GPL; vendor URLs omitted)
+- Armature Deform Parent, With Automatic Weights ("bone heat"), 5.2 LTS manual
+- Weight Paint tools; options (Auto Normalize, Lock-Relative, Mirror), current manual
+- Snapping to Volume, 2.93 manual
+- Bone heat implementation (`C_WEIGHT 1.0`, weight limits 0.025/0.05, visibility rays, "failed to find solution"):
+  `editors/armature/meshlaplacian.cc` in its source tree (main branch)
 
 Runtimes and libraries
 - three.js r186 `GLTFLoader` (`JOINTS_0`/`WEIGHTS_0` only): https://unpkg.com/three@0.186.1/examples/jsm/loaders/GLTFLoader.js ; `SkinnedMesh` (`applyBoneTransform`, `normalizeSkinWeights`): https://unpkg.com/three@0.186.1/src/objects/SkinnedMesh.js
@@ -748,10 +751,10 @@ Runtimes and libraries
 - three-mesh-bvh 0.9.16 (MIT): https://github.com/gkjohnson/three-mesh-bvh
 - three-vrm 3.5.5 (MIT; loaders only, no exporter) and `@pixiv/types-vrmc-vrm-1.0` 3.5.5: https://github.com/pixiv/three-vrm
 - vrm-validator (Apache-2.0, npm 2.0.0-dev.3.10): https://github.com/mrxz/vrm-validator
-- VRM Add-on for Blender (MIT): https://github.com/saturday06/VRM-Addon-for-Blender ; UniVRM (MIT): https://github.com/vrm-c/UniVRM
+- VRM add-on for the open-source DCC (MIT, by saturday06 on GitHub; URL omitted) ; UniVRM (MIT): https://github.com/vrm-c/UniVRM
 - libigl (MPL-2.0 core, GPL modules): https://github.com/libigl/libigl ; cholesky-solve (MIT, 0.2.1): https://github.com/Erkaman/cholesky-solve
 - meshoptimizer 1.3.0 (MIT): https://github.com/zeux/meshoptimizer ; manifold-3d 3.5.4 (Apache-2.0): https://github.com/elalish/manifold
-- Mixamo auto-rigger marker set (community, secondary): https://community.adobe.com/t5/mixamo-discussions/mixamo-doesn-t-think-i-placed-the-markers-on-my-model/m-p/12215400
+- Marker set of the web auto-rigging service (community forum thread, secondary; URL omitted)
 - Meshy API pricing (auto-rigging per-call credits; not verified here): https://docs.meshy.ai/api/pricing ; Tripo API: https://developers.tripo3d.com/
 
 Local evidence (Ekza umbrella checkout, read-only; commits as in research 03 unless noted)

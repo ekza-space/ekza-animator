@@ -1,8 +1,9 @@
 # AnimX oracle
 
 Golden-value generator for the curve engine of `@ekza-studio/anim-core` (MVP-SPEC §6.3, ADR 0003). It compiles
-[Autodesk AnimX](https://github.com/Autodesk/animx) — the C++ library that evaluates animation curves "in the exact
-same way as Maya" — together with a small adapter, runs deterministic curves through it and writes the results to
+AnimX (from the upstream repository pinned in `generate.mjs`) — the C++ library that evaluates animation curves in
+the exact same way as the desktop DCC it was written for (the host application below) — together with a small
+adapter, runs deterministic curves through it and writes the results to
 `packages/anim-core/test/goldens/animx-goldens.json`. The unit test `test/curve/animx-goldens.test.ts` compares the
 TypeScript port against those values. The oracle is a maintainer tool, not part of CI: the goldens are committed.
 
@@ -25,7 +26,8 @@ pinned to `11c31ac74e526b599031414866db639383c9a5e0` (Apache-2.0; it is compiled
 
 Build flags, and why:
 
-- `-DMAYA_64BIT_TIME_PRECISION`: AnimX's `seconds` type becomes `double`, like the TypeScript engine's frames.
+- The library's 64-bit time-precision define (passed by `generate.mjs`): AnimX's `seconds` type becomes `double`,
+  like the TypeScript engine's frames.
 - `-ffp-contract=off`: no fused multiply-adds, so AnimX's arithmetic rounds exactly like JavaScript's.
 - `-include limits`: `animx/src/internal/math.h` uses `std::numeric_limits` without including `<limits>`.
 
@@ -63,9 +65,9 @@ Tolerances checked by the unit test: values ≤ 1e-9, auto slopes ≤ 1e-12. At 
 
 ## Adapter conventions
 
-AnimX evaluates a curve from per-key tangents `(x, y)` (Maya's `3 · (control point − key)`, x pointing forward in
-time for both sides). The adapter converts Ekza keys exactly as the TypeScript engine resolves them (MVP-SPEC
-§4.11.4):
+AnimX evaluates a curve from per-key tangents `(x, y)` (the host application's `3 · (control point − key)`, x
+pointing forward in time for both sides). The adapter converts Ekza keys exactly as the TypeScript engine resolves
+them (MVP-SPEC §4.11.4):
 
 - `auto`, `autoMix`, `autoEase`: computed by `adsk::autoTangent` (end keys flat via AnimX's `flatTangent`). These
   are what the slope goldens check.
@@ -75,17 +77,17 @@ time for both sides). The adapter converts Ekza keys exactly as the TypeScript e
   these, so the adapter applies the engine's rules (`x` = span to the neighbour, `y` = slope · span). Their goldens
   validate segment evaluation and infinities, not the tangent rules; the rules have their own unit and property
   tests (`test/curve/tangents.test.ts`, `span-rules.test.ts`).
-- Span flag: a span is linear iff the start key's out side and the end key's in side are both linear. (AnimX's Maya
-  test plugin also marks a span linear when the start key's *in* side and its previous key's out side are linear;
-  MVP-SPEC §4.11.4 does not, and neither does the adapter.)
-- `isStatic()` is always false (a static Maya curve evaluates the same values).
+- Span flag: a span is linear iff the start key's out side and the end key's in side are both linear. (AnimX's
+  host-application test plugin also marks a span linear when the start key's *in* side and its previous key's out
+  side are linear; MVP-SPEC §4.11.4 does not, and neither does the adapter.)
+- `isStatic()` is always false (a static curve in the host application evaluates the same values).
 
 ## Known deviations of the port from AnimX (not covered by the goldens)
 
 | AnimX | Port | Why |
 |---|---|---|
 | Single-key curve with a non-constant infinity evaluates to 0 (`range == 0`). | The key value, or value + slope·Δt for linear infinity. | 0 is an artifact of the zero range; the key value is the limit. |
-| Mapped cyclic infinity times are rounded to Maya ticks (`toTickDoubleTime`). | A mapped time within the mapping's rounding-error bound (1e-12 · max(1, \|time\|, \|first\|, \|last\|)) of a key is snapped onto the key; otherwise no rounding. | Ticks model Maya's seconds; the engine works in frames. The rounding matters where the exact mapped time is a key: left unrounded, it can come out a hair past the key (58 → 10.000000000000002 for keys 3…27), and a step-next span then returns the next key's value. The snap reproduces AnimX there, and on tick-aligned times (all goldens) both agree. Off the tick grid, on smooth spans the port differs from AnimX by at most the slope times half a tick (3.5e-9 frames) and is the more exact of the two; within half a tick after a step-next key AnimX still returns the key's value, the port (like in-range evaluation, in both) the next key's. |
+| Mapped cyclic infinity times are rounded to the host application's ticks (`toTickDoubleTime`). | A mapped time within the mapping's rounding-error bound (1e-12 · max(1, \|time\|, \|first\|, \|last\|)) of a key is snapped onto the key; otherwise no rounding. | Ticks model the host application's seconds; the engine works in frames. The rounding matters where the exact mapped time is a key: left unrounded, it can come out a hair past the key (58 → 10.000000000000002 for keys 3…27), and a step-next span then returns the next key's value. The snap reproduces AnimX there, and on tick-aligned times (all goldens) both agree. Off the tick grid, on smooth spans the port differs from AnimX by at most the slope times half a tick (3.5e-9 frames) and is the more exact of the two; within half a tick after a step-next key AnimX still returns the key's value, the port (like in-range evaluation, in both) the next key's. |
 | A non-weighted tangent with `x = 0` has slope 0. | Fixed handles keep at least 1e-6 frames of `dt`, so a vertical handle is very steep. | MVP-SPEC §4.11.4 (`|dt| ≥ 1e-6`). |
 | Slopes are derived from control points as `ty / tx`. | Slopes are resolved directly. | Same value up to rounding (≤ 1e-14 relative). |
 

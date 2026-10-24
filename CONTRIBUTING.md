@@ -119,15 +119,16 @@ libvips) is never installed.
 
 ## Licensing rules
 
-- The code is MIT; `packages/anim-core/src/curve/animx/**` is an Apache-2.0 port of Autodesk AnimX with per-file
-  headers; fixtures keep their own licences ([fixtures/LICENSES.md](fixtures/LICENSES.md)).
+- The code is MIT; `packages/anim-core/src/curve/animx/**` is an Apache-2.0 port of AnimX with per-file headers
+  (see `packages/anim-core/NOTICE`); fixtures keep their own licences ([fixtures/LICENSES.md](fixtures/LICENSES.md)).
 - **Clean-room rule**: never copy code from GPL, AGPL, LGPL, SSPL, unlicensed or proprietary projects (for example
-  copyleft web animators, Blender, `@theatre/studio`, `dockview-enterprise`). Re-implementing a *feature* from its
-  documented behaviour is fine.
+  copyleft web animators, copyleft DCCs, `@theatre/studio`, `dockview-enterprise`). Re-implementing a *feature* from
+  its documented behaviour is fine.
 - Code copy-adapted from MIT sources starts with an attribution header:
   `// Adapted from <repo>/<path> @ <commit> (MIT, © <holder>). Changes: <summary>.`
 - Every binary fixture needs a row in `fixtures/LICENSES.md` with source, licence and SHA-256 (`pnpm check:fixtures`).
-  Mixamo clips and avatars whose VRM meta forbids redistribution never enter the repository.
+  Clips from web auto-rigging services whose terms forbid redistribution, and avatars whose VRM meta forbids
+  redistribution, never enter the repository.
 
 ## Code style
 

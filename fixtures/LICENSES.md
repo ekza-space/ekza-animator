@@ -68,6 +68,7 @@ the clip-library package (C12).
 - Avatars whose embedded VRM meta forbids modification or redistribution, even if a
   collection-level listing says otherwise. Example: the NeonGlitch86 "SHAPEY" VRM 1.0
   (`ekza-avatar-renderer` test fixture) declares `modification: prohibited` and
-  `commercialUsage: personalNonProfit`, and carries an embedded Mixamo clip.
-- Mixamo animations or any clip that is not redistributable as a standalone file.
+  `commercialUsage: personalNonProfit`, and carries an embedded clip from a web auto-rigging service whose terms
+  forbid standalone redistribution.
+- Clips from web auto-rigging services, or any clip that is not redistributable as a standalone file.
 - CC-BY assets without an attribution entry above.

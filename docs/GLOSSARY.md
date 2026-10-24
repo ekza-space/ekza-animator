@@ -1,12 +1,12 @@
 # Glossary
 
-Short definitions of terms used across the Ekza Studio docs and code. Maya and Blender names are used
+Short definitions of terms used across the Ekza Studio docs and code. Terms shared by common DCC tools are used
 descriptively.
 
 | Term | Meaning |
 |---|---|
-| **AnimX** | Autodesk's Apache-2.0 C++ library that evaluates animation curves "the same way as Maya". Ported to TypeScript in `anim-core`; the C++ build is the golden-test oracle. |
-| **Auto-key** | When on, editing a channel keys it at the current frame. Maya rule: only channels that already have curves; preference "all" keys everything. |
+| **AnimX** | The Apache-2.0 C++ library that evaluates animation curves the same way as a leading commercial desktop DCC. Ported to TypeScript in `anim-core`; the C++ build is the golden-test oracle. |
+| **Auto-key** | When on, editing a channel keys it at the current frame. Default rule: only channels that already have curves; preference "all" keys everything. |
 | **Auto Rig (control rig, M6b)** | No hyphen. The generator that creates controls from a skeleton: humanoid FK rig for VRM (IK legs, FK arms on model characters), 1:1 FK rig for generic skeletons; regenerated inside every skeleton edit (`rig.autoRig.update`, `AUTORIG_OPERATORS`, `writeAutoRigUpdate` in `editor-core/src/operators/builtin/rig/autorig.ts`). Not the Auto-Rig mode. |
 | **Auto-Rig mode** | Hyphenated. The simple five-step wizard at `/autorig` (Model, Markers, Rig, Animations, Export) — a second shell over the same `EditorApp`, document and undo history as Studio, chosen on the landing page ([AUTORIG-SPEC](AUTORIG-SPEC.md), ADR 0021). Its composition operators are `autorig.*` (lower case, a dot after the prefix), listed as `WIZARD_OPERATORS` from `operators/builtin/rig/wizard/`; its package is `@ekza-studio/autorig`. *Auto-rig* (lower case) is also the ② → ③ button that runs `autorig.rig`. |
 | **Chooser** | The landing page `/`: two cards, *Start Auto-Rig* and *Open Studio*, with *Remember my choice* (`localStorage['ekza-studio:entry:v1']`); `/?chooser=1` shows it regardless. |
@@ -20,9 +20,9 @@ descriptively.
 | **Canonical character space** | VRM 1.0 convention used by the rig: +Y up, +Z forward, character's left = +X, metres. VRM 0.x models are rotated by π about Y (`facing`) to match. |
 | **Change batch** | The record-level before/after list a transaction (or preview update) emits, with its origin (`local`, `undo`, `remote`, …) and, for field-merge updates, the changed fields. |
 | **Channel** | One scalar animatable value of a control: `tx ty tz rx ry rz sx sy sz` or a custom `@attr`. One curve per channel. |
-| **Channel Box** | Maya-style panel listing the selected controls' channels with numeric fields and keyed/changed/locked colours. |
+| **Channel Box** | DCC-style panel listing the selected controls' channels with numeric fields and keyed/changed/locked colours. |
 | **Claim** | Collaboration (M3): a soft lock announced through presence ("Alice is animating the left arm"). Advisory, never blocks offline users; structural clip operations need an exclusive claim. |
-| **Clip** | A named animation of one character (glTF `animation`, Blender action). Owns layers, curves and keys; has its own fps, range, scene start, loop flag, root-motion mode, contact frame, tags and provenance. |
+| **Clip** | A named animation of one character (glTF `animation`; an "action" in some DCCs). Owns layers, curves and keys; has its own fps, range, scene start, loop flag, root-motion mode, contact frame, tags and provenance. |
 | **Clip frame / scene frame** | Clip frame: time in the clip's own fps (what the ruler and Graph Editor show). Scene frame: the shared clock at the project's scene fps; `clipFrame = (sceneFrame − sceneStart)·clipFps/sceneFps`. |
 | **cog** | "Centre of gravity" control: a pure space (translate + rotate) above the pelvis and spine; it drives no bone itself. |
 | **Compiled curve** | Typed-array form of a curve (times, values, resolved slopes and handles, segment kinds) built from key records for fast evaluation and drawing. |
@@ -31,7 +31,7 @@ descriptively.
 | **Control shape** | The drawn geometry of a control, a `SplineSet` from the control-shape registry (the same type future spline modeling uses). |
 | **CRDT** | Conflict-free replicated data type (Yjs) used for real-time collaboration from M3. |
 | **D / U / P** | State scopes. **D**ocument: saved, undoable, shared. **U**ser session: selection, current time, view cameras, overrides. **P**references: local per user. |
-| **DCC rotate order** | Maya/Blender naming where the first letter is applied first (`xyz` = X first = three.js `'ZYX'`). Stored per control. |
+| **DCC rotate order** | Common DCC naming where the first letter is applied first (`xyz` = X first = three.js `'ZYX'`). Stored per control. |
 | **DCO** | Developer Certificate of Origin: contributors certify their right to submit code with a `Signed-off-by:` line, checked in CI. |
 | **Edit kernel** | The editor-core helpers every writer uses (`applyChannelEdits`, `beginChannelEditGesture`, `moveKeys`, `scaleKeys`, `setKeyHandle`, …), so operators, tools and panels follow identical keying rules. |
 | **Editor history** | The undo/redo stack the user sees: document undo entries interleaved with unkeyed override edits (ADR 0013). |
@@ -50,7 +50,7 @@ descriptively.
 | **M1-stretch** | MVP items built only if time remains (plateau tangents, mesh-click picking, Space-hold radial, …); their tests are `test.fixme` until done. |
 | **Merge unit** | The unit of last-writer-wins merge and of compare-before-restore undo: whole record for keys and assets, top-level field for every other table. |
 | **Normalized humanoid space / `N_b`** | three-vrm/VRMA convention: a rest-relative, world-aligned local rotation per humanoid bone, portable across avatars. Computed from bone world deltas: `N_b = D_parent⁻¹·D_b`. three-vrm's normalized space for VRM 0.x faces −Z, so it sees `flipYaw(N_b)`. |
-| **Offset group / zero group (`O_c`)** | Transform between a control's parent and its rest placement, so the control's channels read zero at rest (Maya offset group / `offsetParentMatrix`). |
+| **Offset group / zero group (`O_c`)** | Transform between a control's parent and its rest placement, so the control's channels read zero at rest (desktop-DCC offset group / `offsetParentMatrix`). |
 | **Operator** | A named, parameterized, optionally undoable action (`key.set`, `graph.tangent.set`) with an async `prepare` and a synchronous `apply`. Every UI surface, hotkey and test calls operators. |
 | **Override (pose override)** | Session-only (U) channel value on a keyed channel edited with auto-key off; discarded on frame change, undoable through the editor history, turned into keys by `S`. |
 | **P0–P3** | Collaboration phases of research 06 (local, sync, Ekza auth, per-user layers). Not to be confused with Ekza tiers T0–T3. |
@@ -71,7 +71,7 @@ descriptively.
 | **SkeletonDesc** | Pure-data description of a model's node hierarchy, rest transforms, humanoid map, spring joints, node constraints, bone radii, height and facing, extracted from glTF JSON and BIN. |
 | **Slot** | Ekza clip vocabulary name (`idle`, `walk`, `attack`, `cast`, `death`, `wave`, …) used as the exported animation name. |
 | **Spring bones** | VRM physics chains (hair, cloth) simulated at runtime; preview only, never baked. |
-| **Static value** | Maya's static attribute value: the value of a channel that has no keys (stored on the curve record, per clip). |
+| **Static value** | Static attribute value (desktop-DCC term): the value of a channel that has no keys (stored on the curve record, per clip). |
 | **Structural clip operation** | An edit that rewrites many key records (fps change, rotate-order change); needs an exclusive claim once collaboration exists. |
 | **Surgeon** | The append-only GLB patcher: adds animations to the original file without moving any existing JSON index or BIN byte, so VRM data, materials and compression survive; its marker allows a safe rollback on re-bake. |
 | **Template key** | Deterministic name of an auto-rig control (`fk.upperArm.L`); part of the control ID and the key for pasting poses across characters. |

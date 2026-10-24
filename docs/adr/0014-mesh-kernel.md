@@ -3,7 +3,7 @@
 - Status: Accepted (2026-10-19, with [M6A-SPEC](../M6A-SPEC.md) v1.0; proposed 2026-10-18, revised 2026-10-19 after
   the design review, MODELING-PLAN §12). The normative contracts are M6A-SPEC §4; where a sketch here differs,
   the spec wins (its §12.2 lists the refinements).
-- Inputs: research [13](../research/13-mesh-kernel.md) (K1–K14, measurements §8), [10](../research/10-maya-poly-modeling.md)
+- Inputs: research [13](../research/13-mesh-kernel.md) (K1–K14, measurements §8), [10](../research/10-dcc-poly-modeling.md)
   §4–§5, [12](../research/12-lowpoly-workflow.md) §4–§5, [14](../research/14-skinning-own-models.md) §8.1,
   [08](../research/08-extensibility-modeling.md) §9.8; [MODELING-PLAN](../MODELING-PLAN.md) §3.2; ADRs 0002, 0005, 0006,
   0008, 0009.
@@ -15,10 +15,10 @@ bridge, merge/weld, mirror, symmetry, soft selection, hard/soft edges. Typical m
 stay interactive. The same kernel must edit **imported** GLB/VRM meshes (split vertices, double-sided hair and lash
 cards, bow-tie vertices, duplicate faces, flipped winding), keep skin weights, morph targets, UVs and colours valid
 through every edit (the bridge to animation), run headless in Node for tests, give exact one-step undo within the
-5 ms budget, support Blender-style "adjust last operation" and stay out of the CRDT at vertex granularity (research 06
-D8, 08 trap 10). No maintained JavaScript library offers a BMesh-class structure with attribute layers and undo
-(13 §6): the half-edge libraries are unmaintained or young, object-per-element, coupled to three.js and mostly
-manifold-only; Blender and Blockbench are GPL.
+5 ms budget, support "adjust last operation" (undo the last step and re-run it with new args) and stay out of the
+CRDT at vertex granularity (research 06 D8, 08 trap 10). No maintained JavaScript library offers a BMesh-class
+structure with attribute layers and undo (13 §6): the half-edge libraries are unmaintained or young,
+object-per-element, coupled to three.js and mostly manifold-only; a popular open-source DCC and Blockbench are GPL.
 
 ## Decision
 
@@ -49,14 +49,14 @@ manifold-only; Blender and Blockbench are GPL.
    `joinEdgeKillVert`, `splitFaceMakeEdge`, `joinFaceKillEdge`, `reverseFace`, value setters) are the only topology
    API; all tools compose them.
 7. **Operations are pure and deterministic**: `run(mesh, selection, args, ctx) → { selection′, warnings, frame? }`
-   writing only through the log; JSON args with Maya node parameter names where they exist (`thickness`,
-   `localTranslate`, `divisions`, `fraction`, `segments`, `mergeThreshold`…). Each op declares `params: ParamDef[]`
-   (type in anim-core, with `bound: 'selection' | 'pointer' | 'value'`); its JSON schema, defaults and the editor's
-   operator params are derived from that list (ADR 0016). Operations that create or delete meshes are
-   **`MeshSetOp`s**: kernel helpers `copySubset` and `appendMesh` return layer, material-slot, palette-slot, morph
-   and joint-palette remaps, and the editor-core runner applies N ref patches and record creations/deletions in one
-   transaction with deterministic record ids; they refuse different skeletons, mixed asset-backed/authored inputs and
-   (in M6a) Combine/Separate/Extract on asset-backed meshes. No randomness,
+   writing only through the log; JSON args with the node parameter names of a leading commercial desktop DCC where
+   they exist (`thickness`, `localTranslate`, `divisions`, `fraction`, `segments`, `mergeThreshold`…). Each op
+   declares `params: ParamDef[]` (type in anim-core, with `bound: 'selection' | 'pointer' | 'value'`); its JSON
+   schema, defaults and the editor's operator params are derived from that list (ADR 0016). Operations that create or
+   delete meshes are **`MeshSetOp`s**: kernel helpers `copySubset` and `appendMesh` return layer, material-slot,
+   palette-slot, morph and joint-palette remaps, and the editor-core runner applies N ref patches and record
+   creations/deletions in one transaction with deterministic record ids; they refuse different skeletons, mixed
+   asset-backed/authored inputs and (in M6a) Combine/Separate/Extract on asset-backed meshes. No randomness,
    no iteration over float-keyed maps, ties broken by the smaller index, integer spatial hashing, shared float
    formulas; Node and Chromium must produce identical revision hashes. An op that cannot keep the §3.5 invariants of
    research 13 **refuses with a reason**; it never emits invalid topology. `validateMesh` runs in tests, after every
@@ -69,19 +69,19 @@ manifold-only; Blender and Blockbench are GPL.
    diagonal, ties to the lower corner index, overridden by the per-face flip flag; n-gons by `earcut` on the Newell
    plane. Cached per face, so exports are deterministic and match the viewport.
 10. **Normals**: Newell face normals; corner normals are angle-weighted averages over the smooth fan bounded by hard,
-    boundary and non-manifold edges (Maya's hard/soft-edge model; the edge flag is the stored intent). Imported
-    normals are kept as `normal.custom` until an op touches those corners. **Hard-flag propagation is one rule for
-    every op**: edges created inside a former face are hard when all of that face's edges were hard; side and strip
-    edges follow the op's `smoothingAngle`, resolved at invoke time to 0° on meshes flagged `faceted` and 30°
-    otherwise; merged edges keep hard if either was hard. An all-hard mesh stays all-hard (property test).
+    boundary and non-manifold edges (the desktop DCC's hard/soft-edge model; the edge flag is the stored intent).
+    Imported normals are kept as `normal.custom` until an op touches those corners. **Hard-flag propagation is one
+    rule for every op**: edges created inside a former face are hard when all of that face's edges were hard; side
+    and strip edges follow the op's `smoothingAngle`, resolved at invoke time to 0° on meshes flagged `faceted` and
+    30° otherwise; merged edges keep hard if either was hard. An all-hard mesh stays all-hard (property test).
 11. **Precision**: float32 storage, float64 arithmetic, every write through `Math.fround`, so what is shown, saved and
     restored is bit-identical.
 12. **Libraries**: depend on `earcut` 3.x (ISC) and `robust-predicates` 3.x (Unlicense, through a reviewed entry in
     `tooling/license-exceptions.json`; fallback: port the four predicates) in `mesh-core`; `three-mesh-bvh` 0.9.x
     (MIT) in `mesh-view`; later `meshoptimizer` 1.3.x (MIT), `manifold-3d` (Apache-2.0) and `xatlas` behind lazy
     worker adapters (`Decimator`, `BooleanSolver`, `UvAtlas`) in `mesh-wasm`. The kernel, every modeling op, LSCM, the
-    packer and skinning maths are implemented in-house, clean-room: Blender, LoopTools and Blockbench (GPL) and
-    Pinocchio's library (LGPL) are design and sizing references only.
+    packer and skinning maths are implemented in-house, clean-room: the open-source DCC, LoopTools and Blockbench
+    (GPL) and Pinocchio's library (LGPL) are design and sizing references only.
 13. **Packages**: `mesh-core` (headless; imports anim-core, `earcut`, `robust-predicates`; never three, React, DOM, doc
     or WASM), `mesh-view` (three overlays and picking; never React or editor-core), `mesh-wasm` (lazy adapters, M7).
     `doc` gains the mesh tables, `io` the glTF bridge, `editor-core` the `MeshRuntime`, `viewport` the hosting of
@@ -113,11 +113,11 @@ manifold-only; Blender and Blockbench are GPL.
 | Alternative | Why not |
 |---|---|
 | Half-edge structure (OpenMesh, pmp, CGAL `Surface_mesh`, JS ports) | Rejects non-manifold input: OpenMesh's `add_face` silently drops faces with a "complex edge/vertex", so a VRoid avatar would lose its double-sided hair and lash cards (13 §2.1) |
-| Indexed face-vertex arrays with adjacency caches only (Blender `Mesh`, glTF-like) | Fine for storage (it is our stored subset), but every local topology edit becomes an O(n) array rebuild without the edit links |
+| Indexed face-vertex arrays with adjacency caches only (the open-source DCC's `Mesh`, glTF-like) | Fine for storage (it is our stored subset), but every local topology edit becomes an O(n) array rebuild without the edit links |
 | String-keyed per-element dictionaries (Blockbench) | Stable IDs cheaply, but every adjacency query is a scan, 25k–100k strings per mesh, and GPL code we may not reuse |
 | Objects per element | GC pressure and memory at 50k triangles |
-| Hand-written inverse per tool for undo | Maya's documented weak point; the write log gives exact undo for free and drives incremental caches and chunk hashing |
-| Construction history (Maya node chain) | Index-fragile, fights skinning ("Delete Non-Deformer History"), needs per-op dirty propagation and a fine collaboration model (10 §5) |
+| Hand-written inverse per tool for undo | The desktop DCC's documented weak point; the write log gives exact undo for free and drives incremental caches and chunk hashing |
+| Construction history (desktop-DCC node chain) | Index-fragile, fights skinning ("Delete Non-Deformer History"), needs per-op dirty propagation and a fine collaboration model (10 §5) |
 | Compile an existing C++ kernel to WASM | The available permissive kernels are half-edge (same input problem); attribute layers, the write log and determinism rules would still have to be written, behind a WASM boundary crossed on every edit |
 | GPU ID-buffer picking by default | Readback stalls and a frame of latency; misses sub-pixel elements; CPU picking is exact and testable (ARCHITECTURE Appendix A #10) |
 | Per-vertex CRDT / per-component records | See ADR 0015 |

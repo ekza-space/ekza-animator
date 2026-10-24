@@ -2,7 +2,7 @@
 
 - Status: Accepted (2026-10-17); revised 2026-10-17 after the design review (rev. 2)
 - Inputs: research [04](../research/04-web-stack.md) §5, [09](../research/09-ui-ux-spec.md) §4.7, §4.9, §5.1, §13.3,
-  [01](../research/01-maya-animation-features.md) §3.2, §3.5, §5.2, [05](../research/05-landscape.md) §3.5,
+  [01](../research/01-dcc-animation-features.md) §3.2, §3.5, §5.2, [05](../research/05-landscape.md) §3.5,
   [08](../research/08-extensibility-modeling.md) §9.3.
 
 ## Context
@@ -11,7 +11,8 @@ The Graph Editor is the owner's highest-priority interaction surface (pen-like h
 tangents). SVG degrades with dense curves (Babylon ACE); WebGL makes text, dashes and hit-testing harder. 04
 proposes adaptive per-pixel sampling; 01 and 09 note that both segment kinds are exact cubic Béziers in the
 `(t, v)` plane under an affine view transform. The design review found that the MVP had no practical way to
-retime poses (no Dope Sheet, a display-only time slider) and that several Maya Graph Editor habits were missing.
+retime poses (no Dope Sheet, a display-only time slider) and that several Graph Editor habits of a leading commercial
+desktop DCC were missing.
 
 ## Decision
 
@@ -34,14 +35,14 @@ retime poses (no Dope Sheet, a display-only time slider) and that several Maya G
 6. **Interaction controller** per editor: `idle → pressed → (dragKeys | dragHandle | marquee | pan | zoom |
    insert) → commit | cancel`. Drags run in a document preview session through the editor-core edit kernel (one
    history step, Esc cancels). Shift-drag locks to the dominant axis after 4 px. Key times snap to integer frames
-   by default. **Maya habits**: MMB-drag anywhere moves the current key/handle selection (Shift constrains);
+   by default. **Desktop-DCC habits**: MMB-drag anywhere moves the current key/handle selection (Shift constrains);
    double-click on a curve selects all its keys; `F`/`A` frame selection/all; Space tap maximizes the Graph
-   Editor's dockview group. **Navigation follows the navigation profile**, not the keymap: Maya — wheel zoom
+   Editor's dockview group. **Navigation follows the navigation profile**, not the keymap: DCC — wheel zoom
    (Shift value axis, Alt time axis), Alt+MMB pan, Alt+RMB zoom; Trackpad — two-finger scroll pan, Ctrl+wheel
    (pinch) zoom with Alt/Shift for one axis.
 7. **The time slider** reuses the culling and painter modules and is an editing surface, not only a display:
    ruler, key ticks of the selected controls (the MVP "summary row"), playhead, scrub, playback range, auto-key
-   red border, and **Maya range editing** — Shift+click selects a frame, Shift+drag a range band (selecting the
+   red border, and **DCC-style range editing** — Shift+click selects a frame, Shift+drag a range band (selecting the
    keys of the target controls in it); dragging the band's middle moves those keys, dragging its ends scales them;
    RMB offers delete, copy, paste and tangent types. Each drag is one history step. This is the M1 retiming tool;
    the full Dope Sheet stays V1.

@@ -36,13 +36,13 @@ systems. §16 lists what else is deferred.
 
 | # | Decision | Reason |
 |---|---|---|
-| K1 | **A constraint drives a control's zero frame, never its channels.** The zero frame `Z_c` is Maya's offset group. The control's world stays `W_c = Z_c · L_c`, so a constrained control can still be animated. | This is Maya best practice for constraining the offset group, and research 07 §7 says the same. No pairBlend node is needed. The viewport gizmo already derives the frame as `W · L⁻¹` (`viewport/src/manipulators/drag.ts`), so it works on constrained controls unchanged. |
+| K1 | **A constraint drives a control's zero frame, never its channels.** The zero frame `Z_c` is the offset group of a leading commercial desktop DCC ("the desktop DCC" below). The control's world stays `W_c = Z_c · L_c`, so a constrained control can still be animated. | This is desktop-DCC best practice for constraining the offset group, and research 07 §7 says the same. No pairBlend node is needed. The viewport gizmo already derives the frame as `W · L⁻¹` (`viewport/src/manipulators/drag.ts`), so it works on constrained controls unchanged. |
 | K2 | **Four built-in rig ops**, `constraint:parent`, `constraint:point`, `constraint:orient` and `constraint:aim`, registered by `registerBuiltinRigOps`. They use the shipped `ConstraintRecord` with typed `params` (v1). **The record shape does not change.** | This is how M2a added `ik2` on top of `SolverRecord.params`. Nothing changes in the schema or in validation. |
-| K3 | **Three offset modes, read from existing fields.** `maintainOffset: true` without a stored offset derives the offset from the rest pose (the default). With a stored `targets[k].offset` it uses that offset, captured at a frame. `maintainOffset: false` snaps. | Rest-derived offsets are deterministic and survive joint edits (`rig.autoRig.update`, M6b). Capturing at the current frame is what Maya and Blender's "Set Inverse" do. |
-| K4 | **Target weights and the blend are attribute channels on a holder control** (by default the driven control): `@<key>.<target>` and `@<key>.blend`. They are `keyAll: false`, like `ikFk`. Constraints without a holder (for example on a bare bone) use the static record weights. | Curves exist only on controls (ADR 0004 §1). Maya keys `targetWeight` the same way, and Blender keys Influence. Attribute slots, sampling, the Graph Editor and undo already handle `@name` channels (M2A §5.1). |
-| K5 | **Blending.** Translations are averaged with weights. Rotations use a sequential, hemisphere-aligned, normalized weighted sum (Maya's **Average**, the default), or slerp for two targets (Maya's **Shortest**). There is no **No Flip**, **Longest** or **Cache**. | Evaluation is stateless (research 07 D3). Maya documents that No Flip needs history. |
+| K3 | **Three offset modes, read from existing fields.** `maintainOffset: true` without a stored offset derives the offset from the rest pose (the default). With a stored `targets[k].offset` it uses that offset, captured at a frame. `maintainOffset: false` snaps. | Rest-derived offsets are deterministic and survive joint edits (`rig.autoRig.update`, M6b). Capturing at the current frame is what the desktop DCC does, and what "Set Inverse" does in a popular open-source DCC ("the open-source DCC" below). |
+| K4 | **Target weights and the blend are attribute channels on a holder control** (by default the driven control): `@<key>.<target>` and `@<key>.blend`. They are `keyAll: false`, like `ikFk`. Constraints without a holder (for example on a bare bone) use the static record weights. | Curves exist only on controls (ADR 0004 §1). The desktop DCC keys `targetWeight` the same way, and the open-source DCC keys Influence. Attribute slots, sampling, the Graph Editor and undo already handle `@name` channels (M2A §5.1). |
+| K5 | **Blending.** Translations are averaged with weights. Rotations use a sequential, hemisphere-aligned, normalized weighted sum (the desktop DCC's **Average**, the default), or slerp for two targets (its **Shortest**). There is no **No Flip**, **Longest** or **Cache**. | Evaluation is stateless (research 07 D3). The desktop DCC documents that No Flip needs history. |
 | K6 | **Schedule rules.** Op→op edges follow the data: a writer always runs before its reader. Ops that write the same world run solvers first, then constraints. A constraint that writes something a solver also writes is disabled. A cycle through a constraint disables that constraint only. | This fixes three gaps in today's compiler (§1, gaps A and B). A user's constraint must never disable leg IK or detach a control. |
-| K7 | **Bake to keys** samples every integer frame and solves controls top-down. It uses `eulerNear` and the Euler filter, then disables the constraint by default, in one undo step. **Export needs no bake step**: every exporter already samples the kernel. Two fixes are needed so that it stays correct (gaps C and D). | Same behaviour as Maya's `bakeResults -simulation` and Blender's Bake Action with Visual Keying. Exports stay exact. |
+| K7 | **Bake to keys** samples every integer frame and solves controls top-down. It uses `eulerNear` and the Euler filter, then disables the constraint by default, in one undo step. **Export needs no bake step**: every exporter already samples the kernel. Two fixes are needed so that it stays correct (gaps C and D). | Same behaviour as the desktop DCC's `bakeResults -simulation` and the open-source DCC's Bake Action with Visual Keying. Exports stay exact. |
 | K8 | **Authoring constraints are never written as `VRMC_node_constraint`.** They are always baked into bone tracks. | The VRM extension allows one source per constraint, rotation only, and blends weight from the rest pose. It cannot express what we evaluate. |
 | K9 | **Space switching (stretch)** is a parent constraint in **select** mode. A stepped enum `@space` picks the target, and rest-derived offsets reproduce research 07 §11's `O_{c,s}` exactly. Switch-with-match reuses the M2a IK/FK key policy. | Needs no `ControlRecord.spaceSwitch` field, which the shipped schema never got. One op serves both blended and discrete spaces. |
 | K10 | **Shapes stay `ControlShape`** (a `SplineSet`, `poly` or `bezier`). Transforming the whole shape writes `offset` and `size`, so the kind stays parametric. Editing CVs converts the shape to `custom`. One optional field, `edited`, lets `rig.autoRig.update` keep user edits. Shape edits never key and never recompile the program. | FR-RIG-13 acceptance: "shape change undoable; no keys created". The kernel never reads `shape`. |
@@ -124,9 +124,9 @@ systems. §16 lists what else is deferred.
 
 ## 2. Reference behaviour (verified 2026-10-19)
 
-| Topic | Maya | Blender | Ours |
+| Topic | Desktop DCC | Open-source DCC | Ours |
 |---|---|---|---|
-| Maintain offset | `maintainOffset`: "the position and rotation of the constrained object will be maintained" (parentConstraint command). Per-target `targetOffsetTranslate`/`Rotate` "in target's local space" (parentConstraint node). | Child Of **Set Inverse** / **Clear Inverse** (Blender manual) | Rest-derived offset by default. **Update Offset** captures one at the current frame (K3). |
+| Maintain offset | `maintainOffset`: "the position and rotation of the constrained object will be maintained" (parentConstraint command). Per-target `targetOffsetTranslate`/`Rotate` "in target's local space" (parentConstraint node). | Child Of **Set Inverse** / **Clear Inverse** (its manual) | Rest-derived offset by default. **Update Offset** captures one at the current frame (K3). |
 | Skip axes | `skipTranslate` / `skipRotate`: "the axis specified [is] not to be considered when constraining" | Per-axis toggles | Per axis: translation in the parent frame, rotation per Euler axis in the control's rotate order (§3.4) |
 | Weights | `targetWeight` defaults to 1 and is keyable. Docs example: "setting and keying the target weights lets you anchor in time the amount of influence" | **Influence** is keyable, "to change over time which target object will be considered the parent" | Attribute channels on the holder (K4) |
 | Rotation mix | `interpType`: No Flip, Average, Shortest, Longest, Cache. The documented default is 1 (Average when counted from No Flip = 0). Average "can cause flipping since the previous result is not taken into consideration". | — | `average` (default) and `shortest`. No Flip and Cache need history (research 07 §7) |
@@ -152,7 +152,7 @@ vectors, and `A·B` meaning B is applied first. All worlds are in canonical char
 
 ```
 L_c   = T(t) · R(r; order) · S(s)            channels of control c (ChannelBuffer slots 9c…9c+8)
-Z_c   = zero frame of c (Maya offset group); unconstrained: Z_c = W_p · O_c   (W_p = I for root controls)
+Z_c   = zero frame of c (desktop-DCC offset group); unconstrained: Z_c = W_p · O_c   (W_p = I for root controls)
 W_c   = Z_c · L_c                             the control's world, as today
 rest  : Z⁰_c = W⁰_c                           channels at their defaults
 bone  : Z_b = W_b                             a constraint on a bone replaces the bone's world
@@ -195,8 +195,8 @@ The op writes the **constrained frame** `Z` and then `W_c = Z · L_c` (or `W_b =
 `P` is the **parent frame** of the zero frame: `W_p` (the identity for root controls) or, for a bone, the parent bone
 world (the facing frame for roots).
 
-- The parent offset is in target-local space and the point offset in the parent frame. Both match the Maya node
-  documentation.
+- The parent offset is in target-local space and the point offset in the parent frame. Both match the desktop DCC's
+  node documentation.
 - **Rest exactness.** At default channels and default attributes, every rest-derived constraint gives `Z = Z⁰`. With
   the parent type, `C_i = W⁰_ti · (W⁰_ti)⁻¹ · Z⁰`. Bone locals then equal the rest within 1e-9, the FR-RIG-02 gate
   (§14).
@@ -216,8 +216,8 @@ Blend: `b = clamp(@<key>.blend, 0, 1)` when `params.blend` is set, else 1.
 `Σ = Σ w_i`. **If `b · Σ = 0`, `run` returns `false`.** Nothing is written, the kernel re-reads nothing and the pose is
 bit-identical to a program without the constraint, as with `ik2` at `ikFk` 0. Otherwise `ŵ_i = w_i / Σ`.
 
-Weights are normalized and never padded to a "rest position". Maya can pull towards `restPosition` when weights sum
-below 1; we use the blend for fading instead.
+Weights are normalized and never padded to a "rest position". The desktop DCC can pull towards `restPosition` when
+weights sum below 1; we use the blend for fading instead.
 
 ```
 t = Σ ŵ_i t_i                                                  // parent: t(C_i); point: p_i; aim: target points
@@ -237,8 +237,8 @@ Why sequential alignment against the running sum, and not against "the first tar
   close targets, aligning to it would cancel them.
 - A target entering from weight 0 contributes continuously.
 - Signs can still flip when the active targets differ by about 180° in rotation (4D dot ≈ 0). That ambiguity is
-  inherent to stateless averaging, and Maya documents the same for Average. The Attributes panel warns when two active
-  targets differ by more than 120°.
+  inherent to stateless averaging, and the desktop DCC documents the same for Average. The Attributes panel warns when
+  two active targets differ by more than 120°.
 
 The normalized weighted sum approximates the optimal average, which is the eigenvector of `Σ w_i q_i q_iᵀ` (Markley et
 al. 2007), when targets are close together: for 2–4 targets within 60° of each other the two differ by at most
@@ -247,7 +247,7 @@ the reference implementation in the property tests (§14).
 
 ### 3.4 Skip axes
 
-`params.skip = {t: Axes, r: Axes}`, where `true` means "do not constrain this axis" (Maya `skip`).
+`params.skip = {t: Axes, r: Axes}`, where `true` means "do not constrain this axis" (the desktop DCC's `skip`).
 
 - **Translation**: `a = P⁻¹ · t(Z)` and `b = P⁻¹ · t(Z_in)` (points in the parent frame). Take `b`'s component on
   each skipped axis. Then `t(Z) = P · a'`.
@@ -256,8 +256,8 @@ the reference implementation in the property tests (§14).
     - `ρ` is the control's rotate order, or `xyz` for bones.
     - `e⁰` is the Euler of `q(P⁰)⁻¹·q(Z⁰)`, a compile-time constant, so the result is stateless.
   - Take `e_in` on each skipped axis. Then `q(Z) = q(P) · quat(e', ρ)`.
-  - The axes are the Euler axes of the zero frame relative to its parent. This is Maya's "the rotateX channel is not
-    driven", expressed on the zero frame.
+  - The axes are the Euler axes of the zero frame relative to its parent. This is the desktop DCC's "the rotateX channel
+    is not driven", expressed on the zero frame.
 - Skipping all three axes of a group is a no-op for that group. The create operator refuses a constraint whose every
   axis is skipped.
 
@@ -267,7 +267,7 @@ Inputs:
 
 - `a` and `u`: the aim and up axes, unit vectors in the zero frame's local space. `u` is Gram–Schmidt'ed against `a`
   at compile time; if they are parallel, `u` becomes the local axis least parallel to `a`.
-- `T = Σ ŵ_i t(W_ti)`: target positions averaged by weight, as in Maya.
+- `T = Σ ŵ_i t(W_ti)`: target positions averaged by weight, as in the desktop DCC.
 - `P = t(Z_in)`: the zero frame's origin, which is the control's pivot at zero channels. Translation channels do not
   move the aim origin. That is the price of K1, and it does not affect rotation-only controls such as FK and head.
 
@@ -293,14 +293,14 @@ q(Z) = quat(R) · q(Off)                                         // Off from §3
 - `worldUp`: `scene`.
 
 For a world-aligned `fk.head` aimed at a `lookAt` control in front of the face, that gives `a = +Z`, `u = +Y` and
-`R⁰ = I`, so snapping is rest-exact as well. When `params.aim` is missing, the defaults are Maya's: `(1, 0, 0)`,
-`(0, 1, 0)` and `vector (0, 1, 0)`.
+`R⁰ = I`, so snapping is rest-exact as well. When `params.aim` is missing, the defaults are the desktop DCC's:
+`(1, 0, 0)`, `(0, 1, 0)` and `vector (0, 1, 0)`.
 
 ### 3.6 Assembly, blend and write
 
 | Type | Replaces in `Z_in` | Keeps |
 |---|---|---|
-| parent | `t`, `q` | `s` (a parent constraint never drives scale, as in Maya) |
+| parent | `t`, `q` | `s` (a parent constraint never drives scale, as in the desktop DCC) |
 | point | `t` | `q`, `s` |
 | orient | `q` | `t`, `s` |
 | aim | `q` | `t`, `s` |
@@ -313,8 +313,8 @@ Then:
 
 ### 3.7 Several constraints on one control
 
-Two constraints that drive the same control (Maya's point + orient pattern) run in `(priority, id)` order. Each sees
-the previous one's frame as its `Z_in`, because the input frame of a non-first writer is `W_c · L_c⁻¹`.
+Two constraints that drive the same control (the desktop DCC's point + orient pattern) run in `(priority, id)` order.
+Each sees the previous one's frame as its `Z_in`, because the input frame of a non-first writer is `W_c · L_c⁻¹`.
 
 The create operator offers **parent with skip axes** in place of point + orient. It keeps one record, one set of
 weights and one offset.
@@ -352,7 +352,7 @@ import type { Axes, ControlId, SpaceTarget } from '@ekza-studio/doc';
 
 export type ConstraintType = 'parent' | 'point' | 'orient' | 'aim';
 
-/** How the aim's up direction is found (Maya worldUpType). Vectors are in canonical character space. */
+/** How the aim's up direction is found (desktop-DCC worldUpType). Vectors are in canonical character space. */
 export type WorldUp =
   | { readonly type: 'scene' }                                                   // (0, 1, 0)
   | { readonly type: 'vector'; readonly vector: readonly [number, number, number] }
@@ -376,7 +376,7 @@ export interface ConstraintParams {
   readonly weights: ConstraintWeights;
   /** '@<key>.blend' (0…1) on the holder scales the whole constraint; false = always 1. */
   readonly blend: boolean;
-  /** true = the axis is NOT constrained (Maya skipTranslate / skipRotate). Ignored for the groups a type never drives. */
+  /** true = the axis is NOT constrained (desktop-DCC skipTranslate / skipRotate). Ignored for the groups a type never drives. */
   readonly skip: { readonly t: Axes; readonly r: Axes };
   readonly interp: 'average' | 'shortest';
   /** Aim only (null otherwise). Axes are unit vectors in the zero frame's local space. */
@@ -399,7 +399,7 @@ The existing record fields keep their meaning:
 
 ```
 {v: 1, key: type, holder: null, weights: {mode: 'static'}, blend: false,
- skip: none, interp: 'average', aim: Maya defaults (aim only)}
+ skip: none, interp: 'average', aim: desktop-DCC defaults (aim only)}
 ```
 
 An unknown `v` disables the op with an `unsupported-op` warning. The compiler never throws on document content.
@@ -525,8 +525,8 @@ else if (cowrite && compareOps(w, r) < 0) edges.push([w, r]);  // shared writes:
 ```
 
 - Swap the priorities, so that shared writes run **solvers before constraints**: `PRIORITY_SOLVER = 1` and
-  `PRIORITY_CONSTRAINT = 2`. The constraint then has the last word. Maya behaves the same: a constraint overrides what
-  drives its target.
+  `PRIORITY_CONSTRAINT = 2`. The constraint then has the last word. The desktop DCC behaves the same: a constraint
+  overrides what drives its target.
 - M2a programs schedule only solvers, and the solver priority still lies between controls (0) and bones (3), so their
   schedules are **identical** (gate in §14).
 - A mutual flow (A writes what B reads and the reverse) is a real cycle and is handled by R5.
@@ -626,7 +626,7 @@ changes M2a import results in the last ulp, and M2a exports must stay byte-ident
 |---|---|---|
 | Constraint on an **IK control or pole** (spaces, IK hand holding a prop) | constraint writes `ik.arm.L` → `ik2` reads it (R3 flow) | The constraint runs first; IK solves to the constrained control |
 | Constraint **reads a bone `ik2` writes** (prop follows the IK hand) | `ik2` writes `rightHand` → the constraint reads it (R3 flow) | `ik2`, then the constraint. Fails today (Gap A) |
-| Constraint on **`fk.hand`** (the FK chain end; not written by `ik2`) | constraint → `bone(hand)` → `ik2` (`ik2` writes the hand bone) | The constraint shapes the FK hand; `ik2` blends FK and IK as usual. At `ikFk` 1 the IK hand wins, as in Maya |
+| Constraint on **`fk.hand`** (the FK chain end; not written by `ik2`) | constraint → `bone(hand)` → `ik2` (`ik2` writes the hand bone) | The constraint shapes the FK hand; `ik2` blends FK and IK as usual. At `ikFk` 1 the IK hand wins, as in the desktop DCC |
 | Constraint on a **control below the FK chain** (fingers, secondary controls under the hand) | shared write with `ik2` | Disabled by R4 with a message |
 | Constraint on a **spine or head FK control** | constraint writes `fk.chest` → `bone(chest)` → … → `ik2` reads `parent(upper)` | Correct order through the bone ops; IK arms follow the constrained chest |
 | Constraint whose **target depends on the driven control** (`fk.spine` → `head` bone) | cycle | The constraint is disabled (R5); `create` refuses it |
@@ -654,8 +654,8 @@ bone prop.R                driven by prop.R (edge constraint → bone)
   - Rows appear under "Custom" with their labels.
   - The control's header shows a constraint chip ("⛓ space: Hand") using `--cb-constrained` (research 09 §4.5).
     The chip has a tooltip and opens Attributes › Constraint.
-  - The TRS fields keep their normal keyed/unkeyed colours, because they stay free (K1). Maya paints constrained
-    channels blue because they are driven; ours are not driven.
+  - The TRS fields keep their normal keyed/unkeyed colours, because they stay free (K1). The desktop DCC paints
+    constrained channels blue because they are driven; ours are not driven.
 - **What `S` keys.** `keyAll: false` attributes are keyed only when selected (above). Body-part keying, the tween
   `frame` target and `pose.resetToRest` skip them. The space switch keys `@space` itself (§10).
 - **Mirror pose and mirror animation.**
@@ -676,8 +676,8 @@ bone prop.R                driven by prop.R (edge constraint → bone)
 ## 8. Bake constraints to keys
 
 `rig.constraint.bake {constraints, clips: 'active' | 'all', range: 'clip' | {start, end}, after: 'disable' |
-'delete' | 'keep', reduce: ReduceSpec | null}`. This is Maya's **Edit › Keys › Bake Simulation** and Blender's
-**Bake Action** with **Visual Keying** and, optionally, **Clear Constraints**.
+'delete' | 'keep', reduce: ReduceSpec | null}`. This is the desktop DCC's **Edit › Keys › Bake Simulation** and the
+open-source DCC's **Bake Action** with **Visual Keying** and, optionally, **Clear Constraints**.
 
 1. `D` = the controls these constraints drive. Constraints on bones are refused ("prop.R joint has no control to key;
    export bakes it anyway"), because bones are never keyed (ADR 0004 §1).
@@ -689,9 +689,9 @@ bone prop.R                driven by prop.R (edge constraint → bone)
      ancestors in `D`.
    - The solve per control is: `L = zeroFrame_off(c)⁻¹ · W_c(f)`; rotations via
      `eulerNear(q(L), order, previous frame's values)`; translation and scale only where keyable.
-4. Replace the keys of the written channels inside the range and keep the keys outside it (Maya
-   `preserveOutsideKeys`). Run the Euler filter on the written rotation curves. With `reduce`, run key reduction using
-   `DEFAULT_REDUCE`, the import tolerances.
+4. Replace the keys of the written channels inside the range and keep the keys outside it (the desktop
+   DCC's `preserveOutsideKeys`). Run the Euler filter on the written rotation curves. With `reduce`, run key reduction
+   using `DEFAULT_REDUCE`, the import tolerances.
 5. **Residual.** Evaluate `P_off` with the baked curves at every frame. If a control's world differs from `W_c(f)` by
    more than 1e-4 m or 1e-4 rad, warn. This happens when the constraint moved a channel that is not keyable: "fk.head:
    translation is not keyable; the baked head is 3.1 cm off at frame 12".
@@ -769,8 +769,8 @@ Research 07 §11's discrete spaces are built as a constraint:
   - In `attrs` mode the switch keys one-hot weights.
   - A switch to the current space poll-fails ("ik.arm.L is in Chest space already").
 - **UI.** A "Space" enum row in the Channel Box. Choosing a value runs the switch with match. Typing a raw index
-  writes the attribute without matching, as Maya's enum attributes do. There is also an Attributes › Space section
-  with the key-mode select.
+  writes the attribute without matching, as the desktop DCC's enum attributes do. There is also an Attributes › Space
+  section with the key-mode select.
 - The Graph Editor draws vertical markers at `@space` keys. The Euler filter treats the segments between them
   separately, because the curves are meant to jump there (research 07 §11).
 
@@ -789,7 +789,7 @@ export interface ControlShape {
   readonly offset: ReadonlyXf;                 // shape placement in control-local space; s may be non-uniform
   readonly custom: SplineSet | null;           // kind 'custom' only: unit-space points
   readonly color: 'side' | `#${string}`;
-  readonly lineWidth: number | null;           // px; null = theme default (2), Maya's lineWidth −1
+  readonly lineWidth: number | null;           // px; null = theme default (2), desktop-DCC lineWidth −1
   /** Fields the user edited; `rig.autoRig.update` keeps them and regenerates the rest. Absent = generated. */
   readonly edited?: readonly ShapeField[];     // 'kind' also covers the custom points
 }
@@ -812,7 +812,7 @@ and `lollipop`. Additions (`anim-core/src/spline/shapes.ts`, appended to `BUILTI
 |---|---|
 | `arrow` | single arrow along +Y: shaft 0.2 wide from (0, −1) to (0, 0.4), head 0.6 wide to the tip (0, 1) |
 | `arrow2` | double-headed arrow along ±Y, same proportions |
-| `gear` | 12-tooth cog: outer radius 1, root radius 0.8, tooth flat 40 % of the pitch (Maya's "cog"/gear control) |
+| `gear` | 12-tooth cog: outer radius 1, root radius 0.8, tooth flat 40 % of the pitch (the desktop DCC's "cog"/gear control) |
 | `doubleCircle` | circles of radius 1 and 0.85 (research 09 §5.8 COG) |
 
 Every built-in, old and new, is symmetric about the YZ plane (`x → −x`), which §11.4's mirror relies on. A
@@ -822,7 +822,7 @@ Rectangles, flat boxes and ovals need no new kinds: `offset.s` may be non-unifor
 
 ### 11.3 Operations (all undoable; never create keys; never recompile the program)
 
-| Operation | Effect on `ControlShape` | Maya equivalent |
+| Operation | Effect on `ControlShape` | Desktop-DCC equivalent |
 |---|---|---|
 | **Replace** `rig.shape.replace {controls, kind, custom?}` | `kind`, `custom`; keeps `size`, `offset`, `color`, `lineWidth`; `edited += kind` | Parent a new curve shape under the transform (`parent -s -r`), delete the old one |
 | **Size / colour / width / offset fields** `rig.shape.set {controls, size?, color?, lineWidth?, offset?}` | the given fields; `edited +=` them. Absorbs `rig.setControlSize`, which stays as an alias | Attribute Editor drawing overrides, `lineWidth` |
@@ -879,7 +879,7 @@ size`. The inverse is `p_unit = (1/k) · O⁻¹ · p_local`.
   - a shape picker with a thumbnail grid of the library and "Custom (from CVs)";
   - Size;
   - Offset translate / rotate (degrees) / scale;
-  - Colour: Side, a 32-swatch palette in Maya's index order, and Custom hex;
+  - Colour: Side, a 32-swatch palette in the desktop DCC's index order, and Custom hex;
   - Line width;
   - buttons: Mirror to Other Side, Copy, Paste, Reset.
 - **CV mode**: `F8` toggles object ↔ CV, `F9` or `1` enters CV mode, or RMB on the control › Control Vertex. These
@@ -890,7 +890,7 @@ size`. The inverse is `p_unit = (1/k) · O⁻¹ · p_local`.
   - `Mod+A` selects every CV; transforming then writes `rig.shape.transform`, which keeps the kind.
   - Each drag is a live preview with no document writes, then one operation and one history step on release (M6A
     modal tool contract).
-- **Edits apply to every hilited control**, as in Maya when several curves' CVs are selected.
+- **Edits apply to every hilited control**, as in the desktop DCC when several curves' CVs are selected.
 - **Symmetric CV edits** inside one centre control are later work (§16).
 - **In Animate**, the Attributes Size field keeps working as today (`rig.shape.set`). Every other shape editor lives
   in Rig & Skin, which matches FR-RIG-13 ("in a Rig workspace").
@@ -928,11 +928,11 @@ the new bone lengths) and keeps the user's value for every field listed in `edit
 
 | Operator | Undo | Workspaces | Notes |
 |---|---|---|---|
-| `rig.constraint.create {type, targets?, driven?, maintainOffset: 'rest' \| 'current' \| 'none', skip, weights: 'attrs' \| 'static', blend, interp, aim?, key?}` | U, adjustable | rig, animate | Selection: targets first, then the lead as the driven object (Maya order); joints are pickable in Rig & Skin. A picked FK control that drives a bone becomes a **bone** target by default (option "Follow: Bone / Control"), so the constraint follows IK and FK alike. Poll: no cycle (dry-run compile), no solver conflict (R4), at least one axis constrained. The last-op card shows maintain offset, skip axes, weights, interp and aim axes. |
+| `rig.constraint.create {type, targets?, driven?, maintainOffset: 'rest' \| 'current' \| 'none', skip, weights: 'attrs' \| 'static', blend, interp, aim?, key?}` | U, adjustable | rig, animate | Selection: targets first, then the lead as the driven object (desktop-DCC order); joints are pickable in Rig & Skin. A picked FK control that drives a bone becomes a **bone** target by default (option "Follow: Bone / Control"), so the constraint follows IK and FK alike. Poll: no cycle (dry-run compile), no solver conflict (R4), at least one axis constrained. The last-op card shows maintain offset, skip axes, weights, interp and aim axes. |
 | `rig.constraint.edit {constraint, patch}` | U | rig, animate | Static weights, offset mode, skip, interp, aim, holder, enabled |
 | `rig.constraint.addTarget` / `removeTarget {constraint, target \| key}` | U | rig, animate | Adds or removes the weight attribute too; `select` mode appends only (removing a target hides it and keeps its index) |
-| `rig.constraint.updateOffset {constraint, targets?}` | U | rig, animate | Captures stored offsets at the current frame and keeps `W_c` (Maya "Update offset", Blender "Set Inverse") |
-| `rig.constraint.clearOffset {constraint}` | U | rig, animate | Back to rest-derived offsets (Blender "Clear Inverse") |
+| `rig.constraint.updateOffset {constraint, targets?}` | U | rig, animate | Captures stored offsets at the current frame and keeps `W_c` (desktop DCC: "Update offset"; open-source DCC: "Set Inverse") |
+| `rig.constraint.clearOffset {constraint}` | U | rig, animate | Back to rest-derived offsets (open-source DCC: "Clear Inverse") |
 | `rig.constraint.bake {…}` | U | rig, animate | §8 |
 | `rig.constraint.mirror {constraints}` | U | rig, animate | The counterpart record: the driven object and targets mapped by `ControlRecord.mirror`, humanoid left↔right and research 07 §16.3 name patterns; axis vectors and world up mapped by `(−x, y, z)` (world-aligned frames; bone-aligned frames through `B` of §11.4); offsets mirrored per §11.4; same `key` and target keys |
 | `rig.constraint.delete {constraints}` | U | rig, animate | Also the holder's attributes and their curves |
@@ -959,7 +959,7 @@ No new default hotkeys apart from the CV-mode keys reused from M6a.
 | Attributes › Constraint (one section per constraint on the lead control; research 09 §4.6) | type, targets with weight sliders (static or animated: a key toggle per row), offset mode with Update/Clear, skip axes (t: x y z, r: x y z), interp, aim axes and world up, blend, enabled, Bake…, Delete |
 | Attributes › Control Shape | §11.5 |
 | Channel Box | weight, blend and space rows under Custom; constraint chip on the header (§7) |
-| Outliner (Rig & Skin) | constraints listed under the driven control with a chain glyph, like Maya's constraint nodes; RMB: Select Targets, Bake, Delete |
+| Outliner (Rig & Skin) | constraints listed under the driven control with a chain glyph, like the desktop DCC's constraint nodes; RMB: Select Targets, Bake, Delete |
 | Viewport | constraint lines (§7); CV points in CV mode |
 | Validation list (C6) | constraint warnings (`cycle`, `duplicate-binding`, `dangling-ref`, `unsupported-op`) with a "Select" action |
 
@@ -1028,7 +1028,7 @@ byte-identity gates in §14 are required in C8a.
 - **Later**:
   - scale constraint (`s = Π s_i^{ŵ_i}`);
   - geometry, normal, tangent and point-on-poly constraints, rivets and motion paths (research 08 §9.1);
-  - Maya `Longest` interp;
+  - the desktop DCC's `Longest` interp;
   - No Flip and Cache interp: never, they break D3;
   - constraint layers and per-user constraint ownership (M3);
   - exporting simple single-target orient or aim constraints as `VRMC_node_constraint` for runtime use;
@@ -1059,9 +1059,9 @@ byte-identity gates in §14 are required in C8a.
 
 | ID | Question | Default proposed |
 |---|---|---|
-| Q-CNS-1 | Animatable weights by default (attributes on the driven control), or static unless asked? | Animatable (`attrs`), like Maya's keyable `targetWeight` |
-| Q-CNS-2 | Default offset: rest-derived, or Maya's "capture at the current frame"? | Rest-derived; Update Offset captures |
-| Q-CNS-3 | Create constraints in Animate too, or only in Rig & Skin? | Both (Maya puts Constrain in the Animation and Rigging menu sets); shapes only in Rig & Skin |
+| Q-CNS-1 | Animatable weights by default (attributes on the driven control), or static unless asked? | Animatable (`attrs`), like the desktop DCC's keyable `targetWeight` |
+| Q-CNS-2 | Default offset: rest-derived, or the desktop DCC's "capture at the current frame"? | Rest-derived; Update Offset captures |
+| Q-CNS-3 | Create constraints in Animate too, or only in Rig & Skin? | Both (the desktop DCC puts Constrain in the Animation and Rigging menu sets); shapes only in Rig & Skin |
 | Q-CNS-4 | After a bake: disable, delete or keep the constraint? | Disable |
 | Q-CNS-5 | Space switching in M6b (stretch), or keep it in M5 as the roadmap says? | M6b stretch, since it is about 1.5 days on top of the constraint op |
 | Q-CNS-6 | Weights, blend and space as `keyAll: false` (keyed only explicitly, like `ikFk`)? | Yes |
@@ -1073,36 +1073,28 @@ byte-identity gates in §14 are required in C8a.
 
 ## 19. Sources
 
-Maya (Autodesk documentation, accessed 2026-10-19):
+Desktop DCC (vendor documentation, accessed 2026-10-19; vendor URLs omitted):
 
-- parentConstraint command (maintainOffset, skipTranslate/skipRotate, weight, createCache):
-  https://help.autodesk.com/cloudhelp/2025/ENU/Maya-Tech-Docs/CommandsPython/parentConstraint.html
-- parentConstraint node (interpType values and default, targetWeight, target-local offsets):
-  https://help.autodesk.com/cloudhelp/ENU/MayaCRE-Tech-Docs/Nodes/parentConstraint.html
-- pointConstraint node (weighted average of target pivots, constraintParentInverseMatrix, offset):
-  https://help.autodesk.com/cloudhelp/ENU/MayaCRE-Tech-Docs/Nodes/pointConstraint.html
-- orientConstraint node (No Flip needs a run-up or cache):
-  https://help.autodesk.com/cloudhelp/ENU/MayaCRE-Tech-Docs/Nodes/orientConstraint.html
-- aimConstraint command (aimVector, upVector, worldUpType values and defaults):
-  https://help.autodesk.com/cloudhelp/2025/ENU/Maya-Tech-Docs/CommandsPython/aimConstraint.html
-- Constraining objects (keying target weights; pairBlend between animation and constraints):
-  https://help.autodesk.com/cloudhelp/2017/ENU/MayaLT/files/GUID-FA047B7D-41AD-4643-9D10-BB1F3B397B4D.htm
-- pairBlend node (created automatically when keying a constrained object):
-  https://help.autodesk.com/cloudhelp/2015/CHS/Maya-Tech-Docs/Nodes/pairBlend.html
-- bakeResults command (simulation, sampleBy, preserveOutsideKeys, minimizeRotation, sparseAnimCurveBake):
-  https://help.autodesk.com/cloudhelp/2025/ENU/Maya-Tech-Docs/CommandsPython/bakeResults.html
-- nurbsCurve node (lineWidth −1 = global setting, dispCV, degree/form/spans):
-  https://help.autodesk.com/cloudhelp/2025/ENU/Maya-Tech-Docs/Nodes/nurbsCurve.html
-- dagNode drawing overrides (overrideEnabled, overrideColor 0–31, overrideRGBColors, overrideColorRGB):
-  https://help.autodesk.com/cloudhelp/2025/ENU/Maya-Tech-Docs/Nodes/dagNode.html
-- parent command (`-shape`, `-relative`): https://help.autodesk.com/cloudhelp/2025/ENU/Maya-Tech-Docs/CommandsPython/parent.html
+- parentConstraint command (maintainOffset, skipTranslate/skipRotate, weight, createCache), 2025 Python command
+  reference
+- parentConstraint node (interpType values and default, targetWeight, target-local offsets), node reference
+- pointConstraint node (weighted average of target pivots, constraintParentInverseMatrix, offset), node reference
+- orientConstraint node (No Flip needs a run-up or cache), node reference
+- aimConstraint command (aimVector, upVector, worldUpType values and defaults), 2025 Python command reference
+- Constraining objects (keying target weights; pairBlend between animation and constraints), 2017 help of the LT
+  edition
+- pairBlend node (created automatically when keying a constrained object), 2015 node reference (Chinese edition)
+- bakeResults command (simulation, sampleBy, preserveOutsideKeys, minimizeRotation, sparseAnimCurveBake), 2025 Python
+  command reference
+- nurbsCurve node (lineWidth −1 = global setting, dispCV, degree/form/spans), 2025 node reference
+- dagNode drawing overrides (overrideEnabled, overrideColor 0–31, overrideRGBColors, overrideColorRGB), 2025 node
+  reference
+- parent command (`-shape`, `-relative`), 2025 Python command reference
 
-Blender:
+Open-source DCC (manual and API; vendor URLs omitted):
 
-- Child Of constraint (keyable Influence, Set Inverse / Clear Inverse):
-  https://docs.blender.org/manual/en/dev/animation/constraints/relationship/child_of.html
-- `bpy_extras.anim_utils.bake_action` (`do_visual_keying`, `do_constraint_clear`):
-  https://docs.blender.org/api/2.74/bpy_extras.anim_utils.html
+- Child Of constraint (keyable Influence, Set Inverse / Clear Inverse), dev manual
+- `bpy_extras.anim_utils.bake_action` (`do_visual_keying`, `do_constraint_clear`), 2.74 Python API reference
 
 Standards and papers:
 

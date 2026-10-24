@@ -2,19 +2,19 @@
 
 - Status: Accepted (2026-10-17); revised 2026-10-17 after the design review (rev. 2)
 - Inputs: research [08](../research/08-extensibility-modeling.md) D4, D7, D10, §3.1, §3.7, §5–§8, §11,
-  [09](../research/09-ui-ux-spec.md) §1, §7, §13.4, [01](../research/01-maya-animation-features.md) §4,
+  [09](../research/09-ui-ux-spec.md) §1, §7, §13.4, [01](../research/01-dcc-animation-features.md) §4,
   [05](../research/05-landscape.md) §3.7.
 
 ## Context
 
-Maya ("everything is a command"), Blender (operators), VS Code (commands + contribution points) and Excalidraw
-(actions) converge on one registry of named, parameterized, undoable actions that every UI surface calls.
-Retro-fitting this later is the most expensive rewrite (08). The registry must also serve hotkeys with Maya
-muscle memory under browser constraints, tests, a future scripting/agent API and plugins. The design review
-found three problems in v0.1: operators could be async while transactions are synchronous, yet the text said
-"nested operator calls merge into the outer transaction"; operator arguments were untyped across seven parallel
-work packages; and the ADR promised registries (importers, exporters, export profiles, control shapes, record
-types) that the contracts did not have.
+A leading commercial desktop DCC ("everything is a command"), a popular open-source DCC (operators), VS Code
+(commands + contribution points) and Excalidraw (actions) converge on one registry of named, parameterized, undoable
+actions that every UI surface calls. Retro-fitting this later is the most expensive rewrite (08). The registry must
+also serve hotkeys with desktop-DCC muscle memory under browser constraints, tests, a future scripting/agent API and
+plugins. The design review found three problems in v0.1: operators could be async while transactions are synchronous,
+yet the text said "nested operator calls merge into the outer transaction"; operator arguments were untyped across
+seven parallel work packages; and the ADR promised registries (importers, exporters, export profiles, control shapes,
+record types) that the contracts did not have.
 
 ## Decision
 
@@ -33,7 +33,7 @@ types) that the contracts did not have.
    API. Extensions add entries by declaration merging. IDs are `<area>.<object>.<verb>`.
 3. **Tools** are per-panel interaction modes with an internal state machine (`ToolDef` → `ToolInstance` with
    pointer, wheel and key handlers, `cancel`, cursor). Manipulators belong to the viewport. Camera navigation is
-   not a tool; it runs under any tool (Maya Alt-navigation) and in 2D editors follows the navigation profile.
+   not a tool; it runs under any tool (Alt+drag navigation) and in 2D editors follows the navigation profile.
    Event routing in a panel: active drag/modal → active tool → panel default (navigation) → pass through.
 4. **Panels** (`PanelDef` in `@ekza-studio/editor`): id, kind (open string), title, component, key scope,
    multi-instance flag. Registration is **explicit** (`register<Name>Panel(registry)` called from
@@ -42,7 +42,7 @@ types) that the contracts did not have.
 5. **Keymaps are data**: `KeyBinding { chord, op, args?, scope, trigger }` on **`KeyboardEvent.code`** with a `mod`
    modifier (Ctrl on Windows/Linux, Cmd on macOS). Scope resolution: focused text input (only Esc/Enter/Tab and
    `mod+S`/`mod+Z` outside text editors) → active drag → **panel under the pointer** → global. Tap/hold (200 ms)
-   for Space. One preset in M1, `maya`; mouse-versus-trackpad differences live in the **navigation profile**
+   for Space. One preset in M1, `dcc`; mouse-versus-trackpad differences live in the **navigation profile**
    (ADR 0006), not in a second keymap preset. Browser-reserved chords are never bound (research 09 §7.6). Labels
    via `navigator.keyboard.getLayoutMap()` when available. Every binding targets an operator (dialogs open through
    `ui.open`, Esc through `edit.escape`).
@@ -50,7 +50,7 @@ types) that the contracts did not have.
 
    | Registry | Where | Built-ins registered through it |
    |---|---|---|
-   | operators, tools, keymap bindings, menus | `EditorApp` (`app.contribute`) | every §4.9 operator, viewport/graph tools, `MAYA_KEYMAP`, menu bar items |
+   | operators, tools, keymap bindings, menus | `EditorApp` (`app.contribute`) | every §4.9 operator, viewport/graph tools, `DCC_KEYMAP`, menu bar items |
    | importers (`ImporterDef`) | `EditorApp` | `.glb/.vrm` model, `.vrma`, `.ekzanim(.json)` |
    | exporters (`ExporterDef`) | `EditorApp` | `bake-into-model`, `animation-glb`, `vrma` |
    | export profiles (`ExportProfileDef`, data) | `EditorApp` | Ekza Tier-0 profiles and generic local profiles (ADR 0010) |
@@ -83,12 +83,12 @@ types) that the contracts did not have.
 | Side-effect registration on import | Tree-shaken away under `"sideEffects": false`; found only in e2e. |
 | tldraw `StateNode` dependency | Proprietary licence with production keys; we copy the pattern only. |
 | JSON-schema validated args now | V1 (scripting/agents); TypeScript arg types now. |
-| A second keymap preset `maya-trackpad` (v0.1) | The differences are navigation gestures, which the navigation profile owns. |
+| A second keymap preset `dcc-trackpad` (v0.1) | The differences are navigation gestures, which the navigation profile owns. |
 
 ## Consequences
 
 - Every user-visible action is testable headless (`app.run`) and in e2e through the test API.
 - A hotkey editor (V1) is a UI over the binding table; the cheat sheet (`?`) is generated from it.
-- An operator log (Maya Script Editor echo) is a debug console feature in the MVP and a panel in V1.
+- An operator log (a desktop-DCC Script Editor echo) is a debug console feature in the MVP and a panel in V1.
 - FR-EXT-03/04 (data packs, trusted extensions) and the M6 `curve` record type need no change to core contracts:
   they register through the registries above.

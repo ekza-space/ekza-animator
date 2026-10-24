@@ -34,11 +34,11 @@ Reset Workspace restores the default chrome too.
 
 ## Focus mode
 
-`Ctrl+Space` (Maya's "hide UI") or `Alt+0`, Windows › Focus Mode (`workspace.toggleFocus`): the panels around the
-viewport and the tool strip and help line hide, and the viewport takes the whole dock area. Pressing it again restores
-the dock layout and chrome exactly as they were (the snapshot is kept per workspace and stored with the layout, so it
-also survives a reload). The time slider and the viewport panes are left as they are. Applying a preset or Reset
-Workspace ends focus mode.
+`Ctrl+Space` (the desktop-DCC "hide UI" toggle) or `Alt+0`, Windows › Focus Mode (`workspace.toggleFocus`): the panels
+around the viewport and the tool strip and help line hide, and the viewport takes the whole dock area. Pressing it
+again restores the dock layout and chrome exactly as they were (the snapshot is kept per workspace and stored with the
+layout, so it also survives a reload). The time slider and the viewport panes are left as they are. Applying a preset
+or Reset Workspace ends focus mode.
 
 **Why `Alt+0` as well.** macOS uses `Ctrl+Space` to switch the input source as soon as more than one input source is
 set up (System Settings › Keyboard › Keyboard Shortcuts › Input Sources), and on Windows a Chinese IME toggles on it; the

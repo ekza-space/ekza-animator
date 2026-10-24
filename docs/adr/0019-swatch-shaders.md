@@ -13,9 +13,9 @@ had to be made: where a material lives, and how the document format records the 
 ## Decision
 
 1. **A swatch is the shader.** `SwatchRecord` gains `shader` (`lambert` | `blinn`), `glossiness` and `specular`; faces
-   keep pointing at slots. Like a Maya shading group, every face of a slot shares its material, so painting, fill,
-   select-by-swatch, replace and palette variants are the material assignment flows; no new face layer, no material
-   table, no kernel change. A "new material" is a new swatch (`palette.assignMaterial`).
+   keep pointing at slots. Like a shading group in a leading commercial desktop DCC, every face of a slot shares its
+   material, so painting, fill, select-by-swatch, replace and palette variants are the material assignment flows; no
+   new face layer, no material table, no kernel change. A "new material" is a new swatch (`palette.assignMaterial`).
 2. **Versioned by the swatches table, not the core schema.** The swatches `TableDef.version` becomes 2 with a pure,
    idempotent migration that adds the defaults (old files load as Lambert). The core `SCHEMA_VERSION` stays 3: schema
    4 is M6b's (M6B-SPEC §4.1, "schema v4 never appears in a v0.3.x build"), and a per-table change is what

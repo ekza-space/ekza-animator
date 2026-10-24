@@ -3,7 +3,7 @@
 - Status: Accepted (2026-10-17); revised 2026-10-17 after the design review (rev. 2)
 - Inputs: research [06](../research/06-collaboration.md) (D1–D11, R1–R12, measured hazards H1–H8, §7.2 interfaces,
   §7.4 contract tests), [04](../research/04-web-stack.md) §6, [08](../research/08-extensibility-modeling.md) §3,
-  §5, §10, [01](../research/01-maya-animation-features.md) §1.2 (D/U/P scopes), coordinator brief.
+  §5, §10, [01](../research/01-dcc-animation-features.md) §1.2 (D/U/P scopes), coordinator brief.
 
 ## Context
 

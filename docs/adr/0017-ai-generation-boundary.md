@@ -79,8 +79,8 @@ Generated meshes are dense, often non-manifold, mis-oriented and unrigged; the E
    days, attribution and territory exclusions (`GenTerms`). Open-weight deployments: weights are downloaded at deploy
    time under their own licences and never vendored; the GPU worker image carries an SBOM and CI fails on a
    non-commercial licence in a commercial profile; Hunyuan3D open weights only as an operator opt-in with a geo-gate
-   and the licence NOTICE; GPL tools (ComfyUI, Blender's `bpy`) only as separate processes, never linked into MIT
-   packages.
+   and the licence NOTICE; GPL tools (ComfyUI, the Python API of a popular open-source DCC) only as separate
+   processes, never linked into MIT packages.
 10. **Cost and abuse controls**: quote before submit and refuse above the request's `maxCostUsd`; client idempotency
     keys; never re-POST after a create timeout (look the task up instead); per-provider concurrency below provider
     limits with a fair per-user queue; Tripo webhooks verified by HMAC over `t + "." + rawBody` with a 5-minute window
