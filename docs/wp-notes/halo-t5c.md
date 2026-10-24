@@ -136,4 +136,18 @@ Only the readout (Echo chip core) and the ring geometry are eager candidates; th
 
 ## Gate
 
-See the run record below.
+`EKZA_E2E_PORT=3169 pnpm run ci` at `c4c96386` (T5c's two code commits with `halo/int` `2b280a4e` merged), local
+Chrome, 7 workers, load average 20–50: **green** (exit 0).
+
+- format, lint, typecheck, `check:deps`, `check:fixtures`, `check:licenses`, the tooling tests: green.
+- Unit tests: 23 / 23 turbo tasks (editor-core 1,772 incl. `progress` 14; editor 673 + 1 skipped incl. the subpath
+  test; autorig incl. its unchanged `progress.test.ts`; headless-tests 223).
+- Build and `check:size`: `/editor` 895,122 B, `/autorig` 656,645 B, `/app` 639,270 B, all OK; the AR-B1 eager delta
+  −566 B (enforced).
+- e2e: **446 tests, 412 passed, 34 skipped, 0 failed, 0 flaky** in 3.3 min (`chrome` 386 + 26 skipped,
+  `chrome-touch` 16 + 5, `webkit-ipad` 10 + 3). **Every Auto-Rig spec green: 115 / 115 `ar-*` tests** (38 files on
+  `chrome`, 3 on `chrome-touch`). The skips are the existing `test.fixme` stretch items (`stretch` 9, `m6a-stretch`
+  14), the conditional `m6b-skin-03-mirror-weights` skip and the per-project skips of `ha-00` (6) and `ha-t3` (4).
+
+An earlier run at `35862f0b` (before the merge) stopped at `format:check` on three files from `halo/int` `9d7b3a09`
+(`editor/test/files.test.ts`, `editor/test/test-api.test.ts`, `turbo.json`), which `halo/int` has since formatted.
