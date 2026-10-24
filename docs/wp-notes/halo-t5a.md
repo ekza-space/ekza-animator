@@ -100,4 +100,12 @@ packages/halo/src/manifest/paramSurfaces.ts exists (T6b)`.
 - `agent-tools` `ui-wrappers-policy`, `policy`, `reference`, `manifest`: 66 passed, 2 skipped;
   `docs/agent-tools-reference.md` and `tools.manifest.json` unchanged.
 - `node tooling/param-lint.mjs`: OK (above); `node --test tooling/test/param-lint.test.mjs`: 3 passed.
-- Gate and sizes: see the last section, filled in after the gate run.
+- `EKZA_E2E_PORT=3165 pnpm run ci` (local Chrome) on the merged head (dev `979d9baa`): format, lint, typecheck,
+  check:deps, check:fixtures, check:licenses, `test` (22/22 turbo tasks, incl. `test:tooling` with param-lint), build
+  and check:size green. Playwright: 363 passed, 24 skipped, 2 failed per run on timing-sensitive WebGL specs while two
+  to four sibling gates ran their e2e on the same machine — a different pair each run (`m2a-25`, `shading-01`,
+  `m6a-r2-fixes`, `m6b-qr-01`, `m6b-qr-02`, `m6b-jnt-01`), every one passing when rerun alone; T5a changes no code
+  that `/editor`, `/autorig` or the e2e specs load.
+- Sizes: `/editor` **891,790 B** (dev 891,790 B: **+0 B**); `/autorig` 652,529 B (dev 652,528 B: +1 B, the hashed
+  name of the agent bridge's lazy chunk, whose policy table gained the ten rows; no wrapper or form code is in any
+  route's scripts — their strings are absent from `.next/static`).
