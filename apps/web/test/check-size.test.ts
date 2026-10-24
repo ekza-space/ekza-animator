@@ -124,7 +124,7 @@ describe('check:size', () => {
     expect(report.ok).toBe(true);
     expect(report.e2eBuild).toBe(false);
     expect([report.gate, report.target]).toEqual([GATE_BYTES, TARGET_BYTES]);
-    expect(GATE_BYTES).toBe(900_000);
+    expect(GATE_BYTES).toBe(5_000_000); // SIZE-1 (owner, 2026-10-24)
   });
 
   it('fails above the gate', () => {
