@@ -6,6 +6,7 @@
 import type { Vec3 } from '@ekza-studio/anim-core';
 import type { ExtrudeManipFrame } from '@ekza-studio/editor-core';
 import { type Camera, OrthographicCamera, PerspectiveCamera } from 'three';
+import { handleGrowPx } from '../../input/tolerance';
 import type { PaneProjector } from '../../picking/geometry';
 import type { ManipHandle } from '../../types';
 
@@ -24,7 +25,10 @@ export const EXTRUDE_LAYOUT = {
   toggleHalf: 0.04,
 } as const;
 
-/** Pick tolerances in CSS px: cubes and the centre first, then arrows, then rings. */
+/**
+ * Pick tolerances in CSS px: cubes and the centre first, then arrows, then rings. A finger or the pen adds the growth
+ * of the manipulator pick radius to each (STUDIO-TOUCH-SPEC §5.4, `handleGrowPx`), keeping their order.
+ */
 const PICK_PX = { cube: 8, centre: 10, arrow: 7, ring: 6 } as const;
 const RING_SAMPLES = 64;
 
@@ -117,11 +121,12 @@ export function pickExtrudeHandle(
   const out = [0, 0, 0];
   const screen = (p: Vec3): [number, number] | null =>
     projector.project(p[0], p[1], p[2], out) ? [out[0] as number, out[1] as number] : null;
+  const grow = handleGrowPx();
   const near = (p: Vec3, radius: number): number | null => {
     const q = screen(p);
     if (q === null) return null;
     const d = Math.hypot(q[0] - x, q[1] - y);
-    return d <= radius ? d : null;
+    return d <= radius + grow ? d : null;
   };
   // Small targets first: the centre cube, the toggle, the scale cubes.
   if (near(frame.pivot, PICK_PX.centre) !== null) return 'suniform';
@@ -137,7 +142,7 @@ export function pickExtrudeHandle(
     const b = screen(at(frame, frame.axes, s, unit(i as 0 | 1 | 2, EXTRUDE_LAYOUT.axisEnd)));
     if (a === null || b === null) return;
     const d = segmentDistance(x, y, a[0], a[1], b[0], b[1]);
-    consider(handle, d <= PICK_PX.arrow ? d : null);
+    consider(handle, d <= PICK_PX.arrow + grow ? d : null);
   });
   if (best !== null) return (best as { handle: ExtrudeHandle }).handle;
   ROTATE.forEach((handle, i) => {
@@ -149,7 +154,7 @@ export function pickExtrudeHandle(
       if (p === null || p === undefined || q === null || q === undefined) continue;
       d = Math.min(d, segmentDistance(x, y, p[0], p[1], q[0], q[1]));
     }
-    consider(handle, d <= PICK_PX.ring ? d : null);
+    consider(handle, d <= PICK_PX.ring + grow ? d : null);
   });
   return best === null ? null : (best as { handle: ExtrudeHandle }).handle;
 }

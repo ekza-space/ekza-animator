@@ -165,7 +165,8 @@ export const MODEL_OPS_MARKING_MENUS: readonly MarkingMenuDef[] = [
   MERGE_MENU,
 ];
 
-/** Registers B11's marking menus (ids already registered by the host or an extension are left as they are). */
+/** Registers B11's marking menus (ids already registered by the host or an extension are left as they are). The page's
+ *  host registers them with the other Model menus (`./index.ts`, STUDIO-TOUCH-SPEC T3); this is for harnesses. */
 export function registerModelOpsMenus(app: EditorApp): Disposer {
   const disposers: Disposer[] = [];
   for (const def of MODEL_OPS_MARKING_MENUS) {

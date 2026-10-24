@@ -32,6 +32,9 @@ const swiftshader: Project = {
 //   `test.use`). Compatibility only — JS, CSS and WebGL: it proves nothing about iOS gestures, Web Share, Files,
 //   memory or the Pencil, which the real-device gate checks.
 const HALO_FAMILY = /(^|[\\/])ha-[^\\/]*\.spec\.ts$/;
+/** The touch families (§20.7): Halo's own specs and the Auto-Rig specs written for touch (layouts, two-finger
+ *  navigation, the T1 arbiter); the other Auto-Rig specs drive Studio with a mouse after a switch. */
+const TOUCH_FAMILY = /(^|[\\/])(ha-[^\\/]*|ar-12-layouts|ar-as-12[^\\/]*|ar-t1-touch)\.spec\.ts$/;
 
 /**
  * The WebKit to launch, never downloaded here: `EKZA_WEBKIT_PATH`; else Playwright's own build when it is installed
@@ -59,7 +62,7 @@ function webkitExecutable(): string | undefined {
 
 const chromeTouch: Project = {
   name: 'chrome-touch',
-  testMatch: HALO_FAMILY,
+  testMatch: TOUCH_FAMILY,
   use: {
     ...devices['Desktop Chrome'],
     channel: 'chrome',

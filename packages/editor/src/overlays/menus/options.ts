@@ -163,13 +163,3 @@ export const ROTATE_SPACE_MENU: MarkingMenuDef = {
   },
   list: [],
 };
-
-/** Registers B12a's marking menus; the disposer removes them. */
-export function registerModelTransformMenus(app: EditorApp): () => void {
-  const disposers = [OPTIONS_MENU, OPTIONS_MENU_LMB, MOVE_SPACE_MENU, ROTATE_SPACE_MENU].map((def) =>
-    app.contribute({ kind: 'markingMenu', def }),
-  );
-  return () => {
-    for (const dispose of disposers.reverse()) dispose();
-  };
-}

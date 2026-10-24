@@ -5,6 +5,7 @@ export { resolveControl, type ViewportTestApi, viewportTestApi } from './manager
 export {
   type AgentOverlayPass,
   DEFAULT_DISPLAY,
+  type DisplayOverlay,
   type PanePointerMenus,
   type PanePointerPress,
   type PaneState,
@@ -18,8 +19,61 @@ export { type ImagePlaneCamera, type ImagePlaneSpec } from './manager/imagePlane
 export { defaultCameraOf, defaultDisplayOf, MODEL_DISPLAY } from './manager/workspaceViews';
 export { LAYER } from './layers';
 export { isMmbStandIn } from './navigation/profiles';
+// STUDIO-TOUCH-SPEC §20.4 (T1): a touch shell's pointer arbiter (`ViewportManager.setPointerArbiter`) and the
+// tolerances by pointer type (§5.4).
+export {
+  type ArbiterClaim,
+  type ArbiterConfig,
+  type ArbiterFollow,
+  type ArbiterHost,
+  type ArbiterPointer,
+  type ArbiterPointerType,
+  type ArbiterPort,
+  type ArbiterRouting,
+  type ArbiterTap,
+  type CoalescedSample,
+  createPointerArbiter,
+  hostPort,
+  onChrome,
+  type PipeStep,
+  type PointerArbiter,
+  type PointerArbiterStage,
+  pointerArbiter,
+  type ViewGesture,
+} from './input/arbiter';
+export {
+  createModifierSource,
+  type ModifierSource,
+  NO_MODIFIERS,
+  type VirtualHoldCode,
+  type VirtualModifiers,
+  virtualKey,
+} from './input/modifiers';
+export {
+  handleGrowPx,
+  POINTER_TOLERANCE,
+  type PointerKind,
+  pointerInUse,
+  pointerKind,
+  setPointerTolerance,
+} from './input/tolerance';
 // AUTORIG-SPEC §8.1 (D3): a shell's per-press navigation override (`ViewportManager.setNavigationOverride`).
 export type { NavGesture, NavigationOverride, NavPointerInput } from './navigation/override';
+// AUTORIG-SPEC §8.1, §8.3 (D3), moved from Auto-Rig by STUDIO-TOUCH-SPEC §20.3 item 1 (T1): Simple navigation and the
+// two-finger stage (a lazy chunk of `installSimpleNavigation`).
+export {
+  addNavigationClaim,
+  BRUSH_TOOLS,
+  createTwoFingerStage,
+  type Finger,
+  installSimpleNavigation,
+  MESH_TOOLS,
+  type NavigationClaim,
+  type SimplePress,
+  simpleGesture,
+  toolClaims,
+  twoFingerStep,
+} from './navigation/touch';
 export { loadScaleKit } from './manipulators/scale/load';
 export { SCALE_LABEL, scaleToolDef } from './tools/scaleTool';
 export {

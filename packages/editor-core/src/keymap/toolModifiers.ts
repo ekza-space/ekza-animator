@@ -8,6 +8,12 @@ import { keyLabel } from './labels';
 /** Codes tools observe as holds in the Model viewport (`B` is also the soft-select tap). */
 export const TOOL_HOLD_CODES: readonly string[] = ['KeyX', 'KeyV', 'KeyJ', 'KeyD', 'KeyB', 'KeyI'];
 
+/**
+ * Every code a tool observes as a hold, in any workspace: the Model viewport's, plus Paint Skin Weights' `M` and `N`
+ * (STUDIO-TOUCH-SPEC §5.5: the codes a virtual hold may carry; each has a row below).
+ */
+export const HOLD_CODES: readonly string[] = [...TOOL_HOLD_CODES, 'KeyM', 'KeyN'];
+
 /** A key, a modifier or a pointer word. */
 export type ToolModifierPart = Chord | { readonly modifier: 'mod' | 'ctrl' | 'shift' | 'alt' } | string;
 
@@ -40,6 +46,24 @@ export const TOOL_MODIFIERS: readonly ToolModifierDoc[] = [
   { tool: 'Active tool', keys: [K('PageUp'), K('PageDown')], text: 'Step the tool’s count' },
   { tool: 'Paint Colour', keys: [K('KeyI')], text: 'Eyedropper' },
   { tool: 'Paint Colour', keys: [K('Enter')], text: 'Apply the active swatch' },
+  // STUDIO-TOUCH-SPEC §5.5, §20.3 item 20 (T1): the holds and drag modifiers of Rig & Skin and the animation editors
+  {
+    tool: 'Joints (Rig & Skin)',
+    keys: [K('KeyD'), 'drag'],
+    text: 'Move or orient the joint alone (its children stay)',
+  },
+  { tool: 'Joints and Quick Rig markers', keys: [K('KeyX'), 'drag'], text: 'Snap to the grid while held' },
+  { tool: 'Paint Skin Weights', keys: [K('KeyB'), 'drag'], text: 'Brush radius' },
+  { tool: 'Paint Skin Weights', keys: [K('KeyM'), 'drag'], text: 'Brush opacity' },
+  { tool: 'Paint Skin Weights', keys: [K('KeyN'), 'drag'], text: 'Paint value' },
+  {
+    tool: 'Paint Skin Weights',
+    keys: [K('KeyI'), 'click'],
+    text: 'Sample the weight (Shift: pick the dominant joint)',
+  },
+  { tool: 'Graph Editor', keys: [SHIFT, 'drag'], text: 'Lock the drag to time or value' },
+  { tool: 'Time slider', keys: [SHIFT, 'drag'], text: 'Select a key range' },
+  { tool: 'Time slider', keys: [MOD, 'drag the range'], text: 'Copy the keys instead of moving them' },
 ];
 
 const MODIFIER_LABEL = {

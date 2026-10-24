@@ -502,7 +502,8 @@ export interface ToolWheelEvent {
   readonly shift: boolean; readonly alt: boolean; readonly mod: boolean; readonly ctrl: boolean;
 }
 export interface ToolKeyEvent { readonly type: 'down' | 'up'; readonly code: string; readonly shift: boolean; readonly alt: boolean; readonly mod: boolean;
-  readonly ctrl: boolean; readonly repeat: boolean }   // M6a, changed (additive): literal Ctrl
+  readonly ctrl: boolean; readonly repeat: boolean;   // M6a, changed (additive): literal Ctrl
+  readonly virtual?: boolean }                        // STUDIO-TOUCH-SPEC §20.3 item 3 (T1, a line patch for T2): a virtual hold
 /** Handlers return true when the event was consumed. */
 export interface ToolInstance {
   activate?(): void;

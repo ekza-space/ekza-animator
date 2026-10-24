@@ -33,7 +33,14 @@
       "outputs": []
     },
     "//#test:tooling": {
-      "inputs": ["tooling/**", "fixtures/**", "packages/*/src/**", "packages/*/package.json", "apps/*/package.json", "package.json"],
+      "inputs": [
+        "tooling/**",
+        "fixtures/**",
+        "packages/*/src/**",
+        "packages/*/package.json",
+        "apps/*/package.json",
+        "package.json"
+      ],
       "outputs": []
     },
     "dev": {

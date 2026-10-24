@@ -13,9 +13,16 @@ export const ROWS_TOP = RULER_HEIGHT + REGION_HEIGHT;
 export const ROW_HEIGHT = 20;
 /** Half the glyph's width (a diamond 9 px wide). */
 export const GLYPH_RADIUS = 4.5;
-/** Hit tolerances (CSS px). */
+/** Hit tolerances (CSS px) for the mouse. */
 export const GLYPH_HIT_PX = 6;
 export const REGION_HANDLE_PX = 6;
+/** Pixels a press travels before it becomes a drag, for the mouse. */
+export const DRAG_THRESHOLD_PX = 3;
+/**
+ * The Dope Sheet's tolerances of the pointer in use: the mouse's until its controller sees a pen or a finger
+ * (`setDopeSheetPointer` in `../painters/pointer`, STUDIO-TOUCH-SPEC §5.4).
+ */
+export const DOPE_TOLERANCE = { glyphPx: GLYPH_HIT_PX, regionHandlePx: REGION_HANDLE_PX, dragPx: DRAG_THRESHOLD_PX };
 /** `F` / `A` padding on each side (§4.9 `dopeSheet.frame`: 8 %). */
 export const FRAME_PADDING = 0.08;
 /** Zoom limits (CSS px per frame). */
