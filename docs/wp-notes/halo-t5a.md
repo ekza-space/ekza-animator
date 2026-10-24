@@ -106,6 +106,6 @@ packages/halo/src/manifest/paramSurfaces.ts exists (T6b)`.
   to four sibling gates ran their e2e on the same machine — a different pair each run (`m2a-25`, `shading-01`,
   `m6a-r2-fixes`, `m6b-qr-01`, `m6b-qr-02`, `m6b-jnt-01`), every one passing when rerun alone; T5a changes no code
   that `/editor`, `/autorig` or the e2e specs load.
-- Sizes: `/editor` **891,790 B** (dev 891,790 B: **+0 B**); `/autorig` 652,529 B (dev 652,528 B: +1 B, the hashed
-  name of the agent bridge's lazy chunk, whose policy table gained the ten rows; no wrapper or form code is in any
-  route's scripts — their strings are absent from `.next/static`).
+- Sizes: `/editor` **891,790 B** (dev 891,790 B: **+0 B**); `/autorig` 652,529 B (dev 652,528 B: +1 B, most likely the
+  content-hashed name of the agent bridge's lazy chunk, whose policy table gained the ten rows; not verified against a
+  dev build). No wrapper or form code is in any route's scripts: their strings are absent from `.next/static`.
