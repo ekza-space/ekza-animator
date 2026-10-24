@@ -2,7 +2,7 @@
 // button (`./Menu`): New, Open project…, Save project, Open in Studio (new tab), Switch mode…, Command palette… (the
 // host's overlay port), Preferences, Keyboard shortcuts, About & credits. Arrow keys, Home/End, Esc/Tab and an outside
 // press close it and give the focus back to the button.
-import { openDialog, openOverlay } from '@ekza-studio/editor/host';
+import { openDialog, openOverlay, pickerAccept } from '@ekza-studio/editor/host';
 import { type JSX, lazy, type KeyboardEvent, type RefObject, Suspense, useEffect, useRef, useState } from 'react';
 import { messages } from '../i18n';
 import type { WizardContext } from './context';
@@ -144,7 +144,7 @@ export default function MenuBody(props: MenuBodyProps): JSX.Element {
       <input
         ref={project}
         type="file"
-        accept=".ekzanim,.json,.glb,.vrm"
+        accept={pickerAccept('.ekzanim,.json,.glb,.vrm')}
         className="hidden"
         onChange={(e) => {
           const files = [...(e.currentTarget.files ?? [])];

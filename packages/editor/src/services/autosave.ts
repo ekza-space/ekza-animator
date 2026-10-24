@@ -17,8 +17,15 @@
 // `slots` keyed `handoff:<id>` with no slot info (so they are never orphans and never claims) and their `HandoffInfo`;
 // they hold their assets and blobs like a slot (the collections keep what any row lists), are written whatever the
 // page's own slot does, and are read once: `takeHandoff` deletes the row it returns.
+//
+// Halo T0 (STUDIO-TOUCH-SPEC S11, S24, §16.4; ST-22): on iOS WebKit the page's own snapshot is kept whatever the dirty
+// state — a project that was shared to Files cleared the unsaved dot, but iPadOS never confirms that the file arrived
+// — so a clean end (save, new, open, an unload while clean) leaves it for recovery; the next write replaces it.
+// `requestPersistentStorage` asks the browser to keep this site's storage (Safari may evict IndexedDB after seven days
+// without a visit); the storage card calls it after the first project save.
 import type { AssetId, AssetRecord } from '@ekza-studio/doc';
 import type { AutosaveSlotInfo, AutosaveStore, BlobId, HandoffInfo } from '@ekza-studio/editor-core';
+import { isIosWebKit } from './fileTypes';
 
 /** Kept from the Ekza Animator name (DECISIONS-OPEN NAME-1): a new name would hide existing recovery points. */
 export const AUTOSAVE_DB = 'ekza-animator-autosave-v1';
@@ -83,6 +90,8 @@ export interface IndexedDbAutosaveOptions {
   readonly heartbeatMs?: number;
   /** Runs the idle blob collection (default: `requestIdleCallback`, else a 0 ms timeout). */
   readonly idle?: (fn: () => void) => void;
+  /** A clean end leaves this page's own snapshot in place (default: on iOS WebKit, S24). */
+  readonly keepOwnSnapshot?: boolean;
 }
 
 /** The database name of a storage namespace. */
@@ -153,6 +162,7 @@ export function createIndexedDbAutosaveStore(opts: IndexedDbAutosaveOptions = {}
   const now = opts.now ?? (() => Date.now());
   const heartbeatMs = opts.heartbeatMs ?? HEARTBEAT_MS;
   const idle = opts.idle ?? defaultIdle();
+  const keepOwnSnapshot = opts.keepOwnSnapshot ?? isIosWebKit();
   let database: Promise<IDBDatabase> | null = null;
   let ownSlot: string | null = null;
   let collectionQueued = false;
@@ -465,7 +475,8 @@ export function createIndexedDbAutosaveStore(opts: IndexedDbAutosaveOptions = {}
     },
 
     read: readRow,
-    remove: removeRow,
+    // S24: on iOS this page's snapshot outlives a clean end (only its next write replaces it); other slots go.
+    remove: (slot) => (keepOwnSnapshot && slot === ownSlot ? Promise.resolve() : removeRow(slot)),
 
     // ---------- AUTORIG-SPEC §4.4: one-shot handoff records ----------
     writeHandoff: (id, data, readAsset, readBlob) =>
@@ -486,6 +497,32 @@ export function createIndexedDbAutosaveStore(opts: IndexedDbAutosaveOptions = {}
     /** Resolves once the last scheduled idle blob collection has run (tests). */
     blobsCollected: () => collected,
   } as AutosaveStore & { blobsCollected(): Promise<void> };
+}
+
+/** What `requestPersistentStorage` reads of `navigator.storage`. */
+export interface PersistApi {
+  persist?(): Promise<boolean>;
+  persisted?(): Promise<boolean>;
+}
+
+function storageManager(): PersistApi | undefined {
+  // Missing outside secure contexts, whatever lib.dom says.
+  return typeof navigator === 'undefined' ? undefined : navigator.storage;
+}
+
+/**
+ * Asks the browser to keep this site's storage (autosave slots, preferences) through storage pressure and Safari's
+ * eviction after seven days without a visit (S11): true when granted, false when refused, null where the API is
+ * missing or fails. Granting is up to the browser (device check D12).
+ */
+export async function requestPersistentStorage(api: PersistApi | undefined = storageManager()): Promise<boolean | null> {
+  if (api?.persist === undefined) return null;
+  try {
+    if ((await api.persisted?.()) === true) return true;
+    return await api.persist();
+  } catch {
+    return null;
+  }
 }
 
 /** The idle blob collection's completion of a store made by `createIndexedDbAutosaveStore` (tests). */
