@@ -10,7 +10,7 @@ import { filterEntries, type PaletteEntry, paletteEntries } from '@ekza-studio/e
 import { Sheet, SheetGroup, SheetRow } from '@ekza-studio/ui/touch';
 import { type JSX, useMemo, useState } from 'react';
 import { en } from '../i18n/en';
-import { matchRecipes, type RecipeMatch, runRecipe, SEARCH_RECIPES } from '../recipes';
+import { matchRecipes, type RecipeOffer, SEARCH_RECIPES } from '../recipes';
 import type { HaloController } from '../shell/controller';
 import { PANE, stageOfWorkspace, workspaceOfStage } from '../shell/stage';
 import { useHaloStore } from '../shell/store';
@@ -73,14 +73,10 @@ export default function Palette({
   // §8, §9.11 (T11): the recipes a phrase names (*wave twice*, *loop it*), above the operators
   const recipeRows = matchRecipes(SEARCH_RECIPES, query);
   const close = (): void => store.set({ palette: false });
-  const runMatch = (match: RecipeMatch): void => {
+  const runMatch = (offer: RecipeOffer): void => {
     close();
     store.set((s) => ({ touches: s.touches + 1 }));
-    void runRecipe(
-      { app, run: (op, args) => ctx.run(op, args), toast: (toast) => ctx.toasts.push(toast) },
-      match.recipe,
-      match.params,
-    );
+    void offer.run({ app, run: (op, args) => ctx.run(op, args), toast: (toast) => ctx.toasts.push(toast) });
   };
   const runEntry = (entry: PaletteEntry): void => {
     close();
@@ -155,9 +151,9 @@ export default function Palette({
         }}
       />
       {recipeRows.length > 0 ? <SheetGroup>{en.recipes.group}</SheetGroup> : null}
-      {recipeRows.map((match) => (
-        <div key={match.recipe.id} data-testid={`halo-recipe-${match.recipe.id}`}>
-          <SheetRow title={match.title} detail={match.recipe.detail} onClick={() => runMatch(match)} />
+      {recipeRows.map((offer) => (
+        <div key={offer.id} data-testid={`halo-recipe-${offer.id}`}>
+          <SheetRow title={offer.title} detail={offer.detail} onClick={() => runMatch(offer)} />
         </div>
       ))}
       {thingRows.length > 0 ? <SheetGroup>{en.palette.things}</SheetGroup> : null}

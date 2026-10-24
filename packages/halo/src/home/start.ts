@@ -23,9 +23,9 @@ export interface HomeServices {
   readonly share: ShareShell['holder'];
   readonly resume: Resume;
   /** *Save project to Files* (`file.save`; the host's save prompt on iOS), then the storage card. */
-  saveProject(): Promise<boolean>;
+  readonly saveProject: () => Promise<boolean>;
   /** One touch of the journeys' counter (AS-ST-4). */
-  touch(): void;
+  readonly touch: () => void;
 }
 
 const services = new WeakMap<HaloController, HomeServices>();

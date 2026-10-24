@@ -3,14 +3,14 @@
 import { addAnimationsRecipe } from './addAnimations';
 import { fixForOmobaRecipe } from './fixForOmoba';
 import { loopItRecipe } from './loopIt';
-import type { Recipe } from './recipe';
+import { type SearchableRecipe, searchable } from './recipe';
 import { waveRecipe } from './wave';
 
-export const SEARCH_RECIPES: readonly Recipe<unknown>[] = [
-  waveRecipe as Recipe<unknown>,
-  loopItRecipe as Recipe<unknown>,
-  addAnimationsRecipe as Recipe<unknown>,
-  fixForOmobaRecipe as Recipe<unknown>,
+export const SEARCH_RECIPES: readonly SearchableRecipe[] = [
+  searchable(waveRecipe),
+  searchable(loopItRecipe),
+  searchable(addAnimationsRecipe),
+  searchable(fixForOmobaRecipe),
 ];
 
-export { matchRecipes, type Recipe, type RecipeMatch, runRecipe } from './recipe';
+export { matchRecipes, type Recipe, type RecipeOffer, runRecipe, type SearchableRecipe } from './recipe';

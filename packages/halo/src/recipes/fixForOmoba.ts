@@ -3,12 +3,13 @@
 // §7.2 — Mesh Check clean-ups, Validation fixes such as adding thumbs, the game's own fixes). The licence and the
 // author are never chosen for the person (Q-SKIN-3); problems that need hands stay on the list (*Go fix ▸*), and the
 // last toast says how many are left.
+import type { EditorApp } from '@ekza-studio/editor-core';
 import { readiness } from '../path/readiness';
 import { en } from '../i18n/en';
 import type { Recipe } from './recipe';
 
 /** The OMOBA list's one-operator fixes, in the list's order (each row at most once). */
-export function omobaFixes(app: Parameters<Recipe<unknown>['plan']>[0]) {
+export function omobaFixes(app: EditorApp) {
   const rows = readiness(app, 'omoba').rows;
   const seen = new Set<string>();
   const fixes = rows.flatMap((row) => {
@@ -16,7 +17,7 @@ export function omobaFixes(app: Parameters<Recipe<unknown>['plan']>[0]) {
     const key = `${row.fix.op}:${JSON.stringify(row.fix.args ?? null)}`;
     if (seen.has(key)) return [];
     seen.add(key);
-    return [{ op: row.fix.op as string, args: row.fix.args }];
+    return [{ op: row.fix.op, args: row.fix.args }];
   });
   return { fixes, handsOn: rows.filter((row) => row.fix === null).length };
 }

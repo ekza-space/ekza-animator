@@ -14,8 +14,7 @@ export const addAnimationsRecipe: Recipe<Record<string, never>> = {
   id: 'addAnimations',
   title: () => en.recipes.addAnimations,
   detail: en.recipes.addAnimationsDetail,
-  match: (query) =>
-    /\b(starter|idle|walk|run)\b/.test(query) || /\badd animations?\b/.test(query) ? {} : null,
+  match: (query) => (/\b(starter|idle|walk|run)\b/.test(query) || /\badd animations?\b/.test(query) ? {} : null),
   plan(app) {
     const character = recipeCharacter(app);
     if (character === null) return { problem: en.recipes.needsCharacter };

@@ -53,7 +53,9 @@ export function GameTarget(props: {
         setKit(loaded);
         const { model } = await loaded.contractsOf(app).latest('omoba');
         setHeroes(
-          model.targets.filter((target) => target.kind === 'character').map((target) => ({ id: target.id, name: target.name })),
+          model.targets
+            .filter((target) => target.kind === 'character')
+            .map((target) => ({ id: target.id, name: target.name })),
         );
       })
       .catch((failure: unknown) => setError(failure instanceof Error ? failure.message : String(failure)));

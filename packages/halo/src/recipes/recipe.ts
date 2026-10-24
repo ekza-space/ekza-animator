@@ -3,16 +3,15 @@
 // (each an undoable step with its own label) computed from the document when it starts; a later step may read the
 // results of the earlier ones (the wave keys the animation the first step made). The runner runs the steps in order
 // through the shell's funnel, says *Wave · 2 of 8* while it runs and *Wave: done · Undo all* at the end; *Undo all*
-// reverts exactly the recipe's steps (`edit.revertSteps`, the AI groups' undo). A refused step stops the recipe and
+// takes back exactly the recipe's steps (`undoAll`). A refused step stops the recipe and
 // says why; the steps before it stay (P9: sparse, labelled, undoable). React-free.
 import type { EditorApp, OperatorResult } from '@ekza-studio/editor-core';
 import { en } from '../i18n/en';
 
-/** One step: an operator and its arguments (from the document and the earlier steps' results). */
-export interface RecipeStep {
-  readonly op: string;
-  readonly args: unknown | ((results: readonly unknown[]) => unknown);
-}
+/** One step: an operator and its arguments — fixed, or from the earlier steps' results (`argsFrom`). */
+export type RecipeStep =
+  | { readonly op: string; readonly args: unknown }
+  | { readonly op: string; readonly argsFrom: (results: readonly unknown[]) => unknown };
 
 /** A recipe's plan for the document as it is, or why it cannot start (a plain sentence). */
 export type RecipePlan = { readonly steps: readonly RecipeStep[] } | { readonly problem: string };
@@ -60,7 +59,7 @@ export async function runRecipe<P>(host: RecipeHost, recipe: Recipe<P>, params: 
     if (plan.steps.length > 1) {
       host.toast({ key: 'recipe', text: en.recipes.step(title, index + 1, plan.steps.length) });
     }
-    const args = typeof step.args === 'function' ? (step.args as (r: readonly unknown[]) => unknown)(results) : step.args;
+    const args = 'argsFrom' in step ? step.argsFrom(results) : step.args;
     const result = await host.run(step.op, args);
     if (result.status !== 'finished') {
       const reason = result.status === 'failed' ? result.error.message : result.reason;
@@ -74,30 +73,59 @@ export async function runRecipe<P>(host: RecipeHost, recipe: Recipe<P>, params: 
     key: 'recipe',
     text: en.recipes.done(title),
     durationMs: 8000,
-    ...(steps.length === 0
-      ? {}
-      : { action: { label: en.recipes.undoAll, run: () => void host.run('edit.revertSteps', { steps }) } }),
+    ...(steps.length === 0 ? {} : { action: { label: en.recipes.undoAll, run: () => void undoAll(host, steps) } }),
   });
   return { status: 'done', steps, results };
 }
 
-/** A recipe offered by a query, with the parameters the query asked for. */
-export interface RecipeMatch {
-  readonly recipe: Recipe<unknown>;
-  readonly params: unknown;
+/**
+ * *Undo all* (§9.11, P9): the recipe's steps, newest first, while they are still the newest of the history (`edit.undo`
+ * each; the History ribbon names them); when other steps came after them, `edit.revertSteps` reverts just those.
+ */
+export async function undoAll(host: RecipeHost, steps: readonly number[]): Promise<boolean> {
+  const mine = new Set(steps);
+  const top = host.app.history.entries().undo.slice(-steps.length);
+  if (top.length === steps.length && top.every((step) => mine.has(step.id))) {
+    for (let i = 0; i < steps.length; i++) {
+      if ((await host.run('edit.undo')).status !== 'finished') return false;
+    }
+    return true;
+  }
+  return (await host.run('edit.revertSteps', { steps })).status === 'finished';
+}
+
+/** A recipe a query offers (§8), with the parameters the query asked for bound in. */
+export interface RecipeOffer {
+  readonly id: string;
   readonly title: string;
+  readonly detail: string;
+  readonly run: (host: RecipeHost) => Promise<RecipeOutcome>;
+}
+
+/** A recipe as search sees it: the offer for a query, or null when the query does not name it. */
+export type SearchableRecipe = (query: string) => RecipeOffer | null;
+
+export function searchable<P>(recipe: Recipe<P>): SearchableRecipe {
+  return (query) => {
+    const params = recipe.match(query);
+    if (params === null) return null;
+    return {
+      id: recipe.id,
+      title: recipe.title(params),
+      detail: recipe.detail,
+      run: (host) => runRecipe(host, recipe, params),
+    };
+  };
 }
 
 /** The recipes search offers for a query (§8: a small deterministic matcher, never a silent guess). */
-export function matchRecipes(recipes: readonly Recipe<unknown>[], query: string): readonly RecipeMatch[] {
+export function matchRecipes(recipes: readonly SearchableRecipe[], query: string): readonly RecipeOffer[] {
   const q = query.trim().toLowerCase();
   if (q === '') return [];
-  const out: RecipeMatch[] = [];
-  for (const recipe of recipes) {
-    const params = recipe.match(q);
-    if (params !== null) out.push({ recipe, params, title: recipe.title(params) });
-  }
-  return out;
+  return recipes.flatMap((offer) => {
+    const found = offer(q);
+    return found === null ? [] : [found];
+  });
 }
 
 /** The live character a recipe works on: the active one, else the first. */

@@ -156,7 +156,10 @@ export function createResume(controller: HaloController, storage: StorageLike | 
         app.session.subscribe((state, prior) => {
           if (state.recovery !== prior.recovery) check();
           // this page's record follows its autosave writes (and the time and selection at each)
-          if (state.autosave.lastSavedAt !== prior.autosave.lastSavedAt || state.autosave.slot !== prior.autosave.slot) {
+          if (
+            state.autosave.lastSavedAt !== prior.autosave.lastSavedAt ||
+            state.autosave.slot !== prior.autosave.slot
+          ) {
             const record = recordOf(app);
             if (record !== null) writeResume(storage, record);
           }

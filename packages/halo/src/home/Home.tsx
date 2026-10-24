@@ -8,7 +8,7 @@
 import { intakeModel, intakeSampleArgs } from '@ekza-studio/editor-core';
 import { pickerAccept } from '@ekza-studio/editor/host';
 import { Cluster, TouchButton, TouchIconButton } from '@ekza-studio/ui/touch';
-import { type JSX, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { type JSX, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Icon } from '../halo/icons';
 import { en } from '../i18n/en';
 import { bringFiles } from '../intake/intake';
@@ -31,6 +31,15 @@ import { homeServices } from './start';
 const ACCEPT = '.glb,.gltf,.vrm,.vrma,.ekzanim,.json,model/gltf-binary,model/gltf+json';
 
 type Panel = null | 'samples' | 'starts';
+
+/** The time to the minute, as an external store (the Continue cards' "2 min ago"). */
+const minuteClock = {
+  subscribe: (listener: () => void): (() => void) => {
+    const timer = setInterval(listener, 60_000);
+    return () => clearInterval(timer);
+  },
+  get: (): number => Math.floor(Date.now() / 60_000) * 60_000,
+};
 
 function useRecovery(controller: HaloController) {
   const { app } = controller.ctx;
@@ -56,8 +65,11 @@ export function Home({
   const [question, setQuestion] = useState<((answer: 'new' | 'add' | 'cancel') => void) | null>(null);
   const [dropping, setDropping] = useState(false);
   const file = useRef<HTMLInputElement>(null);
+  const root = useRef<HTMLElement>(null);
   const recovery = useRecovery(controller);
-  const cards = useMemo(() => continueCards(recovery, Date.now()), [recovery]);
+  // "2 min ago" against a clock that ticks each minute
+  const now = useSyncExternalStore(minuteClock.subscribe, minuteClock.get, minuteClock.get);
+  const cards = useMemo(() => continueCards(recovery, now), [recovery, now]);
   const primary = primaryDoor(cards);
   const touches = useHaloStore(store, (s) => s.touches);
   const touch = services.touch;
@@ -120,6 +132,37 @@ export function Home({
     run('bring', () => bringFiles(controller, files, { ask, done: () => controller.leaveHome() }));
   };
 
+  // files dropped on Home (D9: a drop from the Files app) are brought in like picked ones
+  const bringRef = useRef(bring);
+  useEffect(() => {
+    bringRef.current = bring;
+  });
+  useEffect(() => {
+    const el = root.current;
+    if (el === null) return;
+    const over = (event: DragEvent): void => {
+      if (event.dataTransfer?.types.includes('Files') !== true) return;
+      event.preventDefault();
+      setDropping(true);
+    };
+    const leave = (): void => setDropping(false);
+    const drop = (event: DragEvent): void => {
+      const files = [...(event.dataTransfer?.files ?? [])];
+      if (files.length === 0) return;
+      event.preventDefault();
+      setDropping(false);
+      bringRef.current(files);
+    };
+    el.addEventListener('dragover', over);
+    el.addEventListener('dragleave', leave);
+    el.addEventListener('drop', drop);
+    return () => {
+      el.removeEventListener('dragover', over);
+      el.removeEventListener('dragleave', leave);
+      el.removeEventListener('drop', drop);
+    };
+  }, []);
+
   const continueSlot = (slot: string): void => {
     touch();
     run(`continue:${slot}`, async () => {
@@ -141,6 +184,7 @@ export function Home({
 
   return (
     <section
+      ref={root}
       aria-label={en.app.name}
       data-halo-chrome=""
       data-testid="halo-home"
@@ -148,18 +192,6 @@ export function Home({
       data-dropping={dropping ? '' : undefined}
       className="pointer-events-auto absolute inset-0 flex flex-col overflow-y-auto bg-[color-mix(in_srgb,var(--app)_72%,transparent)] px-(--touch-inset-left) pt-[max(8px,env(safe-area-inset-top))] pb-(--touch-inset-bottom) backdrop-blur-sm data-dropping:outline-2 data-dropping:outline-accent data-dropping:-outline-offset-8"
       data-touch-scroll=""
-      onDragOver={(event) => {
-        if (!event.dataTransfer.types.includes('Files')) return;
-        event.preventDefault();
-        setDropping(true);
-      }}
-      onDragLeave={() => setDropping(false)}
-      onDrop={(event) => {
-        if (event.dataTransfer.files.length === 0) return;
-        event.preventDefault();
-        setDropping(false);
-        bring([...event.dataTransfer.files]);
-      }}
     >
       <header className="flex items-center gap-2.5">
         <span className="flex min-h-(--touch-hit) items-center gap-2 px-2 text-touch-title font-semibold whitespace-nowrap">

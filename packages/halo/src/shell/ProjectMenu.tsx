@@ -38,11 +38,11 @@ export default function ProjectMenu({ controller }: { readonly controller: HaloC
   const [file, setFile] = useState<HTMLInputElement | null>(null);
   const menu = useRef<HTMLDivElement>(null);
   const close = (): void => store.set({ projectMenu: false });
-  // T11: Open starts a new project (the work stays in autosave), Import adds to this one
-  const mode = useRef<'new' | 'add'>('new');
+  // T11: Open starts a new project (the work stays in autosave), Import adds to this one (the picker remembers which)
   const pickFiles = (as: 'new' | 'add') => (): void => {
-    mode.current = as;
-    file?.click();
+    if (file === null) return;
+    file.dataset['mode'] = as;
+    file.click();
   };
   useEffect(() => {
     menu.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true });
@@ -108,12 +108,13 @@ export default function ProjectMenu({ controller }: { readonly controller: HaloC
         hidden
         onChange={(event) => {
           const files = [...(event.currentTarget.files ?? [])];
+          const mode = event.currentTarget.dataset['mode'] === 'add' ? 'add' : 'new';
           event.currentTarget.value = '';
           // T11: the same intake as Home's *Bring a model* (the bytes sniffed, the shared routing)
           if (files.length > 0) {
             void import('../intake/intake').then(({ bringFiles }) =>
               bringFiles(controller, files, {
-                ask: () => Promise.resolve(mode.current),
+                ask: () => Promise.resolve(mode),
                 done: () => controller.leaveHome(),
               }),
             );

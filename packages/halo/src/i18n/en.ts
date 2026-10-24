@@ -185,7 +185,8 @@ export const en = {
     keepAction: 'Keep them',
     kept: 'Safari keeps your projects on this iPad.',
     notKept: 'Safari did not promise to keep them: save to Files now and then.',
-    homeScreen: 'Add Ekza Studio to the Home Screen for full screen. The Home Screen app keeps its own projects: open your file there.',
+    homeScreen:
+      'Add Ekza Studio to the Home Screen for full screen. The Home Screen app keeps its own projects: open your file there.',
     dismiss: 'Not now',
     target: {
       title: 'Made for a game',

@@ -22,7 +22,13 @@ import {
   reRigArgs,
 } from '@ekza-studio/editor-core';
 import type { HaloStage } from '@ekza-studio/editor-core';
-import { type FileKind, memoryProfileOf, nameForKind, sniffFileKind, UNSUPPORTED_FILE_TEXT } from '@ekza-studio/editor/host';
+import {
+  type FileKind,
+  memoryProfileOf,
+  nameForKind,
+  sniffFileKind,
+  UNSUPPORTED_FILE_TEXT,
+} from '@ekza-studio/editor/host';
 import { en } from '../i18n/en';
 import type { HaloController } from '../shell/controller';
 import { haloFlowHost } from './flowHost';
@@ -48,7 +54,9 @@ export function routeOf(kind: FileKind): IntakeRoute {
     case 'gltf':
     case 'projectJson':
       return 'host';
-    default:
+    case 'zip':
+    case 'json':
+    case 'unknown':
       return 'unsupported';
   }
 }

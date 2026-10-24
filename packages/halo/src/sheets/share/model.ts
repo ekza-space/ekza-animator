@@ -40,7 +40,12 @@ export const VRMA_PROFILE = 'ekza/vrma-humanoid-v1';
 /** The run context of Share's calls (the host's funnel takes the viewport's panel). */
 export const SHARE_CONTEXT: RunContext = { panel: PANEL.viewport, paneId: 'pane-single' };
 
-export type ShareOp = 'file.exportCharacter' | 'file.export' | 'file.exportModel' | 'autorig.export' | 'target.exportPackage';
+export type ShareOp =
+  | 'file.exportCharacter'
+  | 'file.export'
+  | 'file.exportModel'
+  | 'autorig.export'
+  | 'target.exportPackage';
 
 /** One export: the operator, its arguments and what Advanced names (format, profile). */
 export interface ShareCall {
@@ -188,7 +193,7 @@ type SceneObject = MeshRecord | GroupRecord;
 function holdsMesh(view: ReadView, object: SceneObject): boolean {
   if (object.id.startsWith('msh_')) return true;
   const owner = 'scene' in object.owner ? 'scene' : object.owner.character;
-  return view.query.childrenOf(object.id, owner).some((child) => holdsMesh(view, child as SceneObject));
+  return view.query.childrenOf(object.id, owner).some((child) => holdsMesh(view, child));
 }
 
 /** Pro's static export roots (`staticRoots`): the topmost selected objects, else the scene roots, holding a mesh. */
@@ -361,7 +366,12 @@ export function moreFormatChoice(
         });
       }
       if (subject.kind === 'gltf') {
-        return call(id, { op: 'autorig.export', args: autorig(record.id, 'glb'), format: 'GLB', profile: GENERIC_PROFILE });
+        return call(id, {
+          op: 'autorig.export',
+          args: autorig(record.id, 'glb'),
+          format: 'GLB',
+          profile: GENERIC_PROFILE,
+        });
       }
       return none(id, words.isVrm(record.name));
     case 'kit':
@@ -373,7 +383,12 @@ export function moreFormatChoice(
           profile: PACKAGE_PROFILE,
         });
       }
-      return call(id, { op: 'autorig.export', args: autorig(record.id, 'omoba-kit'), format: 'ZIP', profile: SPACE_PROFILE });
+      return call(id, {
+        op: 'autorig.export',
+        args: autorig(record.id, 'omoba-kit'),
+        format: 'ZIP',
+        profile: SPACE_PROFILE,
+      });
     case 'animationGlb':
       return call(id, {
         op: 'file.export',
@@ -408,7 +423,9 @@ export function optionsFor(value: ShareCall | null): readonly (keyof ShareOption
       return ['material'];
     case 'file.exportModel':
       return ['colourOutput', 'material'];
-    default:
+    case 'autorig.export':
+    case 'target.exportPackage':
+      // Auto-Rig ⑤'s targets and C2's package take no options (their bytes are exactly Auto-Rig's)
       return [];
   }
 }

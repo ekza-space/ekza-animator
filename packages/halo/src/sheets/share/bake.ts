@@ -61,10 +61,11 @@ export async function holdingFiles(
 }> {
   const files: HeldFile[] = [];
   const toasts: Parameters<Notifier['toast']>[0][] = [];
-  const service = app.services.files as { download: FileService['download'] };
-  const notifier = app.services.notify as { toast: Notifier['toast'] };
-  const download = service.download;
-  const toast = notifier.toast;
+  const service: { download: FileService['download'] } = app.services.files;
+  const notifier: { toast: Notifier['toast'] } = app.services.notify;
+  // the services' own functions, put back as they were (not bound copies)
+  const original = { download: service.download, toast: notifier.toast };
+  const toast: Notifier['toast'] = (t) => original.toast.call(notifier, t);
   const heldDownload: FileService['download'] = (name, bytes, mime) => {
     files.push({ name, bytes, mime });
   };
@@ -77,10 +78,10 @@ export async function holdingFiles(
     const result = await run();
     return { result, files, toasts };
   } finally {
-    if (service.download === heldDownload) service.download = download;
-    if (notifier.toast === heldToast) notifier.toast = toast;
+    if (service.download === heldDownload) service.download = original.download;
+    if (notifier.toast === heldToast) notifier.toast = original.toast;
     // a toast that is not about this export (another run's) still reaches the person
-    for (const t of toasts) if (!/^Exported |was not saved: /.test(t.text)) toast.call(notifier, t);
+    for (const t of toasts) if (!/^Exported |was not saved: /.test(t.text)) toast(t);
   }
 }
 
@@ -112,14 +113,14 @@ function single(files: readonly HeldFile[]): HeldFile | null {
 }
 
 export interface Baker {
-  get(): BakeState;
-  subscribe(listener: () => void): () => void;
+  readonly get: () => BakeState;
+  readonly subscribe: (listener: () => void) => () => void;
   /** Prepares the call's file now (a newer call waits for the running one, then replaces it). */
-  prepare(value: ShareCall, key: string): void;
+  readonly prepare: (value: ShareCall, key: string) => void;
   /** Forgets the prepared file (the card changed to one without a call). */
-  clear(): void;
+  readonly clear: () => void;
   /** Delivers the prepared file from a tap (the ticket's share or download); null when none is ready. */
-  deliver(): Promise<'shared' | 'downloaded' | 'cancelled' | null>;
+  readonly deliver: () => Promise<'shared' | 'downloaded' | 'cancelled' | null>;
 }
 
 /** The baker of one Share sheet: one prepared file at a time, re-prepared when the call or the document changes. */
@@ -144,7 +145,12 @@ export function createBaker(app: EditorApp, run: Runner): Baker {
       const { result, files } = await holdingFiles(app, () => run(value.op, value.args));
       if (queued !== null) return;
       if (result.status !== 'finished') {
-        set({ ...IDLE, status: 'failed', key, reason: result.status === 'failed' ? result.error.message : result.reason });
+        set({
+          ...IDLE,
+          status: 'failed',
+          key,
+          reason: result.status === 'failed' ? result.error.message : result.reason,
+        });
         return;
       }
       const lints = lintsOf(result.value);
@@ -155,8 +161,9 @@ export function createBaker(app: EditorApp, run: Runner): Baker {
         return;
       }
       held = file;
-      const save = (app.services.files as FileService).save;
-      ticket = save === undefined ? null : save.call(app.services.files, { name: file.name, mime: file.mime, bytes: file.bytes });
+      const service = app.services.files;
+      ticket =
+        service.save === undefined ? null : service.save({ name: file.name, mime: file.mime, bytes: file.bytes });
       set({
         status: 'ready',
         key,
@@ -178,13 +185,13 @@ export function createBaker(app: EditorApp, run: Runner): Baker {
 
   return {
     get: () => state,
-    subscribe(listener) {
+    subscribe: (listener) => {
       listeners.add(listener);
       return () => {
         listeners.delete(listener);
       };
     },
-    prepare(value, key) {
+    prepare: (value, key) => {
       if (state.key === key && state.status !== 'failed') return;
       if (running) {
         queued = { value, key };
@@ -193,13 +200,13 @@ export function createBaker(app: EditorApp, run: Runner): Baker {
       }
       void bake(value, key);
     },
-    clear() {
+    clear: () => {
       queued = null;
       ticket = null;
       held = null;
       if (!running) set(IDLE);
     },
-    async deliver() {
+    deliver: async () => {
       if (state.status !== 'ready' || held === null) return null;
       const file = held;
       let how: 'shared' | 'downloaded' | 'cancelled';

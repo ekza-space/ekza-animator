@@ -8,13 +8,8 @@
 // the same character made for OMOBA's Wildspark (C2's hero package and developer zip), an imported VRM (Polybot) and
 // an imported rigged glTF, and the scene's static meshes (a hand-held prop).
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import {
-  type CharacterId,
-  type ClipId,
-  type MeshId,
-  seededIdSource,
-} from '@ekza-studio/doc';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { type CharacterId, type ClipId, type MeshId, seededIdSource } from '@ekza-studio/doc';
 import {
   type AutoRigRigResult,
   createHeadlessEditorApp,
@@ -74,7 +69,13 @@ async function freshApp(seed: number): Promise<EditorApp> {
   const app = createHeadlessEditorApp({
     idSource: seededIdSource(seed),
     readSample: (sample: SampleDef) =>
-      Promise.resolve(file(sample.file === 'quaternius-ual.glb' ? 'fixtures/animations/quaternius-ual.glb' : `fixtures/models/${sample.file}`)),
+      Promise.resolve(
+        file(
+          sample.file === 'quaternius-ual.glb'
+            ? 'fixtures/animations/quaternius-ual.glb'
+            : `fixtures/models/${sample.file}`,
+        ),
+      ),
   });
   await Promise.all([app.rig.load(), app.library.load(), loadModelOperators(), loadUiWrappers(app)]);
   return app;
@@ -173,15 +174,17 @@ function proCharacter(
 
 const evidence: Record<string, Record<string, Written>> = {};
 function record(subject: string, row: string, value: Written): Written {
-  evidence[subject] ??= {};
-  (evidence[subject] as Record<string, Written>)[row] = value;
+  const rows = evidence[subject] ?? {};
+  rows[row] = value;
+  evidence[subject] = rows;
   return value;
 }
 
 describe('Share writes Studio Pro’s and Auto-Rig’s bytes (AS-ST-5)', { timeout: 600_000 }, () => {
   afterAll(() => {
-    // the per-destination evidence (name, size, SHA-256) for the wp-note
-    console.log(`SHARE-BYTES ${JSON.stringify(evidence)}`);
+    // the per-destination evidence (name, size, SHA-256) for the wp-note: `EKZA_SHARE_BYTES=<file>` writes it
+    const out = process.env['EKZA_SHARE_BYTES'];
+    if (out !== undefined && out !== '') writeFileSync(out, `${JSON.stringify(evidence, null, 2)}\n`);
   });
 
   it('a model character (the Cube Lad rigged by Auto-Rig, with Walk), then made for OMOBA’s Wildspark', async () => {
@@ -263,7 +266,10 @@ describe('Share writes Studio Pro’s and Auto-Rig’s bytes (AS-ST-5)', { timeo
     expect(kitHalo.sha256).toBe(kitAutoRig.sha256);
 
     // Into the original file: a character made in Ekza Studio has none (the card says so)
-    expect(destinationChoice(app, 'original', DEFAULT_OPTIONS, WORDS)).toMatchObject({ call: null, problem: 'made here' });
+    expect(destinationChoice(app, 'original', DEFAULT_OPTIONS, WORDS)).toMatchObject({
+      call: null,
+      problem: 'made here',
+    });
 
     // Made for OMOBA's Wildspark (C2): the OMOBA card is the hero package — Pro's *OMOBA character* profile ==
     // Auto-Rig ⑤ `omoba-hero` == `target.exportPackage`; More formats' kit is the developer zip
@@ -330,7 +336,11 @@ describe('Share writes Studio Pro’s and Auto-Rig’s bytes (AS-ST-5)', { timeo
     const omobaPro = record(
       'vrm',
       'omoba (Pro)',
-      await written(app, 'file.export', proFileExport(app, character, 'bake-into-model', 'ekza/space-avatar-v1', [walk])),
+      await written(
+        app,
+        'file.export',
+        proFileExport(app, character, 'bake-into-model', 'ekza/space-avatar-v1', [walk]),
+      ),
     );
     expect(omobaHalo.sha256).toBe(omobaPro.sha256);
     // Into the original file: Pro's Export dialog defaults (generic checks)
@@ -401,7 +411,11 @@ describe('Share writes Studio Pro’s and Auto-Rig’s bytes (AS-ST-5)', { timeo
     expect(propHalo.sha256).toBe(propPro.sha256);
     const plain = halo(app, 'static', 'format');
     const plainHalo = record('static', 'static GLB (Halo)', await written(app, plain.op, plain.args));
-    const plainPro = record('static', 'static GLB (Pro)', await written(app, 'file.exportModel', proStatic('local/generic')));
+    const plainPro = record(
+      'static',
+      'static GLB (Pro)',
+      await written(app, 'file.exportModel', proStatic('local/generic')),
+    );
     expect(plainHalo.sha256).toBe(plainPro.sha256);
   });
 });

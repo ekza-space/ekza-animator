@@ -38,20 +38,20 @@ import {
 /** What the frame's Share host adds to a sheet's context (`../../home/start.ts`). */
 export interface ShareShell {
   /** The journeys' touch counter (AS-ST-4). */
-  touch(): void;
+  readonly touch: () => void;
   readonly toasts: ToastStore;
   /** *Save project to Files* (the project menu's and the footer's): `file.save`, then the storage card. */
-  saveProject(): Promise<void>;
+  readonly saveProject: () => Promise<void>;
   /** The author remembered on this device (asked once, §13.3). */
-  readonly author: { get(): string | null; set(name: string): void };
+  readonly author: { readonly get: () => string | null; readonly set: (name: string) => void };
   /** Where the sheet keeps its baker, so a prepared file outlives the sheet (and the test API reads its state). */
   readonly holder: { baker: Baker | null };
   /** The storage card's state on this device (§17: after the first project save, iOS only). */
   readonly storage: {
     readonly subscribe: (listener: () => void) => () => void;
     readonly get: () => StorageCard;
-    keep(): Promise<void>;
-    dismiss(): void;
+    readonly keep: () => Promise<void>;
+    readonly dismiss: () => void;
   };
 }
 
@@ -141,32 +141,59 @@ function CommitField(props: {
   );
 }
 
-/** The licence as an explicit choice (Q-SKIN-3, ST-40): *Free for anyone (CC0)* first, none pre-selected. */
-function LicenceRow(props: {
-  readonly value: string | null;
-  readonly onChoose: (value: string) => void;
+/**
+ * A row of choices as native radios (keyboard and screen readers for free), shown as chips: none chosen is allowed
+ * (the licence starts unchosen, Q-SKIN-3); a choice acts at once. `wide` chips carry a second line.
+ */
+function ChoiceChips<T extends string>(props: {
+  readonly label: string;
+  readonly value: T | null;
+  readonly options: readonly { readonly value: T; readonly label: string; readonly detail?: string }[];
+  readonly testId: (value: T) => string;
+  readonly wide?: boolean;
+  readonly onChoose: (value: T) => void;
 }): JSX.Element {
+  const name = useId();
+  return (
+    <fieldset className="m-0 flex min-w-0 flex-wrap gap-1.5 border-0 p-0" aria-label={props.label}>
+      {props.options.map((option) => {
+        const on = option.value === props.value;
+        return (
+          <label
+            key={option.value}
+            data-testid={props.testId(option.value)}
+            data-checked={on || undefined}
+            className={`flex cursor-pointer rounded-touch border px-3 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent ${props.wide === true ? 'min-h-[52px] min-w-[140px] flex-1 flex-col items-start justify-center py-1' : 'min-h-(--touch-hit) items-center text-touch font-medium'} ${on ? 'border-accent/60 bg-accent-soft text-fg' : 'border-line bg-field text-fg-2'}`}
+          >
+            <input
+              type="radio"
+              name={name}
+              value={option.value}
+              checked={on}
+              onChange={() => props.onChoose(option.value)}
+              className="sr-only"
+            />
+            <span className={props.wide === true ? 'font-medium text-fg' : ''}>{option.label}</span>
+            {option.detail === undefined ? null : <span className="text-touch-label text-fg-3">{option.detail}</span>}
+          </label>
+        );
+      })}
+    </fieldset>
+  );
+}
+
+/** The licence as an explicit choice (Q-SKIN-3, ST-40): *Free for anyone (CC0)* first, none pre-selected. */
+function LicenceRow(props: { readonly value: string | null; readonly onChoose: (value: string) => void }): JSX.Element {
   return (
     <div className="flex flex-col gap-1.5 px-2.5 py-1.5" data-testid="halo-share-licence">
       <span className="font-medium text-fg">{props.value === null ? en.share.licence : en.share.licenceChosen}</span>
-      <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={en.share.licenceChosen}>
-        {LICENCES.map((option) => {
-          const on = option.value === props.value;
-          return (
-            <button
-              key={option.value}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              data-testid={`halo-share-licence-${option.value}`}
-              className={`inline-flex min-h-(--touch-hit) items-center rounded-touch border px-3 text-touch font-medium ${on ? 'border-accent/60 bg-accent-soft text-fg' : 'border-line bg-field text-fg-2'}`}
-              onClick={() => props.onChoose(option.value)}
-            >
-              {option.label}
-            </button>
-          );
-        })}
-      </div>
+      <ChoiceChips
+        label={en.share.licenceChosen}
+        value={LICENCES.find((option) => option.value === props.value)?.value ?? null}
+        options={LICENCES}
+        testId={(value) => `halo-share-licence-${value}`}
+        onChoose={props.onChoose}
+      />
       {props.value === null ? <span className="text-touch-label text-warn">{en.share.licenceHint}</span> : null}
     </div>
   );
@@ -180,7 +207,11 @@ function ProblemRow(props: {
 }): JSX.Element {
   const { row } = props;
   return (
-    <div className="flex min-h-[52px] flex-wrap items-center gap-2 px-2.5 py-1.5" data-testid="halo-share-problem" data-code={row.code}>
+    <div
+      className="flex min-h-[52px] flex-wrap items-center gap-2 px-2.5 py-1.5"
+      data-testid="halo-share-problem"
+      data-code={row.code}
+    >
       <span aria-hidden="true" className={row.severity === 'error' ? 'text-danger' : 'text-warn'}>
         ⚠
       </span>
@@ -207,6 +238,9 @@ function exportLabel(state: BakeState, hasCall: boolean): string {
   return en.share.preparing(state.fileName);
 }
 
+/** *Try again* prepares the same call once more (a new key each time). */
+let retries = 0;
+
 /** The licence and author rows are answered in place: they never send anyone to a stage. */
 const IN_PLACE = new Set(['vrm.licence-unset', 'vrm.meta-required']);
 
@@ -225,19 +259,15 @@ export default function ShareSheet({ ctx, shell }: ShareSheetProps): JSX.Element
     return shell.holder.baker;
   }, [app, ctx, shell.holder]);
   const bake = useBaker(baker);
-  const subject = useMemo(() => shareSubject(app), [app, version]);
-
-  const choice: ShareChoice = useMemo(
-    () =>
-      format === null
-        ? destinationChoice(app, destination.id, options, SHARE_WORDS)
-        : moreFormatChoice(app, format, options, SHARE_WORDS),
-    // the document, the session and the preferences decide the call
-    // oxlint-disable-next-line react/exhaustive-deps
-    [app, destination.id, options, format, version],
-  );
+  // every render follows the document, the session and the preferences (`useAppVersion`): the subject, the call and
+  // the one readiness list are read again (cheap, pure)
+  const subject = shareSubject(app);
+  const choice: ShareChoice =
+    format === null
+      ? destinationChoice(app, destination.id, options, SHARE_WORDS)
+      : moreFormatChoice(app, format, options, SHARE_WORDS);
   const poll = choice.call === null ? null : callProblem(app, choice.call);
-  const ready = useMemo(() => readiness(app, destination.id), [app, destination.id, version]);
+  const ready = readiness(app, destination.id);
   // the card's rows: the one readiness list (Health and the status pill show the same count)
   const rows = ready.rows;
   const total = rows.length;
@@ -249,22 +279,28 @@ export default function ShareSheet({ ctx, shell }: ShareSheetProps): JSX.Element
   const preparedFor = useRef<string | null>(null);
 
   // §13.3: choosing a card prepares its file at once, and again when the document or the options change
+  // the key is the call's arguments and the document's version: a selection or a time change prepares nothing
+  const key = choice.call === null || poll !== null ? null : callKey(app, choice.call);
+  const latest = useRef(choice.call);
   useEffect(() => {
-    if (choice.call === null || poll !== null) {
+    latest.current = choice.call;
+  });
+  useEffect(() => {
+    const call = latest.current;
+    if (key === null || call === null) {
       baker.clear();
       return;
     }
-    const key = callKey(app, choice.call);
-    const timer = setTimeout(() => baker.prepare(choice.call as NonNullable<typeof choice.call>, key), 120);
+    const timer = setTimeout(() => baker.prepare(call, key), 120);
     return () => clearTimeout(timer);
-  }, [app, baker, choice, poll]);
+  }, [baker, key]);
 
   // the first time a model character is shared (§13.3, Auto-Rig ⑤'s first entry): the automatic thumbnail and the
   // remembered author, one undo step each
   useEffect(() => {
     if (model === null || destination.id === 'exploring' || preparedFor.current === model.id) return;
     preparedFor.current = model.id;
-    void prepareExport(haloFlowHost({ app, run: ctx.run }), model, shell.author.get());
+    void prepareExport(haloFlowHost({ app, run: (op, args) => ctx.run(op, args) }), model, shell.author.get());
   }, [app, ctx, model, destination.id, shell.author]);
 
   const setMeta = (character: CharacterId, patch: Record<string, unknown>): void => {
@@ -290,7 +326,8 @@ export default function ShareSheet({ ctx, shell }: ShareSheetProps): JSX.Element
   const exportNow = (): void => {
     shell.touch();
     if (bake.status === 'failed' && choice.call !== null) {
-      baker.prepare(choice.call, `${callKey(app, choice.call)}#retry${Date.now()}`);
+      retries += 1;
+      baker.prepare(choice.call, `${callKey(app, choice.call)}#retry${retries}`);
       return;
     }
     void baker.deliver().then((how) => {
@@ -383,24 +420,19 @@ export default function ShareSheet({ ctx, shell }: ShareSheetProps): JSX.Element
     >
       <div className="flex flex-col gap-1" data-testid="halo-share-body" data-destination={destination.id}>
         <SheetGroup>{en.share.forWhat}</SheetGroup>
-        <div className="flex flex-wrap gap-1.5 px-2.5 pb-1" role="radiogroup" aria-label={en.share.forWhat}>
-          {DESTINATIONS.map((d) => {
-            const on = d.id === destination.id && format === null;
-            return (
-              <button
-                key={d.id}
-                type="button"
-                role="radio"
-                aria-checked={on}
-                data-testid={`halo-share-dest-${d.id}`}
-                className={`flex min-h-[52px] min-w-[140px] flex-1 flex-col items-start justify-center rounded-touch border px-3 py-1 text-left ${on ? 'border-accent/60 bg-accent-soft' : 'border-line bg-field'}`}
-                onClick={() => chooseDestination(d.id)}
-              >
-                <span className="font-medium text-fg">{d.name}</span>
-                <span className="text-touch-label text-fg-3">{en.share.destinations[d.id]}</span>
-              </button>
-            );
-          })}
+        <div className="px-2.5 pb-1">
+          <ChoiceChips<DestinationId>
+            label={en.share.forWhat}
+            value={format === null ? destination.id : null}
+            options={DESTINATIONS.map((d) => ({
+              value: d.id,
+              label: d.name,
+              detail: en.share.destinations[d.id] ?? '',
+            }))}
+            testId={(value) => `halo-share-dest-${value}`}
+            wide
+            onChoose={chooseDestination}
+          />
         </div>
 
         {exploring ? (
@@ -434,7 +466,10 @@ export default function ShareSheet({ ctx, shell }: ShareSheetProps): JSX.Element
               </TouchButton>
             )}
             {choice.problem !== null && choice.problem !== '' ? (
-              <div className="flex min-h-[52px] flex-wrap items-center gap-2 px-2.5" data-testid="halo-share-unavailable">
+              <div
+                className="flex min-h-[52px] flex-wrap items-center gap-2 px-2.5"
+                data-testid="halo-share-unavailable"
+              >
                 <span aria-hidden="true" className="text-warn">
                   ⚠
                 </span>
@@ -555,6 +590,7 @@ export default function ShareSheet({ ctx, shell }: ShareSheetProps): JSX.Element
           type="button"
           className="flex min-h-[52px] items-center gap-2 px-2.5 text-left"
           aria-expanded={advanced}
+          aria-label={`${en.share.advanced}: ${en.share.advancedDetail}`}
           data-testid="halo-share-advanced"
           onClick={() => setAdvanced((open) => !open)}
         >
@@ -655,6 +691,7 @@ export default function ShareSheet({ ctx, shell }: ShareSheetProps): JSX.Element
           type="button"
           className="flex min-h-[52px] items-center gap-2 px-2.5 text-left"
           aria-expanded={formats}
+          aria-label={`${en.share.moreFormats}: ${en.share.moreFormatsDetail}`}
           data-testid="halo-share-more-formats"
           onClick={() => setFormats((open) => !open)}
         >

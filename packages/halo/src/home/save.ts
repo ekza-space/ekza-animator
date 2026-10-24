@@ -72,9 +72,9 @@ export function storageCardOf(record: StorageRecord, ios: boolean, isStandalone:
 export interface StorageCardStore {
   readonly subscribe: (listener: () => void) => () => void;
   readonly get: () => StorageCard;
-  markBackedUp(): void;
-  keep(): Promise<void>;
-  dismiss(): void;
+  readonly markBackedUp: () => void;
+  readonly keep: () => Promise<void>;
+  readonly dismiss: () => void;
 }
 
 export function createStorageCard(toast: (text: string) => void): StorageCardStore {
@@ -110,8 +110,8 @@ export function createStorageCard(toast: (text: string) => void): StorageCardSto
 }
 
 /** The author this device remembers (asked once, §13.3; Auto-Rig ⑤ remembers its own the same way). */
-export const rememberedAuthor = {
-  get(): string | null {
+export const rememberedAuthor: { readonly get: () => string | null; readonly set: (name: string) => void } = {
+  get: (): string | null => {
     try {
       const value = local()?.getItem(HALO_AUTHOR_KEY);
       return value === null || value === undefined || value.trim() === '' ? null : value;
@@ -119,7 +119,7 @@ export const rememberedAuthor = {
       return null;
     }
   },
-  set(name: string): void {
+  set: (name: string): void => {
     try {
       local()?.setItem(HALO_AUTHOR_KEY, name);
     } catch {

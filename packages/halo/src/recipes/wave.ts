@@ -65,7 +65,7 @@ export const waveRecipe: Recipe<WaveParams> = {
         },
         ...keys.map((i) => ({
           op: 'pose.goals',
-          args: (results: readonly unknown[]) => ({
+          argsFrom: (results: readonly unknown[]) => ({
             clip: (results[0] as { clip: ClipId }).clip,
             frame: Math.round((WAVE_FRAMES / swings) * i),
             aims: waveAims(side, i),
