@@ -5,6 +5,7 @@
 // The first visit loads only the drop zone (AR-D3-4): the ① actions (`./flow`), the report (`./Report`) and the cards
 // a fresh profile never shows (Continue, the rigged-other choice, a project's characters: `./Extras`) are lazy chunks.
 import type { AutosaveSlotInfo } from '@ekza-studio/editor-core';
+import { pickerAccept } from '@ekza-studio/editor/host';
 import { buttonClass, cn } from '@ekza-studio/ui';
 import { type JSX, lazy, Suspense, useCallback, useEffect, useRef } from 'react';
 import { formatNumber, messages } from '../../i18n';
@@ -47,7 +48,7 @@ function FilePicker(props: { readonly ctx: WizardContext; readonly label: string
       <input
         ref={input}
         type="file"
-        accept=".glb,.vrm,.gltf,.ekzanim,.json"
+        accept={pickerAccept('.glb,.vrm,.gltf,.ekzanim,.json')}
         className="hidden"
         data-testid="ar-model-picker"
         onChange={(e) => {

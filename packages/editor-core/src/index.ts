@@ -118,6 +118,8 @@ export {
   migrateLegacyPanelId,
   migrateLegacyPrefs,
 } from './prefs/legacy';
+export { overridePrefs, type PrefsLayer, type PrefsPatch, prefsOverrideLayers } from './prefs/overrides';
+export { basePrefs } from './prefs/persist';
 export { createMemoryAssetStore } from './services/assets';
 export { activeClip, activeClipFrame, activeRuntime } from './session/active';
 export { defaultSession } from './session/defaults';

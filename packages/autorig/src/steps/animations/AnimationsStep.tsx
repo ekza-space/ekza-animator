@@ -7,6 +7,7 @@
 // Hover never auto-plays; the preview starts on a click, Enter or Space only. Keys: `/` search, `Space` play / stop
 // (form controls keep their own Space), `A` adds the focused or selected card, `Esc` stops (the frame's fall-through).
 import type { ClipRecord } from '@ekza-studio/doc';
+import { pickerAccept } from '@ekza-studio/editor/host';
 import { buttonClass, cn } from '@ekza-studio/ui';
 import {
   type JSX,
@@ -446,7 +447,7 @@ function DropZone(props: { readonly ctx: WizardContext }): JSX.Element {
       <input
         ref={picker}
         type="file"
-        accept=".vrma"
+        accept={pickerAccept('.vrma')}
         multiple
         className="hidden"
         data-testid="ar-anim-picker"

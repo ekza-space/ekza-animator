@@ -15,6 +15,7 @@ export type { HostNavigation, HostShell, MountedShell } from './types';
 export { PaneView } from '../panels/viewport/PaneView';
 export { type AutoRigTestState, provideAutoRigTestState } from '../test-api/autorig';
 export { type HaloTestState, provideHaloTestState } from '../test-api/halo';
+export { pickerAccept } from '../services/fileTypes';
 export { hostNavigation };
 
 /** Opens a host dialog (`ui.open`): the dialogs every route has (Export, Open, Import, Preferences, Recovery, …). */
