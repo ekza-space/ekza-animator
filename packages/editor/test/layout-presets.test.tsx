@@ -13,11 +13,11 @@ import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-cor
 import type { SkeletonDesc } from '@ekza-studio/rig';
 import type { SerializedDockview } from 'dockview-react';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { viewOperatorDefs } from '../src/host/registrations/view';
 import { createMemoryStorage } from '../src/services/storage';
 import { EditorRoot } from '../src/shell/EditorRoot';
 import { layoutStorageKey, readStoredLayout } from '../src/shell/layout';
 import { menuContents } from '../src/shell/menus';
-import { shellOperatorDefs } from '../src/shell/operators';
 import {
   createLayoutPresetStore,
   presetsStorageKey,
@@ -126,14 +126,9 @@ describe('view.toggleFullscreen', () => {
         return Promise.resolve();
       },
     };
-    const deps = {
-      workspace: { dockview: null } as unknown as Shell['workspace'],
-      ui: null as unknown as Shell['ui'],
-      presets: createLayoutPresetStore(null),
-      document: fake as unknown as Document,
-      onImportClosed: () => {},
-    };
-    for (const contribution of shellOperatorDefs(app, deps)) app.contribute(contribution);
+    // a host registration since STUDIO-TOUCH-SPEC T3 (`host/registrations/view.ts`)
+    for (const def of viewOperatorDefs(app, () => fake as unknown as Document))
+      app.contribute({ kind: 'operator', def });
     expect((await app.runUntyped('view.toggleFullscreen')).status).toBe('finished');
     fake.fullscreenElement = {} as Element;
     expect((await app.runUntyped('view.toggleFullscreen')).status).toBe('finished');

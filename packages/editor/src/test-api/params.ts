@@ -1,8 +1,9 @@
 // URL parameters of the editor (MVP-SPEC §4.8). They take effect only in e2e builds (NEXT_PUBLIC_EKZA_E2E=1)
 // opened with `?e2e=1`; ordinary builds ignore them, so no URL can switch a user's editor into test mode. The
 // exceptions are M6a `ws=<id>` (M6A-SPEC §4.8), a deep link to a workspace, and AUTORIG-SPEC §3.1/§4.4's `handoff=<id>`
-// (a one-shot handoff record to open) and `from=studio|autorig` (labels the entry), read in any build.
-import { migrateLegacyId, type NavProfile } from '@ekza-studio/editor-core';
+// (a one-shot handoff record to open) and `from=studio|autorig|halo` (labels the entry; `halo` STUDIO-TOUCH-SPEC T2),
+// read in any build.
+import { migrateLegacyId, type NavProfile, type ShellKind } from '@ekza-studio/editor-core';
 
 export interface EditorParams {
   /** e2e mode: fresh storage, seeded IDs, no UI transitions, the test API on window. */
@@ -26,8 +27,8 @@ export interface EditorParams {
   readonly ws: string | null;
   /** AUTORIG-SPEC §4.4 `handoff=<id>` (any build): the handoff record this page opens, read once; null = none. */
   readonly handoff: string | null;
-  /** AUTORIG-SPEC §3.1 `from=studio|autorig` (any build): the shell the user came from (a label only). */
-  readonly from: 'studio' | 'autorig' | null;
+  /** AUTORIG-SPEC §3.1 `from=studio|autorig|halo` (any build): the shell the user came from (a label only). */
+  readonly from: ShellKind | null;
 }
 
 export const DEFAULT_PARAMS: EditorParams = {
@@ -60,7 +61,7 @@ export function parseEditorParams(search: string, buildAllowsE2e: boolean): Edit
   const links = {
     ws: wsParam !== null && WORKSPACE_ID.test(wsParam) ? wsParam : null,
     handoff: handoffParam !== null && HANDOFF_ID.test(handoffParam) ? handoffParam : null,
-    from: fromParam === 'studio' || fromParam === 'autorig' ? fromParam : null,
+    from: fromParam === 'studio' || fromParam === 'autorig' || fromParam === 'halo' ? fromParam : null,
   } as const;
   if (!buildAllowsE2e || query.get('e2e') !== '1') {
     return links.ws === null && links.handoff === null && links.from === null

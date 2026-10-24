@@ -1,14 +1,13 @@
 // B11's shell overlay (M6A-SPEC §8.5, §5.10, §8.4; registered into B9's `optionBox` shell slot): the option box
 // popover (`OptionBoxPopover`: an operator's params as defaults for its next run, `prefs.modeling.optionDefaults`;
 // the view is a lazy chunk), the numeric capture window's bridge to the page (case (b) disarms at the first pointer
-// move beyond 3 CSS px or any click; its messages go to the help line) and the registration of B11's marking menus
-// while the shell is mounted. A lazy chunk (§5.27): `panels/toolkit/ModelOpsSlot.tsx` mounts it on the first Model
-// entry.
-import type { Disposer } from '@ekza-studio/anim-core';
+// move beyond 3 CSS px or any click; its messages go to the help line). A lazy chunk (§5.27):
+// `panels/toolkit/ModelOpsSlot.tsx` mounts it on the first Model entry. B11's marking menus are data the page's host
+// registers on the first Model entry for every shell (`overlays/menus`, `host/registrations`; STUDIO-TOUCH-SPEC
+// §20.3 item 12, T3).
 import { type EditorApp, type NumericCapture, onModelHelp } from '@ekza-studio/editor-core';
-import { type JSX, lazy, Suspense, useEffect, useState } from 'react';
+import { type JSX, lazy, Suspense, useEffect } from 'react';
 import { createStore, type StoreApi } from 'zustand/vanilla';
-import { useSession } from '../../hooks';
 import { useStoreSelector } from '../../hooks/useStoreSelector';
 import { useOptionalShell } from '../../shell/context';
 import type { Shell } from '../../shell/types';
@@ -87,37 +86,8 @@ export function bridgeCapture(app: EditorApp, shell: Pick<Shell, 'help'> | null,
   };
 }
 
-/**
- * Loads and registers B11's marking menus once Model has been entered (they stay registered until the shell goes:
- * every menu is Model-only, `workspaces: ['model']`). A failed load is retried at the next Model entry.
- */
-function useModelOpsMenus(app: EditorApp, inModel: boolean): void {
-  useEffect(() => {
-    if (!inModel) return undefined;
-    let dispose: Disposer | null = null;
-    let cancelled = false;
-    void import('./tools').then(
-      (menus) => {
-        if (!cancelled) dispose = menus.registerModelOpsMenus(app);
-      },
-      () => {
-        // Offline after a redeploy: the menus are missing until the next Model entry tries again.
-      },
-    );
-    return () => {
-      cancelled = true;
-      dispose?.();
-    };
-  }, [app, inModel]);
-}
-
 export function ModelOpsShellOverlay({ app }: ShellOverlayProps): JSX.Element | null {
   const shell = useOptionalShell();
-  const inModel = useSession((s) => s.workspace === 'model');
-  // Once seen, Model's menus stay registered (state derived during render: React's "adjust state on change").
-  const [seenModel, setSeenModel] = useState(inModel);
-  if (inModel && !seenModel) setSeenModel(true);
-  useModelOpsMenus(app, seenModel);
   useEffect(() => bridgeCapture(app, shell), [app, shell]);
   const store = optionBoxStore(app);
   const op = useStoreSelector(store, (s) => s.op);

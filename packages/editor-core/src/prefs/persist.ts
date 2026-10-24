@@ -1,7 +1,8 @@
 // Preference persistence through `services.storage` (ARCHITECTURE §4.1): versioned JSON, every access in try/catch,
 // every field validated on load (an invalid field falls back to its default, an unknown version to all defaults).
 // Enum ids renamed since (DECISIONS-OPEN TM-1) are mapped to their current ids on load (`./legacy`); the next save
-// writes the current ids.
+// writes the current ids. Session overrides (`./overrides`, STUDIO-TOUCH-SPEC §16.4) are never saved: a save writes
+// the base preferences under them.
 import type { TangentType } from '@ekza-studio/anim-core';
 import type { KeyBinding, KeyTrigger, Prefs, PrefsStorage } from '../types';
 import { migrateLegacyPrefs } from './legacy';
@@ -44,11 +45,27 @@ export function loadPrefs(storage: PrefsStorage | null, defaults: Prefs): Prefs 
   return sanitizePrefs(raw, defaults);
 }
 
-/** Writes the preferences; failures (quota, blocked storage) are ignored: preferences are a convenience. */
+/** Effective preferences → the stored base under them (the override layer, `./overrides`, records each one). */
+const bases = new WeakMap<object, Prefs>();
+
+/** Records that `effective` was composed over `base` (the override layer; a save then writes `base`). */
+export function rememberBasePrefs(effective: Prefs, base: Prefs): void {
+  bases.set(effective, base);
+}
+
+/** The base (stored) preferences of an effective preferences value; the value itself when nothing overrides it. */
+export function basePrefs(prefs: Prefs): Prefs {
+  return bases.get(prefs) ?? prefs;
+}
+
+/**
+ * Writes the preferences — the base of an overridden value, never its session overrides; failures (quota, blocked
+ * storage) are ignored: preferences are a convenience.
+ */
 export function savePrefs(storage: PrefsStorage | null, prefs: Prefs): void {
   if (storage === null) return;
   try {
-    storage.setItem(PREFS_STORAGE_KEY, JSON.stringify(prefs));
+    storage.setItem(PREFS_STORAGE_KEY, JSON.stringify(basePrefs(prefs)));
   } catch {
     // Storage is unavailable or full; the session keeps working with in-memory preferences.
   }

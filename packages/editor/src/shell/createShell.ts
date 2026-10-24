@@ -1,11 +1,13 @@
 // Creates the Studio shell (MVP-SPEC §7 WP-8; split by AUTORIG-SPEC §4.4, D1) over the page's HostShell: the panel
 // registry with the built-in panels, Studio's shell operators and menu items, the dockview workspace adapter, the
-// layout presets, the marking menus, the Graph Editor and time-slider probes, the Recovery prompt and the rig shell.
-// The host (UI store, frame hooks, keyboard, files, autosave, palette, navigation) outlives it: a switch to Auto-Rig
-// disposes only what is created here.
+// layout presets, the marking-menu controller, the Graph Editor and time-slider probes, its Recovery hook and the rig
+// shell. The host (UI store, frame hooks, keyboard, files, autosave, palette, navigation, and since STUDIO-TOUCH-SPEC T3
+// the shell-neutral registrations: the marking-menu definitions, the Rig menu items and settings, the view operators
+// and the Recovery prompt's timing) outlives it: a switch to Auto-Rig or Halo disposes only what is created here.
 import type { Disposer } from '@ekza-studio/anim-core';
 import type { PanelKind } from '@ekza-studio/editor-core';
 import { createHostShell, type CreateHostOptions } from '../host/createHost';
+import { provideRecoveryHook } from '../host/registrations/recovery';
 import type { HostShell } from '../host/types';
 import { createMarkingMenus, marksMenus, prefetchMarkingMenu } from '../overlays/MarkingMenu';
 import { registerBuiltinPanels } from '../panels';
@@ -15,7 +17,6 @@ import { screenOfTimelineFrame, screenOfTimelineTick } from '../panels/timeline/
 import type { PanelRegistry } from '../panels/types';
 import { registerModelSelectUi } from '../panels/viewport/hud';
 import { registerModelTransformUi } from '../panels/viewport/ModalReadout';
-import { promptRecovery } from './autosave';
 import { ALL_SLOTS, FIXED_KINDS } from './layout';
 import { registerShellMenuItems, registerUserPresetMenuItems } from './menuItems';
 import { shellOperatorDefs } from './operators';
@@ -103,14 +104,13 @@ export function createShell(opts: CreateShellOptions): Shell {
     }),
     app.markingMenus.subscribe(prefetchMenus),
   );
-  // M2A-SPEC §5.20: the Recovery prompt, once per page load (a page that received a handoff record never asks; a
-  // `from=autorig` page shows no first-run dialog, AR-D8-6, so the prompt does not wait for it, AR-D9-2).
+  // M2A-SPEC §5.20: the Recovery prompt is the host's (once per page load; never on a handoff page); Studio offers the
+  // slots in its Recovery dialog. A page opened from another shell (`from=autorig`, `from=halo`) shows no first-run
+  // dialog (AR-D8-6, STUDIO-TOUCH-SPEC §16.1), so the offer does not wait for it (AR-D9-2; T2's patch P6).
   disposers.push(
-    promptRecovery({
-      app,
-      runFromUi: (op, args) => host.runFromUi(op, args),
-      skip: host.params.handoff !== null,
-      firstRun: host.params.from !== 'autorig',
+    provideRecoveryHook(app, {
+      firstRun: host.params.from === null,
+      offer: () => void host.runFromUi('ui.open', { dialog: 'recovery' }),
     }),
   );
   const extraPanels: { kind: PanelKind; title: string }[] = [];
@@ -127,14 +127,14 @@ export function createShell(opts: CreateShellOptions): Shell {
     }),
   );
   disposers.push(registerUserPresetMenuItems(app, presets));
-  // M6a (B10): the Poly Count HUD and BIND POSE overlays, the RMB mode and Ctrl+RMB convert marking menus.
-  disposers.push(registerModelSelectUi(app));
+  // M6a (B10): the Poly Count HUD and BIND POSE overlays (their marking menus are the host's since T3).
+  disposers.push(registerModelSelectUi());
   // M6b (C7): the Rig & Skin shell UI, loaded on the first entry; disposed with this shell, which clears the
   // view-only flag (AUTORIG-SPEC §8.3, AR-V1: the rule is Studio's).
   disposers.push(
     registerRigShell(app, { showPanel: (kind) => workspace.showPanel(kind), dockview: () => workspace.dockview }),
   );
-  disposers.push(registerModelTransformUi(app));
+  disposers.push(registerModelTransformUi());
 
   // The Graph Editor and time-slider slices of the e2e test API (MVP-SPEC §4.8) follow the focused panel of each
   // kind, so one registration per shell serves every mounted instance (null while none is mounted).

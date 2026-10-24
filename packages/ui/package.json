@@ -3,11 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Design tokens, Tailwind setup, primitives and icons for the Ekza Studio shell.",
+  "description": "Design tokens, Tailwind setup, primitives and icons for the Ekza Studio shells; the touch kit under ./touch.",
   "license": "MIT",
   "sideEffects": ["**/*.css"],
   "exports": {
     ".": "./src/index.ts",
+    "./touch": "./src/touch/index.ts",
     "./styles.css": "./styles.css",
     "./tokens.json": "./tokens.json"
   },

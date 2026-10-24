@@ -136,11 +136,13 @@ export function isE2eBuild(nextDir) {
 /**
  * Markers of the lazy groups a shared-layout route counts as initial (AUTORIG-SPEC §7.2 rule 4): the `StudioHost`
  * entry (`ekza-studio-host`, D1) and the route's own shell entry (`ekza-studio-shell` for `/editor`, the Auto-Rig
- * shell's `ekza-autorig-shell` for `/autorig`). Another route's shell marker stays a lazy boundary.
+ * shell's `ekza-autorig-shell` for `/autorig`, the Halo shell's `ekza-halo-shell` for `/app`, STUDIO-TOUCH-SPEC
+ * §20.6). Another route's shell marker stays a lazy boundary.
  */
 export const ROUTE_INITIAL_MARKERS = {
   editor: ['ekza-studio-host', 'ekza-studio-shell'],
   autorig: ['ekza-studio-host', 'ekza-autorig-shell'],
+  app: ['ekza-studio-host', 'ekza-halo-shell'],
 };
 
 /** `/(studio)/editor/page` → `/editor/page`: route groups (`(name)` segments) do not change the URL. */

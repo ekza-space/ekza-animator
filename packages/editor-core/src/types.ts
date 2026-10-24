@@ -1,4 +1,5 @@
-// Contract file: MVP-SPEC §4.5 with the M2A-SPEC §4.5, M6A-SPEC §4.6, M6B-SPEC §4.6/§0.5 and AUTORIG-SPEC §4.3–§4.5 additions, copied verbatim
+// Contract file: MVP-SPEC §4.5 with the M2A-SPEC §4.5, M6A-SPEC §4.6, M6B-SPEC §4.6/§0.5, AUTORIG-SPEC §4.3–§4.5 and
+// STUDIO-TOUCH-SPEC §20.4 (Halo, T2: the single owner of this file during the Halo build) additions, copied verbatim
 // (shapes are normative; change the spec first). M6a functions and constants (`meshOperator`, `meshSetOperator`,
 // `WORKSPACE`) and M6b ones (`registerChannelSourceProvider`) live in implementation modules (§4 placement rule).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
@@ -291,7 +292,14 @@ export interface Prefs {
   };
 }
 // prefs.modeling.undoSelection gains `rig: true` (selection undo in Rig & Skin, §5.24; M6b).
-export type PrefsStore = StoreApi<Prefs>;
+/** STUDIO-TOUCH-SPEC §16.4, §20.3 item 16 (T2 types, T0 implements; additive): the preference override layers. */
+export type PrefsLayer = 'device' | 'shell';
+/** With overrides (T0), `getState()` is the effective value: base ⊕ device ⊕ shell; persistence writes only the base. */
+export type PrefsStore = StoreApi<Prefs> & {
+  /** Overrides `patch` in `layer` until the disposer runs ('device': the host's memory profile, never removed during
+   *  the page's life; 'shell': a shell's session settings such as Halo's Rec). Absent: a host without overrides. */
+  override?(layer: PrefsLayer, patch: Partial<Omit<Prefs, 'version'>>): Disposer;
+};
 
 // ---------- operators ----------
 export type OperatorId = `${string}.${string}`;
@@ -476,6 +484,16 @@ export interface ToolPointerEvent {
   readonly pointerType: 'mouse' | 'pen' | 'touch';
   readonly timeStamp: number;
   readonly detail: number;                                        // click count (double-click = 2)
+  // ---------- Halo (STUDIO-TOUCH-SPEC §20.3 item 5, §20.4; T2 types, T1 fills them; additive: absent = today's) ----------
+  readonly pressure?: number;                                     // PointerEvent.pressure, 0…1 (read for pens only, ST-5)
+  readonly tiltX?: number; readonly tiltY?: number;               // degrees, −90…90
+  readonly altitude?: number; readonly azimuth?: number;          // radians: altitudeAngle 0…π/2, azimuthAngle 0…2π
+  readonly pointerId?: number; readonly isPrimary?: boolean;
+  /** This move's `getCoalescedEvents()` samples, oldest first: pane CSS px like x/y, pressure 0…1, t in ms. The arbiter
+   *  replays a buffered press with them, so a tool sees every Pencil sample (§20.4 arbiter semantics). */
+  readonly coalesced?: readonly { readonly x: number; readonly y: number; readonly pressure: number; readonly t: number }[];
+  /** A virtual modifier source (the Thumb key) set a modifier, a held key or the button of this event. */
+  readonly virtual?: boolean;
 }
 export interface ToolWheelEvent {
   readonly panel: PanelKind; readonly paneId: string | null;
@@ -484,7 +502,8 @@ export interface ToolWheelEvent {
   readonly shift: boolean; readonly alt: boolean; readonly mod: boolean; readonly ctrl: boolean;
 }
 export interface ToolKeyEvent { readonly type: 'down' | 'up'; readonly code: string; readonly shift: boolean; readonly alt: boolean; readonly mod: boolean;
-  readonly ctrl: boolean; readonly repeat: boolean }   // M6a, changed (additive): literal Ctrl
+  readonly ctrl: boolean; readonly repeat: boolean;   // M6a, changed (additive): literal Ctrl
+  readonly virtual?: boolean }                        // STUDIO-TOUCH-SPEC §20.3 item 3 (T1, a line patch for T2): a virtual hold
 /** Handlers return true when the event was consumed. */
 export interface ToolInstance {
   activate?(): void;
@@ -576,8 +595,19 @@ export interface AssetStore {
   peek(id: AssetId): Uint8Array | undefined;
   ids(): readonly AssetId[];
 }
+/** STUDIO-TOUCH-SPEC §19, §20.3 item 15 (T2 types, T0 implements; additive): a file kept until a fresh user activation
+ *  delivers it (`navigator.share({files})` on iOS, a download elsewhere or as the ~10 s fallback). */
+export interface SaveTicket {
+  readonly fileName: string; readonly mime: string;
+  readonly state: 'preparing' | 'ready' | 'delivered' | 'failed';   // current state (a getter)
+  readonly ready: Promise<void>;                                  // the bytes are prepared (rejects: 'failed')
+  deliver(): Promise<'shared' | 'downloaded' | 'cancelled'>;      // call from a fresh user activation on iOS
+}
 export interface FileService {
   download(fileName: string, bytes: Uint8Array, mime: string): void;
+  /** T0 (additive): prepare now, deliver from a later tap; `save(f).deliver()` where no activation is needed. Absent:
+   *  a host without the two-step flow (Node, headless) — callers fall back to `download`. */
+  save?(file: { readonly name: string; readonly mime: string; readonly bytes: Uint8Array | Promise<Uint8Array> }): SaveTicket;
 }
 export interface ClipboardService {
   writeText(text: string): Promise<void>;
@@ -1416,13 +1446,25 @@ export interface AutoRigExportResult {
 }
 
 // ---------- navigation port (§3.4, §4.4; D0 types, D1 provides it from the host, eager) ----------
-export type ShellRoute = 'autorig' | 'studio' | 'chooser';
+// STUDIO-TOUCH-SPEC §20.3 item 11, §20.4 (T2, additive): the third shell `halo` (`/app`, Ekza Studio's Simple layout),
+// the arrival action (`arrival`: the spec sketch's `then`, renamed, since a `then` field makes the object a thenable;
+// ST-T2-1) and the Halo state a switch or a handoff record carries. `'studio'` keeps meaning the Pro layout
+// (`/editor`) everywhere internally (§1.3).
+export type ShellRoute = 'autorig' | 'studio' | 'halo' | 'chooser';
+/** A route that mounts a shell in the host (every route but the chooser page): `MountedShell.kind`, `from`. */
+export type ShellKind = Exclude<ShellRoute, 'chooser'>;
+/** What the arriving shell opens once it is shown (§16.1); a shell that does not know the kind or the id ignores it. */
+export type ArrivalAction =
+  | { readonly kind: 'preset'; readonly preset: string }        // a layout preset, e.g. 'polish' (Pro)
+  | { readonly kind: 'panel'; readonly panel: PanelKind }       // a panel, e.g. 'validation', 'paintWeights' (Pro)
+  | { readonly kind: 'dialog'; readonly dialog: UiDialog };     // a host dialog, e.g. 'export' (every shell)
 export interface NavigationRequest {
   readonly to: ShellRoute;
-  readonly workspace?: WorkspaceId;            // Studio's workspace on arrival (`/editor?ws=…`)
-  readonly from?: 'studio' | 'autorig';        // labels the entry (`?from=studio`)
+  readonly workspace?: WorkspaceId;            // the workspace on arrival (`/editor?ws=…`, `/app?ws=…`)
+  readonly from?: ShellKind;                   // labels the entry (`?from=studio`, `?from=halo`)
   readonly newTab?: boolean;                   // the explicit new-tab flow through a handoff record
   readonly subject?: AutoRigSubject;           // in-memory hand-over to the arriving shell (never in the URL)
+  readonly arrival?: ArrivalAction;            // T2: in memory or in the record (never in the URL); optional
 }
 export interface NavigationPort {
   /** Switches shells: same-page navigation keeping the app (shared layout), or a handoff record (new tab, islands). */
@@ -1430,12 +1472,24 @@ export interface NavigationPort {
   /** The subject handed over by the last `go`, once (the arriving shell reads it), else null. */
   takeSubject(): AutoRigSubject | null;
 }
+/** Halo's stages (STUDIO-TOUCH-SPEC §7.1, ST-3): Make, Paint, Rig, Animate; Share is a sheet, not a stage. */
+export type HaloStage = 'make' | 'paint' | 'rig' | 'animate';
+/** What a switch from Halo or a handoff record carries of Halo (§16.2, §16.3; T2). Halo's own round trip through
+ *  Pro on one page restores from its session mirror (`ekza-studio:halo:session:v1`), not from this. */
+export interface HaloHandoffState {
+  readonly stage: HaloStage;
+  readonly sheet?: string;                     // the open sheet ('share', 'numbers', …)
+  readonly threadLayer?: 0 | 1 | 2;            // the Thread's layer: Timeline · Keys · Curves
+  readonly destination?: string;               // the destination id (§7.3)
+  readonly fingers?: 'mittens' | 'thumb' | 'all';   // the finger preset; read by Auto-Rig ① when entered from Halo
+}
 /** What a handoff record carries besides the document (§4.4). */
 export interface HandoffInfo {
-  readonly route: 'autorig' | 'studio';
+  readonly route: ShellKind;                   // T2: + 'halo'
   readonly workspace: WorkspaceId | null;
   readonly subject: AutoRigSubject | null;
   readonly autorig: { readonly step: AutoRigStep; readonly startPose: AutoRigPoseClass | null } | null;
+  readonly halo?: HaloHandoffState;            // T2 (additive): the leaving Halo shell's state; absent otherwise
+  readonly arrival?: ArrivalAction;            // T2 (additive): the request's arrival action
   readonly createdAt: number;                  // ms since epoch (pruned after 10 minutes)
 }
-

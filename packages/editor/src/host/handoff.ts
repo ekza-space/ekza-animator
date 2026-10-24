@@ -14,6 +14,7 @@ import {
   type HandoffInfo,
   loadProjectArchive,
   type NavigationRequest,
+  type ShellKind,
 } from '@ekza-studio/editor-core';
 import type { HostShell } from './types';
 
@@ -23,6 +24,9 @@ export const HANDOFF_EXPIRED = 'This hand-over has expired — open the file fro
 export const HANDOFF_UNAVAILABLE = 'Opening in another tab needs browser storage, which is blocked here';
 
 const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+
+/** The shells' names in the hand-over's messages (STUDIO-TOUCH-SPEC §1.1; T2: + Ekza Studio's Simple layout). */
+const SHELL_NAMES: Readonly<Record<ShellKind, string>> = { studio: 'Studio', autorig: 'Auto-Rig', halo: 'Ekza Studio' };
 
 /** Every partition of the document (the snapshot of an unopened partition would be partial). */
 async function openAllPartitions(app: EditorApp): Promise<void> {
@@ -96,11 +100,16 @@ export async function handOver(
   tab: Window | null,
   location: Pick<Location, 'assign'> = window.location,
 ): Promise<void> {
+  const mounted = host.mounted.getState();
+  const halo = mounted?.kind === 'halo' ? mounted.haloState?.() : undefined;
   const info: HandoffInfo = {
-    route: request.to === 'autorig' ? 'autorig' : 'studio',
+    route: request.to === 'chooser' ? 'studio' : request.to,
     workspace: request.workspace ?? null,
     subject: request.subject ?? null,
-    autorig: host.mounted.getState()?.handoffState?.() ?? null,
+    autorig: mounted?.handoffState?.() ?? null,
+    // STUDIO-TOUCH-SPEC §16.2 (T2): the leaving Halo's state and the arrival action travel with the record
+    ...(halo === undefined ? {} : { halo }),
+    ...(request.arrival === undefined ? {} : { arrival: request.arrival }),
     createdAt: Date.now(),
   };
   let id: string;
@@ -108,8 +117,8 @@ export async function handOver(
     id = await writeHandoffRecord(host.app, info);
   } catch (error) {
     tab?.close();
-    const where = info.route === 'studio' ? 'Studio' : 'Auto-Rig';
-    host.app.services.notify.toast({ kind: 'error', text: `Could not open ${where}: ${messageOf(error)}` });
+    const text = `Could not open ${SHELL_NAMES[info.route]}: ${messageOf(error)}`;
+    host.app.services.notify.toast({ kind: 'error', text });
     return;
   }
   const url = withHandoff(href, id);
@@ -154,7 +163,6 @@ export async function receiveHandoff(host: HostShell, id: string): Promise<Hando
     return null;
   }
   host.navigation.arrive(record.info);
-  const where = record.info.route === 'studio' ? 'Studio' : 'Auto-Rig';
-  notify.toast({ kind: 'success', text: `Opened in ${where}; undo history starts here` });
+  notify.toast({ kind: 'success', text: `Opened in ${SHELL_NAMES[record.info.route]}; undo history starts here` });
   return record.info;
 }

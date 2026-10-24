@@ -4,21 +4,39 @@
 // below it changes. Before the push the leaving shell closes its menus and the host closes its dialogs and palette.
 // The new-tab flow and the page-load fallback (no `push`: a harness, or the two-island design) hand the document over
 // through a one-shot handoff record (`./handoff`, a lazy chunk). The chooser is a plain page load.
-import type { AutoRigSubject, HandoffInfo, NavigationRequest, WorkspaceId } from '@ekza-studio/editor-core';
+// STUDIO-TOUCH-SPEC §16, §20.4 (T2): the third shell, Halo (`/app`); every route is mapped explicitly; a switch also
+// hands over the arrival action and, when Halo leaves, Halo's state (`takeArrival`, `takeHalo`, read once).
+import type {
+  ArrivalAction,
+  AutoRigSubject,
+  HaloHandoffState,
+  HandoffInfo,
+  NavigationRequest,
+  ShellKind,
+  WorkspaceId,
+} from '@ekza-studio/editor-core';
 import type { HostNavigation, HostShell } from './types';
 
 /** URL parameters that belong to one route's arrival; every other one (e2e switches, `ns`, …) is kept. */
-const ARRIVAL_PARAMS = ['ws', 'handoff', 'from', 'step', 'sample', 'chooser'] as const;
+const ARRIVAL_PARAMS = ['ws', 'handoff', 'from', 'step', 'sample', 'chooser', 'stage'] as const;
 
-/** The route path and query of a request: `/editor?…&ws=animate` or `/autorig?…&from=studio`. */
+/** The path of each shell's route (T2: every route explicitly; the chooser is `/?chooser=1`). */
+export const ROUTE_PATHS: Readonly<Record<ShellKind, string>> = {
+  studio: '/editor',
+  autorig: '/autorig',
+  halo: '/app',
+};
+
+/** The route path and query of a request: `/editor?…&ws=animate`, `/autorig?…&from=studio`, `/app?…&from=studio`. */
 export function routeHref(request: NavigationRequest, search: string): string {
   if (request.to === 'chooser') return '/?chooser=1';
   const query = new URLSearchParams(search);
   for (const name of ARRIVAL_PARAMS) query.delete(name);
-  if (request.to === 'studio' && request.workspace !== undefined) query.set('ws', request.workspace);
+  // The workspace on arrival: Studio's, and Halo's (it arrives at the matching stage, §16.1); Auto-Rig has none.
+  if (request.to !== 'autorig' && request.workspace !== undefined) query.set('ws', request.workspace);
   if (request.from !== undefined) query.set('from', request.from);
   const text = query.toString();
-  return `${request.to === 'studio' ? '/editor' : '/autorig'}${text === '' ? '' : `?${text}`}`;
+  return `${ROUTE_PATHS[request.to]}${text === '' ? '' : `?${text}`}`;
 }
 
 export interface NavigationOptions {
@@ -35,6 +53,8 @@ export function createNavigation(
 ): HostNavigation {
   let subject: AutoRigSubject | null = null;
   let workspace: WorkspaceId | null = null;
+  let arrival: ArrivalAction | null = null;
+  let halo: HaloHandoffState | null = null;
   let received: HandoffInfo | null = null;
   const loc = (): Pick<Location, 'search' | 'assign'> => opts.location ?? window.location;
 
@@ -63,8 +83,12 @@ export function createNavigation(
         return;
       }
       leave();
+      // after leave(): Halo has committed its tool session (§16.1); another leaving shell hands over no Halo state
+      const left = host.mounted.getState();
+      halo = left?.kind === 'halo' ? (left.haloState?.() ?? null) : null;
       subject = request.subject ?? null;
       workspace = request.workspace ?? null;
+      arrival = request.arrival ?? null;
       opts.push(href);
     },
     takeSubject(): AutoRigSubject | null {
@@ -81,10 +105,22 @@ export function createNavigation(
       received = info;
       subject = info.subject;
       workspace = info.workspace;
+      arrival = info.arrival ?? null;
+      halo = info.halo ?? null;
     },
     takeHandoffInfo(): HandoffInfo | null {
       const taken = received;
       received = null;
+      return taken;
+    },
+    takeArrival(): ArrivalAction | null {
+      const taken = arrival;
+      arrival = null;
+      return taken;
+    },
+    takeHalo(): HaloHandoffState | null {
+      const taken = halo;
+      halo = null;
       return taken;
     },
   };

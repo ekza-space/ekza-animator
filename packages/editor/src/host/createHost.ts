@@ -1,7 +1,9 @@
 // Creates the HostShell of one page (AUTORIG-SPEC §4.4, D1): the UI store, the frame hooks and the fallback frame
 // scheduler, the help line, the confirm prompt, the operator runner for UI surfaces, the file pipeline, the export
 // recorder, the keyboard adapter, the probes, autosave, the command palette behind the overlay port, the host's
-// operators (`ui.open`, `ui.close`, `prefs.set`) and the navigation port. Both shells sit on top of it; it outlives every switch between them.
+// operators (`ui.open`, `ui.close`, `prefs.set`), the navigation port and the shell-neutral registrations
+// (STUDIO-TOUCH-SPEC T3: marking-menu definitions, Rig menus and settings, view operators, the Recovery prompt). Every
+// shell (Studio, Auto-Rig, Halo) sits on top of it; it outlives every switch between them.
 import type { Disposer } from '@ekza-studio/anim-core';
 import {
   type EditorApp,
@@ -10,11 +12,13 @@ import {
   type PrefsStorage,
   provideNavigation,
   provideShellOverlays,
+  registerShellNavigate,
   type RunContext,
 } from '@ekza-studio/editor-core';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { createFallbackScheduler, createFrameHooks } from '../gl/frameLoop';
 import { KeyboardAdapter, scopeChain, viewportToolTarget } from '../input/keyboard';
+import type { HoverTarget } from '../input/pointer';
 import { createCommandPalette } from '../overlays/CommandPalette';
 import { simplifyMessage, toleranceOfArgs } from '../panels/graph/simplify';
 import type { ToastNotifier } from '../services/notify';
@@ -26,6 +30,7 @@ import type { ConfirmRequest, FilePipeline, HelpMessage, ShellUiState } from '..
 import type { EditorParams } from '../test-api/params';
 import { createNavigation, type NavigationOptions } from './navigation';
 import { registerHostOperators } from './operators';
+import { startHostRegistrations } from './registrations';
 import type { HostShell, MountedShell } from './types';
 
 export interface CreateHostOptions {
@@ -227,10 +232,18 @@ export function createHostShell(opts: CreateHostOptions): HostShell {
   );
   disposers.push(() => files.dispose());
 
+  // STUDIO-TOUCH-SPEC §20.3 item 13 (T2): after a touch or pen press the key scope is the last pressed panel (touch
+  // has no hover, and WebKit sends `pointerleave` after a lift); a mouse keeps the hovered one.
+  let coarse = false;
+  const keyTarget = (): HoverTarget | null => {
+    const state = ui.getState();
+    return state.hover ?? (coarse ? state.lastPanel : null);
+  };
+
   // M6A-SPEC §5.17 (B0b): the hierarchical scope chain, the capture window and the viewport tool-key bridge.
   const keyboard = new KeyboardAdapter({
     keymap: app.keymap,
-    scopeChain: () => scopeChain(app, ui.getState().hover),
+    scopeChain: () => scopeChain(app, keyTarget()),
     blocked: () => app.session.getState().dialog !== null || ui.getState().confirm !== null,
     spaceBehaviour: () => app.prefs.getState().spaceBehaviour,
     dispatch: ({ op, args, ctx }) => void runFromUi(op, args, ctx),
@@ -243,6 +256,11 @@ export function createHostShell(opts: CreateHostOptions): HostShell {
 
   // The host's operators (§4.4): dialogs and preferences exist on every route.
   disposers.push(registerHostOperators(app, { onImportClosed: () => files.cancelImport() }));
+  // ST-T2 P1: `shell.navigate` (Halo ⇄ Pro ⇄ Auto-Rig) is a host operator on every route.
+  disposers.push(registerShellNavigate(app));
+  // STUDIO-TOUCH-SPEC §20.3 item 12 (T3): what every shell needs and only Studio registered before — lazy, once per
+  // app, kept across switches — and the Recovery prompt's timing (the mounted shell provides how it offers the slots).
+  disposers.push(startHostRegistrations(app, params));
 
   // M6A-SPEC §5.18 (B9): the command palette (`Mod+K`); AUTORIG-SPEC §4.4: the overlay port is the host's on every
   // route (its chunk loads on first use); marking menus come from the mounted shell (Studio).
@@ -265,8 +283,8 @@ export function createHostShell(opts: CreateHostOptions): HostShell {
     }),
   );
 
-  // M2A-SPEC §5.20: autosave (browser services only); the Recovery prompt is the Studio shell's (§4.4).
-  disposers.push(startShellAutosave({ app, runFromUi: (op, args) => runFromUi(op, args), prompt: false }));
+  // M2A-SPEC §5.20: autosave (browser services only); the Recovery prompt is the registrations' (above, T3).
+  disposers.push(startShellAutosave({ app }));
 
   // AUTORIG-SPEC §3.4, §4.4: the navigation port (eager; the handoff record behind it is a lazy chunk).
   const navigation = createNavigation({ app, ui, mounted, commandPalette, keyboard, runFromUi }, opts.navigation);
@@ -293,6 +311,9 @@ export function createHostShell(opts: CreateHostOptions): HostShell {
     keyboard,
     commandPalette,
     navigation,
+    notePointer: (type) => {
+      coarse = type === 'touch' || type === 'pen';
+    },
     mounted,
     mount(shell: MountedShell): Disposer {
       mounted.setState(shell, true);

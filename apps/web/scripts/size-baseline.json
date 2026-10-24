@@ -8,7 +8,8 @@
   "eagerDelta": {
     "label": "Auto-Rig eager delta",
     "allowance": 2048,
-    "enforce": true,
+    "enforce": false,
+    "pending": "retired by the owner on 2026-10-24 (DECISIONS-OPEN SIZE-1): every route has one 5,000,000 B gate; the allowance is reported only",
     "gate": "AUTORIG-SPEC §7.0 rule 2 (AR-B1): the Auto-Rig milestone may add at most +2,048 B to /editor's measured route (eager scripts plus FIRST_VISIT groups) over this baseline; limit 897,736 B, under the unchanged 900,000 B gate. Per-package allowances (measured by each package against autorig/mvp at its merge, recorded in its wp-notes): D0 64 B, D1 1,408 B, D2 448 B, D3 128 B, every other package (A0, D4, D5, D6, D7) 0 B. Unused allowance of one package is not taken by another without D7's approval in wp-notes.",
     "packages": {
       "d0": 64,
@@ -23,7 +24,7 @@
   },
   "routes": {
     "autorig": {
-      "gate": 660000,
+      "gate": 5000000,
       "target": 620000,
       "enforce": true,
       "total": 658122,
@@ -32,6 +33,17 @@
         "recorded": "2026-10-22, D0 placeholder page (no EditorApp yet), docs/wp-notes/ar-contracts.md"
       },
       "recorded": "2026-10-22, D7 at the integration merge (autorig/integration: D0–D6 and A0 merged, AR-D3-G tooltip provider in Studio's shell, AR-D7-2 per-step string tables); docs/wp-notes/ar-integration.md. D1 left it unrecorded (over the gate after D3); D7 records the merged measure and enforces the 660,000 B gate"
+    },
+    "app": {
+      "gate": 5000000,
+      "target": 660000,
+      "enforce": true,
+      "total": null,
+      "gateDecision": "owner, 2026-10-24 (DECISIONS-OPEN SIZE-1, closes OQ-3): one 5,000,000 B gate on every route, enforced now; T12 records the merged measure",
+      "placeholder": {
+        "total": 635275,
+        "recorded": "2026-10-24, T2 (halo/t2-contracts on dev d5d123c3): the empty Halo shell over the shared host, production build; docs/wp-notes/halo-t2.md"
+      }
     }
   },
   "previous": {

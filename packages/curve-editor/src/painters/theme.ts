@@ -43,8 +43,22 @@ export const DEFAULT_GRAPH_THEME: GraphTheme = {
   font: '10px "JetBrains Mono Variable", ui-monospace, monospace',
 };
 
-/** Sizes in CSS px (research 09 §4.7). */
-export const GRAPH_METRICS = {
+/**
+ * Sizes in CSS px (research 09 §4.7). The hit tolerances are the mouse's (MVP-SPEC §4.11.18) until a touch shell's
+ * curve adapter switches them to its pointer's (`setGraphPointer` in `./pointer`, STUDIO-TOUCH-SPEC §5.4).
+ */
+export const GRAPH_METRICS: {
+  readonly key: 5;
+  readonly keySelected: 7;
+  readonly handleRadius: 2;
+  readonly handleLength: 40;
+  readonly curveWidth: 1.5;
+  readonly selectedSegmentWidth: 2;
+  readonly inactiveAlpha: 0.4;
+  hitKey: number;
+  hitHandle: number;
+  hitCurve: number;
+} = {
   key: 5,
   keySelected: 7,
   handleRadius: 2,
@@ -57,7 +71,7 @@ export const GRAPH_METRICS = {
   hitKey: 6,
   hitHandle: 5,
   hitCurve: 4,
-} as const;
+};
 
 const TOKENS: readonly (readonly [keyof GraphTheme, string])[] = [
   ['background', '--bg-field'],

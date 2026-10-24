@@ -108,8 +108,14 @@ and conformance fixtures; the C2 code now conforms to them.
 
 ## Budgets and gates
 
-`check:size` (production build, gzip -9): `/editor` 892,666 B (+366 over 892,300, the +256 target missed by 110 B,
-CC-C2-17; gate 900,000), `/autorig` 653,054 B (+46; gate 660,000).
+`check:size` (production build, gzip -9; before the dev merge): `/editor` 892,661 B (+361 over 892,300; the +256 B
+target missed by ≈ 105 B, CC-C2-17), `/autorig` 653,051 B (+43). Since SIZE-1 (§S, merged from `dev` at `054b8789`)
+one 5,000,000 B gate applies to every route and targets are report-only; nothing was trimmed for size.
+
+Gate before the merge (`EKZA_E2E_PORT=3171 pnpm run ci` on `358c7281`): green — test 22/22 tasks, build, check:size,
+e2e 368 passed, 24 skipped (the existing skips). Earlier runs failed only on known flakes in untouched code (mesh-core
+property seeds 107113566 and 1028527676, the `agent/keys` timing bound under load; each green alone) and on two e2e
+expectations C2 changed (fixed).
 
 Screenshots (E2E-CC-03 with `EKZA_CC_SCREENSHOTS`): the time slider with the contact ◆, limit line and window
 bracket; Auto-Rig ⑤ blocked by the contract row with *Set contact*; the Export dialog blocked and ready; the Target
