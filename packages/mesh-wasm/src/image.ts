@@ -63,6 +63,37 @@ export function sampleLinear(
   }
 }
 
+/** Texels with less alpha than this (of 255) are background, never base colour (an atlas's transparent gutter). */
+export const ALPHA_MIN = 16;
+
+/**
+ * The linear RGB of the texel under texture coordinate (u, v) — nearest, no filtering, so every sample is a colour the
+ * image holds (bilinear blends at a stripe's edge are colours it does not) — written to `out`. Returns false when the
+ * texel is atlas background: outside the charts (`mask`, from `uvCoverage`; null = every texel counts) or transparent.
+ */
+export function sampleNearest(
+  image: RgbaImage,
+  u: number,
+  v: number,
+  wrapS: number,
+  wrapT: number,
+  mask: Uint8Array | null,
+  out: Float64Array,
+  offset = 0,
+): boolean {
+  const { width: W, height: H, rgba } = image;
+  const x = wrap(Math.floor(u * W), W, wrapS);
+  const y = wrap(Math.floor(v * H), H, wrapT);
+  const index = y * W + x;
+  if (mask !== null && mask[index] !== 1) return false;
+  const p = 4 * index;
+  if ((rgba[p + 3] as number) < ALPHA_MIN) return false;
+  out[offset] = SRGB_TO_LINEAR[rgba[p] as number] as number;
+  out[offset + 1] = SRGB_TO_LINEAR[rgba[p + 1] as number] as number;
+  out[offset + 2] = SRGB_TO_LINEAR[rgba[p + 2] as number] as number;
+  return true;
+}
+
 /** The size an image takes under a longest-side limit (aspect kept, at least 1 × 1); the same size when it fits. */
 export function fittedSize(width: number, height: number, maxSize: number): { width: number; height: number } {
   const longest = Math.max(width, height);

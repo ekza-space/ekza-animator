@@ -144,6 +144,8 @@ export async function runIntakeJob(job: IntakeJob, simplifier?: Simplifier): Pro
           })),
           job.sources,
           step.args,
+          // The charts are the UV triangles of the meshes as the job got them (before a reduce).
+          job.meshes.map((mesh) => mesh.data),
         );
         meshes = [...outcome.meshes];
         palette = [...outcome.palette];
