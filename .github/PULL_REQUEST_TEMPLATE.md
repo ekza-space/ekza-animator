@@ -15,3 +15,4 @@
 - [ ] No new dependency, or a dependency request was approved (only the integration agent edits `package.json` files and `pnpm-lock.yaml`).
 - [ ] No code copied from GPL/AGPL/LGPL, unlicensed or proprietary sources (clean-room rule); copy-adapted MIT code carries an attribution header.
 - [ ] New binary fixtures have a row in `fixtures/LICENSES.md` with source, licence and SHA-256.
+- [ ] Ekza Studio path (manifest entry) added or not needed: a new operator, or new arguments a menu or panel sends, has an entry in `packages/halo/src/manifest/disclosure.ts` (`ha-parity` fails without one; STUDIO-TOUCH-SPEC §20.5).
