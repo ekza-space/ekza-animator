@@ -458,6 +458,62 @@ describe('pointer arbiter: two fingers (§5.2, C6, C14)', () => {
   });
 });
 
+describe('pointer arbiter: quick pinch (C5) and contact-size palms (D14)', () => {
+  const quick = { quickPinch: { ms: 300, scale: 0.7 }, onQuickPinch: (pane: string) => quickTaps.push(pane) };
+  const quickTaps: string[] = [];
+  beforeEach(() => {
+    quickTaps.length = 0;
+  });
+
+  /** Two fingers 200 px apart around (400, 200) closing to `spread`, the midpoint moved by `pan`, over `ms`. */
+  function pinch(arbiter: ReturnType<typeof setup>['arbiter'], spread: number, ms: number, pan = 0): void {
+    arbiter.down('p', ev(1, 'touch', 300, 200, 0));
+    arbiter.down('p', ev(2, 'touch', 500, 200, 10));
+    arbiter.move('p', ev(1, 'touch', 400 - spread / 2 + pan, 200, ms / 2));
+    arbiter.move('p', ev(2, 'touch', 400 + spread / 2 + pan, 200, ms - 10));
+    arbiter.up('p', ev(1, 'touch', 400 - spread / 2 + pan, 200, ms), false);
+    arbiter.up('p', ev(2, 'touch', 400 + spread / 2 + pan, 200, ms + 5), false);
+  }
+
+  it('a quick pinch-in with no pan frames all; it still dollied while it ran', () => {
+    const { arbiter, calls } = setup(quick);
+    pinch(arbiter, 100, 200);
+    expect(quickTaps).toEqual(['p']);
+    expect(calls.some((c) => c.kind === 'navigate' && c.gesture === 'dolly')).toBe(true);
+  });
+
+  it('too slow, not closed enough, panned, or not configured: a dolly only', () => {
+    const slow = setup(quick);
+    pinch(slow.arbiter, 100, 400);
+    const small = setup(quick);
+    pinch(small.arbiter, 160, 200);
+    const panned = setup(quick);
+    pinch(panned.arbiter, 100, 200, 40);
+    const off = setup();
+    pinch(off.arbiter, 100, 200);
+    expect(quickTaps).toEqual([]);
+    expect(off.taps).toEqual([]); // not a two-finger tap either: the fingers travelled
+  });
+
+  it('once a pen was seen, a touch with a large reported contact is a palm; no reported size, no rule', () => {
+    const { arbiter, taps } = setup({ palmContactPx: 30 });
+    const wide = (id: number, x: number, t: number, size: number) => ({
+      ...ev(id, 'touch', x, 200, t),
+      width: size,
+      height: size,
+    });
+    arbiter.down('p', wide(1, 300, 0, 40)); // no pen yet: a tap
+    arbiter.up('p', wide(1, 300, 30, 40), false);
+    arbiter.down('p', ev(2, 'pen', 600, 200, 1000));
+    arbiter.up('p', ev(2, 'pen', 600, 200, 1030), false);
+    arbiter.down('p', wide(3, 300, 2000, 40)); // after the palm window, but a 40 px contact: ignored
+    arbiter.up('p', wide(3, 300, 2030, 40), false);
+    arbiter.down('p', wide(4, 300, 3000, 1)); // a 1 px contact reports no size: a tap
+    arbiter.up('p', wide(4, 300, 3030, 1), false);
+    expect(taps).toEqual(['tap touch 200,150', 'tap pen 500,150', 'tap touch 200,150']);
+  });
+});
+
 describe('pointer arbiter: the brush delay (§5.1, C16)', () => {
   it('a still brush press starts the stroke at 120 ms; a long-press after it rolls the stroke back', () => {
     const { arbiter, calls, taps } = setup({ claims: () => 'brush' });

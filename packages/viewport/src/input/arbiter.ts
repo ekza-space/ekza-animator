@@ -66,6 +66,18 @@ export interface ArbiterConfig {
   readonly twoFingerTapMs: number;
   /** Fingers only navigate while a pen is down or for this long after its last event (§5.1: 500 ms). */
   readonly palmMs: number;
+  /**
+   * Once a pen has been seen, a touch whose reported contact is wider or taller than this (CSS px; §5.1: 30) is a
+   * palm and is ignored; a contact of 1 px or less reports no size (D14), so the rule is off. Absent: off.
+   */
+  readonly palmContactPx?: number;
+  /**
+   * C5: a pinch-in released within `ms` whose spread ends below `scale` of its start, with the midpoint inside the
+   * touch slop, is a quick pinch (`onQuickPinch`: frame all); anything else stays a dolly. Absent: off (§5.2: 300 ms,
+   * 0.7; Settings › Input turns it off).
+   */
+  readonly quickPinch?: { readonly ms: number; readonly scale: number };
+  onQuickPinch?(paneId: string): void;
   routing(): ArbiterRouting;
   /** Whose a drag from this press is (asked at the press; the point matters: mesh-view surfaces are not candidates). */
   claims(press: ArbiterTap & { readonly pointerType: ArbiterPointerType }): ArbiterClaim;
@@ -97,6 +109,9 @@ export interface ArbiterPointer {
   readonly pressure: number;
   /** The element pressed and the pane element listening (a DOM event has both; recorded streams need neither). */
   readonly target?: EventTarget | null;
+  /** The contact's size (CSS px; 1 or less: not reported). */
+  readonly width?: number;
+  readonly height?: number;
   readonly currentTarget?: EventTarget | null;
   getCoalescedEvents?(): readonly {
     readonly clientX: number;
@@ -249,8 +264,18 @@ interface Pair {
   readonly start: number;
   readonly from: Map<number, { x: number; y: number }>;
   readonly at: Map<number, { x: number; y: number }>;
+  /** The farthest a finger travelled from its start (CSS px). */
   travel: number;
 }
+
+const midOf = (points: Iterable<{ readonly x: number; readonly y: number }>): { x: number; y: number } => {
+  const [a, b] = [...points] as [{ x: number; y: number }, { x: number; y: number }];
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+};
+const spreadOf = (points: Iterable<{ readonly x: number; readonly y: number }>): number => {
+  const [a, b] = [...points] as [{ x: number; y: number }, { x: number; y: number }];
+  return Math.hypot(b.x - a.x, b.y - a.y);
+};
 
 interface LastTap {
   readonly paneId: string;
@@ -385,9 +410,27 @@ export function pointerArbiter<E extends ArbiterPointer>(
     for (const p of presses.values()) if (p.state === 'pair') p.state = 'idle';
     // the navigation commits first: the two-finger tap's undo must not meet an open camera preview
     port.endNavigate(current.paneId);
-    if (!cancelled && t - current.start <= config.twoFingerTapMs && current.travel <= config.slopPx.touch) {
+    if (cancelled) return;
+    const quick = config.quickPinch;
+    const from = midOf(current.from.values());
+    const to = midOf(current.at.values());
+    if (
+      quick !== undefined &&
+      t - current.start <= quick.ms &&
+      spreadOf(current.at.values()) < quick.scale * spreadOf(current.from.values()) &&
+      dist(from.x, from.y, to.x, to.y) <= config.slopPx.touch
+    ) {
+      config.onQuickPinch?.(current.paneId);
+    } else if (t - current.start <= config.twoFingerTapMs && current.travel <= config.slopPx.touch) {
       config.onTwoFingerTap(current.paneId);
     }
+  };
+
+  /** D14: a large contact once a pen has been seen (only where the browser reports a size). */
+  const palmContact = (e: E): boolean => {
+    const limit = config.palmContactPx;
+    const size = Math.max(e.width ?? 0, e.height ?? 0);
+    return limit !== undefined && penAt > Number.NEGATIVE_INFINITY && size > 1 && size > limit;
   };
 
   /**
@@ -414,9 +457,9 @@ export function pointerArbiter<E extends ArbiterPointer>(
       if (onChrome(e)) return true;
       const kind = kindOf(e.pointerType);
       if (kind === 'pen') penAt = e.timeStamp;
-      // a pair is navigating in this pane (a third finger), or a pen is down (the palm): the finger is ignored
+      // a pair is navigating in this pane (a third finger), a pen is down or the contact is a palm: the finger is ignored
       const penDown = [...presses.values()].some((p) => p.kind === 'pen');
-      if (kind === 'touch' && ((pair !== null && pair.paneId === paneId) || penDown)) {
+      if (kind === 'touch' && ((pair !== null && pair.paneId === paneId) || penDown || palmContact(e))) {
         presses.set(e.pointerId, press(paneId, e, kind, null, 'navigate', null, false, 'idle'));
         return true;
       }

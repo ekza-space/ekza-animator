@@ -2235,12 +2235,15 @@ interface ArbiterConfig {
   readonly brushDelayMs: number;                                            // 120
   readonly twoFingerTapMs: number;                                          // 250
   readonly palmMs: number;                                                  // 500
+  readonly palmContactPx?: number;                                          // 30 once a pen was seen (D14); absent: off
+  readonly quickPinch?: { readonly ms: number; readonly scale: number };    // C5: 300 / 0.7; absent: off
   routing(): 'shared' | 'pencilEdits' | 'pencilOnly';                       // read after claims()
   claims(press: ArbiterTap & { readonly pointerType: 'touch' | 'pen' }): 'tool' | 'navigate' | 'brush';
   onTap(tap: ArbiterTap): 'select' | 'consumed';                            // 'select': the tool's click (down + up)
   onDoubleTap(tap: ArbiterTap): void;                                       // frames; the tool never sees the tap
   onLongPress(tap: ArbiterTap): ArbiterFollow | undefined;                  // the ring; a follower gets moves and release
   onTwoFingerTap(paneId: string): void;                                     // undo, after the pair's endNavigate
+  onQuickPinch?(paneId: string): void;                                      // frame all (C5)
 }
 interface ArbiterTap {
   readonly paneId: string; readonly x: number; readonly y: number;         // pane CSS px
@@ -2322,7 +2325,10 @@ export const ENTRY_ROUTES = { autorig: '/autorig', studio: '/editor', halo: '/ap
   lifts. The pair ends its navigation (`endNavigate`) before `onTwoFingerTap` runs (both lifted within
   `twoFingerTapMs` and the slop), so the undo never meets an open camera preview.
 - **Pen and palm.** While a pen press is held, touches are ignored; within `palmMs` of the last pen event they only
-  navigate and their taps are consumed. `routing()` is read after `claims()` (the first pen press may switch it).
+  navigate and their taps are consumed; once a pen was seen, a touch whose reported contact exceeds `palmContactPx` is
+  ignored (no reported size, no rule: D14). `routing()` is read after `claims()` (the first pen press may switch it).
+- **Quick pinch (C5).** A pair released within `quickPinch.ms` whose spread closed below `quickPinch.scale` with the
+  midpoint inside the touch slop runs `onQuickPinch` (frame all) instead of the two-finger tap; it dollied meanwhile.
 - **The mouse stays eager**; only a candidate second click (config `multiTapMs.mouse`) is held, so a double-click frames
   for every input (C2).
 - **`navigate` is a gesture.** A shot camera's `navigate` moves are one preview, committed once by `endNavigate`
