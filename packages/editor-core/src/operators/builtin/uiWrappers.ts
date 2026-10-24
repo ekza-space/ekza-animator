@@ -480,15 +480,21 @@ const pasteAt = wrapper({
 });
 
 /** `pose.placeGoal` and `pose.reach` {key}: one IK goal through `pose.goals`. */
-function goalPlan(app: EditorApp, args: AnyArgs, name: 'position'): Plan<{ readonly limb: LimbId }> | string {
-  const problem = vec3Problem(args[name], name);
+/** Why a goal's position or rotation is malformed, or null. */
+function goalProblem(args: AnyArgs): string | null {
+  const problem = vec3Problem(args['position'], 'position');
   if (problem !== null) return problem;
-  if (args['rotation'] !== undefined) {
-    const rotation = args['rotation'];
-    if (!Array.isArray(rotation) || rotation.length !== 4 || !rotation.every(isFiniteNumber)) {
-      return 'rotation must be a quaternion [x, y, z, w]';
-    }
+  const rotation = args['rotation'];
+  if (rotation === undefined) return null;
+  if (!Array.isArray(rotation) || rotation.length !== 4 || !rotation.every(isFiniteNumber)) {
+    return 'rotation must be a quaternion [x, y, z, w]';
   }
+  return Math.hypot(...rotation) < 1e-9 ? 'rotation must not be zero' : null;
+}
+
+function goalPlan(app: EditorApp, args: AnyArgs, name: 'position'): Plan<{ readonly limb: LimbId }> | string {
+  const problem = goalProblem(args);
+  if (problem !== null) return problem;
   const clip = clipOf(app, args);
   if (typeof clip === 'string') return clip;
   const frame = frameOf(app, clip, args);
@@ -550,7 +556,7 @@ const reach = wrapper<'pose.reach', { readonly limb: LimbId; readonly proposed: 
       return { ...resolved, label, extra: { limb: resolved.extra.limb, proposed: 0, reached: true } };
     }
     // Unkeyed: the solved channels become overrides at the playhead (`pose.setAt {propose}`).
-    const problem = vec3Problem(args['position'], 'position');
+    const problem = goalProblem(args);
     if (problem !== null) return problem;
     const clip = clipOf(app, args);
     if (typeof clip === 'string') return clip;
@@ -565,7 +571,7 @@ const reach = wrapper<'pose.reach', { readonly limb: LimbId; readonly proposed: 
     }
     const goal = {
       position: args['position'] as Vec3,
-      ...(Array.isArray(args['rotation']) ? { rotation: args['rotation'] as Quat } : {}),
+      ...(args['rotation'] === undefined ? {} : { rotation: args['rotation'] as Quat }),
     };
     const { values, reached } = solveReach(app, clip, limb.id, frame, goal);
     const edits: { control: ControlId; channel: ChannelId; value: number }[] = [];

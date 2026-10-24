@@ -91,6 +91,10 @@ describe('pose.reach', () => {
     );
     expect(await refusal(app, 'pose.reach', { position })).toBe('The L Arm is FK here: switch it to IK first');
     expect(await refusal(app, 'pose.reach', { position: [0, 1] })).toBe('position must be [x, y, z]');
+    expect(await refusal(app, 'pose.reach', { position, rotation: [0, 0, 0, 0] })).toBe('rotation must not be zero');
+    expect(await refusal(app, 'pose.reach', { position, rotation: [0, 1] })).toBe(
+      'rotation must be a quaternion [x, y, z, w]',
+    );
     expect(await refusal(app, 'pose.reach', { position, limb: 'tail' })).toBe(
       'limb is one of leg.L, leg.R, arm.L, arm.R',
     );
