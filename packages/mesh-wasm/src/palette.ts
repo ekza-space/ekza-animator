@@ -1,9 +1,10 @@
 // `mesh.paletteBake` (MODELING-PLAN §7.2 G-a, research 15 §5.9 step 9, research 12 L2): the stylized low-poly look
-// from a textured model. Every face gets the area-weighted mean of its base colour (texture × factor, averaged in
-// linear light at a fixed low-discrepancy pattern of points per triangle); the face colours of every mesh of the job,
-// weighted by area, are clustered by k-means in OKLab into at most `colours` swatches; each face's `paint` slot is its
-// nearest swatch. The palette is ordered by covered area (slot 0 = the largest), and swatches that round to the same
-// 8-bit colour merge. Deterministic: no random seeding (greedy weighted k-means++), fixed iteration order.
+// from a textured model. The base colour (texture × factor, or a palette mesh's swatch) is sampled at a fixed
+// low-discrepancy pattern of points per triangle, each sample weighted by its triangle's area; the samples of every
+// mesh of the job are clustered by k-means in OKLab into at most `colours` swatches; each face's `paint` slot is the
+// swatch its samples cover most (its dominant colour: a striped face keeps a stripe colour instead of their average).
+// The palette is ordered by covered area (slot 0 = the largest), and swatches that round to the same 8-bit colour
+// merge. Deterministic: no random seeding (greedy weighted k-means++), fixed iteration order.
 import type { MeshData } from '@ekza-studio/mesh-core';
 import { BUILTIN_LAYERS, triangulate } from '@ekza-studio/mesh-core';
 import { linearToOklab, linearToSrgb8, oklabToLinear, SRGB_TO_LINEAR } from './colour';
@@ -58,25 +59,28 @@ export function samplePattern(count: number): Float64Array {
   return out;
 }
 
-/** Area-weighted mean linear base colour of every face (3 per face) and the face areas. */
-function faceColours(
-  mesh: PaletteMeshIn,
-  sources: readonly BaseColourSource[],
-  pattern: Float64Array,
-): { readonly colour: Float64Array; readonly area: Float64Array } {
+/** The base-colour samples of a mesh: OKLab colour, weight (triangle area / samples) and face of each. */
+interface Samples {
+  readonly lab: Float64Array;
+  readonly weight: Float64Array;
+  readonly face: Uint32Array;
+}
+
+/** Base colour (texture × factor, or the face's palette swatch) at the pattern's points of every triangle. */
+function faceSamples(mesh: PaletteMeshIn, sources: readonly BaseColourSource[], pattern: Float64Array): Samples {
   const { data } = mesh;
-  const F = data.counts.faces;
   const { tris, triFace } = triangulate(data);
-  const colour = new Float64Array(3 * F);
-  const area = new Float64Array(F);
-  const plain = new Float64Array(3 * F);
-  const plainCount = new Uint32Array(F);
-  const sample = new Float64Array(3);
+  const T = tris.length / 3;
   const n = pattern.length / 3;
+  const lab = new Float64Array(3 * T * n);
+  const weight = new Float64Array(T * n);
+  const face = new Uint32Array(T * n);
+  const sample = new Float64Array(3);
   const paintLayer = data.layers.get('paint');
   const paintSlots =
     mesh.paint !== null && mesh.paint !== undefined && paintLayer?.def.domain === 'face' ? paintLayer.data : null;
-  for (let t = 0; t < tris.length / 3; t++) {
+  const pos = data.position;
+  for (let t = 0; t < T; t++) {
     const f = triFace[t] as number;
     const c0 = tris[3 * t] as number;
     const c1 = tris[3 * t + 1] as number;
@@ -84,7 +88,6 @@ function faceColours(
     const p0 = data.cornerVert[c0] as number;
     const p1 = data.cornerVert[c1] as number;
     const p2 = data.cornerVert[c2] as number;
-    const pos = data.position;
     const ux = (pos[3 * p1] as number) - (pos[3 * p0] as number);
     const uy = (pos[3 * p1 + 1] as number) - (pos[3 * p0 + 1] as number);
     const uz = (pos[3 * p1 + 2] as number) - (pos[3 * p0 + 2] as number);
@@ -98,53 +101,42 @@ function faceColours(
     const factor = source?.factor ?? [1, 1, 1, 1];
     const texture = source?.texture ?? null;
     const uv = texture === null ? undefined : data.layers.get(texture.texCoord === 1 ? 'uv1' : 'uv0');
-    let r = 0;
-    let g = 0;
-    let b = 0;
     const swatch = paintSlots === null ? undefined : (mesh.paint?.[paintSlots[f] as number] ?? null);
-    if (swatch !== undefined) {
-      r = swatch === null ? 1 : (SRGB_TO_LINEAR[swatch[0]] as number);
-      g = swatch === null ? 1 : (SRGB_TO_LINEAR[swatch[1]] as number);
-      b = swatch === null ? 1 : (SRGB_TO_LINEAR[swatch[2]] as number);
-    } else if (texture !== null && uv !== undefined && uv.def.domain === 'corner' && uv.def.comps === 2) {
-      const uvs = uv.data;
-      for (let i = 0; i < n; i++) {
+    const textured =
+      swatch === undefined && texture !== null && uv !== undefined && uv.def.domain === 'corner' && uv.def.comps === 2;
+    for (let i = 0; i < n; i++) {
+      const s = t * n + i;
+      let r: number;
+      let g: number;
+      let b: number;
+      if (swatch !== undefined) {
+        r = swatch === null ? 1 : (SRGB_TO_LINEAR[swatch[0]] as number);
+        g = swatch === null ? 1 : (SRGB_TO_LINEAR[swatch[1]] as number);
+        b = swatch === null ? 1 : (SRGB_TO_LINEAR[swatch[2]] as number);
+      } else if (textured) {
+        const uvs = (uv as NonNullable<typeof uv>).data;
         const w0 = pattern[3 * i] as number;
         const w1 = pattern[3 * i + 1] as number;
         const w2 = pattern[3 * i + 2] as number;
         const u = w0 * (uvs[2 * c0] as number) + w1 * (uvs[2 * c1] as number) + w2 * (uvs[2 * c2] as number);
         const v =
           w0 * (uvs[2 * c0 + 1] as number) + w1 * (uvs[2 * c1 + 1] as number) + w2 * (uvs[2 * c2 + 1] as number);
-        sampleLinear(texture.image, u, v, texture.wrapS, texture.wrapT, sample);
-        r += sample[0] as number;
-        g += sample[1] as number;
-        b += sample[2] as number;
+        const tex = texture as NonNullable<typeof texture>;
+        sampleLinear(tex.image, u, v, tex.wrapS, tex.wrapT, sample);
+        r = (sample[0] as number) * factor[0];
+        g = (sample[1] as number) * factor[1];
+        b = (sample[2] as number) * factor[2];
+      } else {
+        r = factor[0];
+        g = factor[1];
+        b = factor[2];
       }
-      r = (r / n) * factor[0];
-      g = (g / n) * factor[1];
-      b = (b / n) * factor[2];
-    } else {
-      r = factor[0];
-      g = factor[1];
-      b = factor[2];
-    }
-    colour[3 * f] = (colour[3 * f] as number) + triArea * r;
-    colour[3 * f + 1] = (colour[3 * f + 1] as number) + triArea * g;
-    colour[3 * f + 2] = (colour[3 * f + 2] as number) + triArea * b;
-    area[f] = (area[f] as number) + triArea;
-    plain[3 * f] = (plain[3 * f] as number) + r;
-    plain[3 * f + 1] = (plain[3 * f + 1] as number) + g;
-    plain[3 * f + 2] = (plain[3 * f + 2] as number) + b;
-    plainCount[f] = (plainCount[f] as number) + 1;
-  }
-  for (let f = 0; f < F; f++) {
-    const a = area[f] as number;
-    for (let k = 0; k < 3; k++) {
-      colour[3 * f + k] =
-        a > 0 ? (colour[3 * f + k] as number) / a : (plain[3 * f + k] as number) / Math.max(1, plainCount[f] as number);
+      linearToOklab(r, g, b, lab, 3 * s);
+      weight[s] = triArea / n;
+      face[s] = f;
     }
   }
-  return { colour, area };
+  return { lab, weight, face };
 }
 
 /** Squared OKLab distance between entry `i` of `a` and entry `j` of `b`. */
@@ -235,22 +227,22 @@ export function paletteBake(
   args: PaletteBakeArgs,
 ): PaletteOutcome {
   const pattern = samplePattern(args.samples);
-  const perMesh = meshes.map((mesh) => faceColours(mesh, sources, pattern));
-  // Face colours in OKLab, then a histogram of quantized colours (summed areas, mean colour per bin).
+  const perMesh = meshes.map((mesh) => faceSamples(mesh, sources, pattern));
+  // A histogram of quantized sample colours (summed weights, mean colour per bin) is what k-means clusters.
   const bins = new Map<number, number>();
   const binSum: number[] = [];
   const binWeight: number[] = [];
-  const lab = new Float64Array(3);
-  const faceLab = perMesh.map(({ colour, area }) => {
-    const F = area.length;
-    const out = new Float64Array(3 * F);
-    for (let f = 0; f < F; f++) {
-      linearToOklab(colour[3 * f] as number, colour[3 * f + 1] as number, colour[3 * f + 2] as number, lab);
-      out.set(lab, 3 * f);
+  const binOf = perMesh.map(({ lab, weight }) => {
+    const S = weight.length;
+    const out = new Uint32Array(S);
+    for (let s = 0; s < S; s++) {
+      const L = lab[3 * s] as number;
+      const a = lab[3 * s + 1] as number;
+      const b = lab[3 * s + 2] as number;
       const key =
-        (Math.round((lab[0] as number) * QUANT) + 1024) * 4194304 +
-        (Math.round((lab[1] as number) * QUANT) + 1024) * 2048 +
-        (Math.round((lab[2] as number) * QUANT) + 1024);
+        (Math.round(L * QUANT) + 1024) * 4194304 +
+        (Math.round(a * QUANT) + 1024) * 2048 +
+        (Math.round(b * QUANT) + 1024);
       let bin = bins.get(key);
       if (bin === undefined) {
         bin = binWeight.length;
@@ -258,19 +250,25 @@ export function paletteBake(
         binWeight.push(0);
         binSum.push(0, 0, 0);
       }
-      const w = Math.max(area[f] as number, 1e-12);
+      // Degenerate triangles still vote, with a tiny weight.
+      const w = Math.max(weight[s] as number, 1e-12);
       binWeight[bin] = (binWeight[bin] as number) + w;
-      for (let c = 0; c < 3; c++) binSum[3 * bin + c] = (binSum[3 * bin + c] as number) + w * (lab[c] as number);
+      binSum[3 * bin] = (binSum[3 * bin] as number) + w * L;
+      binSum[3 * bin + 1] = (binSum[3 * bin + 1] as number) + w * a;
+      binSum[3 * bin + 2] = (binSum[3 * bin + 2] as number) + w * b;
+      out[s] = bin;
     }
     return out;
   });
-  // Bins in key order (insertion order depends on face order only, which is fixed; sorting makes it explicit).
+  // Bins in key order (the clustering's input order is then a function of the colours alone).
   const keys = [...bins.keys()].sort((a, b) => a - b);
   const N = keys.length;
+  const order = new Uint32Array(binWeight.length);
   const points = new Float64Array(3 * N);
   const weights = new Float64Array(N);
   keys.forEach((key, i) => {
     const bin = bins.get(key) as number;
+    order[bin] = i;
     const w = binWeight[bin] as number;
     weights[i] = w;
     for (let c = 0; c < 3; c++) points[3 * i + c] = (binSum[3 * bin + c] as number) / w;
@@ -285,9 +283,9 @@ export function paletteBake(
   );
   const rgb = new Float64Array(3);
   const palette: [number, number, number][] = [];
-  const slotOfCluster = new Int32Array(k).fill(-1);
+  const slotOfLive = new Int32Array(live.length);
   const slotOfColour = new Map<number, number>();
-  for (const j of live) {
+  live.forEach((j, i) => {
     oklabToLinear(centres[3 * j] as number, centres[3 * j + 1] as number, centres[3 * j + 2] as number, rgb);
     const srgb: [number, number, number] = [
       linearToSrgb8(rgb[0] as number),
@@ -301,19 +299,33 @@ export function paletteBake(
       palette.push(srgb);
       slotOfColour.set(key, slot);
     }
-    slotOfCluster[j] = slot;
-  }
-  const liveCentres = new Float64Array(3 * live.length);
+    slotOfLive[i] = slot;
+  });
+  const liveCentres = new Float64Array(3 * Math.max(1, live.length));
   live.forEach((j, i) => liveCentres.set(centres.subarray(3 * j, 3 * j + 3), 3 * i));
+  // Each histogram bin's swatch, then each face's: the swatch its samples cover most (the dominant colour, so a
+  // striped face takes its stripe's colour, not their pink average).
+  const slotOfBin = new Int32Array(N);
+  for (let i = 0; i < N; i++) slotOfBin[i] = slotOfLive[nearest(points, i, liveCentres, live.length)] as number;
   let faces = 0;
+  const votes = new Float64Array(Math.max(1, palette.length));
   const out = meshes.map(({ data }, m) => {
     const F = data.counts.faces;
     faces += F;
-    const labs = faceLab[m] as Float64Array;
+    const samples = perMesh[m] as Samples;
+    const bins = binOf[m] as Uint32Array;
     const paint = new Uint16Array(F);
+    let s = 0;
+    const S = samples.face.length;
     for (let f = 0; f < F; f++) {
-      const i = nearest(labs, f, liveCentres, live.length);
-      paint[f] = slotOfCluster[live[i] as number] as number;
+      votes.fill(0);
+      for (; s < S && samples.face[s] === f; s++) {
+        const slot = slotOfBin[order[bins[s] as number] as number] as number;
+        votes[slot] = (votes[slot] as number) + Math.max(samples.weight[s] as number, 1e-12);
+      }
+      let best = 0;
+      for (let j = 1; j < palette.length; j++) if ((votes[j] as number) > (votes[best] as number)) best = j;
+      paint[f] = best;
     }
     const layers = new Map(data.layers);
     layers.set('paint', { def: data.layers.get('paint')?.def ?? BUILTIN_LAYERS.paint, data: paint });

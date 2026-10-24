@@ -146,7 +146,7 @@ describe('normalize', () => {
     const sphere = chartedSphere(2000, 2);
     const nose = sphere.position.slice();
     for (let p = 0; p < sphere.counts.points; p++) {
-      nose[3 * p] = (nose[3 * p] as number) * (nose[3 * p] > 0 ? 3 : 1);
+      nose[3 * p] = (nose[3 * p] as number) * ((nose[3 * p] as number) > 0 ? 3 : 1);
       nose[3 * p + 1] = (nose[3 * p + 1] as number) * 4 + 5;
     }
     const data = { ...sphere, position: nose };

@@ -35,8 +35,11 @@ async function runWithBytes(page: Page, op: string, args: Record<string, unknown
 }
 
 async function shot(page: Page, name: string): Promise<Buffer> {
+  // Without the wire overlay (at 97k triangles it hides the texture) and framed on the model.
+  await runOk(page, 'view.display.set', { patch: { wireOnShaded: false }, paneId: 'pane-persp' });
   await runOk(page, 'view.frame', { what: 'all', paneId: 'pane-persp' });
-  await page.waitForTimeout(300);
+  // The model's texture decodes asynchronously: give the frame time to show it.
+  await page.waitForTimeout(1500);
   const image = await page.screenshot();
   const folder = process.env['EKZA_M7GA_SHOTS'];
   if (folder !== undefined && folder !== '') {
