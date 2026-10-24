@@ -90,16 +90,14 @@ waits for the runtime (`app.characters.subscribe`) before its first preview; a u
 
 Measured with `check:size` (production build, gzip -9):
 
-| Route | branch start (dev 959c587b) | after the move (pre-merge) | after merging dev (gate) |
-|---|---|---|---|
-| `/editor` | 891,449 B | 891,450 B (+1, chunk-name noise) | see the gate run below |
-| `/autorig` | 652,330 B | 652,298 B (−32) | see the gate run below |
+| Route | branch start (dev 959c587b) | after the move (before the dev merge) | dev now (7af76d0d) | this branch (gate) |
+|---|---|---|---|---|
+| `/editor` | 891,449 B | 891,450 B (+1, chunk-name noise) | 891,790 B | **891,790 B (+0)** |
+| `/autorig` | 652,330 B | 652,298 B (−32) | 652,528 B | **652,492 B (−36)** |
 
 - The first visits do not grow; the boundaries hold; `/autorig` keeps its 91 lazy chunk groups. The summed lazy-group
-  bytes grew by 12.0 kB (1,825.8 → 1,837.8 kB): the shared flow-host module (~1.2 kB) is now counted in each of the
-  ten lazy groups that run a step action (it is downloaded once). Not gated (ST-T5B-6).
-- `EKZA_E2E_PORT=3166 pnpm run ci` (format, lint, typecheck, deps, fixtures, licences, unit tests incl. agent-tools,
-  build, `check:size`, e2e incl. every `ar-*` spec): see "Gate run".
+  bytes grew by 12.0 kB (1,825.8 → 1,837.8 kB, measured before the dev merge): the shared flow-host module (~1.2 kB)
+  is now counted in each of the ten lazy groups that run a step action (it is downloaded once). Not gated (ST-T5B-6).
 
 ## Patches needed from other WPs
 
@@ -121,4 +119,17 @@ Measured with `check:size` (production build, gzip -9):
 
 ## Gate run
 
-(filled in below after the final run)
+`EKZA_E2E_PORT=3166 pnpm run ci` on the branch head, five runs on 2026-10-24 while nine other agents ran their gates
+(load average 70–210):
+
+- format, lint, typecheck, `check:deps`, `check:fixtures`, `check:licenses`: green in every run.
+- Unit tests: 22 / 22 packages green (editor-core 1,711 incl. `autorigFlow` 17 + the journey; autorig 115 incl. the
+  wizard log; agent-tools 259; headless-tests 223). Runs 1–3 failed only timing tests under load (editor-core's
+  50,000-key search bound; editor's `shell.test.tsx`, which passes alone and in a direct and a turbo run of the whole
+  editor suite on this branch, as on a clean dev checkout at the same load).
+- Build and `check:size`: green (table above).
+- e2e: 364 passed, 24 skipped, **every `ar-*` spec green (106 / 106, 37 files incl. `ar-as-12`)** in runs 4 and 5;
+  each run had one different Pro timing failure under load (run 4: E2E-M2A-23 "Character 'Polybot' has no runtime
+  yet"; run 5: acceptance-round1's Graph Editor double-click window, 549 ms > 400 ms). Both pass when rerun alone on
+  this branch; neither touches Auto-Rig or `autorigFlow`.
+- Final run: see the hand-off report.
