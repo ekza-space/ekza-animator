@@ -131,7 +131,40 @@ dialog), the frame's sheet slot (`ui.open {export}` opens Share).
 
 ## Gate and sizes
 
-@@GATE@@
+`EKZA_E2E_PORT=3186 pnpm run ci` at `fae5b0ac`, local Chrome, load average 6–25: **green** (exit 0).
+
+- format, lint, typecheck, check:deps, check:fixtures, check:licenses: green.
+- 23 / 23 test tasks: halo 180, editor 677 + 1 skipped, editor-core 1,821, viewport 341 + 1, ui 155, headless-tests
+  225, …; the tooling tests and param-lint.
+- The production build and check:size (every route OK under SIZE-1; the lazy boundaries hold).
+- **e2e: 493 passed, 82 skipped, 0 failed, 0 flaky** in 4.2 min on `chrome`, `chrome-touch` and `webkit-ipad`. T11's
+  specs: ha-01 7 / 7 / 4 (+3 skipped on WebKit: the Files picker's other cases are device check D2), ha-11 4 / 4 / 2,
+  ha-J9 2 / 2 / 1, ha-J10 2 / 2 / 2, ha-parity 1 (chrome). The skips are `dev`'s stretch `test.fixme`s and the
+  per-project skips.
+
+Two earlier full runs: the first (at `c994f52b`) failed only `ar-12-layouts` › *phone 390×844 touch › the frame on ①
+and on ②* on `chrome` (a known load-sensitive Auto-Rig layout check; everything else green, 492 passed); the second (at
+`4516e230`) was green, 493 passed. After it Bring a model's intake became a lazy chunk; the third run is the one above.
+
+Sizes (production build, `check:size`, gzip -9; SIZE-1: one 5,000,000 B gate per route, targets report-only). The base
+is `dev` `582aa335`, measured the same way in a scratch worktree:
+
+| Route | `dev` `582aa335` | T11 (`fae5b0ac`) | Δ |
+|---|---|---|---|
+| `/editor` | 896,828 B | **897,095 B** | +267 B |
+| `/autorig` | 657,808 B | **657,838 B** | +30 B |
+| `/app` | 695,517 B | **702,735 B** | +7,218 B (report-only; target 660,000 B) |
+
+- **`/app`**: the real Home (Continue cards, the starts and samples, drops), T11's start module (the recovery hook, the
+  resume record, the storage card, the project save), the catalogue's new words and the Share badge. The intake (with
+  the shared Auto-Rig flow), the Share sheet (prefetched at idle; Safari: a timer), the game target section and the
+  recipes are lazy chunks; a rule test keeps the intake and the recipes out of the initial scripts. Making the intake
+  lazy took `/app` from 706,426 B to 702,735 B (−3,691 B).
+- **`/editor` and `/autorig`** load no Halo module (the `ekza-halo-shell` boundary holds). Their few bytes are the
+  AR-D3-1 effect: Halo's chunks are now a second importer of host modules those routes load eagerly (the recovery
+  hook's registration, T0's file types, the share preference, the persistence request), which costs those modules
+  their scope hoisting. Dropping the memory profile from Halo's imports (the heavy-model warning reads the intake
+  report's tier instead) is part of it.
 
 ## Lines outside the row (each a seam, listed for the integration)
 
@@ -145,6 +178,20 @@ dialog), the frame's sheet slot (`ui.open {export}` opens Share).
 | `halo/src/manifest/{types,sheets}.ts`, `searchOnly.baseline.json` (T6b) | `BUILT_OWNERS` + T11; `SHEET_SECTIONS.share`; the baseline (100) | P-T6B-5, §21 |
 | `halo/test/rules.test.ts` (T6a) | the vocabulary lint admits *animation* in `home.`, `intake.`, `share.`, `recipes.` | Share's destinations and slots, Continue's counts |
 | `editor/src/host/index.ts` (T0, T2) | re-exports: `sniffFileKind`, `nameForKind`, `UNSUPPORTED_FILE_TEXT`, `isIosWebKit`, `FileKind`, `sharePreferred`, `requestPersistentStorage` | Halo reaches the editor only through `./host` (see sizes for what sharing these modules costs `/editor`) |
+
+## Merging with `dev` (for the integration)
+
+`dev` moved to `22b007b6` (T7 merged) while this branch was built; nothing was merged here. A dry run
+(`git merge-tree`) conflicts in four files, each a union:
+
+- `packages/halo/src/manifest/types.ts`: `BUILT_OWNERS` = T6a, T6b, T7, T11 (and both comment lines).
+- `packages/halo/src/shell/controller.ts`: both packages' imports, `startAnimate(controller)` and `startHome(controller)`
+  in `start()`, both test API slices (`animate`, `t11`).
+- `packages/halo/src/manifest/searchOnly.baseline.json`: regenerate with `EKZA_HALO_PARITY_WRITE=1` (ha-parity) after
+  the merge; with T7 and T11 both built the generator's own projection is 57–58.
+- `docs/DECISIONS-OPEN.md`: keep both packages' rows (T11's are their own `### P · T11` block).
+
+`manifest/sheets.ts` merges cleanly (T7's `library` sections beside T11's `share`).
 
 ## Patches for other packages
 
