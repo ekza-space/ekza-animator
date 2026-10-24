@@ -115,17 +115,29 @@
   --weight-ramp-2: #c2410c;
   --weight-ramp-3: #f59e0b;
   --weight-ramp-4: #fde68a;
+  --accent-soft: rgba(124, 92, 255, 0.2);
+  --touch-surface: rgba(35, 36, 40, 0.88);
+  --toast-bg: #e6e7ea;
+  --on-toast: #1b1c1f;
   /* radius */
   --r-field: 3px;
   --r-button: 4px;
   --r-popover: 6px;
   --r-dialog: 8px;
+  --r-touch: 14px;
+  --r-touch-inner: 11px;
+  --r-touch-card: 20px;
+  --r-touch-pill: 9999px;
   /* space */
   --s1: 4px;
   --s2: 8px;
   --s3: 12px;
   --s4: 16px;
   --s6: 24px;
+  --space-gutter: 16px;
+  --space-edge-side: 12px;
+  --space-edge-bottom: 20px;
+  --space-touch-gap: 8px;
   /* size */
   --size-row: 22px;
   --size-row-compact: 20px;
@@ -145,17 +157,26 @@
   --size-helpline: 22px;
   --size-dock-left: 240px;
   --size-dock-right: 280px;
+  --size-touch-hit: 44px;
+  --size-touch-key: 56px;
+  --size-touch-bar: 52px;
+  --size-touch-sheet: 360px;
+  --size-touch-numpad: 296px;
   /* font */
   --font-ui: "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-code: "JetBrains Mono Variable", ui-monospace, "SFMono-Regular", Menlo, monospace;
   --font-mono: var(--font-code);
   /* shadow */
   --elevation-popover: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --elevation-touch: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+  --elevation-sheet: 0 20px 60px rgba(0, 0, 0, 0.55);
   /* motion */
   --motion-hover: 80ms;
   --motion-popover: 120ms;
   --motion-collapse: 180ms;
   --motion-camera: 250ms;
+  --motion-touch: 180ms;
+  --motion-toast: 220ms;
   /* z */
   --z-canvas: 0;
   --z-chrome: 10;
@@ -185,6 +206,21 @@
   --type-dialog-title-size: 15px;
   --type-dialog-title-line: 20px;
   --type-dialog-title-weight: 600;
+  --type-touch-ui-size: 15px;
+  --type-touch-ui-line: 20px;
+  --type-touch-ui-weight: 400;
+  --type-touch-label-size: 13px;
+  --type-touch-label-line: 16px;
+  --type-touch-label-weight: 500;
+  --type-touch-value-size: 14px;
+  --type-touch-value-line: 18px;
+  --type-touch-value-weight: 500;
+  --type-touch-input-size: 16px;
+  --type-touch-input-line: 20px;
+  --type-touch-input-weight: 400;
+  --type-touch-title-size: 18px;
+  --type-touch-title-line: 24px;
+  --type-touch-title-weight: 600;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -193,5 +229,7 @@
     --motion-popover: 0ms;
     --motion-collapse: 0ms;
     --motion-camera: 0ms;
+    --motion-touch: 0ms;
+    --motion-toast: 0ms;
   }
 }
