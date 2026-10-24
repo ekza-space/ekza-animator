@@ -24,7 +24,7 @@ export const PRIMITIVES_MENU: MarkingMenuDef = {
     SW: create('torus', 'Torus'),
     W: template('Humanoid Body…', { template: 'humanoidBody', style: 'smooth' }),
     // Primitive options are the Toolkit's option boxes (⋯) until an option-box operator exists (M6A-B11-7).
-    NW: { label: 'Primitive Options…', disabledReason: 'Primitive options are in the Modeling Toolkit (⋯)' },
+    NW: { label: 'Primitive Options…', disabledReason: 'Primitive options are in the Toolkit (⋯)' },
   },
   list: [
     {

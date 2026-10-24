@@ -2,7 +2,7 @@ import { PANEL } from '@ekza-studio/editor-core';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createPanelRegistry, registerBuiltinPanels } from '../../src';
 import { registerAttributesPanel } from '../../src/panels/attributes';
-import { registerChannelBoxPanel } from '../../src/panels/channel-box';
+import { registerChannelsPanel } from '../../src/panels/channels';
 import { registerClipsPanel } from '../../src/panels/clips';
 import { registerOutlinerPanel } from '../../src/panels/outliner';
 import { PanelHarness } from '../../src/testing';
@@ -15,7 +15,7 @@ describe('WP-9 panel registration (MVP-SPEC §7 WP-9 public API)', () => {
   it.each([
     [registerOutlinerPanel, PANEL.outliner, 'Outliner'],
     [registerClipsPanel, PANEL.clips, 'Clips'],
-    [registerChannelBoxPanel, PANEL.channelBox, 'Channel Box'],
+    [registerChannelsPanel, PANEL.channels, 'Channels'],
     [registerAttributesPanel, PANEL.attributes, 'Attributes'],
   ] as const)('%o registers %s and its disposer removes it', (register, id, title) => {
     const registry = createPanelRegistry();
@@ -30,7 +30,7 @@ describe('WP-9 panel registration (MVP-SPEC §7 WP-9 public API)', () => {
     const registry = createPanelRegistry();
     const dispose = registerBuiltinPanels(registry);
     const ids = registry.list().map((def) => def.id);
-    expect(ids).toEqual(expect.arrayContaining([PANEL.outliner, PANEL.clips, PANEL.channelBox, PANEL.attributes]));
+    expect(ids).toEqual(expect.arrayContaining([PANEL.outliner, PANEL.clips, PANEL.channels, PANEL.attributes]));
     dispose();
   });
 });
@@ -48,13 +48,13 @@ describe('the /dev/panels harness mounts every WP-9 panel with the fake app', ()
   it.each([
     [PANEL.outliner, 'outliner-tree', ''],
     [PANEL.clips, 'clips-panel', 'wave'],
-    [PANEL.channelBox, 'channel-box-panel', 'Select a control'],
+    [PANEL.channels, 'channels-panel', 'Select a control'],
     [PANEL.attributes, 'attributes-panel', 'Synthetic Humanoid'],
   ])('%s', async (id, testId, text) => {
     await mountPlain(<PanelHarness snapshot={snapshot} skeleton={skeleton} panel={id} />);
     expect(by(testId).textContent).toContain(text);
     expect(by('dev-panels-title').textContent).toBe(
-      { outliner: 'Outliner', clips: 'Clips', channelBox: 'Channel Box', attributes: 'Attributes' }[id],
+      { outliner: 'Outliner', clips: 'Clips', channels: 'Channels', attributes: 'Attributes' }[id],
     );
   });
 });

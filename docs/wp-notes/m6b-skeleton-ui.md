@@ -73,7 +73,7 @@ section). Decision IDs below are `M6B-C3-<n>`. READY flag `c3` is set in the fou
 ## Not built (MVP §0.3 C3 deferrals and leftovers)
 
 Joint, Insert Joint and Socket tools, Add Chain, Duplicate, Attach Prop dialog, T-Stance, Apply Pose as Rest, Outliner
-joint rows, Channel Box rest rows, `rig.tools.skeleton` marking menu (all §0.3 deferred); `V`/`J` snaps on joint moves;
+joint rows, Channels panel rest rows, `rig.tools.skeleton` marking menu (all §0.3 deferred); `V`/`J` snaps on joint moves;
 joint selection undo (M6B-C3-17); the projected-centre preview while dragging joints (the Joint tool's).
 
 ## Verification on a scratch merge with C1 and C4

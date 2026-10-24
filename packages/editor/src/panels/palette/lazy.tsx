@@ -12,7 +12,7 @@ import {
   Suspense,
   useState,
 } from 'react';
-import { BUTTON, EMPTY_STATE } from '../channel-box/kit/styles';
+import { BUTTON, EMPTY_STATE } from '../channels/kit/styles';
 
 class LazyBoundary extends Component<
   { readonly name: string; readonly onRetry: () => void; readonly children: ReactNode },

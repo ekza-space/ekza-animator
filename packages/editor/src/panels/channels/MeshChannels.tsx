@@ -1,7 +1,7 @@
-// The Channel Box of a mesh or group object in Model (M6A-SPEC §8.6; B11), a lazy chunk the Channel Box loads when
-// the lead selected object is a mesh or a group: the DCC layout — the object's Translate/Rotate/Scale rows (editing
-// `placement` through `scene.object.transform`, every selected object gets the typed channel), SHAPES (the mesh) and
-// INPUTS with up to two entries:
+// The Channels panel of a mesh or group object in Model (M6A-SPEC §8.6; B11), a lazy chunk the Channels panel loads
+// when the lead selected object is a mesh or a group: the DCC layout — the object's Translate/Rotate/Scale rows
+// (editing `placement` through `scene.object.transform`, every selected object gets the typed channel), SHAPES (the
+// mesh) and INPUTS with up to two entries:
 // - the **primitive entry** while the mesh's `generator` is live ("cylinder (primitive)", the DCC's `polyCylinder1`):
 //   the §6.3 fields of its kind, persistent across selection changes; an edit right after the creation run is an
 //   `edit.adjustLast` of `mesh.create.<kind>` (the id and the step stay), later ones run `mesh.primitive.set`;
@@ -55,7 +55,7 @@ const LABEL: Readonly<Record<ObjectChannel, string>> = {
 };
 
 const AXIS = { x: 0, y: 1, z: 2 } as const;
-const CTX: RunContext = { source: 'card', panel: 'channelBox' };
+const CTX: RunContext = { source: 'card', panel: 'channels' };
 
 type ObjectRecord = MeshRecord | GroupRecord;
 
@@ -235,7 +235,7 @@ export default function MeshChannels(props: { readonly app: EditorApp; readonly 
 
   if (record === null) {
     return (
-      <div className={PANEL_ROOT} data-testid="channel-box-panel">
+      <div className={PANEL_ROOT} data-testid="channels-panel">
         <div className="grid flex-1 place-items-center p-4 text-center text-fg-3">The object no longer exists.</div>
       </div>
     );
@@ -276,7 +276,7 @@ export default function MeshChannels(props: { readonly app: EditorApp; readonly 
   };
 
   return (
-    <div className={PANEL_ROOT} data-testid="channel-box-panel">
+    <div className={PANEL_ROOT} data-testid="channels-panel">
       <header className="flex h-7 shrink-0 items-center gap-2 border-b border-line bg-header px-2">
         <span className="truncate font-semibold" data-testid="cb-lead-name">
           {record.name}

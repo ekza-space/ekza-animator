@@ -3,9 +3,9 @@
 import type { ClipRecord } from '@ekza-studio/doc';
 import type { EditorApp, PanelKind } from '@ekza-studio/editor-core';
 import { type JSX, useEffect, useId, useRef, useState } from 'react';
-import { FieldMessage } from '../channel-box/kit/message';
-import { runOperator } from '../channel-box/kit/run';
-import { INPUT, INVALID } from '../channel-box/kit/styles';
+import { FieldMessage } from '../channels/kit/message';
+import { runOperator } from '../channels/kit/run';
+import { INPUT, INVALID } from '../channels/kit/styles';
 import { validateClipName } from './settings';
 
 export interface ClipNameInputProps {

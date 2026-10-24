@@ -1,6 +1,6 @@
 // WP-10 integration smoke (MVP-SPEC §8.3 demo script, condensed): the production /editor boots the real editor and
 // a user can load the bundled samples and their own files (button, picker path, real drag-and-drop), pose and key a
-// control with the manipulator and the Channel Box, scrub and play, edit the curve in the Graph Editor, export all
+// control with the manipulator and the Channels panel, scrub and play, edit the curve in the Graph Editor, export all
 // three kinds through the Export dialog, save the project, reload the page and reopen it. Every interaction is real
 // pointer/keyboard input at coordinates from the §4.8 test API; assertions read state through the test API.
 // Screenshots of each stage go to .acceptance/integration/ (git-ignored) for a human look.
@@ -117,7 +117,7 @@ test('integration smoke: samples, posing, keys, Graph Editor, playback, exports,
   await expect.poll(async () => curveOf(await readCurves(page, clip, lowerArm), 'rz').keys.length).toBe(1);
   await shot(page, '03-posed-and-keyed');
 
-  // ---------- scrub the time slider, type in the Channel Box, key again ----------
+  // ---------- scrub the time slider, type in the Channels panel, key again ----------
   const keyAt = async (frame: number, degrees: number) => {
     const at = await pointOf(page, () => call(page, 'screenOfFrame', frame), `frame ${frame}`);
     await page.mouse.click(at.x, at.y);

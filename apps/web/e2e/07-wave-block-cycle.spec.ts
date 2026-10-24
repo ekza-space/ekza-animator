@@ -3,7 +3,7 @@ import { clickFrame, clickOutlinerRow, DEG, keysOf, pointOf, pressOverPane, type
 import { controlId, seedSample } from './helpers/seed';
 import { call, expectKernelStarted, openEditor } from './helpers/test-api';
 
-// E2E-07 (MVP-SPEC §6.2): block a wave with the Outliner, the Channel Box and S, cycle it with the Graph Editor's
+// E2E-07 (MVP-SPEC §6.2): block a wave with the Outliner, the Channels panel and S, cycle it with the Graph Editor's
 // post-infinity, then play it: frame 45 repeats frame 15, playback advances and wraps at the end of the loop.
 
 /** Samples the clip frame on every animation frame for `ms` milliseconds (page side). */
@@ -35,7 +35,7 @@ test('E2E-07: wave block + cycle', async ({ page }) => {
   await clickOutlinerRow(page, lowerArm);
   await expect.poll(async () => (await call(page, 'state')).selection.controls).toEqual([lowerArm]);
 
-  // rz 30 at 0, −30 at 15, 30 at 30: typed in the Channel Box, keyed with S over the viewport.
+  // rz 30 at 0, −30 at 15, 30 at 30: typed in the Channels panel, keyed with S over the viewport.
   for (const [frame, degrees] of [
     [0, 30],
     [15, -30],

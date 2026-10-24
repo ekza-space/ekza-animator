@@ -52,8 +52,8 @@ function previewStamp(): number {
 
 /**
  * C7 (§5.17): who answers `beginChannelEditGesture` instead of the shipped path. The rig-workspace chunk registers one
- * per app: in Rig & Skin a manipulator drag or a Channel Box edit of controls writes the test pose (never a key, never
- * the document); elsewhere it returns null and the shipped gesture runs.
+ * per app: in Rig & Skin a manipulator drag or a Channels panel edit of controls writes the test pose (never a key,
+ * never the document); elsewhere it returns null and the shipped gesture runs.
  */
 export type ChannelEditRedirect = (app: EditorApp, label: string) => ChannelEditGesture | null;
 const redirects = new Set<ChannelEditRedirect>();
@@ -92,7 +92,7 @@ export function redirectedChannelEdit(app: EditorApp, label: string): ChannelEdi
 /**
  * C7 (§5.17 "keying is impossible in Rig & Skin"): the operators that key, paste or mirror a pose or edit curves. In
  * Rig & Skin the runner and `operators.poll` refuse them before their own poll (whatever the source: keyboard, palette,
- * menus, the Channel Box's "Key Selected", the Graph Editor), so a test pose is never written into the document.
+ * menus, the Channels panel's "Key Selected", the Graph Editor), so a test pose is never written into the document.
  * Reading curves (copy, the buffer snapshot) stays allowed.
  */
 const RIG_KEYING =
@@ -128,7 +128,7 @@ export function rigRunRefusal(
 ): string | null {
   const keying = rigKeyingRefusal(app, def.id);
   if (keying !== null) return keying;
-  // A typed Channel Box value (`channel.setValues`) is a test pose in Rig & Skin: it stays allowed.
+  // A typed Channels panel value (`channel.setValues`) is a test pose in Rig & Skin: it stays allowed.
   if (def.flags?.undo === true && def.id !== 'channel.setValues' && rigViewOnly(app)) return RIG_VIEW_ONLY_REASON;
   return null;
 }
@@ -140,7 +140,7 @@ export interface ChannelSources {
   /**
    * C7 (§5.17, §8.9): the channel values a 'bind' or 'test' character shows instead of curves ⊕ overrides — none
    * (defaults) in Bind, the test pose in Test — or null under 'animate' and 'clip' (the shipped reads apply). The
-   * Channel Box and the manipulators read them, so a test drag starts from the pose on screen.
+   * Channels panel and the manipulators read them, so a test drag starts from the pose on screen.
    */
   rigValues(character: CharacterId): ReadonlyMap<ControlId, ChannelValues> | null;
   /** True once after a preview frame or (un)registration since the last call (the evaluation's tick reads it). */

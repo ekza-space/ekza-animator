@@ -24,7 +24,7 @@ import type { SampleDef } from './workflows/samples';
 export type PanelKind = string;
 export const PANEL = {
   viewport: 'viewport', graph: 'graph', timeline: 'timeline', outliner: 'outliner', clips: 'clips',
-  channelBox: 'channelBox', attributes: 'attributes', dopeSheet: 'dopeSheet',   // M2a: dopeSheet
+  channels: 'channels', attributes: 'attributes', dopeSheet: 'dopeSheet',   // M2a: dopeSheet
   toolkit: 'toolkit', palette: 'palette', meshCheck: 'meshCheck',                // M6a (Model workspace, §4.8)
   rigToolkit: 'rigToolkit', paintWeights: 'paintWeights', componentEditor: 'componentEditor',
   validation: 'validation',                                                      // M6b (Rig & Skin, §4.8)
@@ -41,7 +41,7 @@ export interface ChannelRef { readonly control: ControlId; readonly channel: Cha
 export interface Selection {
   readonly controls: readonly ControlId[];                       // ordered; lead = last
   readonly keys: ReadonlyMap<KeyId, KeyPartSelection>;           // Graph Editor / time slider
-  readonly channels: readonly ChannelRef[];                      // Channel Box / Graph channel list highlight
+  readonly channels: readonly ChannelRef[];                      // Channels panel / Graph channel list highlight
   readonly objects: readonly SceneObjectId[];                    // M6a, changed (additive): lead = last
   readonly joints: readonly JointId[];                           // M6b, changed: lead = last
   readonly constraints: readonly ConstraintId[];                 // M6b, changed: lead = last
@@ -854,7 +854,7 @@ export interface ChannelEditResult {
   readonly overrides: ReadonlyMap<ControlId, ChannelValues>;
   readonly skipped: readonly { readonly control: ControlId; readonly channel: ChannelId; readonly reason: 'locked' | 'non-keyable' }[];
 }
-/** One interactive edit (manipulator drag, Channel Box scrub): preview + overrides + auto-key on commit. */
+/** One interactive edit (manipulator drag, Channels panel scrub): preview + overrides + auto-key on commit. */
 export interface ChannelEditGesture {
   readonly active: boolean;
   update(edits: readonly ChannelEdit[]): void;

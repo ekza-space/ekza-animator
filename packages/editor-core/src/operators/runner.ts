@@ -67,7 +67,7 @@ function aborted(signal: AbortSignal | undefined): boolean {
   return signal?.aborted === true;
 }
 
-/** Consecutive runs with the same `key` within `ms` merge into one undo step (Channel Box ↑/↓ nudges). */
+/** Consecutive runs with the same `key` within `ms` merge into one undo step (Channels panel ↑/↓ nudges). */
 export interface OperatorCoalescing {
   readonly key: string;
   readonly ms: number;

@@ -16,7 +16,7 @@ test('E2E-15: clips', async ({ page }) => {
   const { clip: wave } = await runOk<{ clip: string }>(page, 'clip.new', { name: 'wave' });
   expect((await call(page, 'state')).activeClip).toBe(wave);
 
-  // Key something in `wave`: fk.lowerArm.L rz 30° at 0 and −30° at 15 (Channel Box + S).
+  // Key something in `wave`: fk.lowerArm.L rz 30° at 0 and −30° at 15 (Channels + S).
   const lowerArm = await controlId(page, 'fk.lowerArm.L');
   await runOk(page, 'select.controls', { ids: [lowerArm], mode: 'replace' });
   for (const [frame, degrees] of [

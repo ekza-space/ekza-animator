@@ -120,9 +120,9 @@ export class ExtrudeTool implements ToolInstance {
   private drag: Drag | null = null;
   private readonly select: SelectBehaviour;
   /**
-   * An MMB drag while a Channel Box INPUTS field name is selected (§5.15 MMB rule, step 2): the field's virtual slider
-   * runs through B12a's transform runtime, as with W/E/R active (E2E-MOD-23: the session's manipulator tool is the
-   * active one after `Mod+E`; M6A-INT-9).
+   * An MMB drag while a Channels panel INPUTS field name is selected (§5.15 MMB rule, step 2): the field's virtual
+   * slider runs through B12a's transform runtime, as with W/E/R active (E2E-MOD-23: the session's manipulator tool is
+   * the active one after `Mod+E`; M6A-INT-9).
    */
   private inputs: ModelTransformBehaviour | null = null;
 

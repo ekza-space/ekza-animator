@@ -6,10 +6,10 @@ import { type EditorApp, PANEL, type SessionState } from '@ekza-studio/editor-co
 import { type JSX, type KeyboardEvent, type MouseEvent, useCallback, useId, useState } from 'react';
 import { useDocQuery, useSession } from '../../hooks';
 import type { PanelProps } from '../types';
-import { DuplicateIcon, GearIcon, LoopIcon, PlusIcon, TrashIcon } from '../channel-box/kit/icons';
-import { useContextMenu } from '../channel-box/kit/menu';
-import { Popover } from '../channel-box/kit/popover';
-import { hasMod, runOperator } from '../channel-box/kit/run';
+import { DuplicateIcon, GearIcon, LoopIcon, PlusIcon, TrashIcon } from '../channels/kit/icons';
+import { useContextMenu } from '../channels/kit/menu';
+import { Popover } from '../channels/kit/popover';
+import { hasMod, runOperator } from '../channels/kit/run';
 import {
   BUTTON,
   CHECK,
@@ -19,7 +19,7 @@ import {
   ROW_HOVER,
   ROW_SELECTED,
   TOOLBAR,
-} from '../channel-box/kit/styles';
+} from '../channels/kit/styles';
 import { ClipNameInput } from './ClipNameInput';
 import { ClipSettingsForm } from './ClipSettingsForm';
 import { formatDuration, formatFps } from './settings';

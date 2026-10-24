@@ -1,5 +1,5 @@
 // Parameter descriptions (M6A-SPEC §4.1, ADR 0016 D6): one `ParamDef` list describes an operation's arguments for
-// the kernel (JSON args, defaults, validation), the editor (Last-op card, Channel Box INPUTS, option boxes, command
+// the kernel (JSON args, defaults, validation), the editor (Last-op card, Channels panel INPUTS, option boxes, command
 // palette prompts, numeric capture) and, later, scripting and agent schemas. Every function here is pure,
 // deterministic and Node-safe; `coerceArgs` never throws.
 import { EkzaError } from '../errors';

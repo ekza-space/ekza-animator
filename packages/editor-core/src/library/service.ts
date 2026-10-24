@@ -5,7 +5,7 @@
 //
 // Stop rules (§0.4.7): C0's `onBeforeDocumentRun` (every undoable operator — keys, auto-key, Use Clip — and undo/redo),
 // any document change (a store batch; a partition load only when it removed the character), a workspace or active
-// character switch, an override change (the start of a transform drag or a Channel Box edit), a test-pose write, Esc
+// character switch, an override change (the start of a transform drag or a Channels panel edit), a test-pose write, Esc
 // (a global binding to `library.stop` while a preview plays), Stop, and a second Play of the playing card (the panel).
 import { type Disposer, EkzaError, sha256Hex } from '@ekza-studio/anim-core';
 import type { CharacterId } from '@ekza-studio/doc';

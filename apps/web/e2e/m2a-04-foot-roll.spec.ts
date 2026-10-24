@@ -15,8 +15,8 @@ import {
 import { seedSample } from './helpers/seed';
 import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
 
-// E2E-M2A-04 (M2A-SPEC §9.1, §5.3.1): the simple foot roll on Seed-san's IK feet, typed in degrees in the Channel
-// Box. Roll 20° turns the foot about the ball joint (toes, their offset from the foot and the ball pivot stay), −15°
+// E2E-M2A-04 (M2A-SPEC §9.1, §5.3.1): the simple foot roll on Seed-san's IK feet, typed in degrees in the Channels
+// panel. Roll 20° turns the foot about the ball joint (toes, their offset from the foot and the ball pivot stay), −15°
 // about the heel, 50° (above the 30°
 // break) about the toe tip with the toes turned by 20°; bank pivots on the inner edge for + and the outer edge for −
 // on both feet; mirroring a left bank and roll onto the right foot mirrors the pivots.

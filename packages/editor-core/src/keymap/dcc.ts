@@ -7,7 +7,7 @@ const V = 'viewport';
 const G = 'graph';
 const T = 'timeline';
 const O = 'outliner';
-const C = 'channelBox';
+const C = 'channels';
 const D = 'dopeSheet';
 const ANY = 'global';
 
@@ -106,7 +106,7 @@ bind([key('KeyB')], 'graph.tangent.break', [G]);
 bind([key('KeyU')], 'graph.tangent.unify', [G]);
 
 // ---------- M2a additions (M2A-SPEC §6; D = Dope Sheet) ----------
-// Arrows: pick-walk in the viewport and Channel Box (select.pickWalk itself runs the time operators when
+// Arrows: pick-walk in the viewport and Channels panel (select.pickWalk itself runs the time operators when
 // prefs.arrowKeys is 'frames', §5.17); key nudge in the Graph Editor, Dope Sheet and time slider.
 const ARROWS = [
   ['ArrowUp', 'up'],

@@ -85,11 +85,11 @@ and frame numbers keep out of each other's area.
 | Open | `.glb` and `.vrm` (VRM 0.x and 1.0) via file picker, drag-and-drop anywhere and bundled samples (Seed-san VRM 1.0, Polybot VRM 0.x, Quaternius UAL generic GLB); `.vrma` import as a new clip; `.ekzanim` and `.ekzanim.json` projects. The three.js loader decodes Draco/meshopt/KTX2 with self-hosted decoders; the headless reader rejects compressed *animation* data with `EkzaError('compressed-animation')`. |
 | Rig | Auto-generated FK rig: humanoid (VRM) with NURBS-like circle controls sized from the skinned mesh, offset groups (zero pose = rest), side colours, `root` + `cog` (pure space, translate+rotate) + `fk.hips` (pelvis), secondary controls for non-humanoid joints (hidden by default); 1:1 FK rig for generic skinned GLBs. Constraint and solver slots in the kernel (no implementations). `VRMC_node_constraint` evaluated in the preview. A pure two-bone IK *solver function* used by `Plant Feet`. |
 | Outliner | Character → Rig (controls tree) / Skeleton (bones, read-only) / Clips; filter by name and VRM humanoid name; selection sync. |
-| Channel Box | Values of the lead selection's keyable channels (degrees for rotation), multi-selection editing, colour states keyed-on-frame / keyed / changed / locked, numeric entry with relative expressions, right-click: key selected, reset, lock/unlock. Rotate order shown read-only. |
+| Channels | Values of the lead selection's keyable channels (degrees for rotation), multi-selection editing, colour states keyed-on-frame / keyed / changed / locked, numeric entry with relative expressions, right-click: key selected, reset, lock/unlock. Rotate order shown read-only. |
 | Viewport | One canvas; layouts single / 2-pane (left: locked shot camera, right: free persp) / 4-view (top, persp, front, side); Alt+drag navigation (industry-standard DCC: Alt+LMB tumble, Alt+MMB track, Alt+RMB dolly; wheel) and a trackpad profile; F/A framing; display toggles mesh, skeleton, controls, x-ray, grid; HUD with camera name, `LOCKED` badge, clip frame and scene time; navigating an unlocked shot camera persists without entering undo. |
 | Selection | Click, Shift/Mod modifiers, **marquee** (crossing test), **click-cycling** through overlapping controls, hover/selected/lead highlight tokens; outliner sync. |
 | Manipulators | `W` translate (object/world), `E` rotate (object/world/**gimbal**); constant pixel size; picking priority manipulator > control > joint. `Q` select tool. |
-| Keying | `S` (all keyable), `Shift+W/E/R` (translate/rotate/scale), key selected channels (Channel Box), auto-key toggle (default rule: only channels that already have curves; preference "all"), delete keys at frame / selected keys. |
+| Keying | `S` (all keyable), `Shift+W/E/R` (translate/rotate/scale), key selected channels (Channels), auto-key toggle (default rule: only channels that already have curves; preference "all"), delete keys at frame / selected keys. |
 | Time | Time slider with ruler, key ticks of the selected controls (summary row), scrub, **Shift-select a frame or range and move, scale, delete, copy, paste or set tangents of its keys**, playback range, play/stop, loop/once/oscillate, real-time and every-frame playback, per-clip fps (24/25/30/48/50/60/custom), a scene clock shared by all characters. |
 | Graph Editor | Canvas2D; channel list with X/Y/Z colours; pan/zoom/frame per navigation profile; click, box and double-click (whole curve) selection of keys and tangent handles; move keys (LMB on selection or MMB anywhere) with axis lock and frame snapping; tangent types auto, spline, clamped, linear, flat, stepped (+ stepped-next, fixed in the menu); break/unify; weighted curves with lock/free weight; pen-like handle dragging; insert key on curve (shape preserving); numeric fields (frame, value, in/out angle, in/out weight); pre/post infinity constant/linear/cycle/cycle-offset/oscillate with dotted display; Euler filter; **Simplify** (error-bounded key reduction); copy/paste keys at the current frame. |
 | Clips | Multiple named clips per character (new, rename, duplicate, delete, switch, settings: fps, range, loop, root motion, Ekza slot, contact frame, tags, provenance); embedded clips imported as editable curves at the **source frame rate** with key reduction (selectable per clip at import). |
@@ -109,14 +109,14 @@ and frame numbers keep out of each other's area.
 | Cycle-aware auto tangents (FR-GE-17) | Improvement over a leading commercial desktop DCC, no oracle | Plain AnimX auto at the ends |
 | Mesh-click picking (CPU skinned raycast) | Cost of skinned raycasts; controls are pickable | Click controls, outliner, marquee |
 | Space-hold camera radial; one-button macOS navigation profile | UI polish | Pane header camera menu; Trackpad profile |
-| Pose-preserving rotate-order change (FR-RIG-08, FR-CB-06) | Needs union-time resampling (§4.11.5) | Rotate order is read-only in the Channel Box and Attributes |
+| Pose-preserving rotate-order change (FR-RIG-08, FR-CB-06) | Needs union-time resampling (§4.11.5) | Rotate order is read-only in the Channels panel and Attributes |
 | Animation-only GLB import onto a character (FR-IO-10) | Name remapping across skeletons | E2E-18 verifies exports by re-reading them in Node |
 | In-app glTF-Validator worker | Bundle size, worker plumbing | Read-back check in the app; validator in tests |
 | Bevy lints (`bevy.*`) | No Bevy consumer in M1 | — |
 | Static-export, offline, storage-blocked and context-loss e2e (NFR-09, NFR-12, NFR-13) | CI plumbing | Manual QA items in §8.3 |
 
 *Status at acceptance round 1 (2026-10-18)*: built and enabled — the pose-preserving rotate-order change (WP-7b
-`rig.setRotateOrder`; the rotate order is **editable** in Attributes and the Channel Box, so the "read-only"
+`rig.setRotateOrder`; the rotate order is **editable** in Attributes and the Channels panel, so the "read-only"
 fallback above no longer applies), the plateau tangent (W1-5), mesh-click picking (WP-5 V-13), the camera radial
 and the one-button macOS profile (V-14, WP-5/WP-6 navigation), and the `bevy.*` lint rules. Not built: cycle-aware
 auto tangents (compile option, off by default), animation-only GLB import onto a character (a clear "No animation
@@ -1456,7 +1456,7 @@ import type { OperatorMap } from './operators/args';
 export type PanelKind = string;
 export const PANEL = {
   viewport: 'viewport', graph: 'graph', timeline: 'timeline', outliner: 'outliner', clips: 'clips',
-  channelBox: 'channelBox', attributes: 'attributes',
+  channels: 'channels', attributes: 'attributes',
 } as const;
 /** 'global' or a PanelKind. */
 export type KeyScope = string;
@@ -1469,7 +1469,7 @@ export interface ChannelRef { readonly control: ControlId; readonly channel: Cha
 export interface Selection {
   readonly controls: readonly ControlId[];                       // ordered; lead = last
   readonly keys: ReadonlyMap<KeyId, KeyPartSelection>;           // Graph Editor / time slider
-  readonly channels: readonly ChannelRef[];                      // Channel Box / Graph channel list highlight
+  readonly channels: readonly ChannelRef[];                      // Channels panel / Graph channel list highlight
 }
 export interface SelectionMask { readonly controls: boolean; readonly joints: boolean; readonly meshes: boolean }
 export type SelectMode = 'replace' | 'toggle' | 'add' | 'remove';
@@ -1889,7 +1889,7 @@ export interface ChannelEditResult {
   readonly overrides: ReadonlyMap<ControlId, ChannelValues>;
   readonly skipped: readonly { readonly control: ControlId; readonly channel: ChannelId; readonly reason: 'locked' | 'non-keyable' }[];
 }
-/** One interactive edit (manipulator drag, Channel Box scrub): preview + overrides + auto-key on commit. */
+/** One interactive edit (manipulator drag, Channels panel scrub): preview + overrides + auto-key on commit. */
 export interface ChannelEditGesture {
   readonly active: boolean;
   update(edits: readonly ChannelEdit[]): void;
@@ -2235,7 +2235,7 @@ Stable `data-testid` values (owners in brackets). Specs use only these selectors
 | First-run dialog | `firstrun-dialog`, `firstrun-nav-dcc`, `firstrun-nav-trackpad`, `firstrun-space-maximize`, `firstrun-space-play`, `firstrun-done` | WP-8 |
 | Import dialog | `import-dialog`, `import-format-badge`, `import-license-badge`, `import-clip-<animationIndex>`, `import-reduce`, `import-confirm` | WP-8 |
 | Export dialog | `export-dialog`, `export-kind-<kind>`, `export-clip-<clipId>`, `export-profile`, `export-ack-license`, `export-lints`, `export-confirm` | WP-8 |
-| Channel Box | `cb-field-<channel>` (e.g. `cb-field-rz`), `cb-name-<channel>`, `cb-menu-key-selected`, `cb-menu-reset`, `cb-menu-lock` | WP-9 |
+| Channels | `cb-field-<channel>` (e.g. `cb-field-rz`), `cb-name-<channel>`, `cb-menu-key-selected`, `cb-menu-reset`, `cb-menu-lock` | WP-9 |
 | Outliner | `outliner-filter`, `outliner-row-<controlId>` | WP-9 |
 | Clips panel | `clips-new`, `clips-row-<clipId>`, `clips-rename-input`, `clips-settings-<clipId>` | WP-9 |
 | Graph Editor | `ge-field-frame`, `ge-field-value`, `ge-field-in-angle`, `ge-field-out-angle`, `ge-field-in-weight`, `ge-field-out-weight`, `ge-tangent-<type>` (menu-only types inside `ge-tangent-more` → `ge-tangent-more-menu`, acceptance round 1), `ge-break`, `ge-unify`, `ge-weighted`, `ge-lock-weight`, `graph-infinity-pre`, `graph-infinity-post`, `ge-euler-filter`, `ge-simplify`, `ge-simplify-tolerance`, `ge-canvas` | WP-6 |
@@ -2263,7 +2263,7 @@ runner rules of §4.11.0; behaviour details live in the referenced subsection.
 | `file.saveJson` | — | 7b | Debug `.ekzanim.json` download. |
 | `file.export` | — | 7b | §4.11.10 via the exporter registry. Returns `ExportArtifact[]`; downloads each; toast with lint summary. |
 | `edit.undo` / `edit.redo` | — | 7b | `app.history.undo()/redo()` (§4.11.0); restores the selection snapshot; toasts skipped changes. |
-| `edit.copy` / `edit.paste` / `edit.delete` | — | 7b | Menu dispatchers by hovered/focused panel: viewport/outliner/channelBox → `pose.copy` / `pose.paste` / `key.deleteAtFrame`; graph/timeline → `graph.keys.copy` / `graph.keys.paste` / `graph.keys.delete`. Hotkeys bind the targets directly (§4.10). |
+| `edit.copy` / `edit.paste` / `edit.delete` | — | 7b | Menu dispatchers by hovered/focused panel: viewport/outliner/channels → `pose.copy` / `pose.paste` / `key.deleteAtFrame`; graph/timeline → `graph.keys.copy` / `graph.keys.paste` / `graph.keys.delete`. Hotkeys bind the targets directly (§4.10). |
 | `edit.escape` | — | 7b | Cancels the active gesture (tool `cancel()`, preview cancel, override restore); else closes a dialog; else `time.stop`. |
 | `select.controls` | — | 7b | Updates `selection.controls` (lead = last added). Controls of another character make it active and replace the selection. Clears key selection of curves no longer shown. |
 | `select.all` | — | 7b | viewport/outliner: all visible controls of the active character; graph: all keys of visible curves. |
@@ -2271,8 +2271,8 @@ runner rules of §4.11.0; behaviour details live in the referenced subsection.
 | `select.mirror` | — | 7b | Replace selection with mirror counterparts (centre and unpaired controls stay). |
 | `select.keys` | — | 7b | Graph/time-slider key selection. |
 | `select.curveKeys` | — | 6 | Double-click on a curve: all keys of that curve. |
-| `select.channels` | — | 7b | *v0.3 integration* (WP-9 R-1): replaces/toggles/adds/removes `selection.channels` (Channel Box channel names, Graph Editor channel list); internal (no menu entry). |
-| `key.set` | U | 7b | §4.11.1. `S` = all, `Shift+W/E/R` = translate/rotate/scale, Channel Box "Key selected" = `selected`. |
+| `select.channels` | — | 7b | *v0.3 integration* (WP-9 R-1): replaces/toggles/adds/removes `selection.channels` (channel names in the Channels panel, Graph Editor channel list); internal (no menu entry). |
+| `key.set` | U | 7b | §4.11.1. `S` = all, `Shift+W/E/R` = translate/rotate/scale, Channels panel "Key selected" = `selected`. |
 | `key.deleteAtFrame` | U | 7b | Delete keys at the current clip frame on the selected controls' curves (active clip, base layer). |
 | `key.toggleAutoKey` | — | 7b | Toggle `prefs.autoKey`. |
 | `channel.setValues` | U | 7b | §4.11.2 through `applyChannelEdits`. |
@@ -2336,7 +2336,7 @@ runner rules of §4.11.0; behaviour details live in the referenced subsection.
 ### 4.10 Default keymap (preset `dcc`)
 
 Chords use `KeyboardEvent.code`. `Mod` = Ctrl (Windows/Linux) / Cmd (macOS); `Alt` = Option on macOS.
-Scope `V` viewport, `G` Graph Editor, `T` time slider, `O` outliner, `C` Channel Box, `*` global. A more
+Scope `V` viewport, `G` Graph Editor, `T` time slider, `O` outliner, `C` Channels panel, `*` global. A more
 specific scope wins over `*`.
 
 | Chord | Operator (args) | Scope |
@@ -2382,7 +2382,7 @@ specific scope wins over `*`.
 **Keyboard focus** (*v0.3 integration, acceptance round 2*). Hotkeys follow the hovered panel, whatever has the DOM
 focus, with these exceptions:
 - A **text field** (text inputs, textareas, contenteditable, ARIA textbox/combobox/spinbutton) owns the keyboard
-  except `Mod+S`/`Mod+Shift+S`. Numeric fields (Channel Box, Graph Editor key fields, Attributes) commit on Enter
+  except `Mod+S`/`Mod+Shift+S`. Numeric fields (Channels, Graph Editor key fields, Attributes) commit on Enter
   and give the focus back (an invalid entry keeps it); Esc reverts and gives it back.
 - A focused **dropdown** (`<select>`) keeps type-ahead and its navigation only while it is under the pointer.
   Otherwise Arrow keys, PageUp/PageDown, Enter and Tab stay with it, every other key goes to the hovered panel's
@@ -2461,7 +2461,7 @@ handled by the navigation profile, not the keymap (§4.11.16, §4.11.18).
 
 **Edit kernel** (WP-7a; stubs with final types in WP-0). Every writer of channels or keys uses these:
 operators (WP-7b), manipulators and viewport tools (WP-5), Graph Editor and time-slider drags (WP-6, WP-6t),
-Channel Box (WP-9). Public API in §7 WP-7a.
+Channels panel (WP-9). Public API in §7 WP-7a.
 
 | Helper | Semantics |
 |---|---|
@@ -2512,7 +2512,7 @@ add nothing and keep the redo stack.
    the unkeyed (pink) value again, the next one reverts the edit that set it. Undoing N actions returns to the
    starting state.
 
-#### 4.11.2 Value edits — Channel Box, manipulators, reset, paste, mirror, plant feet
+#### 4.11.2 Value edits — Channels panel, manipulators, reset, paste, mirror, plant feet
 
 For each edit (locked or non-keyable channels are skipped with a toast):
 
@@ -3006,11 +3006,11 @@ Requirement IDs refer to [REQUIREMENTS.md](REQUIREMENTS.md). Timings in stories 
 | US-04 | As an animator I work in a split view with a locked shot camera and a free camera. | (E) Default layout `split`: left pane looks through `shotCam` (locked badge), right pane persp; Alt+LMB drag in the left pane leaves its camera unchanged; in the right pane it orbits; unlocking the shot camera and orbiting persists the shot without an undo entry; `view.layout quad` shows 4 panes; Space tap maximizes the hovered pane and restores. FR-VP-01..06, FR-VP-18 |
 | US-05 | As an animator I select controls by clicking them, by marquee, or in the outliner. | (E) Click on `screenOfControl(fk.upperArm.L)` selects it; Shift-click toggles; a marquee over the left hand selects its finger controls; a repeated click on overlapping controls cycles; outliner selection syncs both ways. FR-VP-08, FR-VP-16, FR-OUT-01..03 |
 | US-06 | As an animator I pose with W/E manipulators and key with S. | (E) `E`, drag the Z ring (`screenOfManipulator(…, 'rz')`) by 60 px → rz changes; `S` keys rx/ry/rz; time slider shows a red tick; one undo step reverts the key, another the rotation (static value). FR-VP-09..11, FR-KEY-01..03 |
-| US-07 | As an animator I block a wave: keys at 0, 15, 30 and a cycling loop. | (E) Keys on `fk.lowerArm.L` rz at 0/15/30 via Channel Box typing + `S`; post infinity `cycle`; `channelValues` at frame 45 equals frame 15 (1e-9); playback loops. FR-KEY-*, FR-GE-14, FR-TIME-* |
+| US-07 | As an animator I block a wave: keys at 0, 15, 30 and a cycling loop. | (E) Keys on `fk.lowerArm.L` rz at 0/15/30 via Channels panel typing + `S`; post infinity `cycle`; `channelValues` at frame 45 equals frame 15 (1e-9); playback loops. FR-KEY-*, FR-GE-14, FR-TIME-* |
 | US-08 | As an animator I soften and harden motion in the Graph Editor. | (E) With **all keys of the curve** selected (double-click the curve): `4` (linear) → value at 7.5 = mean(v0, v15) (1e-9); `6` (stepped) → value at 14 = v0 and value at 29 = v15; `1` (auto) → key 15 is a local extremum with zero slope. (U) span linear only if both sides linear; step affects only the following span; auto end keys flat. FR-GE-06..09 |
 | US-09 | As an animator I use weighted tangents like a pen tool. | (E) `graph.curve.setWeighted {weighted:true}`, free weight, drag the out handle to double its length → the curve value at the segment midpoint changes, key value unchanged; lock weight → further drags change only the angle (length within 1e-6). FR-GE-10..11 |
 | US-10 | As an animator I insert keys without changing the motion. | (E) Insert tool click on the curve at frame 22 → new key; curve values at 0…30 step 0.25 unchanged (1e-6). (U) 1e-12 property test for every tangent type, weighted and not. FR-GE-12 |
-| US-11 | As an animator I type exact values. | (E) Channel Box `rz` = `45` → 45° (0.785398 rad); `+=10` → 55°; Graph Editor value field on a selected key = `30` → 30°; frame field `20` moves it; in-angle `30` on a rising curve gives a positive incoming slope. FR-CB-03, FR-GE-13 |
+| US-11 | As an animator I type exact values. | (E) Channels panel `rz` = `45` → 45° (0.785398 rad); `+=10` → 55°; Graph Editor value field on a selected key = `30` → 30°; frame field `20` moves it; in-angle `30` on a rising curve gives a positive incoming slope. FR-CB-03, FR-GE-13 |
 | US-12 | As an animator I copy, mirror and reset poses. | (E) Copy pose at frame 15, paste at frame 40 → identical channels; with the left arm selected, `pose.mirror flip` → R_after = mirror(L_before) and L_after = mirror(R_before); reset to rest → channels 0. FR-POSE-01..04 |
 | US-13 | As an animator I keep several clips per character. | (E) `clip.new` "wave" → empty curves; switching back to `clip1` shows its keys; rename and duplicate work; deleting is undoable. FR-CLIP-01..05 |
 | US-14 | As an animator I undo everything I did, one gesture at a time. | (H) Every undoable operator in §4.9 reverts exactly and redoes exactly (snapshot deep-equal). (E) A 30-step mixed session undoes to the post-import state. FR-UNDO-01..05 |
@@ -3835,8 +3835,8 @@ export function registerBuiltins(app: EditorApp): Disposer;
 - **Dirs**: `packages/editor/src/{shell,gl,input,dialogs,services,hooks,test-api,workers}/`,
   `packages/editor/src/{index.ts,Editor.tsx,panels/registry.ts}`, `packages/ui/`, `apps/web/` (beyond WP-0a).
 - **Responsibilities**: `Editor` root (creates services + `EditorApp`, providers, `registerBuiltinPanels`);
-  `WorkspaceHost` dockview adapter with the Animate layout (left Outliner | Clips, centre Viewport, right Channel
-  Box | Attributes, bottom Graph Editor), layout persistence (versioned, try/catch) and Reset Workspace; menu bar
+  `WorkspaceHost` dockview adapter with the Animate layout (left Outliner | Clips, centre Viewport, right Channels
+  | Attributes, bottom Graph Editor), layout persistence (versioned, try/catch) and Reset Workspace; menu bar
   from the menu registry with poll-driven enabled state and keymap labels; status line (tools, move/rotate space
   incl. gimbal, selection mask, auto-key, layout picker); help line; `GLHost` (R3F `<Canvas
   frameloop="demand">` fixed behind the workspace, `ViewportManager` creation, `services.models.setRenderer(gl)`
@@ -3900,15 +3900,15 @@ export function useDocQuery<T>(read: (store: DocumentStore) => T, tables: readon
 - **DoD**: editor usable end-to-end with placeholder panels replaced as WP-5/6/6t/9 land; no per-frame React
   renders (React Profiler during playback: only the frame field and playhead badge commit).
 
-### WP-9 — Data panels (`editor/src/panels/{outliner,clips,channel-box,attributes}`)
+### WP-9 — Data panels (`editor/src/panels/{outliner,clips,channels,attributes}`)
 
-- **Dir**: `packages/editor/src/panels/{outliner,clips,channel-box,attributes}/`.
+- **Dir**: `packages/editor/src/panels/{outliner,clips,channels,attributes}/`.
 - **Responsibilities**: Outliner (virtualized tree: Character → Rig controls hierarchy with side-coloured icons,
   Skeleton (read-only, VRM humanoid secondary text), Clips; filter by name/humanoid name; click/Shift/Mod
   selection synced with the viewport; hover pre-highlight; context menu: frame, reset pose, select hierarchy;
   secondary toggle); Clips panel (list, active radio, inline rename with validation, new, duplicate, delete,
   settings popover: fps + fps mode, range, scene start, loop, root motion, Ekza slot, contact frame, tags,
-  provenance with licence picker and "redistributable" state); Channel Box (lead-selection header, rotate order
+  provenance with licence picker and "redistributable" state); Channels panel (lead-selection header, rotate order
   read-only, TRS rows filtered by keyable, standard channel colour states from `evaluation.channelState`, bar shape
   cues, mixed values `—`, numeric entry with expressions through `channel.setValues`, Tab/Shift+Tab, ↑/↓ nudge
   (coalesced), channel-name selection for "key selected", right-click menu: key selected, reset to default,
@@ -3922,14 +3922,14 @@ import type { Disposer } from '@ekza-studio/anim-core';
 import type { PanelRegistry } from '@ekza-studio/editor';
 export function registerOutlinerPanel(registry: PanelRegistry): Disposer;
 export function registerClipsPanel(registry: PanelRegistry): Disposer;
-export function registerChannelBoxPanel(registry: PanelRegistry): Disposer;
+export function registerChannelsPanel(registry: PanelRegistry): Disposer;
 export function registerAttributesPanel(registry: PanelRegistry): Disposer;
 ```
 
 - **Deps**: editor hooks, ui, @tanstack/react-virtual, editor-core.
 - **Tests**: browser-mode component tests with the fake app for expression entry, colour-state mapping, outliner
   filter, clip settings validation; e2e support for E2E-01, E2E-07, E2E-11/12, E2E-15.
-- **DoD**: Channel Box updates on frame change without per-frame React commits beyond the visible values
+- **DoD**: Channels panel updates on frame change without per-frame React commits beyond the visible values
   (throttled to one commit per animation frame during playback, values only).
 
 ### WP-10 — Integration, e2e, budgets (integration agent)

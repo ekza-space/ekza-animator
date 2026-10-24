@@ -60,7 +60,7 @@ function keySetArgs(app: EditorApp, args: unknown): KeySetArgs | string {
   return { channels: channels as KeyChannels, target: target as KeyTarget, breakdown };
 }
 
-/** The selected Channel Box channels per control (explicit channel choices, §5.1 rule 4). */
+/** The channels selected in the Channels panel per control (explicit channel choices, §5.1 rule 4). */
 function selectedChannelsByControl(app: EditorApp): ReadonlyMap<ControlId, ReadonlySet<ChannelId>> {
   const out = new Map<ControlId, Set<ChannelId>>();
   for (const ref of app.session.getState().selection.channels) {
@@ -77,8 +77,8 @@ function selectedChannelsByControl(app: EditorApp): ReadonlyMap<ControlId, Reado
 /**
  * Channels `key.set` keys on a control (§4.11.1 rule 2, M2A-SPEC §5.1 rule 4): keyable, unlocked TRS channels of the
  * group (rotations always as a triple); for 'all' and 'attributes' every keyable attribute except `keyAll: false`
- * ones that are not `explicit` (selected Channel Box channels); for 'selected' the explicit channels; translate,
- * rotate and scale never key attributes. TRS channels first (tx…sz), then attributes in `attrs` order.
+ * ones that are not `explicit` (channels selected in the Channels panel); for 'selected' the explicit channels;
+ * translate, rotate and scale never key attributes. TRS channels first (tx…sz), then attributes in `attrs` order.
  */
 export function keyChannelsOf(
   app: EditorApp,
@@ -125,7 +125,7 @@ export function keyChannelsOf(
 
 /**
  * What one `key.set` keys: per control, its channels. Besides the key target's controls, a selected attribute
- * channel of a limb's IK control counts when a control of that limb is a target (the Channel Box IK/FK proxy row
+ * channel of a limb's IK control counts when a control of that limb is a target (the Channels panel IK/FK proxy row
  * selects `<ikControl>/@ikFk` while an FK control is selected, §5.6).
  */
 function keyPlan(app: EditorApp, view: ReadView, args: KeySetArgs): Map<ControlRecord, readonly ChannelId[]> {
@@ -306,7 +306,7 @@ const keyDeleteAtFrame = defineOperator({
         (channel) => isKeyAllChannel(control, channel) || chosen?.has(channel) === true,
       );
       for (const channel of [...TRS_CHANNELS, ...attrs]) {
-        // Locked channels (Channel Box) and locked curves (Graph Editor) keep their keys.
+        // Locked channels (Channels) and locked curves (Graph Editor) keep their keys.
         if (isLocked(control, channel)) continue;
         const curve = curveOf(tx, clip, control.id, channel);
         if (curve === undefined || curve.locked) continue;

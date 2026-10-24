@@ -5,7 +5,7 @@
 import type { ParamDef } from '@ekza-studio/anim-core';
 import { clampParamValue, type EditorApp, paramSliderRate, virtualSliderFactor } from '@ekza-studio/editor-core';
 
-/** LMB drags on a label start after this many CSS px (the Channel Box rule). */
+/** LMB drags on a label start after this many CSS px (the Channels panel rule). */
 export const LABEL_DRAG_PX = 3;
 
 export interface ParamSlide {

@@ -133,7 +133,7 @@ redraw of every edited curve (painting ~40k handles at 20k selected keys is ~7 m
 - **WP-7b (operators)**: with no key and no channel selection, curve-level operators (`graph.infinity.set`,
   `graph.curve.setWeighted`, `graph.curves.simplify`, `graph.tangent.set`) should act on the curves of the selected
   controls (all animated controls of the active character when none is selected) — that is what the Graph Editor
-  shows, and E2E-07 sets post-infinity right after keying through the Channel Box, with no curve selected.
+  shows, and E2E-07 sets post-infinity right after keying through the Channels panel, with no curve selected.
 - **WP-8 (ui)**: the panel uses local controls (`panels/graph/controls.tsx`) and token CSS variables with fallbacks
   (`--bg-field`, `--bg-hover`, `--bg-pressed`, `--bg-selected`, `--bg-popover`, `--danger`, `--locked-badge`); the
   canvases read `--bg-field`, `--range-outside`, `--grid-minor/major`, `--text-3`, `--key-default`,
@@ -152,7 +152,7 @@ redraw of every edited curve (painting ~40k handles at 20k selected keys is ~7 m
 | G-6 | A single click on a curve segment behaves like empty space (clears the key selection); a double-click selects the curve's keys (`select.curveKeys`, Shift toggles them as a group). A double-click on a key also selects its curve. | There is no separate curve-selection state in the MVP selection model. |
 | G-7 | A marquee that contains no key selects the shown handles inside it. | Desktop-DCC behaviour; makes handle-only selections possible. |
 | G-8 | Locked curves (`CurveRecord.locked` or the channel's `ControlRecord.locked`) are drawn dashed with dimmed keys and cannot be hit, selected or dragged. The list's lock button runs `channel.toggleLock` (there is no operator for `CurveRecord.locked`). | §4.9 has no curve-lock operator; the channel lock is the one the desktop DCC shows. |
-| G-9 | Clicking channel rows writes `session.selection.channels` directly. | §4.9 has no channel-selection operator; it is U state shared with the Channel Box. |
+| G-9 | Clicking channel rows writes `session.selection.channels` directly. | §4.9 has no channel-selection operator; it is U state shared with the Channels panel. |
 | G-10 | Unselected keys closer than 3 px on average are not drawn (the curve shows them); selected keys always are. Keys stay hittable. | Dense imported curves otherwise turn into a solid band of squares. |
 | G-11 | Alt+MMB pan and Alt+RMB zoom work in every navigation profile; the `oneButton` graph bindings (Option+Cmd+LMB pan, Option+Ctrl+LMB zoom) are implemented although the profile is M1-stretch. | Trackpad-profile users with a mouse keep their Alt+drag habits; cheap for the graph. |
 | G-12 | `GraphHit.value` (curve and none) is a display value (degrees for rotations), matching `GraphViewState`'s value axis. | The view mixes channels of different units. |

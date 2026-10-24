@@ -1,6 +1,6 @@
 // The Rig & Skin shell UI (M6B-SPEC §8; C7): a lazy chunk loaded on the first Rig & Skin entry (`./index.ts`). It
 // contributes the Rig menus, the `rig.modes` marking menu, the status-line group bodies and the pane overlays, and
-// makes the right and bottom dock tabs follow the mode (§5.24: Object → Channel Box / Validation, Skeleton → Rig
+// makes the right and bottom dock tabs follow the mode (§5.24: Object → Channels panel / Validation, Skeleton → Rig
 // Toolkit / Validation, Skin → Paint Weights / Component Editor), remembering the tabs the user leaves showing in a
 // mode (`RigSessionState.tabMemory`), and watches the window width (below 1024 px Rig & Skin is view-only, §5.24).
 import type { Disposer } from '@ekza-studio/anim-core';

@@ -213,7 +213,7 @@ function dispatcher(
   return defineOperator({
     id,
     label,
-    description: `${label} poses (viewport, outliner, Channel Box) or keys (Graph Editor, time slider).`,
+    description: `${label} poses (viewport, outliner, Channels) or keys (Graph Editor, time slider).`,
     category: 'edit',
     scope: GLOBAL_SCOPE,
     poll(ctx) {

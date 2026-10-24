@@ -1,5 +1,5 @@
 // Rig & Skin layouts (M6B-SPEC §8.2, §0.4.2; C7): the dock arrangement of the workspace and its viewport presets.
-// Docks: Outliner left (240 px); Rig Toolkit (first tab) · Paint Weights · Channel Box · Attributes right (300 px,
+// Docks: Outliner left (240 px); Rig Toolkit (first tab) · Paint Weights · Channels · Attributes right (300 px,
 // min 260); Validation below (160 px; the Component Editor joins it when C6 builds it, §0.3); the time slider shown. Viewport presets: R-Single
 // (`persp`), **R-Side** (`front │ persp`, the default) and R-Markers (`front │ side │ persp`, 40/30/30), which Quick
 // Rig switches to (`applyRigLayout`, C3). Eager and small: `layout.ts` builds the default dock layout from here.
@@ -34,7 +34,7 @@ export const RIG_SLOTS: readonly Slot[] = [
   { kind: PANEL.outliner, slot: 'left', title: 'Outliner' },
   { kind: PANEL.rigToolkit, slot: 'right', title: 'Rig Toolkit' },
   { kind: PANEL.paintWeights, slot: 'right', title: 'Paint Weights' },
-  { kind: PANEL.channelBox, slot: 'right', title: 'Channel Box' },
+  { kind: PANEL.channels, slot: 'right', title: 'Channels' },
   { kind: PANEL.attributes, slot: 'right', title: 'Attributes' },
   { kind: PANEL.validation, slot: 'bottom', title: 'Validation' },
 ];

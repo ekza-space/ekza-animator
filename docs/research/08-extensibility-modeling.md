@@ -34,7 +34,7 @@
 
 | Tool | Document model | Commands / undo | Interaction | Extension model & security | Take | Avoid |
 |------|----------------|-----------------|-------------|----------------------------|------|-------|
-| **Desktop DCC** | DAG (transforms + shapes) inside a Dependency Graph of nodes with typed attributes (plugs) and connections; animation = `animCurveTL/TA/TU/TT` nodes connected to attributes; construction history = upstream generator nodes. | Every action is a MEL/Python command; plug-in commands implement `doIt` / `undoIt` / `redoIt` / `isUndoable` and the undo manager keeps undoable instances. | Tools (contexts) + manipulators; marking menus/hotbox; Channel Box shows *keyable* attributes. | C++/Python plug-ins in-process, full trust. | Transform-vs-shape split; keyable flag; construction history; `offsetParentMatrix` (2020+ releases) to zero controls; Evaluation Manager: build a forward schedule from dirty propagation, then evaluate in order (parallel where independent). | Generic plug-level connection graph for *everything* (too heavy for an MVP); hand-written undo per command. |
+| **Desktop DCC** | DAG (transforms + shapes) inside a Dependency Graph of nodes with typed attributes (plugs) and connections; animation = `animCurveTL/TA/TU/TT` nodes connected to attributes; construction history = upstream generator nodes. | Every action is a MEL/Python command; plug-in commands implement `doIt` / `undoIt` / `redoIt` / `isUndoable` and the undo manager keeps undoable instances. | Tools (contexts) + manipulators; marking menus and a quick menu; Channels panel shows *keyable* attributes. | C++/Python plug-ins in-process, full trust. | Transform-vs-shape split; keyable flag; construction history; `offsetParentMatrix` (2020+ releases) to zero controls; Evaluation Manager: build a forward schedule from dirty propagation, then evaluate in order (parallel where independent). | Generic plug-level connection graph for *everything* (too heavy for an MVP); hand-written undo per command. |
 | **Open-source DCC** | ID data-blocks (Object, Armature, Action, Mesh…); RNA reflection gives every property a path (`pose.bones["arm.L"].rotation_quaternion` + `array_index`); F-Curves address RNA paths; Actions are data-blocks, and since 4.4 "slotted actions" let one Action animate several data-blocks. | Operators: `bl_idname`, `bl_label`, `bl_options` (`REGISTER`, `UNDO`, …), `poll()`, `invoke()`, `execute()`, `modal()`, returning `FINISHED / CANCELLED / RUNNING_MODAL / PASS_THROUGH`; undo is a global memfile/undo-step system around operators. | Modal operators double as tools; keymaps per editor; pie menus; F3 operator search. | Python add-ons / Extensions (4.2+, a TOML extension manifest with `permissions = files, network, clipboard, camera, microphone`) — **declarative only**: "[The DCC] cannot prevent third-party add-ons from violating this rule." | Original vs. evaluated data (depsgraph copy-on-evaluation; render engines never touch original data); RNA paths; poll/invoke/execute/modal; Actions as reusable data-blocks. | Full-trust in-process plugins in a web app. |
 | **Houdini** | Node networks per context (OBJ/SOP/…); KineFX rigs; **APEX** (Houdini 20+) separates rig *logic* (graphs) from rig *evaluation*; HDAs as shareable units. | Parameter changes + network edits; undo blocks. | Viewer states (Python) for custom interaction. | HDAs/Python, full trust. | "Rig as a graph that is data" is the long-term form of our constraint system; evaluation separated from authoring. | Exposing node networks to animators in an MVP. |
 | **Figma** | Scene tree of typed nodes with stable IDs, multiplayer. | Host-owned undo; plugin edits are grouped. | Host tools only. | Plugin logic runs on the main thread **in a minimal JS sandbox without browser APIs**; UI in an `<iframe>`; the two talk by message passing; manifest declares `networkAccess.allowedDomains`, `permissions` (`currentuser`, `activeusers`, `payments`, …). After 2019 Realms-shim escapes, Figma moved to a separate JS engine (QuickJS) compiled to WASM. | Split "document access (sandboxed, no network)" from "UI/network (iframe)"; manifest-declared network allowlist; plugin edits go through host API. | Rolling our own JS-in-JS sandbox. |
@@ -183,7 +183,7 @@ Channel targets are **scalar** (the desktop DCC's `rotateX`, the open-source DCC
 
 ### 3.5 Attribute schema
 
-Every node type declares attributes once; the declaration drives the Channel Box, Attribute Editor, validation, serialization, migrations, collaboration encoding and plugin introspection (the role RNA plays in the open-source DCC).
+Every node type declares attributes once; the declaration drives the Channels panel, Attribute Editor, validation, serialization, migrations, collaboration encoding and plugin introspection (the role RNA plays in the open-source DCC).
 
 ```ts
 interface AttrDef {
@@ -192,7 +192,7 @@ interface AttrDef {
   default: AttrValue;
   unit?: 'm' | 'deg' | 'rad' | 's' | 'none';
   animatable: boolean;                  // can have channels
-  keyable?: boolean;                    // shown in Channel Box & keyed by "Set Key" (desktop-DCC distinction)
+  keyable?: boolean;                    // shown in Channels panel & keyed by "Set Key" (desktop-DCC distinction)
   min?: number; max?: number; softMin?: number; softMax?: number;
   enumValues?: readonly string[];
   readOnly?: boolean;                   // e.g. joint rest pose
@@ -390,7 +390,7 @@ Consumers of the registry (all MVP except where noted):
 | Hotkeys | keymap entries `{ code: 'KeyS', mods: [], op: 'anim.key.insert', context: 'viewport' }` |
 | Marking / pie menus | data layouts of `{ direction: 'N'|'NE'|…, op, args }` |
 | Command palette (F3 operator search / Find Menu in common DCCs) | all registered, non-internal operators with `poll` state |
-| Channel Box / Attribute Editor buttons | operators with args |
+| Channels panel / Attribute Editor buttons | operators with args |
 | Operator log (Script Editor echo / Info log in common DCCs) | every `register` operator call printed as `ops.run('anim.key.insert', {…})` → copy as macro |
 | Scripting console (later) | same `ops.run` API |
 | AI agent / MCP bridge (later) | operators with `args` JSON schema map 1:1 to tool definitions |
@@ -502,7 +502,7 @@ Editor view state (camera of a free viewport, graph-editor framing, outliner exp
 | Graph Editor | yes | curves of selected channels; normalize/stack views; tangent tools |
 | Dope Sheet | yes (simple) | key ticks per channel/node; retime |
 | Timeline / Time Slider | yes | playback, range, key ticks of selection, fps |
-| Channel Box | yes | keyable attrs of selection; right-click → key/lock/mute operators |
+| Channels | yes | keyable attrs of selection; right-click → key/lock/mute operators |
 | Attribute Editor | yes (generated) | all attrs from schema, grouped |
 | Operator Log / Script | log in MVP | macro copy; console later |
 | Control Picker | later | 2D button layout per character (picker tools as in the desktop DCC) |

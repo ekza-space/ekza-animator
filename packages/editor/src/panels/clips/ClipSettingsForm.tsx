@@ -4,17 +4,8 @@
 import type { ClipRecord, Redistributable, RootMotionMode } from '@ekza-studio/doc';
 import type { EditorApp, PanelKind } from '@ekza-studio/editor-core';
 import { type JSX, type ReactNode, useId, useState } from 'react';
-import { runOperator } from '../channel-box/kit/run';
-import {
-  BUTTON,
-  CHECK,
-  ERROR_TEXT,
-  INPUT,
-  INVALID,
-  MUTED_TEXT,
-  PRIMARY_BUTTON,
-  SELECT,
-} from '../channel-box/kit/styles';
+import { runOperator } from '../channels/kit/run';
+import { BUTTON, CHECK, ERROR_TEXT, INPUT, INVALID, MUTED_TEXT, PRIMARY_BUTTON, SELECT } from '../channels/kit/styles';
 import {
   type ClipSettingsDraft,
   checkDraft,

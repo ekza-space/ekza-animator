@@ -2,7 +2,7 @@
 
 > Research note · 2026-10-18 · input for the modeling iteration that replaces and expands ROADMAP M6.
 > Scope: how a leading commercial desktop DCC (below: **the desktop DCC**) does polygonal box modeling, judged for
-> **low-poly game assets and characters that will be rigged and animated**: modes, selection, the Modeling Toolkit,
+> **low-poly game assets and characters that will be rigged and animated**: modes, selection, the Modeling Tools panel,
 > every core topology tool, normals, snapping, pivots, history, cleanup and the HUD. For each feature: what it does,
 > what it is worth for low-poly, a priority (BASE / NEXT / LATER), the desktop DCC's hotkey and a browser-safe Ekza
 > binding, plus the precise geometric behaviour an implementer needs (§4). A popular open-source DCC (below: **the
@@ -30,7 +30,7 @@
 2. **Scope is polygonal box modeling for low poly**: n-gons allowed, quads where the mesh deforms. No NURBS
    surfaces, no sculpting, no subdivision-surface workflow in BASE (Smooth Mesh Preview is LATER), booleans
    LATER and optional.
-3. **No construction history.** The desktop DCC's history is what powers its In-View Editor and Channel Box
+3. **No construction history.** The desktop DCC's history is what powers its In-View Editor and Channels panel
    INPUTS; the vendor help says the extrude manipulator (Show Manipulator Tool) appears only when Construction
    History is on.
    We replace it with (a) live primitive parameters until the first topology edit, (b) an Adjust-Last-Operation
@@ -83,9 +83,9 @@ and QA per browser · ✗ unavailable to web pages.
 
 | Aspect | Desktop DCC | Open-source DCC | Ekza choice |
 |---|---|---|---|
-| Mode switch | RMB marking menu on the mesh, `F8` object/component, `F9`–`F12` vertex/edge/face/UV, `Alt+F9` vertex-face, `F7`/`Ctrl+Tab` multi-component (vendor help: Select menu, MTK hotkeys) | `Tab` edit mode, `1`/`2`/`3`; Industry Compatible: `1`–`3` modes, `4` object | RMB menu (primary) + `F8`/`F9`/`F10` + `1`/`2`/`3` |
-| Tool model | Persistent tools picked from Shift+RMB / Modeling Toolkit, then clicked on the mesh (Multi-Cut, Target Weld, Quad Draw) | Modal operators started by a key, finished by a mouse move + click or typed number | Both: tools are state machines (note 08 D7); modal commands accept typed numbers (`Tab` into the field, `Enter` commits) |
-| After-the-fact tweak | In-View Editor / Channel Box INPUTS on the history node | **Adjust Last Operation** panel, `F9` (open-source DCC manual: Undo & Redo) | Adjust Last Operation (no history) |
+| Mode switch | RMB marking menu on the mesh, `F8` object/component, `F9`–`F12` vertex/edge/face/UV, `Alt+F9` vertex-face, `F7`/`Ctrl+Tab` multi-component (vendor help: Select menu, modeling-tools hotkeys) | `Tab` edit mode, `1`/`2`/`3`; Industry Compatible: `1`–`3` modes, `4` object | RMB menu (primary) + `F8`/`F9`/`F10` + `1`/`2`/`3` |
+| Tool model | Persistent tools picked from Shift+RMB / Modeling Tools, then clicked on the mesh (Multi-Cut, Target Weld, Quad Draw) | Modal operators started by a key, finished by a mouse move + click or typed number | Both: tools are state machines (note 08 D7); modal commands accept typed numbers (`Tab` into the field, `Enter` commits) |
+| After-the-fact tweak | In-View Editor / Channels panel INPUTS on the history node | **Adjust Last Operation** panel, `F9` (open-source DCC manual: Undo & Redo) | Adjust Last Operation (no history) |
 | Extrude | `Ctrl+E` + manipulator with in-view fields; **smart extrude**: `Shift`+drag the Move/Rotate/Scale manipulator (vendor help) | `E` then move | Both desktop-DCC gestures; numeric entry while dragging |
 | Symmetry | Selection-based symmetry modes (Object/World X/Y/Z, Topology), Mirror command, "Instance" mirror | Mirror modifier (live, with clipping) and mesh symmetry options | Desktop-DCC symmetry + Mirror in BASE; live mirror (instance preview) NEXT |
 | Loops | Multi-Cut `Ctrl`-click, Insert Edge Loop tool, double-click to select | Loop Cut and Slide, `Alt`+click to select | Desktop-DCC gestures |
@@ -114,8 +114,8 @@ architecture: both sit on the operator and tool registries that already exist (A
 | Shift+RMB marking menu | Context tools: nothing selected → primitives; object → mesh tools; vertex/edge/face → tools for that type (same page) | Primary tool access | BASE | `Shift`+RMB | same (§6.2) |
 | Ctrl+RMB marking menu | Convert selection (+ Contiguous Edges, perimeters) (vendor help) | Fast conversions | BASE | `Ctrl`+RMB | same |
 | Ctrl+Shift+RMB | Settings of the active tool: smart extrude, preserve UVs, tweak mode, symmetry, soft select; Insert Edge Loop options (vendor help: Marking menus, Insert Edge Loop) | Tool options without a panel | NEXT | `Ctrl+Shift`+RMB | same |
-| Modeling Toolkit | Docked panel: selection modes, symmetry, soft select, pick styles, tool buttons with their options | Discoverability | BASE | panel | "Toolkit" panel in the Model workspace |
-| Tweak mode | Click-drag an unselected component moves it at once | Fast vertex pushing | BASE (v0.2) | `` ` `` | `` ` `` (M), Move tool option, off by default. *Corrected: MMB-drag does **not** already move the selection in the shipped viewport (plain MMB runs the Channel Box virtual slider when channels are selected and does nothing otherwise); the desktop DCC's "middle drag anywhere … to move" is added in M6a B12a (MODELING-PLAN v0.2 §3.7)* |
+| Modeling Tools | Docked panel: selection modes, symmetry, soft select, pick styles, tool buttons with their options | Discoverability | BASE | panel | "Toolkit" panel in the Model workspace |
+| Tweak mode | Click-drag an unselected component moves it at once | Fast vertex pushing | BASE (v0.2) | `` ` `` | `` ` `` (M), Move tool option, off by default. *Corrected: MMB-drag does **not** already move the selection in the shipped viewport (plain MMB runs the Channels panel virtual slider when channels are selected and does nothing otherwise); the desktop DCC's "middle drag anywhere … to move" is added in M6a B12a (MODELING-PLAN v0.2 §3.7)* |
 
 ### 3.2 Selection
 
@@ -180,7 +180,7 @@ The desktop DCC's command defaults, from its 2026 command reference: cube 1×1×
 |---|---|---|---|---|---|
 | W/E/R on components | Move/rotate/scale about the selection centre; axis orientation World / Object / **Component (normal)** | Pushing faces along normals is daily work | BASE | `W`/`E`/`R`, hold + LMB for orientation | M; orientation `Normal` added to the `W`/`E` hold menus |
 | Smart extrude | `Shift`+drag the Move/Rotate/Scale manipulator extrudes then transforms | Fastest extrude | BASE | `Shift`+drag | M |
-| Numeric entry | Channel Box / In-View Editor values | Exact dimensions | BASE | fields | status-line fields + type-while-dragging |
+| Numeric entry | Channels panel / In-View Editor values | Exact dimensions | BASE | fields | status-line fields + type-while-dragging |
 | Snap to grid / curve / point | Hold `X` grid, `C` curve, `V` vertex/CV/pivot; status line also has face centres, view planes, projected centre, Make Live (vendor help: status line) | Grid for props, vertex for welding | BASE (grid, vertex) / NEXT (edge, face, live surface) | `X` / `C` / `V` | `X` / `V` hold (M); `C` LATER |
 | Edit pivot | Custom pivot editing mode | Rotating doors, wheels, limbs | BASE | `D` hold; `Insert`/`Home` toggle (older docs) | `D` hold (M); `Insert` where it exists |
 | Center / Zero / Bake pivot | Pivot to bbox centre / origin; bake custom orientation into the transform (vendor help: Modify menu) | Clean transforms before export | BASE (Center) / NEXT (Bake) | menu | menu |
@@ -205,7 +205,7 @@ The desktop DCC's command defaults, from its 2026 command reference: cube 1×1×
 | **Multi-Cut** | Click edges/vertices to cut faces; `Ctrl`-click edge loop; `Ctrl`+MMB centred loop; `Ctrl+Shift` snap to Snap Step %; `Shift`-click snaps on an edge; MMB-drag quick slice; RMB completes; `Backspace` removes points; `Esc` cancels (vendor help: hotkeys). Successor of the older Split Polygon / Cut Faces tools † | "Split": the owner's second named tool | BASE (edge/vertex points, loops, snap) / NEXT (in-face points, slice plane) | tool | tool, `Enter` also completes |
 | **Insert Edge Loop** | Splits faces across a full or partial edge ring; Relative (default) / Equal distance / Multiple loops (2); Auto complete on; Fix Quads off; Smoothing angle 180; edge flow off (vendor help: options, `polySplitRing`); a triangle stops the loop | Joint loops for deformation | BASE (relative, equal, multiple) / LATER (edge flow, profile) | tool | tool; also Multi-Cut `Ctrl`-click |
 | Offset Edge Loop | Two new loops either side of selected edges; end triangles optionally converted to quads (vendor help: `polyDuplicateEdge`) | Support loops at joints, sharp borders | NEXT | tool | tool |
-| **Connect** | Edges between selected vertices or across selected edges; Connect tool: click edge = loop, `Shift`-click = connect components (vendor help: MTK hotkeys) | Precise vertex-to-vertex cuts | BASE | menu/tool | menu/tool |
+| **Connect** | Edges between selected vertices or across selected edges; Connect tool: click edge = loop, `Shift`-click = connect components (vendor help: modeling-tools hotkeys) | Precise vertex-to-vertex cuts | BASE | menu/tool | menu/tool |
 | **Target Weld** | Drag one vertex/edge onto another: merges at the target (default) or, with MMB, at the centre; same mesh only (vendor help: options) | Cleaning up, closing seams | BASE | tool | tool |
 | **Merge** | Merges vertices within a distance; `distance` 0 = coincident only; "always merge two vertices" option (vendor help: `polyMergeVertex`) | Seams after Mirror/Combine | BASE | menu | `M`-hold menu (E) |
 | **Merge to Center** | All selected vertices → one at the selection centre | Poles, tips | BASE | menu | `M`-hold menu |
@@ -256,7 +256,7 @@ The desktop DCC's command defaults, from its 2026 command reference: cube 1×1×
 | Duplicate / duplicate with transform | Copy; repeat the last offset | Fences, teeth, bolts | BASE / NEXT | `Ctrl+D` / `Shift+D` † | `Ctrl+D` (M) / `Shift+D` (M†) |
 | Group / parent / unparent | Hierarchy edits | Props with parts | BASE | `Ctrl+G` / `P` / `Shift+P` | M (Model workspace) |
 | Repeat last / last tool | `G` repeats last command, `Y` reactivates last tool | Extrude-extrude-extrude | BASE | `G` / `Y` | M |
-| Adjust last operation | Desktop DCC: In-View Editor / Channel Box INPUTS on the history node; open-source DCC: Adjust Last Operation panel, `F9` | Change segments, offset, divisions after the fact | BASE | (history) | panel generated from the operator's arg schema (§5) |
+| Adjust last operation | Desktop DCC: In-View Editor / Channels panel INPUTS on the history node; open-source DCC: Adjust Last Operation panel, `F9` | Change segments, offset, divisions after the fact | BASE | (history) | panel generated from the operator's arg schema (§5) |
 | Construction history | Upstream poly* nodes, editable until deleted | — | **skipped** (§5) | toggle | — |
 | Delete history | Bakes history | — | n/a | menu, `A`-hold menu | — |
 
@@ -583,7 +583,7 @@ meshes.
 ## 5. Construction history: what the desktop DCC does and why Ekza skips it
 
 **What it is.** Each modeling command in the desktop DCC adds a node (`polyExtrudeFacet`, `polyBevel3`,
-`polySplitRing`, …) upstream of the mesh shape. The node's attributes stay editable in the Channel Box INPUTS and the
+`polySplitRing`, …) upstream of the mesh shape. The node's attributes stay editable in the Channels panel INPUTS and the
 In-View Editor until history is deleted (Edit › Delete by Type › History bakes it, which the help credits with better
 performance and smaller files), and "Non-Deformer History" exists to remove modeling nodes from under skin clusters
 and blend shapes (vendor help).
@@ -764,7 +764,7 @@ Property tests: random sequences of BASE operators on random low-poly meshes nev
 Desktop DCC help (vendor documentation; page titles kept, URLs omitted):
 
 - Select menu (component modes, Grow)
-- Modeling Toolkit hotkeys
+- Modeling Tools hotkeys
 - Modeling hotkeys (1/2/3, Ctrl+F9–F12, Page Up/Down)
 - Marking menus (RMB, Shift+RMB per mode, Ctrl+RMB, Ctrl+Shift+RMB)
 - Select Tool settings (soft selection, symmetry, camera-based selection)

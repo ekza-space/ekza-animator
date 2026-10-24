@@ -84,7 +84,7 @@ test('E2E-RIG-05 (MVP part): test poses on controls, Bind ↔ Test, undo inside 
   expect(await keysHash(page)).toBe(hash);
 });
 
-test('E2E-RIG-05 (MVP part): a test pose is never keyed: Channel Box Key Selected, the palette, key.set', async ({
+test('E2E-RIG-05 (MVP part): a test pose is never keyed: Channels panel Key Selected, the palette, key.set', async ({
   page,
 }) => {
   await openEditor(page);
@@ -98,8 +98,8 @@ test('E2E-RIG-05 (MVP part): a test pose is never keyed: Channel Box Key Selecte
   await expect.poll(() => rz(page, arm)).toBeCloseTo(1.234);
   const hash = await keysHash(page);
   const counts = await call(page, 'counts');
-  // The Channel Box's right-click "Key Selected" (§5.17: keying is impossible in Rig & Skin).
-  await runOk(page, 'workspace.showPanel', { panel: 'channelBox' });
+  // The Channels panel's right-click "Key Selected" (§5.17: keying is impossible in Rig & Skin).
+  await runOk(page, 'workspace.showPanel', { panel: 'channels' });
   const row = page.locator('[data-channel="rz"]').first();
   await row.click({ button: 'right' });
   await page.getByTestId('cb-menu-key-selected').click();

@@ -36,12 +36,18 @@ Code sketches inside ADRs are illustrative. The normative TypeScript contracts a
 | [0020](0020-m6b-mvp-cut.md) | M6b MVP cut: the owner flow first, VRM 1.0 as the OMOBA deliverable, a CC0 clip library | Accepted (2026-10-22, M6B-SPEC v1.2 §0) |
 | [0021](0021-autorig-mode.md) | Auto-Rig mode: a second shell over the same app and document | Proposed (2026-10-22, AUTORIG-SPEC v0.1) |
 | [0022](0022-m-ai-mvp-cut.md) | M-AI MVP cut: AI control over MCP first, character setup for agents, the rest later | Proposed (2026-10-23, MCP-SPEC v0.3 §0.4) |
+| [0023](0023-studio-touch-ui.md) | Ekza Studio touch-first shell ("Halo"): a third shell over the same app, with Studio as its Pro layout | Proposed (2026-10-24, STUDIO-TOUCH-SPEC v0.2) |
+| [0024](0024-character-contract.md) | Character contract: OMOBA's slot specification, one-file packages, per-slot defaults | Proposed (2026-10-24, CHARACTER-CONTRACT-SPEC v0.1) |
 
 ADRs 0014–0016 were accepted on 2026-10-19 with the M6a build spec [`../M6A-SPEC.md`](../M6A-SPEC.md) v1.0, whose
 §4 holds their normative contracts (where an ADR sketch and the spec differ, the spec wins; its §12.2 lists the
 refinements); ADR 0017's provenance items 7–8 were accepted with it, the rest waits for the M7 spec. They extend, and
 do not supersede, ADRs 0002, 0005, 0008, 0011 and 0013. The plan they serve is
 [`../MODELING-PLAN.md`](../MODELING-PLAN.md).
+
+ADR 0023 (the touch shell, Halo) is on the `design/studio-touch` branch until that spec merges. ADR 0024 becomes
+Accepted when the owner accepts [`../CHARACTER-CONTRACT-SPEC.md`](../CHARACTER-CONTRACT-SPEC.md); it extends ADR 0010
+(realizes tier T2, replaces the T3 device-code plan for the MVP) and does not supersede it.
 
 ADR 0018 becomes Accepted when the M-AI build spec ([`../MCP-SPEC.md`](../MCP-SPEC.md)) freezes at its package D0; it
 extends, and does not supersede, ADRs 0008 and 0013.

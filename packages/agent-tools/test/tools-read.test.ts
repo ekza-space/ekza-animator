@@ -297,7 +297,7 @@ describe('pose_read (§6.2 tool 8)', () => {
     seedUserSession(fx);
   });
 
-  it('reads Channel Box values in pose_set’s shape and bone positions in character space', async () => {
+  it('reads Channels panel values in pose_set’s shape and bone positions in character space', async () => {
     const data = dataOf<{
       frames: {
         frame: number;

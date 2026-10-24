@@ -1,7 +1,7 @@
 import type { Disposer } from '@ekza-studio/anim-core';
 import { registerAgentPanel } from './agent';
 import { registerAttributesPanel } from './attributes';
-import { registerChannelBoxPanel } from './channel-box';
+import { registerChannelsPanel } from './channels';
 import { registerClipsPanel } from './clips';
 import { registerDopeSheetPanel } from './dopesheet';
 import { registerGraphPanel } from './graph';
@@ -31,12 +31,12 @@ export function registerBuiltinPanels(registry: PanelRegistry): Disposer {
     registerTimelinePanel(registry),
     registerOutlinerPanel(registry),
     registerClipsPanel(registry),
-    registerChannelBoxPanel(registry),
+    registerChannelsPanel(registry),
     registerAttributesPanel(registry),
     registerDopeSheetPanel(registry),
     // M6a (B10): the Mesh Check panel (Model's bottom dock; a lazy body).
     registerMeshCheckPanel(registry),
-    // M6a (M6A-SPEC §8.5, §8.6; B11): the Modeling Toolkit and B11's overlays (Last-op card, option box).
+    // M6a (M6A-SPEC §8.5, §8.6; B11): the Modeling Tools panel and B11's overlays (Last-op card, option box).
     registerToolkitPanel(registry),
     // M6a (B13): the Palette panel (Model's right dock; a lazy body).
     registerPalettePanel(registry),
