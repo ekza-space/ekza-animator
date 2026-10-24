@@ -12,7 +12,7 @@
   "scripts": {
     "dev": "turbo run dev --filter=web",
     "build": "turbo run build",
-    "test": "turbo run test test:tooling",
+    "test": "turbo run test test:tooling --concurrency=${EKZA_TEST_CONCURRENCY:-4}",
     "test:tooling": "node --test \"tooling/test/*.test.mjs\"",
     "test:e2e": "pnpm run mcp:build && pnpm --filter web e2e",
     "mcp:build": "pnpm --filter ekza-studio-mcp build",
