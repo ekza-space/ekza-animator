@@ -5,7 +5,7 @@
 // Same numbers as Pro (P14): Pro's units — metres, degrees for angles (stored in radians), plain counts.
 import type { ParamDef } from '@ekza-studio/anim-core';
 import type { LastRun } from '@ekza-studio/editor-core';
-import { ActionChip, type Box, ToggleChip, ValueChip } from '@ekza-studio/ui/touch';
+import { ActionChip, type Box, ValueChip } from '@ekza-studio/ui/touch';
 import { type JSX, lazy, Suspense, useState } from 'react';
 import { Icon } from '../halo/icons';
 import { en } from '../i18n/en';
@@ -41,16 +41,26 @@ export function chipOf(param: ParamDef): {
   };
 }
 
-/** The params a live, adjustable last run shows as chips (visible, value-bound or selection-bound numbers, toggles). */
+/** At most this many chips float beside a result (§5.6: `⟨Distance 0.12 m⟩ ⟨Segments 2⟩`); the rest are Options. */
+export const MAX_ECHO = 3;
+
+/**
+ * The params a live, adjustable last run shows as chips: the primary one first, then the counts (segments,
+ * divisions), then the other numbers in their order — visible, numeric, not pointer-bound, at most `MAX_ECHO`. The
+ * operator's full option box is Options (T6b).
+ */
 export function echoParams(last: LastRun | null): readonly ParamDef[] {
   if (last === null || !last.adjustable || last.closed !== null) return [];
-  return last.params.filter(
-    (p) =>
-      p.hidden !== true &&
-      p.kind !== 'data' &&
-      p.bound !== 'pointer' &&
-      (p.kind === 'bool' || typeof last.args[p.name] === 'number'),
+  const numbers = last.params.filter(
+    (p) => p.hidden !== true && p.kind !== 'data' && p.bound !== 'pointer' && typeof last.args[p.name] === 'number',
   );
+  const rank = (p: ParamDef): number => (p.primary === true ? 0 : p.kind === 'int' ? 1 : 2);
+  return [...numbers].sort((a, b) => rank(a) - rank(b)).slice(0, MAX_ECHO);
+}
+
+/** A chip's plain label (§3 P8): the common parameter names in plain words; Pro's label otherwise. */
+export function chipLabel(param: ParamDef): string {
+  return en.chips.params[param.name] ?? param.label;
 }
 
 export function EchoChips({
@@ -98,16 +108,6 @@ export function EchoChips({
       style={{ left, top }}
     >
       {params.map((p) => {
-        if (p.kind === 'bool') {
-          return (
-            <ToggleChip
-              key={p.name}
-              label={p.label}
-              pressed={last.args[p.name] === true}
-              onPressedChange={(on) => adjust(p.name, on)}
-            />
-          );
-        }
         const shape = chipOf(p);
         const stored = last.args[p.name] as number;
         const shown = live[p.name] ?? shape.toShown(stored);
@@ -115,7 +115,7 @@ export function EchoChips({
           <ValueChip
             key={p.name}
             data-testid={`halo-chip-${p.name}`}
-            label={p.label}
+            label={chipLabel(p)}
             proName={`${last.label} · ${p.label}`}
             value={shown}
             step={shape.step}
@@ -141,8 +141,8 @@ export function EchoChips({
       {numpad === null || param === null ? null : (
         <Suspense fallback={null}>
           <NumpadPanel
-            label={param.label}
-            proName={last.label}
+            label={chipLabel(param)}
+            proName={`${last.label} · ${param.label}`}
             value={chipOf(param).toShown(last.args[param.name] as number)}
             {...(chipOf(param).unit === undefined ? {} : { unit: chipOf(param).unit as string })}
             style={{ position: 'absolute', left: 0, top: '100%', marginTop: 8 }}

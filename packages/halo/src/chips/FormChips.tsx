@@ -10,7 +10,7 @@ import { Icon } from '../halo/icons';
 import { en } from '../i18n/en';
 import type { HaloController } from '../shell/controller';
 import { useHaloStore } from '../shell/store';
-import { chipOf } from './EchoChips';
+import { chipLabel, chipOf } from './EchoChips';
 
 type Values = Readonly<Record<string, unknown>>;
 
@@ -24,13 +24,13 @@ function FieldChip({
   readonly onChange: (value: unknown) => void;
 }): JSX.Element | null {
   if (param.kind === 'bool') {
-    return <ToggleChip label={param.label} pressed={value === true} onPressedChange={onChange} />;
+    return <ToggleChip label={chipLabel(param)} pressed={value === true} onPressedChange={onChange} />;
   }
   if ((param.kind === 'enum' || param.kind === 'axis') && param.options !== undefined) {
     if (param.options.length <= 4) {
       return (
         <Segmented<string>
-          label={param.label}
+          label={chipLabel(param)}
           value={typeof value === 'string' ? value : (param.options[0]?.value ?? '')}
           onValueChange={onChange}
           items={param.options.map((o) => ({ value: o.value, label: o.label }))}
@@ -51,7 +51,7 @@ function FieldChip({
   return (
     <ValueChip
       data-testid={`halo-form-${param.name}`}
-      label={param.label}
+      label={chipLabel(param)}
       value={shape.toShown(stored)}
       step={shape.step}
       {...(shape.unit === undefined ? {} : { unit: shape.unit })}

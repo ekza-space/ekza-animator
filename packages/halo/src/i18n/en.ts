@@ -214,6 +214,18 @@ export const en = {
     cancel: 'Cancel',
     makeDefault: 'Make default',
     at: (what: string): string => `at ${what}`,
+    // plain names of common parameters (Pro's label shows after the value, §5.6)
+    params: {
+      localTranslateZ: 'Distance',
+      distance: 'Distance',
+      offset: 'Offset',
+      thickness: 'Thickness',
+      divisions: 'Segments',
+      segments: 'Segments',
+      width: 'Width',
+      fraction: 'Amount',
+      count: 'Count',
+    } as Record<string, string>,
   },
   more: {
     title: (noun: string): string => `Everything for ${noun}`,

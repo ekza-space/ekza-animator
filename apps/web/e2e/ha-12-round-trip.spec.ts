@@ -51,8 +51,9 @@ test('an empty Halo shell mounts at /app over the shared host', async ({ page })
   await page.waitForTimeout(300);
   await expect(page.getByTestId('firstrun-dialog')).toHaveCount(0);
   expect((await call(page, 'state')).dialog).toBeNull();
-  // `halo()` is null until the shell registers its provider (T6a).
-  expect(await call(page, 'halo')).toBeNull();
+  // T6a: the shell registers its `halo()` provider; an empty document shows Home (§17)
+  expect(await call(page, 'halo')).toMatchObject({ stage: expect.any(String), sheet: null, petals: [] });
+  expect((await call(page, 'halo'))?.slices['grammar']).toMatchObject({ home: true });
   await expect(page.getByTestId('halo-pro-layout')).toBeVisible();
   // the route's boundaries: neither of the other shells, nor the curve editor, is fetched
   expect(loaded(scripts, HALO_MARKER)).toBe(true);
@@ -107,8 +108,11 @@ test("Halo's Pro layout button switches on the same page; Pro applies the arriva
   // The shell's own button (a tap handler calling the port): same page, Pro keeps the session's workspace.
   const workspace = (await call(page, 'state')).workspace;
   await page.getByTestId('halo-pro-layout').click();
+  // §16.1: on a touch-only device one line first says Pro is laid out for a mouse and keyboard
+  if (await page.getByTestId('halo-pro-line').isVisible()) await page.getByTestId('halo-pro-open').click();
   await expectStudioShown(page);
-  await expect(page).toHaveURL(/\/editor\?e2e=1&firstRun=1&from=halo$/);
+  // §16.1: the switch names the workspace Pro arrives at (T6a's controller sends it)
+  await expect(page).toHaveURL(new RegExp(`/editor\\?e2e=1&firstRun=1&ws=${workspace}&from=halo$`));
   expect(await pageMark(page)).toBe('kept');
   expect(await documentState(page)).toEqual(made);
   expect((await call(page, 'state')).workspace).toBe(workspace);
