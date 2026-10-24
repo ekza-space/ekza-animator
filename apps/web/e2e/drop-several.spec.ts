@@ -18,7 +18,7 @@ test('dropping two models imports both, one dialog after the other', async ({ pa
   await page.dispatchEvent('[data-testid="editor-root"]', 'drop', { dataTransfer });
 
   const dialog = page.getByTestId('import-dialog');
-  const noImporter = page.getByTestId('toast').filter({ hasText: 'No importer' });
+  const noImporter = page.getByTestId('toast').filter({ hasText: 'not a 3D model or an Ekza Studio project' });
   await expect(dialog.or(noImporter.first())).toBeVisible();
   await expect(noImporter, 'an importer is registered for .vrm').toHaveCount(0);
 

@@ -3,6 +3,7 @@
 import { Button, Dialog, DialogContent, FolderOpen } from '@ekza-studio/ui';
 import { type JSX, useEffect, useRef } from 'react';
 import { useRegistryList } from '../hooks/useRegistry';
+import { pickerAccept } from '../services/fileTypes';
 import { useShell } from '../shell/context';
 import { acceptAttribute } from '../shell/importers';
 import { prefetchModelLoading } from '../shell/prefetch';
@@ -40,7 +41,7 @@ export function FilePickerDialog(props: { readonly mode: 'open' | 'import' }): J
             ref={input}
             type="file"
             className="sr-only"
-            accept={acceptAttribute(app.importers)}
+            accept={pickerAccept(acceptAttribute(app.importers))}
             multiple={props.mode === 'import'}
             data-testid={`${props.mode}-file-input`}
             onChange={(event) => {

@@ -85,3 +85,5 @@ export {
   renderAgentTile,
   tileCamera,
 } from './manager/agentTile';
+// Halo T0 (STUDIO-TOUCH-SPEC S8): the memory profile's texture cap at GPU upload (applied by the host's GL canvas)
+export { applyTextureCap, TEXTURE_CAP_PX, type TextureCapTarget } from './gl/textureCap';
