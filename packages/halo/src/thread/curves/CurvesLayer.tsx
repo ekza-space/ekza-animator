@@ -23,7 +23,7 @@ import {
 } from '@ekza-studio/curve-editor';
 import type { CurveId } from '@ekza-studio/doc';
 import { GRAPH_TOOL, PANEL } from '@ekza-studio/editor-core';
-import { ActionChip, Cluster, Segmented, ToggleChip } from '@ekza-studio/ui/touch';
+import { ActionChip, Cluster, Segmented, ToggleChip, thumbReduce } from '@ekza-studio/ui/touch';
 import {
   type JSX,
   type PointerEvent as ReactPointerEvent,
@@ -120,6 +120,11 @@ export default function CurvesLayer({
   const unitsRef = useRef<TimeUnit>(units);
   unitsRef.current = units;
   const count = useCallback((): void => store.set((s) => ({ touches: s.touches + 1 })), [store]);
+  /** The Thumb key's one-shot meaning is used up by the gesture that used it (§5.5). */
+  const consumeThumb = useCallback((): void => {
+    const thumb = store.get().thumb;
+    if (thumb.latch === 'once') store.set({ thumb: thumbReduce(thumb, { type: 'consume' }) });
+  }, [store]);
 
   const thread = threadContext(app);
   // the document and the selection decide what is listed (re-read on every change)
@@ -248,7 +253,10 @@ export default function CurvesLayer({
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(resize);
     observer?.observe(overlay);
     resize();
-    const tap = (): void => store.set((s) => ({ touches: s.touches + 1 }));
+    const tap = (): void => {
+      store.set((s) => ({ touches: s.touches + 1 }));
+      consumeThumb();
+    };
     const detach = attachGraphEditorTouch(next, overlay, {
       scale: CURVES_SCALE,
       modifiers: () => ({ shift: store.get().thumb.latch !== 'off', mod: false, alt: false }),
@@ -282,7 +290,7 @@ export default function CurvesLayer({
       next.dispose();
       setGraph(null);
     };
-  }, [app, ctx, store]);
+  }, [app, ctx, store, consumeThumb]);
 
   const framedKey = useRef<string | null>(null);
   useEffect(() => {
@@ -436,12 +444,13 @@ export default function CurvesLayer({
     listed.controls.length === 1
       ? (app.store.get('controls', listed.controls[0] as never)?.name ?? '')
       : w.parts(listed.controls.length);
-  const more = store.get().thumb.latch !== 'off';
   const pickChip = (index: number): void => {
     const chip = chips[index];
     if (chip === undefined) return;
     count();
-    const next = chipSelection(selection.channels, chip, chips, more);
+    // the Thumb key's *Select more* as it is at the tap
+    const next = chipSelection(selection.channels, chip, chips, store.get().thumb.latch !== 'off');
+    consumeThumb();
     void ctx.run('select.channels', { refs: next.refs, mode: next.mode });
   };
   const frame = thread === null ? 0 : currentFrame(app, thread);

@@ -446,7 +446,7 @@ export const en = {
     show: 'Show',
     undoAll: 'Undo all',
     steps: 'Steps',
-    hideSteps: 'Fewer',
+    hideSteps: 'Steps ▴',
     copy: 'Copy as text',
     copied: 'History copied',
     revertReason: 'Only an AI step can be taken back on its own; Undo to here takes back the later steps too',

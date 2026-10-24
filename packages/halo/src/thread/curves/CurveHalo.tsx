@@ -137,6 +137,11 @@ export function CurveHalo({
     for (const call of calls) {
       const result = await ctx.run(call.op, call.args);
       if (result.status !== 'finished') return;
+      // *Fix flips* says what it did (a run that changed nothing leaves no step to see)
+      if (call.op === 'graph.eulerFilter') {
+        const n = (result.value as { readonly count?: number } | undefined)?.count ?? 0;
+        ctx.toasts.push({ key: 'curves', text: n === 0 ? w.noFlips : w.fixedFlips(n) });
+      }
     }
   };
   const select = (id: string): void => {

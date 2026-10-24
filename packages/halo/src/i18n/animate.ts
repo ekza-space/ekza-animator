@@ -169,6 +169,8 @@ export const animateWords = {
     easeAll: 'Ease all',
     fewerKeys: 'Fewer keys',
     fixFlips: 'Fix flips',
+    noFlips: 'No flips to fix',
+    fixedFlips: (n: number): string => (n === 1 ? 'Fixed flips on 1 curve' : `Fixed flips on ${n} curves`),
     cycle: 'Cycle',
     insertKey: 'Insert key',
     proLayout: 'Open in the Pro layout',
