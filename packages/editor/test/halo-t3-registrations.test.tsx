@@ -284,20 +284,17 @@ describe('Pro’s switch to the Simple layout (§16.1)', () => {
 
 describe('the agent pill hook (§14)', () => {
   it('returns the live pill the agent module puts in the slot, for any shell', async () => {
-    let seen: unknown = 'unset';
-    function Probe(): JSX.Element | null {
-      seen = useAgentPill(
-        () => {},
-        () => true,
-      );
-      return null;
+    const noop = (): void => {};
+    const ready = (): boolean => true;
+    function Probe(): JSX.Element {
+      return useAgentPill(noop, ready) ?? createElement('span', null, 'muted');
     }
     const view = await render(createElement(Probe));
-    expect(seen).toBeNull();
-    const pill = createElement('span', null, 'AI connected');
-    await act(async () => setAgentPill(pill));
-    expect(seen).toBe(pill);
+    expect(view.container.textContent).toBe('muted');
+    await act(async () => setAgentPill(createElement('span', null, 'AI connected')));
+    expect(view.container.textContent).toBe('AI connected');
     await act(async () => setAgentPill(null));
+    expect(view.container.textContent).toBe('muted');
     await view.unmount();
   });
 });
