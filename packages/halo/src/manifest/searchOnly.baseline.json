@@ -1,24 +1,24 @@
 {
   "note": "STUDIO-TOUCH-SPEC §20.5 test 5: the searchOnly ratchet. Regenerate with EKZA_HALO_PARITY_WRITE=1 (ha-parity).",
-  "total": 121,
+  "total": 111,
   "explicit": 4,
-  "pending": 117,
+  "pending": 107,
   "byStage": {
     "make": 1,
     "paint": 12,
     "rig": 18,
-    "animate": 62,
-    "all": 28
+    "animate": 51,
+    "all": 29
   },
   "targets": {
-    "T7": 69,
-    "T8": 106,
-    "T9": 100,
-    "T10": 98,
-    "T11": 109
+    "T7": 70,
+    "T8": 95,
+    "T9": 90,
+    "T10": 88,
+    "T11": 99
   },
   "live": 347,
-  "reachable": 231,
+  "reachable": 240,
   "items": [
     "agent.show",
     "autorig.cancel",
@@ -104,22 +104,11 @@
     "target.unbind",
     "target.update",
     "time.deleteTime",
-    "time.goToEnd",
-    "time.goToStart",
     "time.insertTime",
-    "time.nextKey",
-    "time.play",
-    "time.prevKey",
     "time.selectBand",
     "time.setFrame",
-    "time.setLoop",
     "time.setPlaybackRange",
-    "time.setSpeed {\"speed\":\"double\"}",
-    "time.setSpeed {\"speed\":\"every-frame\"}",
-    "time.setSpeed {\"speed\":\"half\"}",
-    "time.setSpeed {\"speed\":\"realtime\"}",
     "time.step",
-    "time.stop",
     "time.togglePlay",
     "tool.last",
     "ui.commandPalette",
@@ -140,6 +129,7 @@
     "workspace.showPanel {\"panel\":\"quickRig\"}",
     "workspace.showPanel {\"panel\":\"rigToolkit\"}",
     "workspace.showPanel {\"panel\":\"target\"}",
-    "workspace.showPanel {\"panel\":\"timeline\"}"
+    "workspace.showPanel {\"panel\":\"timeline\"}",
+    "workspace.showPanel {\"panel\":\"toolkit\"}"
   ]
 }
