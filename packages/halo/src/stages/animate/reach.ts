@@ -204,7 +204,7 @@ export function installReach(ctx: ShellContext, count: () => void): () => void {
     for (const control of app.store.query.controlsOfRig(rig)) {
       const values: Record<string, number> = { ...app.evaluation.channelValues(control.id) };
       for (const [name, value] of Object.entries(app.evaluation.attrValues(control.id))) values[`@${name}`] = value;
-      pose.set(control.id, values as ChannelValues);
+      pose.set(control.id, values);
     }
     return pose;
   };

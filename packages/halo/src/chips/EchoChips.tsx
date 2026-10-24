@@ -3,7 +3,7 @@
 // never over the selection. Drag a chip sideways to change it (distance scrub: finer the farther the finger moves
 // away; the Thumb key's Fine works too), tap it for the numpad; each change is one Adjust Last (it replaces the step).
 // Same numbers as Pro (P14): Pro's units — metres, degrees for angles (stored in radians), plain counts.
-import type { ParamDef } from '@ekza-studio/anim-core';
+import type { Fps, ParamDef } from '@ekza-studio/anim-core';
 import type { LastRun } from '@ekza-studio/editor-core';
 import { ActionChip, type Box, ValueChip } from '@ekza-studio/ui/touch';
 import { type JSX, lazy, Suspense, useState } from 'react';
@@ -12,13 +12,25 @@ import { en } from '../i18n/en';
 import type { HaloController } from '../shell/controller';
 import { useSessionValue } from '../shell/hooks';
 import { useHaloStore } from '../shell/store';
+import { sceneFps } from '../stages/animate/model';
+import { threadContext } from '../thread/strip/model';
+import { type TimeUnit, useTimeUnit } from '../thread/units';
 
 const NumpadPanel = lazy(() => import('./NumpadPanel'));
 
 const RAD = 180 / Math.PI;
 
+/** How time reads (Settings › Time, ST-T7-UNIT) and at what rate: a frame-count param converts with it (P-T7-8). */
+export interface ChipTime {
+  readonly units: TimeUnit;
+  readonly fps: Fps;
+}
+
 /** A chip's display of a ParamDef: Pro's unit and step, and the conversion from the stored value. */
-export function chipOf(param: ParamDef): {
+export function chipOf(
+  param: ParamDef,
+  time?: ChipTime,
+): {
   readonly unit?: string;
   readonly step: number;
   readonly toShown: (stored: number) => number;
@@ -26,6 +38,21 @@ export function chipOf(param: ParamDef): {
   readonly min?: number;
   readonly max?: number;
 } {
+  if (param.time === 'frames') {
+    // a frame count (P-T7-8): frames by default, seconds under Settings › Time; stored and run in whole frames
+    const seconds = time?.units === 'seconds';
+    const rate = time === undefined ? 30 : time.fps.num / time.fps.den;
+    const toShown = (v: number): number => (seconds ? Number((v / rate).toFixed(3)) : v);
+    const toStored = (v: number): number => Math.round(seconds ? v * rate : v);
+    return {
+      unit: seconds ? 's' : 'f',
+      step: seconds ? 0.01 : 1,
+      toShown,
+      toStored,
+      ...(param.min === undefined ? {} : { min: toShown(param.min) }),
+      ...(param.max === undefined ? {} : { max: toShown(param.max) }),
+    };
+  }
   const angle = param.kind === 'angle';
   const toShown = (v: number): number => (angle ? v * RAD : v);
   const toStored = (v: number): number => (angle ? v / RAD : param.kind === 'int' ? Math.round(v) : v);
@@ -81,6 +108,7 @@ export function EchoChips({
   const { ctx } = controller;
   const last = useSessionValue(ctx.app, (s) => s.lastRun);
   const fine = useHaloStore(ctx.store, (s) => s.thumb.latch !== 'off');
+  const time: ChipTime = { units: useTimeUnit(controller), fps: threadContext(ctx.app)?.fps ?? sceneFps(ctx.app) };
   const [live, setLive] = useState<Readonly<Record<string, number>>>({});
   const [numpad, setNumpad] = useState<{ readonly name: string; readonly left: number; readonly top: number } | null>(
     null,
@@ -110,7 +138,7 @@ export function EchoChips({
       style={{ left, top }}
     >
       {params.map((p) => {
-        const shape = chipOf(p);
+        const shape = chipOf(p, time);
         const stored = last.args[p.name] as number;
         const shown = live[p.name] ?? shape.toShown(stored);
         return (
@@ -145,12 +173,12 @@ export function EchoChips({
           <NumpadPanel
             label={chipLabel(param)}
             proName={`${last.label} · ${param.label}`}
-            value={chipOf(param).toShown(last.args[param.name] as number)}
-            {...(chipOf(param).unit === undefined ? {} : { unit: chipOf(param).unit as string })}
+            value={chipOf(param, time).toShown(last.args[param.name] as number)}
+            {...(chipOf(param, time).unit === undefined ? {} : { unit: chipOf(param, time).unit as string })}
             style={{ position: 'absolute', left: 0, top: '100%', marginTop: 8 }}
             onDone={(v) => {
               setNumpad(null);
-              adjust(param.name, chipOf(param).toStored(v));
+              adjust(param.name, chipOf(param, time).toStored(v));
             }}
             onCancel={() => setNumpad(null)}
           />
