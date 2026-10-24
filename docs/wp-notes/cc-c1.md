@@ -25,7 +25,7 @@ name (C2 writes `ekza_package_v1`).
 | The target chunk (lazy): `ekza.targets` extension table (`tgt:<characterId>`, partition `char:<id>`, the contract pinned), the contract service (pinned → session cache → bundled with size/SHA-256 checks), the pure `computeSlotStatuses` / `slotStatuses` (per-offer counts, deferred rules, extras), the open-vocabulary check, Validation rows of area `animation`; marker `ekza-character-target` (check-size boundary `character-target`) | `packages/editor-core/src/workflows/target/{index,table,contracts,service,status}.ts`, `apps/web/scripts/check-size.mjs` |
 | `target.bind`, `target.unbind`, `target.update`, `target.slot.assign`, `target.slot.clear`, `target.slot.alias` (one undo step each; `agent: denied` until C6); the runner loads the chunk for any `target.*` id | `packages/editor-core/src/operators/builtin/target.ts`, `workspaces/rig.ts` (`lazyOperatorChunk`), `operators/args.ts` rows |
 | Open slot vocabulary (eager, ≈1 kB source): dotted ids are contract slots; `clip.setSettings` loads the chunk in `prepare` and refuses a slot outside the target, a closed slot, a non-animation slot or a second holder; `library.useClip {slot}` and `autorig.clip.add {slot}` fill a slot in one Use Clip step (the slot moves off other clips); the `ekza.slot-name` lint accepts contract slot ids; ADR 0010 §5 amended | `workflows/targetSlots.ts`, `operators/builtin/{clip,library}.ts`, `rig/wizard/clip.ts`, `io/src/lint/lintExport.ts` |
-| Pro **Target** panel (lazy; Windows › Target, *Target* in the Clips toolbar, docked beside Clips): *For: OMOBA · <target>*, the whole kit (clips and objects) by section, ● ○ ⚠ ⊘ ◌, timing to aim for, per-offer summaries, deferred rules, *Game default ▶*, *From library…*, *Use clip…*, *Same as…*, *Use default*/*Unlink*, extras *Map to a slot…*; Clip Settings keeps a target slot | `packages/editor/src/panels/target/{index.tsx,state.ts}`, `panels/index.ts`, `shell/layout.ts`, `panels/clips/*` |
+| Pro **Target** panel (lazy, in the Clip Library's chunk group; Windows › Target, docked beside Clips): *For: OMOBA · <target>*, the whole kit (clips and objects) by section, ● ○ ⚠ ⊘ ◌, timing to aim for, per-offer summaries, deferred rules, *Game default ▶*, *From library…*, *Use clip…*, *Same as…*, *Use default*/*Unlink*, extras *Map to a slot…*; Clip Settings keeps a target slot | `packages/editor/src/panels/target/{index.tsx,state.ts}`, `panels/index.ts`, `panels/clipLibrary/index.tsx`, `shell/layout.ts`, `panels/clips/*` |
 | Auto-Rig ④ contract mode: *For a game…* → target (2 taps); the `character` offer's checklist replaces the free clip list; *Game default ▶*, *Pick from library…*, *Use clip…*, *Use default*, extras | `packages/autorig/src/steps/animations/TargetChecklist.tsx`, `AnimationsStep.tsx`, `i18n/en/animations.ts` |
 | C-pre P-4: the OMOBA local test kit stages a VRM 1.0 as OMOBA's `convert_vrm_to_glb.py` does (roots turned 180° about Y, `asset.extras.omoba_rest_yaw180`; VRM 0.x byte for byte) | `packages/io/src/omoba/{facing,kit,readme}.ts`, `apps/web/e2e/ar-07-export-targets.spec.ts` |
 | C-pre P-5: `ekza/omoba-humanoid-v1` labelled "legacy passport clips"; P-6 copy unchanged (hidden only in ④'s contract mode) | `packages/io/src/profiles/builtin.ts`, `docs/FEATURES.md` |
@@ -48,7 +48,9 @@ check.
 - `packages/editor-core/src/operators/args.ts`: six `target.*` rows; `slot?` on `library.useClip` and `autorig.clip.add`.
 - `packages/editor-core/src/index.ts`: exports `isTargetSlotId`, `loadTargetKit`, `TargetKit`.
 - `packages/editor-core/src/workspaces/rig.ts` (`lazyOperatorChunk`), `rig/validation/{index,rows}.ts` (append rows).
-- `packages/editor/src/panels/index.ts`, `shell/layout.ts` (`EXTRA_PANEL_SLOTS.target`), `panels/clips/*`.
+- `packages/editor/src/panels/index.ts` (one loader for the Clip Library and Target bodies), `panels/clipLibrary/index.tsx`
+  (re-exports the Target body), `shell/layout.ts` (`EXTRA_PANEL_SLOTS.target`), `panels/clips/{settings.ts,ClipSettingsForm.tsx}`.
+- `packages/io/src/omoba/{kit,readme,index}.ts`, `io/src/profiles/builtin.ts` (label), `biome.json` (`!fixtures/contracts`).
 - `packages/autorig/src/steps/animations/AnimationsStep.tsx` (the target section around the clip list).
 - `apps/web/scripts/check-size.mjs` (one boundary).
 
@@ -67,4 +69,18 @@ check.
 
 ## Budgets and gates
 
-See the gate section appended at the end of the run (sizes from `check:size`).
+`check:size` (production build, gzip -9, decimal bytes), against the numbers given for `dev` at the start:
+
+| Route | `dev` | C1 | Delta | Gate |
+|---|---:|---:|---:|---:|
+| `/editor` (first visit) | 891,790 | 892,300 | +510 | 900,000 |
+| `/autorig` | 652,528 | 653,008 | +480 | 660,000 |
+
+Lazy: the `character-target` group 16.3 kB (contract reader, profile, statuses, operators, table, service); the Target
+panel body joins the Clip Library group. The first measure was +667 / +539: the trims were one hook accessor instead
+of seven exports, the Target body in the Clip Library group (one chunk loader instead of two), no Clips-header button,
+the plain slot id in Clip Settings and a shorter v1 profile label (`CC-C1-17`).
+
+Gate runs (`EKZA_E2E_PORT=3170 pnpm run ci`, local Chrome) on a machine at load average 50–100 from parallel agents:
+the earlier runs failed only on load timeouts (editor `input.test.ts` and `m6a-select-ui.test.tsx`, e2e
+`ar-05-rig-framing` AR-D8-4 and `m6b-skin-02`), each green when rerun alone; the final run is recorded below.
