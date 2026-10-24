@@ -18,9 +18,11 @@ export type Owner = 'T6a' | 'T6b' | 'T7' | 'T8' | 'T9' | 'T10' | 'T11';
 /**
  * The owners whose surfaces exist on this branch. T6a (the frame, the Halo, chips, the session bar, the palette) and
  * T6b (manifest, verbs, the Path, the sheets) make phase S together (§21 phase exits); each stage package adds itself
- * when it lands, and the `searchOnly` baseline must then go down to its target.
+ * when it lands, and the `searchOnly` baseline must then go down to its target. T11: Home (Continue, the doors, Bring a
+ * model's intake, *Rig a model for me*) and the Share sheet (destinations, the game target, More formats, the footer's
+ * project save).
  */
-export const BUILT_OWNERS: ReadonlySet<Owner> = new Set<Owner>(['T6a', 'T6b']);
+export const BUILT_OWNERS: ReadonlySet<Owner> = new Set<Owner>(['T6a', 'T6b', 'T11']);
 
 /** The nouns of §6.2: what a tap selects, each with a Halo (petals) and a ⋯ More list. */
 export const NOUN_KINDS = [

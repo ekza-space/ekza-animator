@@ -59,7 +59,8 @@ export const SHEET_SECTIONS: Readonly<Record<SheetId, readonly string[] | null>>
   weights: null,
   history: null,
   ask: null,
-  share: null,
+  // T11 (§13.3): the destinations and the game target, the card, Advanced, More formats, the footer's project save
+  share: ['destination', 'card', 'advanced', 'moreFormats', 'footer'],
 };
 
 /** The sheets T6b builds (the lazy loaders in `sheetLoaders.ts`). */

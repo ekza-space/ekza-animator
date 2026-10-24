@@ -195,7 +195,8 @@ describe('user vocabulary: one word, one kind of thing (§1.3, ST-32)', () => {
     // the Animations panel, the product line
     for (const path of where(/\banimations?\b/i)) {
       expect(path).toMatch(
-        /^(home\.|dialogs\.applyPoseAsRest|labels\.(clip\.|file\.importAnimation|autorig\.clip\.|target\.slot\.)|plain\.(target\.slot\.|workspace\.showPanel)|table\.empty\.newAnimation)/,
+        // T11: Home's Continue cards, Bring a model's animation files, Share's destinations and slots, the recipes
+        /^(home\.|intake\.|share\.|recipes\.|dialogs\.applyPoseAsRest|labels\.(clip\.|file\.importAnimation|autorig\.clip\.|target\.slot\.)|plain\.(target\.slot\.|workspace\.showPanel)|table\.empty\.newAnimation)/,
       );
     }
   });
