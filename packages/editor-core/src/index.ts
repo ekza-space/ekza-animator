@@ -557,3 +557,6 @@ export {
   rebindRequest,
   unbindRequest,
 } from './operators/builtin/rig/bind';
+// T5b (STUDIO-TOUCH-SPEC §20.3 item 10): Auto-Rig's orchestration, run by the Auto-Rig wizard and Halo alike; read by
+// lazy shell chunks only (tree-shaken here, so no route's first visit grows).
+export * from './autorigFlow';
