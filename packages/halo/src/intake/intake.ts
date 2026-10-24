@@ -9,7 +9,8 @@
 // - a glTF text file or a project's debug JSON goes through the host's own pipeline;
 // - anything else gets one plain sentence (`UNSUPPORTED_FILE_TEXT`).
 //
-// On iOS the device's memory profile adds its warning (60k triangles); the 200k refusal is the intake's own. A
+// On iOS a heavy model gets the memory profile's warning (above 60k triangles: the intake report's `heavy` tier, the
+// same number as `memoryProfile`'s `warn`); the 200k refusal is the intake's own. A
 // document that already holds something asks first: start a new project (the work stays in autosave) or add to it.
 // Every change is an operator run.
 import {
@@ -24,7 +25,7 @@ import {
 import type { HaloStage } from '@ekza-studio/editor-core';
 import {
   type FileKind,
-  memoryProfileOf,
+  isIosWebKit,
   nameForKind,
   sniffFileKind,
   UNSUPPORTED_FILE_TEXT,
@@ -150,9 +151,9 @@ export async function bringFiles(
     }
     took = true;
     const report = outcome.report;
-    // §15.0, S8: the iPad's memory profile warns about heavy models (the intake itself refuses above 200k)
-    const triangles = memoryProfileOf(ctx.host).triangles;
-    if (triangles !== null && report.triangles > triangles.warn) {
+    // §15.0, S8: an iPad warns about heavy models — above 60k triangles, the report's `heavy` tier (the intake itself
+    // refuses above 200k)
+    if (isIosWebKit() && report.weight === 'heavy') {
       toast(en.intake.heavy(report.triangles), 'warning');
     }
     if (outcome.route.kind === 'rerig') {

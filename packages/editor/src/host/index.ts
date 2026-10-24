@@ -19,8 +19,8 @@ export { provideRecoveryHook, type RecoveryHook } from './registrations/recovery
 export { useAgentPill } from './registrations/agent';
 export { pickerAccept } from '../services/fileTypes';
 // STUDIO-TOUCH-SPEC §13.3, §17, S9–S11 (T11): Halo's Home and Share read the platform services T0 built — the byte
-// sniffer of Bring a model, the iOS device class and the share preference of the two-step save, the memory profile's
-// triangle gate and the storage card's persistence request. Re-exports only (tree-shaken where unused).
+// sniffer of Bring a model, the iOS device class and the share preference of the two-step save, and the storage
+// card's persistence request. Re-exports only (tree-shaken where unused).
 export {
   type FileKind,
   isIosWebKit,
@@ -30,7 +30,6 @@ export {
 } from '../services/fileTypes';
 export { sharePreferred } from '../services/files';
 export { requestPersistentStorage } from '../services/autosave';
-export { type MemoryProfile, memoryProfileOf } from './memoryProfile';
 export { hostNavigation };
 
 /** Opens a host dialog (`ui.open`): the dialogs every route has (Export, Open, Import, Preferences, Recovery, …). */

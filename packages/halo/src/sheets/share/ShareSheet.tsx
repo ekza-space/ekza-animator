@@ -238,6 +238,55 @@ function exportLabel(state: BakeState, hasCall: boolean): string {
   return en.share.preparing(state.fileName);
 }
 
+interface ShareState {
+  readonly subject: ReturnType<typeof shareSubject>;
+  readonly choice: ShareChoice;
+  readonly poll: string | null;
+  readonly ready: ReturnType<typeof readiness>;
+}
+
+/**
+ * The card's state, read again only when what it reads changed — the document, the character in hand, the selected
+ * objects, the preferences, the card and its options — not on every time or selection change of a playing animation.
+ */
+const memo = new WeakMap<EditorApp, { readonly key: readonly unknown[]; readonly value: ShareState }>();
+function shareState(
+  app: EditorApp,
+  destination: DestinationId,
+  format: MoreFormatId | null,
+  options: ShareOptions,
+): ShareState {
+  const s = app.session.getState();
+  const key = [
+    app.store.version,
+    s.activeCharacter,
+    s.rig.character,
+    s.selection.objects,
+    s.workspace,
+    app.prefs.getState(),
+    app.rig.loaded,
+    destination,
+    format,
+    options,
+  ];
+  const hit = memo.get(app);
+  if (hit !== undefined && hit.key.length === key.length && hit.key.every((v, i) => Object.is(v, key[i]))) {
+    return hit.value;
+  }
+  const choice =
+    format === null
+      ? destinationChoice(app, destination, options, SHARE_WORDS)
+      : moreFormatChoice(app, format, options, SHARE_WORDS);
+  const value: ShareState = {
+    subject: shareSubject(app),
+    choice,
+    poll: choice.call === null ? null : callProblem(app, choice.call),
+    ready: readiness(app, destination),
+  };
+  memo.set(app, { key, value });
+  return value;
+}
+
 /** *Try again* prepares the same call once more (a new key each time). */
 let retries = 0;
 
@@ -261,13 +310,7 @@ export default function ShareSheet({ ctx, shell }: ShareSheetProps): JSX.Element
   const bake = useBaker(baker);
   // every render follows the document, the session and the preferences (`useAppVersion`): the subject, the call and
   // the one readiness list are read again (cheap, pure)
-  const subject = shareSubject(app);
-  const choice: ShareChoice =
-    format === null
-      ? destinationChoice(app, destination.id, options, SHARE_WORDS)
-      : moreFormatChoice(app, format, options, SHARE_WORDS);
-  const poll = choice.call === null ? null : callProblem(app, choice.call);
-  const ready = readiness(app, destination.id);
+  const { subject, choice, poll, ready } = shareState(app, destination.id, format, options);
   // the card's rows: the one readiness list (Health and the status pill show the same count)
   const rows = ready.rows;
   const total = rows.length;

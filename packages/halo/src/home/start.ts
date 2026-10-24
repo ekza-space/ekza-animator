@@ -95,14 +95,17 @@ export function startHome(controller: HaloController): () => void {
       },
     }),
   );
-  // S23: the Share chunk at idle, with the other sheets
-  const idle =
-    typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function'
-      ? window.requestIdleCallback(() => void import('../sheets/share').catch(() => {}), { timeout: 3000 })
-      : null;
-  offs.push(() => {
-    if (idle !== null) window.cancelIdleCallback(idle);
-  });
+  // S23: the Share chunk at idle, with the other sheets (Safari has no `requestIdleCallback`: a timer there)
+  const prefetch = (): void => void import('../sheets/share').catch(() => {});
+  if (typeof window !== 'undefined') {
+    if (typeof window.requestIdleCallback === 'function') {
+      const idle = window.requestIdleCallback(prefetch, { timeout: 3000 });
+      offs.push(() => window.cancelIdleCallback(idle));
+    } else {
+      const timer = window.setTimeout(prefetch, 2000);
+      offs.push(() => window.clearTimeout(timer));
+    }
+  }
   return () => {
     for (const off of offs.splice(0).reverse()) off();
   };
