@@ -15,6 +15,17 @@ export interface AnimateSlice {
       readonly x1: number;
       readonly start: number;
       readonly end: number;
+      /** The ruler as drawn (ST-T10-RULER): frames between ticks and between numbers, the numbers, the playhead box. */
+      readonly tickStep: number;
+      readonly labelStep: number;
+      readonly ticks: number;
+      readonly labels: readonly {
+        readonly frame: number;
+        readonly text: string;
+        readonly left: number;
+        readonly width: number;
+      }[];
+      readonly playhead: { readonly frame: number; readonly text: string; readonly x: number } | null;
     } | null;
     readonly clip: string | null;
     readonly range: { readonly start: number; readonly end: number } | null;

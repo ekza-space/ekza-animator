@@ -4,6 +4,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { animateWords } from '../src/i18n/animate';
 import { en } from '../src/i18n/en';
 import { DISCLOSURE } from '../src/manifest/disclosure';
 import { PLAIN_LABELS } from '../src/manifest/labels';
@@ -160,7 +161,8 @@ function strings(node: unknown, path: string[] = []): { readonly path: string; r
  * in-place variants (`verbs/table.ts`) — one vocabulary (T6-INT: the lint covers T6b's tables too, P-T6B-2).
  */
 function vocabulary(): { readonly path: string; readonly text: string }[] {
-  const all = strings(en);
+  // P-T7-3 (T10): the Animate stage's own catalogue is linted with the shell's, under `animate.`
+  const all = [...strings(en), ...strings(animateWords).map((s) => ({ path: `animate.${s.path}`, text: s.text }))];
   for (const [op, text] of Object.entries(PLAIN_LABELS)) all.push({ path: `labels.${op}`, text });
   for (const [op, value] of Object.entries(DISCLOSURE)) {
     for (const entry of entriesOf(value)) {
@@ -196,7 +198,8 @@ describe('user vocabulary: one word, one kind of thing (§1.3, ST-32)', () => {
     for (const path of where(/\banimations?\b/i)) {
       expect(path).toMatch(
         // T11: Home's Continue cards, Bring a model's animation files, Share's destinations and slots, the recipes
-        /^(home\.|intake\.|share\.|recipes\.|dialogs\.applyPoseAsRest|labels\.(clip\.|file\.importAnimation|autorig\.clip\.|target\.slot\.)|plain\.(target\.slot\.|workspace\.showPanel)|table\.empty\.newAnimation)/,
+        // T10: the agent's Edit grant in §14's words; T7's Animations row, + New, an animation's verbs, the Library
+        /^(home\.|intake\.|share\.|recipes\.|dialogs\.applyPoseAsRest|labels\.(clip\.|file\.importAnimation|autorig\.clip\.|target\.slot\.)|plain\.(target\.slot\.|workspace\.showPanel)|table\.empty\.newAnimation|ask\.grantEdit$|animate\.(dock\.|clip\.|library\.|thread\.(clearRange|noClip)$))/,
       );
     }
   });

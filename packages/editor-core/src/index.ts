@@ -15,7 +15,9 @@ export { CHANGE_JOURNAL_CAP } from './history/history';
 export { AGENT_OPERATOR_IDS, loadAgentOperators } from './operators/builtin/agentChunk';
 // STUDIO-TOUCH-SPEC §20.3 item 7 (T5a): the public UI wrappers of the AI-only operators (a lazy chunk, denied to agents).
 export {
+  loadReachSolver,
   loadUiWrappers,
+  type ReachSolver,
   UI_WRAPPER_IDS,
   type UiKeyScopeArgs,
   type UiLoopMethod,

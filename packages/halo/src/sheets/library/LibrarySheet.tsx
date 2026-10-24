@@ -31,8 +31,8 @@ const w = animateWords.library;
 type Manifest = Awaited<ReturnType<EditorApp['library']['service']['manifest']>>;
 type Entry = Manifest['clips'][number];
 
-/** The sheet context with the frame's touch counter (P-T7-2: `HaloSheetContext.touch`, the journeys' counter, §9). */
-export type CountingSheetContext = HaloSheetProps['ctx'] & { readonly touch?: () => void };
+/** The sheet context: its `touch` is the frame's journey counter (P-T7-2, §9). */
+export type CountingSheetContext = HaloSheetProps['ctx'];
 
 /** A touch on the sheet. */
 function useCount(ctx: CountingSheetContext): () => void {

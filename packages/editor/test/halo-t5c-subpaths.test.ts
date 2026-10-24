@@ -133,8 +133,9 @@ describe('T5c editor subpaths', () => {
     ]);
   });
 
-  it('./agent: the Agent panel body only', () => {
-    expect(names(agent)).toEqual(['AgentPanel']);
+  it('./agent: the Agent panel body, and the runtime the Ask sheet and History read (T10, ST-T10-13)', () => {
+    expect(names(agent)).toEqual(['AGENT_SHOW', 'AgentPanel', 'agentRuntimeOf', 'existingAgentRuntime', 'pillView']);
     expect(typeof agent.AgentPanel).toBe('function');
+    expect(agent.AGENT_SHOW).toBe('agent.show');
   });
 });

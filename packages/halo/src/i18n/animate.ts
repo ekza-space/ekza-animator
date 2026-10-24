@@ -2,8 +2,8 @@
 // Curves), the docked Halos of a key, a key band, the playhead and an animation, and the Library sheet. The same rules
 // as the shell's catalogue (`./en.ts`): *Animation* is only a clip, *Move* only translation, *Add* puts new content
 // into the project, no DCC jargon at L0 or L1 (Pro's names come from the registry, one layer down). Its own module so
-// the stage package owns its words; `test/animate-words.test.ts` runs the vocabulary lint over it (P-T7-3: the shell's
-// lint may take it in at integration).
+// the stage package owns its words; the shell's vocabulary lint (`test/rules.test.ts`) runs over it under `animate.`
+// (P-T7-3, T10), and `test/animate-words.test.ts` adds the stage's own checks.
 
 export const animateWords = {
   dock: {
@@ -136,6 +136,44 @@ export const animateWords = {
     loading: 'Opening the keys…',
     canvas: 'Keys of the shown body parts',
     summary: 'Summary',
+  },
+  curves: {
+    region: 'Curves',
+    canvas: 'Curves of the shown body parts',
+    loading: 'Opening the curves…',
+    none: 'No curves here yet: key a body part, or tap one that has keys',
+    channels: 'Channels',
+    all: 'All',
+    parts: (n: number): string => (n === 1 ? 'One part' : `${n} parts`),
+    onlyAnimated: 'Only keyed',
+    filter: 'Filter the curves',
+    filterPlaceholder: 'Part or channel',
+    toolLabel: 'Curve tool',
+    tools: { select: 'Select', move: 'Move', insert: 'Insert', scale: 'Scale' },
+    axisLabel: 'A drag keeps',
+    axes: { auto: 'Axis: auto', time: 'Axis: time', value: 'Axis: value', free: 'Axis: free' },
+    before: '⇆ Before',
+    beforeHint: 'Hold to compare with the curves as they were when Curves opened',
+    keyHint: 'Tap a key, or drag across keys, for their verbs',
+    timeAxis: 'Time of the curves',
+    fields: 'The selected keys’ values',
+    time: 'Time',
+    value: 'Value',
+    inAngle: 'In',
+    outAngle: 'Out',
+    inWeight: 'In weight',
+    outWeight: 'Out weight',
+    differ: (label: string): string => `${label} ±`,
+    curve: 'Curve',
+    curveTitle: (n: number): string => (n === 1 ? 'Curve' : `${n} curves`),
+    easeAll: 'Ease all',
+    fewerKeys: 'Fewer keys',
+    fixFlips: 'Fix flips',
+    noFlips: 'No flips to fix',
+    fixedFlips: (n: number): string => (n === 1 ? 'Fixed flips on 1 curve' : `Fixed flips on ${n} curves`),
+    cycle: 'Cycle',
+    insertKey: 'Insert key',
+    proLayout: 'Open in the Pro layout',
   },
   library: {
     title: 'Library',

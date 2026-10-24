@@ -46,5 +46,8 @@ export interface ParamDef {
   /** Card section label ('Offsets', 'Shape'); fields keep list order. */
   readonly group?: string;
   readonly description?: string;
+  /** STUDIO-TOUCH-SPEC §10.3 (T10, P-T7-8): an 'int' or 'number' param that is a frame count, stored in frames; a shell
+   *  may show it in seconds (Ekza Studio's Settings › Time). Absent: not a time. */
+  readonly time?: 'frames';
 }
 export type ParamValues = Readonly<Record<string, ParamValue>>;

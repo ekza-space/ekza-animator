@@ -15,6 +15,7 @@ import type { LimbId } from '@ekza-studio/rig';
 import type { EditorApp } from '../../types';
 import type { ChannelTarget } from '../args';
 import { loadAgentOperators } from './agentChunk';
+import type { solveReach } from './uiWrappers';
 
 /** Where the keys of a value wrapper come from: the given targets, else the selected keys, channels or controls. */
 export interface UiKeyScopeArgs {
@@ -142,6 +143,17 @@ const loads = new WeakMap<object, Promise<void>>();
  * they are). Idempotent and never disposed, like the agent operators: once any shell has loaded them, every shell
  * lists them. A failed load is retried by the next call.
  */
+/** P-T7-1 (T10): the solve `pose.reach` runs, without writing anything (`uiWrappers.ts` `solveReach`). */
+export type ReachSolver = typeof solveReach;
+
+/**
+ * P-T7-1 (T10): the wrappers' Reach solve from their lazy chunk (the chunk is registered first, as `loadUiWrappers`
+ * does), so a touch shell previews the solved limb while a Reach drag moves (§10.1).
+ */
+export function loadReachSolver(app: EditorApp): Promise<ReachSolver> {
+  return loadUiWrappers(app).then(() => import('./uiWrappers').then((chunk) => chunk.solveReach));
+}
+
 export function loadUiWrappers(app: EditorApp): Promise<void> {
   const known = loads.get(app.operators);
   if (known !== undefined) return known;

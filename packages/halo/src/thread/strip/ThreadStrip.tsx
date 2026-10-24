@@ -1,9 +1,13 @@
-// The Thread's ruler (STUDIO-TOUCH-SPEC §10.3, §5.2.1; T7): Halo's own small Canvas2D strip over the active
-// animation — beat ticks, the selection's key dots (a faint summary when nothing is selected, hollow in-betweens), the
-// band and the playhead — and its gestures, each one operator run:
+// The Thread's ruler (STUDIO-TOUCH-SPEC §10.3, §5.2.1; T7, T10): Halo's own small Canvas2D strip over the active
+// animation, drawn as a classic animation time slider (ST-T10-RULER, owner 2026-10-24: "a tick on every frame") the way
+// Studio Pro's time slider reads — a tick on every frame (every 2nd, then 5th … frame when frames are closer than 3 px),
+// taller numbered ticks (every frame, 5th, 10th … by the zoom; the first and last frame always numbered; numbers never
+// overlap), the selection's keys as red marks on their frames (white when selected, green for in-betweens, faint
+// without a selection), the band, and the frame-snapped playhead with its frame number in a box — and its gestures,
+// each one operator run:
 // - tap the ruler: jump (`time.setFrame`); drag it or the playhead: scrub (with the Thumb key's *Carry pose*, the pose
 //   comes along);
-// - tap a key dot: its keys are selected and its Halo docks above the Thread; drag it: retime (`graph.keys.move`, one
+// - tap a key mark: its keys are selected and its Halo docks above the Thread; drag it: retime (`graph.keys.move`, one
 //   step);
 // - long-press the ruler then drag (or a Pencil drag): a band (`time.selectBand`); drag the band's body to move its keys
 //   (Thumb *Copy*: copy them), its ends to stretch them (`graph.keys.scale`); tap it for its Halo;
@@ -17,21 +21,19 @@ import type { HaloController } from '../../shell/controller';
 import type { AnimateUiStore } from '../../stages/animate/ui';
 import type { TimeUnit } from '../units';
 import {
-  beatTicks,
   currentFrame,
   dotAt,
   frameToX,
   type KeyDot,
   keyDots,
+  type RulerMarks,
+  rulerMarks,
+  secondsLabel,
   snapFrame,
   type StripLayout,
   stripLayout,
   type ThreadContext,
   threadContext,
-  frameLabel,
-  frameLabels,
-  frameStep,
-  tickLabel,
   timeText,
   xToFrame,
 } from './model';
@@ -81,6 +83,14 @@ interface Scene {
   readonly units: TimeUnit;
 }
 
+/** The ruler's number strip at the top (CSS px); the ticks and the key marks fill the rest. */
+const LABEL_STRIP = 15;
+const LABEL_FONT_PX = 11;
+/** Tick heights from the bottom by level: a frame, a half step, a numbered tick (CSS px). */
+const TICK_HEIGHT = [6, 10, 15] as const;
+/** Key marks are this wide (CSS px; Studio Pro's are 2 px, a finger needs a little more to see). */
+const KEY_WIDTH = 3;
+
 /** The strip's geometry for the test API (page px) — set by the mounted strip. */
 export interface StripProbe {
   readonly rect: { readonly x: number; readonly y: number; readonly w: number; readonly h: number };
@@ -88,6 +98,17 @@ export interface StripProbe {
   readonly x1: number;
   readonly start: number;
   readonly end: number;
+  /** The ruler as drawn (ST-T10-RULER): frames between ticks and between numbers, the numbers and the playhead's box. */
+  readonly tickStep: number;
+  readonly labelStep: number;
+  readonly ticks: number;
+  readonly labels: readonly {
+    readonly frame: number;
+    readonly text: string;
+    readonly left: number;
+    readonly width: number;
+  }[];
+  readonly playhead: { readonly frame: number; readonly text: string; readonly x: number } | null;
 }
 
 const probes = new WeakMap<object, () => StripProbe | null>();
@@ -153,111 +174,114 @@ export function ThreadStrip({
       };
     };
 
+    /** The last ruler drawn (the test API's probe reads it). */
+    let drawn: { marks: RulerMarks | null; playhead: { frame: number; text: string; x: number } | null } = {
+      marks: null,
+      playhead: null,
+    };
+
     const draw = (): void => {
       raf = 0;
       if (width <= 0 || height <= 0) return;
       const s = scene();
-      const text = cssVar(canvas, '--text', '#e8e8ea');
-      const text3 = cssVar(canvas, '--text-3', '#8a8c94');
-      const border = cssVar(canvas, '--border', '#3a3c44');
-      const accent = cssVar(canvas, '--accent', '#7c5cff');
-      const playhead = cssVar(canvas, '--playhead', accent);
-      const keyColour = cssVar(canvas, '--key-default', text);
-      const keySelected = cssVar(canvas, '--key-selected', '#ffcc33');
-      const range = cssVar(canvas, '--range-select', 'rgba(124,92,255,0.25)');
-      const rangeEdge = cssVar(canvas, '--range-select-edge', accent);
+      const field = cssVar(canvas, '--bg-field', '#17181b');
+      const tickColour = cssVar(canvas, '--text-3', '#969ba6');
+      const minorColour = cssVar(canvas, '--grid-major', '#4b4e58');
+      const playhead = cssVar(canvas, '--playhead', '#ff8a3d');
+      const playheadText = cssVar(canvas, '--bg-app', '#1b1c1f');
+      const keyColour = cssVar(canvas, '--key-tick', '#e5484d');
+      const keySelected = cssVar(canvas, '--sel', '#ffffff');
+      const keyBetween = cssVar(canvas, '--key-breakdown', '#3fcf8e');
+      const range = cssVar(canvas, '--range-select', 'rgba(229,72,77,0.22)');
+      const rangeEdge = cssVar(canvas, '--range-select-edge', '#e5484d');
+      const font = `500 ${LABEL_FONT_PX}px ${cssVar(canvas, '--font-mono', 'ui-monospace, monospace')}`;
+      const snap = (v: number): number => Math.round(v * dpr) / dpr;
+      const line = Math.max(1, Math.round(dpr)) / dpr;
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
       g.clearRect(0, 0, width, height);
-      const mid = Math.round(height * 0.58);
       const { layout } = s;
-      // the track
-      g.strokeStyle = border;
-      g.lineWidth = 2;
+      // the slider's field (as Studio Pro's time slider)
+      g.fillStyle = field;
       g.beginPath();
-      g.moveTo(layout.x0, mid);
-      g.lineTo(layout.x1, mid);
-      g.stroke();
-      // beat ticks every 0.25 s, labels on the majors
-      if (s.ctx !== null) {
-        const ticks = beatTicks({ start: layout.start, end: layout.end }, s.ctx.fps);
-        const room = (layout.x1 - layout.x0) / Math.max(1, ticks.length);
-        g.font = `500 11px ${cssVar(canvas, '--font-ui', 'system-ui')}`;
-        g.textAlign = 'center';
-        g.fillStyle = text3;
-        g.strokeStyle = text3;
-        g.lineWidth = 1;
-        ticks.forEach((tick, index) => {
-          const x = Math.round(frameToX(layout, tick.frame)) + 0.5;
-          g.beginPath();
-          g.moveTo(x, mid - (tick.major ? 7 : 4));
-          g.lineTo(x, mid + (tick.major ? 7 : 4));
-          g.stroke();
-          const label = s.units === 'seconds' && tick.major && (room > 9 || Number.isInteger(tick.seconds));
-          if (label) g.fillText(tickLabel(tick.seconds, index === ticks.length - 1), x, mid - 11);
-        });
-        if (s.units === 'frames') {
-          // whole-frame labels (ST-T7-UNIT), their step from the zoom: 0 · 10 · 20 … or 0 · 12 · 24 …
-          const perFrame = (layout.x1 - layout.x0) / Math.max(1, layout.end - layout.start);
-          const labels = frameLabels(layout, frameStep(s.ctx.fps, perFrame));
-          labels.forEach((frame, index) => {
-            const x = Math.round(frameToX(layout, frame)) + 0.5;
-            g.beginPath();
-            g.moveTo(x, mid - 5);
-            g.lineTo(x, mid + 5);
-            g.stroke();
-            g.fillText(frameLabel(frame, index === labels.length - 1), x, mid - 11);
-          });
-        }
-      }
-      // the band
+      g.roundRect(0, 0, width, height, 8);
+      g.fill();
+      g.font = font;
+      g.textBaseline = 'alphabetic';
+      g.textAlign = 'left';
+      const marks =
+        s.ctx === null
+          ? null
+          : rulerMarks(layout, width, s.ctx.range, s.ctx.fps, s.units, (text) => g.measureText(text).width);
+      // the band, under the ruler
       if (s.band !== null) {
-        const a = frameToX(layout, s.band.start - 0.5);
-        const b = frameToX(layout, s.band.end + 0.5);
+        const a = snap(frameToX(layout, s.band.start - 0.5));
+        const b = snap(frameToX(layout, s.band.end + 0.5));
         g.fillStyle = range;
-        g.fillRect(a, mid - 12, Math.max(2, b - a), 24);
+        g.fillRect(a, 0, Math.max(2, b - a), height);
         g.fillStyle = rangeEdge;
-        g.fillRect(a - 1.5, mid - 14, 3, 28);
-        g.fillRect(b - 1.5, mid - 14, 3, 28);
+        g.fillRect(a, 0, 2, height);
+        g.fillRect(b - 2, 0, 2, height);
       }
-      // key dots (diamonds): faint without a selection, hollow for in-betweens
-      const dragging = press !== null && press.phase === 'retime' && press.grab.kind === 'dot' ? press : null;
-      for (const dot of s.dots) {
-        const frame =
-          dragging !== null && dragging.grab.kind === 'dot' && dragging.grab.dot === dot ? dragging.at : dot.frame;
-        const x = frameToX(layout, frame);
-        const r = 6;
-        g.globalAlpha = s.faint ? 0.45 : 1;
-        g.beginPath();
-        g.moveTo(x, mid - r);
-        g.lineTo(x + r, mid);
-        g.lineTo(x, mid + r);
-        g.lineTo(x - r, mid);
-        g.closePath();
-        const colour = dot.selected ? keySelected : keyColour;
-        if (dot.inBetween) {
-          g.strokeStyle = colour;
-          g.lineWidth = 2;
-          g.stroke();
-        } else {
-          g.fillStyle = colour;
+      if (marks !== null) {
+        // a tick on every frame (or every 2nd, 5th … when they would crowd), taller where numbered
+        for (const level of [0, 1, 2] as const) {
+          g.fillStyle = level === 0 ? minorColour : tickColour;
+          g.beginPath();
+          for (const tick of marks.ticks) {
+            if (tick.level !== level) continue;
+            const h = TICK_HEIGHT[level];
+            g.rect(snap(frameToX(layout, tick.frame)), height - h, line, h);
+          }
           g.fill();
         }
-        g.globalAlpha = 1;
       }
-      // the playhead
-      const px = Math.round(frameToX(layout, s.frame)) + 0.5;
-      g.strokeStyle = playhead;
-      g.lineWidth = 2;
-      g.beginPath();
-      g.moveTo(px, 4);
-      g.lineTo(px, height - 4);
-      g.stroke();
-      g.fillStyle = playhead;
-      g.beginPath();
-      g.arc(px, 6, 5, 0, Math.PI * 2);
-      g.fill();
-      canvas.setAttribute('aria-valuetext', s.ctx === null ? w.noClip : timeText(s.frame, s.ctx.fps, s.units));
-      canvas.setAttribute('aria-valuenow', String(Math.round(s.frame)));
+      // the playhead on its whole frame, its number in a box on the ruler (the numbers under the box give way)
+      const frame = Math.round(s.frame);
+      const px = frameToX(layout, frame);
+      const onStrip = px >= -40 && px <= width + 40;
+      const headText = s.ctx === null || s.units === 'frames' ? String(frame) : secondsLabel(frame, s.ctx.fps);
+      const boxWidth = Math.ceil(g.measureText(headText).width) + 8;
+      const bx = snap(Math.min(Math.max(px - boxWidth / 2, 0), Math.max(width - boxWidth, 0)));
+      const labels =
+        marks === null
+          ? []
+          : marks.labels.filter(
+              (label) => !onStrip || label.left + label.width + 2 <= bx || bx + boxWidth + 2 <= label.left,
+            );
+      g.fillStyle = tickColour;
+      for (const label of labels) g.fillText(label.text, label.left, LABEL_FONT_PX);
+      // key marks on their frames: red, white when selected, green for in-betweens; faint without a selection
+      const dragging = press !== null && press.phase === 'retime' && press.grab.kind === 'dot' ? press : null;
+      for (const pass of [0, 1, 2] as const) {
+        g.fillStyle = pass === 0 ? keyColour : pass === 1 ? keyBetween : keySelected;
+        g.globalAlpha = s.faint ? 0.45 : 1;
+        g.beginPath();
+        for (const dot of s.dots) {
+          const kind = dot.selected ? 2 : dot.inBetween ? 1 : 0;
+          if (kind !== pass) continue;
+          const at =
+            dragging !== null && dragging.grab.kind === 'dot' && dragging.grab.dot === dot ? dragging.at : dot.frame;
+          const x = frameToX(layout, at);
+          g.rect(snap(x - KEY_WIDTH / 2), LABEL_STRIP + 2, KEY_WIDTH, height - LABEL_STRIP - 4);
+        }
+        g.fill();
+      }
+      g.globalAlpha = 1;
+      let head: { frame: number; text: string; x: number } | null = null;
+      if (onStrip) {
+        g.fillStyle = playhead;
+        g.fillRect(snap(px - 1), 0, 2, height);
+        g.beginPath();
+        g.roundRect(bx, 0, boxWidth, LABEL_STRIP, 3);
+        g.fill();
+        g.fillStyle = playheadText;
+        g.textAlign = 'center';
+        g.fillText(headText, bx + boxWidth / 2, LABEL_FONT_PX);
+        head = { frame, text: headText, x: px };
+      }
+      drawn = { marks: marks === null ? null : { ...marks, labels }, playhead: head };
+      canvas.setAttribute('aria-valuetext', s.ctx === null ? w.noClip : timeText(frame, s.ctx.fps, s.units));
+      canvas.setAttribute('aria-valuenow', String(frame));
       canvas.setAttribute('aria-valuemin', String(s.ctx?.range.start ?? 0));
       canvas.setAttribute('aria-valuemax', String(s.ctx?.range.end ?? 60));
     };
@@ -615,6 +639,11 @@ export function ThreadStrip({
         x1: s.layout.x1,
         start: s.layout.start,
         end: s.layout.end,
+        tickStep: drawn.marks?.tickStep ?? 0,
+        labelStep: drawn.marks?.labelStep ?? 0,
+        ticks: drawn.marks?.ticks.length ?? 0,
+        labels: drawn.marks?.labels.map(({ frame, text, left, width: w }) => ({ frame, text, left, width: w })) ?? [],
+        playhead: drawn.playhead,
       };
     });
 

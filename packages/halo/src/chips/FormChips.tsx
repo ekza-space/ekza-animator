@@ -10,7 +10,10 @@ import { Icon } from '../halo/icons';
 import { en } from '../i18n/en';
 import type { HaloController } from '../shell/controller';
 import { useHaloStore } from '../shell/store';
-import { chipLabel, chipOf } from './EchoChips';
+import { sceneFps } from '../stages/animate/model';
+import { currentFrame, threadContext, timeText } from '../thread/strip/model';
+import { useTimeUnit } from '../thread/units';
+import { type ChipTime, chipLabel, chipOf } from './EchoChips';
 
 type Values = Readonly<Record<string, unknown>>;
 
@@ -18,10 +21,13 @@ function FieldChip({
   param,
   value,
   onChange,
+  time,
 }: {
   readonly param: ParamDef;
   readonly value: unknown;
   readonly onChange: (value: unknown) => void;
+  /** Settings › Time and the rate: a frame-count param reads in its unit (P-T7-8). */
+  readonly time: ChipTime;
 }): JSX.Element | null {
   if (param.kind === 'bool') {
     return <ToggleChip label={chipLabel(param)} pressed={value === true} onPressedChange={onChange} />;
@@ -46,7 +52,7 @@ function FieldChip({
     );
   }
   if (param.kind === 'data') return null;
-  const shape = chipOf(param);
+  const shape = chipOf(param, time);
   const stored = typeof value === 'number' ? value : typeof param.default === 'number' ? param.default : 0;
   return (
     <ValueChip
@@ -80,9 +86,12 @@ export default function FormChips({
     [ctx.app, pending],
   );
   const [values, setValues] = useState<Values>(() => (form === null ? {} : formDefaults(form)));
+  const thread = threadContext(ctx.app);
+  const timeOf: ChipTime = { units: useTimeUnit(controller), fps: thread?.fps ?? sceneFps(ctx.app) };
   if (pending === null || form === null) return null;
   const label = ctx.app.operators.get(pending.op)?.label ?? pending.op;
-  const time = ctx.app.session.getState().time.sceneFrame;
+  // the session's time the run reads (*at 15 f*, *at 0.50 s*: Settings › Time)
+  const time = timeText(currentFrame(ctx.app, thread), timeOf.fps, timeOf.units);
   const close = (): void => ctx.store.set({ form: null });
   const runForm = (): void => {
     const base = typeof pending.args === 'object' && pending.args !== null ? (pending.args as Values) : undefined;
@@ -107,11 +116,12 @@ export default function FormChips({
           key={param.name}
           param={param}
           value={values[param.name]}
+          time={timeOf}
           onChange={(value) => setValues((prev) => ({ ...prev, [param.name]: value }))}
         />
       ))}
       {form.fromSession.includes('time') ? (
-        <span className="px-2 text-touch-label text-fg-2">{en.chips.at(`frame ${time}`)}</span>
+        <span className="px-2 text-touch-label text-fg-2">{en.chips.at(time)}</span>
       ) : null}
       <TouchButton variant="ghost" aria-label={en.chips.cancel} data-testid="halo-form-cancel" onClick={close}>
         <Icon name="close" />

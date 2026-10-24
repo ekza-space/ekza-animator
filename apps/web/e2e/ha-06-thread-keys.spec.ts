@@ -5,6 +5,9 @@ import { call, runOk } from './helpers/test-api';
 import { cdp, fingerDrag, fingerHold, fingerTap, type Point, touchEvent, twoFingers } from './helpers/touch';
 
 // ha-06 the Thread and Keys (STUDIO-TOUCH-SPEC §10.2–§10.4, §5.2.1, §4.8; T7), `chrome-touch` (real touch through CDP):
+// - the ruler is a classic animation time slider (ST-T10-RULER): a tick on every frame, numbers every 5th or 10th frame
+//   by the zoom (every frame zoomed in), the first and last frame numbered, numbers never overlapping, the playhead's
+//   frame in a box;
 // - the Thread at rest is ▶ · time · the ruler · Rec · the three-way layer switch, inside the visible-target budget;
 //   tap the ruler to jump, drag it to scrub; the time readout opens the transport; ▶ plays and pauses, holding it
 //   offers repeat, once, ping-pong;
@@ -230,6 +233,39 @@ test.describe('ha-06: the Thread', () => {
       .toBeLessThan(1e-4);
   });
 
+  test('Reach previews the solved leg while dragging, and writes nothing until the lift (P-T7-1)', async ({
+    page,
+  }, testInfo) => {
+    touchOnly(testInfo);
+    test.setTimeout(90_000);
+    await openHalo(page);
+    await loadSample(page, 'polybot');
+    const goal = (await call(page, 'controls')).find((c) => c.name === 'L Leg IK')?.id ?? '';
+    await fingerTap(page, await controlFree(page, 'L Leg IK'));
+    await expect.poll(() => selectedControls(page)).toEqual([goal]);
+    await expect.poll(async () => (await animate(page)).reachPoint).not.toBeNull();
+    const at = (await animate(page)).reachPoint as Point;
+    // the drawn goal (the live pose; `boneWorld` evaluates the clip itself)
+    const drawn = await call(page, 'screenOfControl', goal, 'pane-single');
+    if (drawn === null) throw new Error('the goal is off screen');
+    const steps = (await call(page, 'history')).undo.length;
+    const s = await cdp(page);
+    await touchEvent(s, 'touchStart', [at]);
+    for (let i = 1; i <= 12; i++)
+      await touchEvent(s, 'touchMove', [{ x: at.x + (40 * i) / 12, y: at.y - (50 * i) / 12 }]);
+    // mid-drag: the leg already follows the finger (the preview source), and the history is untouched
+    await expect
+      .poll(async () => {
+        const now = await call(page, 'screenOfControl', goal, 'pane-single');
+        return now === null ? 0 : Math.hypot(now.x - drawn.x, now.y - drawn.y);
+      })
+      .toBeGreaterThan(30);
+    expect((await call(page, 'history')).undo.length).toBe(steps);
+    await touchEvent(s, 'touchEnd', []);
+    await s.detach();
+    await expect.poll(async () => (await call(page, 'history')).undo.at(-1)).toMatch(/^Reach/);
+  });
+
   test('Keys: a marquee on the rows selects keys; two fingers zoom; Push later keys', async ({ page }, testInfo) => {
     touchOnly(testInfo);
     test.setTimeout(90_000);
@@ -341,6 +377,71 @@ test.describe('ha-06: the Thread', () => {
     await expect(page.getByTestId('halo-docked-verbs')).toBeVisible();
   });
 
+  test('the ruler: a tick on every frame, numbered majors that never overlap, the playhead’s frame in a box', async ({
+    page,
+  }, testInfo) => {
+    touchOnly(testInfo);
+    await openHalo(page);
+    await loadSample(page, 'seed-san');
+    type Ruler = NonNullable<Awaited<ReturnType<typeof animate>>['thread']['ruler']>;
+    const ruler = async (): Promise<Ruler> => {
+      const r = (await animate(page)).thread.ruler;
+      if (r === null) throw new Error('no ruler');
+      return r;
+    };
+    const apart = (r: Ruler): boolean =>
+      r.labels.every(
+        (label, i) => i === 0 || (r.labels[i - 1]?.left ?? 0) + (r.labels[i - 1]?.width ?? 0) <= label.left,
+      );
+    // 60 f on an iPad: a tick on every frame, a number every 5th frame, 0 and 60 numbered
+    await freshAnimation(page, 'Sixty');
+    await expect.poll(async () => (await ruler()).ticks).toBe(61);
+    // at frame 0 the playhead's box shows the 0 itself; away from the ends both end numbers show
+    expect((await ruler()).playhead?.text).toBe('0');
+    await fingerTap(page, await rulerPoint(page, 30));
+    await expect.poll(async () => (await ruler()).playhead?.text).toBe('30');
+    let r = await ruler();
+    expect(r.tickStep).toBe(1);
+    expect(r.labelStep).toBe(5);
+    expect(r.labels[0]?.text).toBe('0');
+    expect(r.labels.at(-1)?.text).toBe('60');
+    expect(apart(r)).toBe(true);
+    // the playhead sits on a whole frame with its number in a box; the numbers under the box give way
+    await fingerTap(page, await rulerPoint(page, 22));
+    await expect.poll(async () => (await ruler()).playhead?.text).toBe('22');
+    r = await ruler();
+    expect(r.labels.some((label) => label.frame === 20)).toBe(false);
+    // 100 f: still a tick on every frame; numbers every 10th
+    const character = (await call(page, 'characters'))[0]?.id;
+    await runOk(page, 'clip.new', { character, name: 'Hundred', range: { start: 0, end: 100 } });
+    await expect.poll(async () => (await ruler()).ticks).toBe(101);
+    await fingerTap(page, await rulerPoint(page, 50));
+    await expect.poll(async () => (await ruler()).playhead?.text).toBe('50');
+    r = await ruler();
+    expect(r.tickStep).toBe(1);
+    expect(r.labelStep).toBe(10);
+    expect(r.labels[0]?.text).toBe('0');
+    expect(r.labels.at(-1)?.text).toBe('100');
+    expect(apart(r)).toBe(true);
+    // zoomed in: every frame numbered
+    const y = r.rect.y + r.rect.h / 2;
+    const mid = r.rect.x + r.rect.w / 2;
+    await twoFingers(
+      page,
+      [
+        { x: mid - 20, y },
+        { x: mid + 20, y },
+      ],
+      [
+        { x: mid - 260, y },
+        { x: mid + 260, y },
+      ],
+    );
+    await expect.poll(async () => (await ruler()).labelStep).toBe(1);
+    expect((await ruler()).tickStep).toBe(1);
+    expect(apart(await ruler())).toBe(true);
+  });
+
   test('time in frames by default; Settings › Time switches to seconds and the device keeps it; + New › Other…', async ({
     page,
   }, testInfo) => {
@@ -374,6 +475,11 @@ test.describe('ha-06: the Thread', () => {
     await page.keyboard.press('Escape');
     await expect.poll(async () => (await halo(page)).sheet).toBeNull();
     await expect(page.getByTestId('halo-thread-readout')).toHaveText('0.00 s');
+    // the ruler keeps a tick on every frame and numbers seconds (ST-T10-RULER)
+    await fingerTap(page, await rulerPoint(page, 30));
+    await expect.poll(async () => (await animate(page)).thread.ruler?.labels.at(-1)?.text).toBe('2.5 s');
+    expect((await animate(page)).thread.ruler?.tickStep).toBe(1);
+    expect((await animate(page)).thread.ruler?.ticks).toBe(76);
     // the device keeps a choice someone made
     expect(await page.evaluate(() => window.localStorage.getItem('ekza-studio:halo:time:v1'))).toBe('seconds');
     await openHalo(page);

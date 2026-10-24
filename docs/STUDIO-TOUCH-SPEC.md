@@ -1143,9 +1143,9 @@ the same canvas (§12.2): drag a dot (1 per dot), ✓ Done (1); no other UI open
 1. Tap the L foot control (1) → layer switch **Curves** (1) → channel chips: **Move Y** only (1).
 2. One-finger drag on empty Curves space: marquee over the contact keys (1) → the docked key Halo **Ease ▾ › Flat** (2)
    → ⟨Value⟩ chip: numpad 0, Done (1).
-3. Hold **⇆ Before** to compare (1). Curve Halo **Cycle ▾ › Cycle** for the loop seam, if needed (2).
+3. Hold **⇆ Before** to compare (1). Curve Halo **Cycle ▾ › Repeat** for the loop seam, if needed (2).
 
-**8–10 touches**, the same with fingers or the Pencil. Today in Pro: ≈ 25–30 precise touches. The automatic *Check feet*
+**8–10 touches**, the same with fingers or the Pencil (T10 measured 10 with both, on Seed-san's library Walk). Today in Pro: ≈ 25–30 precise touches. The automatic *Check feet*
 waits for motion-analysis P4.
 
 ### J5 — Mix animations from the library
@@ -1185,7 +1185,9 @@ waits for motion-analysis P4.
 3. The live line reads *"AI is keying R forearm…"*. The result is one History group, *"AI · Wave twice · 5 steps"*,
    with **Undo all** (1), **Compare** (hold) and Steps ▾.
 
-**4–5 touches.** On iPad: an honest card plus the *wave* recipe. Live AI on iPad is OQ-5.
+**4–5 touches** (T10 measured 5 with a fake agent session, *Undo all* included). The Ask sheet keeps the request and
+titles the group with it; the agent itself is asked in its own window (the bridge carries the agent's calls, not the
+user's words). On iPad: an honest card plus the *wave* recipe. Live AI on iPad is OQ-5.
 
 ### J9 — Continue the same project in Studio Pro
 
@@ -1297,11 +1299,11 @@ never imports Pro's `TimeSliderView`.
 | Element | Behaviour |
 |---|---|
 | At rest (L0) | ▶ · the time readout · the ruler · ● Rec · the layer switch `[Timeline │ Keys │ Curves]` |
-| Scale and units | **Frames** by default (owner, 2026-10-24: cycles are usually about 50 frames, at most 100, and animators count in frames; ST-T7-UNIT). Settings › Time: *Frames · Seconds* applies to the Thread's readout and ruler, every chip, an animation's Settings and the Curves axis; it is a per-device Halo preference, and a choice someone already made is kept. The ruler labels whole frames, its step chosen by the zoom: 0 · 10 · 20 … (0 · 12 · 24 … when twelve divides the fps). Keys always land on whole frames. Beat ticks every 0.25 s snap to the whole frame nearest each beat; when the fps does not divide 0.25 s (30 fps gives 7.5 frames), the ticks are drawn at those whole frames, so Halo and Pro always show the same timing. |
+| Scale and units | **Frames** by default (owner, 2026-10-24: cycles are usually about 50 frames, at most 100, and animators count in frames; ST-T7-UNIT). Settings › Time: *Frames · Seconds* applies to the Thread's readout and ruler, every chip, an animation's Settings and the Curves axis; it is a per-device Halo preference, and a choice someone already made is kept. **The ruler is a classic animation time slider** (owner, 2026-10-24: "a tick on every frame"; ST-T10-RULER), read the same way as Studio Pro's time slider: a tick on every frame of the visible span — every 2nd, then every 5th frame only when frames would be closer than about 3 pt; taller numbered ticks every 5th or 10th frame by the zoom, and every frame when zoomed in, with a half-height tick between two numbers; the first and last frame of the animation always numbered (the playhead's box shows the frame it covers); numbers never overlap. No beat ticks. Under *Seconds* the ticks stay on frames and the numbers read seconds (0.1, 0.2, 0.5, 1 s … where they fall on whole frames). Keys always land on whole frames. |
 | Expanded transport | Tap the time readout: start, previous key, previous frame, next frame, next key, end (`time.step` ±1 for the frame steps, Pro's Alt+, / Alt+.); Speed: *Realtime · Every frame · Half · Double* (the four `PlaybackSpeed` values; a 0.25× for Perform would be a new kernel value, T16); *Range* shows the range brackets. Tap outside to collapse. |
 | ▶ | Tap: play / pause. Long-press: loop / once / oscillate, and play backwards. |
-| Key dots | Only the selection's keys, plus a faint summary row when nothing is selected. Hollow dots are in-betweens. |
-| Playhead | Tap the ruler to jump; drag the playhead to scrub; with the Thumb key's *Carry pose*, a drag scrubs while carrying the pose. Long-press the playhead for its Halo (§6.2): Paste keys ▾, Insert frame, Remove frame, Delete time…, Set range. |
+| Key marks | Only the selection's keys, as marks on their frames as on Studio Pro's time slider: red keys, white selected keys, green in-betweens, plus a faint summary row when nothing is selected. |
+| Playhead | On a whole frame, its frame number in a small box on the ruler. Tap the ruler to jump; drag the playhead to scrub; with the Thumb key's *Carry pose*, a drag scrubs while carrying the pose. Long-press the playhead for its Halo (§6.2): Paste keys ▾, Insert frame, Remove frame, Delete time…, Set range. |
 | Range | The brackets from *Range* in the expanded transport: drag them for the playback range; long-press a bracket for *Set as animation range*. |
 | Band | A Pencil drag along the ruler, or a finger long-press on the ruler and then a drag. Drag the body to move, drag the ends to stretch, Thumb *Copy* + drag to copy. The band's Halo (§6.2) has Copy and Paste ▾. |
 | Blend | When the playhead sits between two keys of the selection, a ⟨Blend 50 %⟩ chip appears. Scrubbing previews; lifting runs `key.tween` with that value as one undo step (a pre-run form, because `key.tween` is not adjustable). Its long-press picks blend / toward a neighbour / ease / push-pull / to default; scrub past either end to overshoot. |
@@ -1320,11 +1322,20 @@ never imports Pro's `TimeSliderView`.
 
 ### 10.5 Curves (layer 2, the Graph Editor)
 
-Pro's `GraphEditorController` behind a touch adapter. Its view state persists through a callback, not dockview panel
-params. The focus registry (`attachGraphEditor` / `focusGraphEditor`) moves into curve-editor (§20.3 item 18), so the
-adapter registers `graph.frame`, `select.curveKeys` and `graph.view.setMode` exactly as Pro's view does.
+Pro's `GraphEditorController` behind a touch adapter (`attachGraphEditorTouch`), drawn at the controller's size and
+shown 1.8× larger, like the Keys layer's rows. Its view state persists through a callback, not dockview panel params.
+The focus registry (`attachGraphEditor` / `focusGraphEditor`) moves into curve-editor (§20.3 item 18), so the layer
+registers `graph.frame`, `select.curveKeys` and `graph.view.setMode` exactly as Pro's view does (as built, T10:
+ST-T10-1 … ST-T10-8).
 
-- **Channels**: chips such as `Move X ● Move Y ● Turn…`, *Only animated* (keyed only), a filter field, and the curves of
+- **Layout** (wireframe D): the header holds the active animation's chip (the Animations row gives way while Curves
+  is open), the listed part, the channel chips and *⇆ Before*; then the tools, the ⟨Axis⟩ chip and the docked key Halo;
+  the curves with their time axis under them (frames by default, seconds under Settings › Time, drawn like the
+  Thread's ruler; tap or drag it to move the playhead); and a foot row with the selected keys' chips and the curve's
+  Halo. The layer takes 44 % of the frame (at least 300 pt), so the canvas keeps the rest. On a phone the rows scroll
+  sideways.
+- **Channels**: chips such as `Move X ● Move Y ● Turn…` (one tap: that channel alone; the Thumb key's *Select more*:
+  one more; `select.channels`), *Only keyed* and a filter field when several parts are listed, and the curves of
   **every control selected in the Keys layer** (several controls at once, v1).
 - **Tools**: a *Select · Move · Insert · Scale* segmented control in the header. Scale is `graph.keys.scale` with a
   region box (Pro's R in the Graph).
@@ -1334,18 +1345,24 @@ adapter registers `graph.frame`, `select.curveKeys` and `graph.view.setMode` exa
   - the axis locks automatically after 8 pt of travel, and the ⟨Axis⟩ chip or Thumb *Axis* switches between time,
     value and free.
 - **Fields**: Echo chips ⟨Time⟩ ⟨Value⟩ ⟨In angle⟩ ⟨Out angle⟩ ⟨In weight⟩ ⟨Out weight⟩ for the selected keys, in the
-  units of Settings › Time.
+  units of Settings › Time. Where the keys differ a chip reads ±: a scrub moves them all by the same amount, a typed
+  number sets them all (Pro's fields do the same).
 - **Ease**: Smooth (auto), Linear, Flat, Step, plus in More: Spline, Clamped, Plateau, Stepped next, Fixed; Break,
   Unify, Weighted, Lock weight (`graph.tangent.*`, `graph.curve.setWeighted`).
 - **Curve tools**: *Fewer keys* (`graph.curves.simplify`, a pre-run form with ⟨tolerance⟩), *Fix flips* (Euler filter),
   *Cycle ▾* (pre/post: constant, linear, cycle, cycle with offset, oscillate), *Key curves here*, *Insert key* (a petal
   on the curve).
-- **Compare**: hold *⇆ Before* to see the buffer snapshot taken automatically when Curves opened. Snapshot, Swap and
-  Clear are in More.
+- **Compare**: hold *⇆ Before* to see the buffer snapshot taken automatically when Curves opened (and when a new curve
+  is shown); the snapshot is session state, drawn only while the button is held, and forgotten when Curves closes.
+  Snapshot, Swap and Clear are in More.
+- **The curve's Halo** (the foot row): *Ease all ▾ · Fewer keys · Fix flips · Cycle ▾ · Insert key · ⋯*, about the
+  tapped curve, else the selected keys' curves, else every shown one. While keys are selected their Halo's *Ease*
+  applies, so *Ease all* moves to More and *Cycle ▾* stays one tap away (J4).
 - **Views**: *Real · Fit · Stacked* (abs / norm / stack) in More. Double-tap frames the selection; double-tap empty space
   frames all.
 - **Numbers beside the curves**: at 1180 pt and wider, Numbers is pinned as a 300 pt column (wireframe D), so an
-  animator sees curves and channels together on an iPad.
+  animator sees curves and channels together on an iPad. *Not built in T10* (ST-T10-20): the frame has one sheet
+  slot; Numbers opens from the breadcrumb.
 - **Paste**: merge / replace / insert from the key, band or playhead Halo.
 - **Open in the Pro layout ▸** opens Pro's Polish preset framed on the same curves (`then: preset`, §16). It is a
   convenience only: everything above works in Halo.

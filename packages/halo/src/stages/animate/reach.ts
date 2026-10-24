@@ -9,12 +9,20 @@
 // gesture is Reach's. A tap stays the grammar's (it reopens the Halo), a long-press its ring, two fingers navigation.
 //
 // The goal moves on the plane through the hand that faces the camera. While dragging, a ring marks where the hand
-// goes (the limb follows on lift: the solved preview needs `solveReach` exported from the wrappers' chunk, P-T7-1).
+// goes and the limb follows it: the wrappers' own solve (`loadReachSolver`, P-T7-1, T10) drives the character through
+// the evaluation's 'preview' channel source — the keyed pose with the solved limb, nothing written — until the lift
+// runs `pose.reach` once.
 // Head and hips are not reachable yet (`pose.goals` has no spine solve, P-T5A-5): they turn with the ring. A limb in FK
 // at the playhead keeps its own drag (ST-T7-4): `pose.reach` would switch it to IK over a time band only; *Hand leads*
 // makes the limb Reach.
-import type { CharacterId, ClipId, ControlId } from '@ekza-studio/doc';
-import { type EditorApp, limbOfControlApp } from '@ekza-studio/editor-core';
+import type { ChannelValues, CharacterId, ClipId, ControlId } from '@ekza-studio/doc';
+import {
+  type EditorApp,
+  limbOfControlApp,
+  loadReachSolver,
+  type ReachSolver,
+  registerChannelSourceProvider,
+} from '@ekza-studio/editor-core';
 import type { ViewportManager } from '@ekza-studio/viewport';
 import type { ShellContext } from '../../shell/context';
 import { PANE } from '../../shell/stage';
@@ -165,10 +173,81 @@ export function installReach(ctx: ShellContext, count: () => void): () => void {
   let cancelling = false;
   const touches = new Set<number>();
 
+  // P-T7-1: the solved limb while dragging (the wrappers' chunk loads with the first Reach drag)
+  let solver: ReachSolver | null = null;
+  let solverLoad: Promise<void> | null = null;
+  const ensureSolver = (): void => {
+    solverLoad ??= loadReachSolver(app).then(
+      (solve) => {
+        solver = solve;
+        // the drag may already be under way: show where it is now
+        const current = candidate;
+        if (current?.stolen === true && current.target !== null) showSolved(current, current.target);
+      },
+      () => {
+        solverLoad = null;
+      },
+    );
+  };
+  let preview: {
+    readonly character: CharacterId;
+    readonly base: ReadonlyMap<ControlId, ChannelValues>;
+    values: ReadonlyMap<ControlId, ChannelValues> | null;
+    version: number;
+    readonly dispose: () => void;
+  } | null = null;
+  /** The character's whole pose as it shows now (the preview source replaces every channel). */
+  const poseOf = (character: CharacterId): Map<ControlId, ChannelValues> => {
+    const rig = app.store.get('characters', character)?.rig;
+    const pose = new Map<ControlId, ChannelValues>();
+    if (rig === undefined) return pose;
+    for (const control of app.store.query.controlsOfRig(rig)) {
+      const values: Record<string, number> = { ...app.evaluation.channelValues(control.id) };
+      for (const [name, value] of Object.entries(app.evaluation.attrValues(control.id))) values[`@${name}`] = value;
+      pose.set(control.id, values);
+    }
+    return pose;
+  };
+  const showSolved = (current: Candidate, target: Vec3): void => {
+    if (solver === null) return;
+    const clip = app.store.get('clips', current.clip);
+    const frame = app.evaluation.clipFrame(current.character);
+    if (clip === undefined || frame === null) return;
+    let solved: ReadonlyMap<ControlId, ChannelValues>;
+    try {
+      solved = solver(app, clip, current.limb as never, frame, {
+        position: toCharacter(current.placement, target),
+      }).values;
+    } catch {
+      return;
+    }
+    if (preview === null) {
+      const character = current.character;
+      const state = { character, base: poseOf(character), values: null, version: 0 };
+      const dispose = registerChannelSourceProvider('preview', {
+        values: (who) => (who === character ? (preview?.values ?? null) : null),
+        get version() {
+          return preview?.version ?? 0;
+        },
+      });
+      preview = { ...state, dispose };
+    }
+    const next = new Map(preview.base);
+    for (const [control, values] of solved) next.set(control, { ...next.get(control), ...values });
+    preview.values = next;
+    preview.version++;
+    app.requestFrame();
+  };
+
   const clear = (): void => {
     candidate = null;
     mark?.remove();
     mark = null;
+    if (preview !== null) {
+      preview.dispose();
+      preview = null;
+      app.requestFrame();
+    }
     if (store.get().breathing) store.set({ breathing: false });
   };
 
@@ -275,6 +354,7 @@ export function installReach(ctx: ShellContext, count: () => void): () => void {
       }
       store.set({ breathing: true, halo: null });
       mark = marker(current.pane.parentElement);
+      ensureSolver();
     }
     e.stopPropagation();
     e.preventDefault();
@@ -290,6 +370,7 @@ export function installReach(ctx: ShellContext, count: () => void): () => void {
       mark.style.left = `${screen.x + (current.pane as HTMLElement).offsetLeft}px`;
       mark.style.top = `${screen.y + (current.pane as HTMLElement).offsetTop}px`;
     }
+    showSolved(current, target);
   };
 
   const onUp = (e: PointerEvent): void => {

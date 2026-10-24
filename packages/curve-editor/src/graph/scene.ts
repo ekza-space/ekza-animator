@@ -32,6 +32,8 @@ export interface GraphScene {
   readonly lanes: readonly { readonly curve: CurveId; readonly label: string; readonly color: string }[] | null;
   /** M2a §5.15.3: the scale tool's region box (null without the tool or without selected keys). */
   readonly region: RegionBox | null;
+  /** T10: false leaves the frame numbers to the shell's own time axis (absent: drawn). */
+  readonly frameLabels?: boolean;
 }
 
 export interface Point {
