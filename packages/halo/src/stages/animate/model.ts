@@ -15,8 +15,8 @@ export const DEFAULT_FPS: Fps = { num: 30, den: 1 };
 export const NEW_LENGTHS = [1, 2, 4] as const;
 export type NewLength = (typeof NEW_LENGTHS)[number];
 
-/** The Animations row shows at most this many chips (§4.8: the row's five targets with + New, Library and ⋯). */
-export const MAX_CHIPS = 2;
+/** The Animations row shows this many chips: the active one, and `+n` for the rest (§4.8, ST-T7-2). */
+export const MAX_CHIPS = 1;
 
 /** One operator call (the shape both shells' runs take). */
 export interface OpCall {
@@ -46,8 +46,8 @@ export function animationsOf(app: EditorApp, character: CharacterId | null): rea
 }
 
 /**
- * The chips the row shows (§4.8): the active animation first, then the most recent others, at most `MAX_CHIPS`; the
- * rest fold into one `+n` chip that lists them all.
+ * The chips the row shows (§4.8, ST-T7-2): the active animation (else the most recent one), at most `max`; the rest
+ * fold into one `+n` chip that lists them all.
  */
 export function rowChips(
   clips: readonly ClipRecord[],
@@ -57,8 +57,7 @@ export function rowChips(
   if (clips.length <= max) return { shown: clips, folded: 0 };
   const head = clips.find((clip) => clip.id === active);
   const rest = clips.filter((clip) => clip.id !== active).reverse();
-  const room = max - 1; // the `+n` chip takes one place
-  const shown = [...(head === undefined ? [] : [head]), ...rest].slice(0, Math.max(1, room));
+  const shown = [...(head === undefined ? [] : [head]), ...rest].slice(0, Math.max(1, max));
   const order = new Map(clips.map((clip, index) => [clip.id, index]));
   const sorted = [...shown].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
   return { shown: sorted, folded: clips.length - sorted.length };

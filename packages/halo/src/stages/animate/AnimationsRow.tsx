@@ -1,8 +1,9 @@
-// The Animations row (STUDIO-TOUCH-SPEC §10.6, §4.8; T7): the character's animations as chips above the Thread — the
-// first tap on a chip makes it active *and* docks its Halo (Play, Loop it, Rename, Duplicate ▾, Settings, ⋯) — then
-// `+ New` (a name and a length of 1, 2 or 4 s), the ⟨Blend⟩ chip when the playhead sits between two keys of the
-// selection, `Library ▸` and ⋯ (empty space's More, pinned). At most two chips show (the row's five targets, §4.8); the
-// rest fold into a `+n` chip that lists them all.
+// The Animations row (STUDIO-TOUCH-SPEC §10.6, §4.8; T7): the active animation's chip above the Thread — the first
+// tap on a chip makes it active *and* docks its Halo (Play, Loop it, Rename, Duplicate ▾, Settings, ⋯) — the others
+// behind one `+n` chip that lists them all, then `+ New` (a name and a length of 1, 2 or 4 s), the ⟨Blend⟩ chip when
+// the playhead sits between two keys of the selection, and `Library ▸`. Three or four targets at rest, so Animate stays
+// within §4.8's 22 with the Path's Next chip shown (ST-T7-2); empty space's other verbs (Key all, All controls, Reset
+// pose) and its ⋯ More are its long-press ring.
 import type { ClipRecord } from '@ekza-studio/doc';
 import { Cluster, TouchButton, TouchIconButton, ValueChip } from '@ekza-studio/ui/touch';
 import { type EditorApp, loadTargetKit } from '@ekza-studio/editor-core';
@@ -11,7 +12,6 @@ import { animateWords } from '../../i18n/animate';
 import type { HaloController } from '../../shell/controller';
 import { useDocumentVersion, useSessionValue } from '../../shell/hooks';
 import { between, currentFrame, keyDots, threadContext } from '../../thread/strip/model';
-import { EMPTY_NOUN } from '../../verbs/nouns';
 import { AnimateGlyph } from './icons';
 import {
   activeClip,
@@ -286,7 +286,7 @@ export function AnimationsRow({
   const character = animateCharacter(app);
   const clips = animationsOf(app, character);
   const active = activeClip(app, character);
-  const { shown, folded } = rowChips(clips, active?.id ?? null, compact ? 1 : undefined);
+  const { shown, folded } = rowChips(clips, active?.id ?? null);
   const count = (): void => store.set((s) => ({ touches: s.touches + 1 }));
   const pick = (clip: ClipRecord): void => {
     count();
@@ -359,17 +359,6 @@ export function AnimationsRow({
           {compact ? null : w.library}
           {compact ? null : <AnimateGlyph name="right" size={16} />}
         </button>
-        <TouchIconButton
-          label={w.more}
-          icon={<AnimateGlyph name="more" />}
-          data-testid="halo-animate-more"
-          className="shrink-0 rounded-full border border-line bg-panel shadow-touch"
-          onClick={() => {
-            count();
-            // empty space's More (§6.2 first row, docked): Key all, All controls, Reset pose, the time rows
-            store.set({ sheet: 'more', sheetArgs: null, sheetNoun: EMPTY_NOUN, halo: null, focus: null });
-          }}
-        />
       </div>
     </div>
   );
