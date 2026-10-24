@@ -83,7 +83,6 @@ export const VERB_TABLE: Readonly<Record<NounKind, readonly PetalDef[]>> = {
         choice('Top', 'imagePlane.import', { camera: 'top' }),
       ],
     },
-    { id: 'paste', plain: 'Paste', op: 'edit.paste', stages: ['make'], icon: 'clipboard' },
     { id: 'showAll', plain: 'Show all', op: 'view.showAll', stages: ['make'], icon: 'eye' },
     { id: 'palette', plain: 'Palette', op: 'palette.create', stages: ['paint'], icon: 'palette' },
     { id: 'fillPart', plain: 'Fill part', op: 'mesh.paint.fillShell', stages: ['paint'], icon: 'paint-bucket' },

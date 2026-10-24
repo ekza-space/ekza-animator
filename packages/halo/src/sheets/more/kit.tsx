@@ -5,7 +5,7 @@
 import type { ParamDef } from '@ekza-studio/anim-core';
 import type { EditorApp } from '@ekza-studio/editor-core';
 import { Numpad, Segmented, Sheet, SheetGroup, ToggleChip, TouchButton, ValueChip } from '@ekza-studio/ui/touch';
-import { type JSX, type ReactNode, useCallback, useState, useSyncExternalStore } from 'react';
+import { type JSX, type ReactNode, useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import type { HaloSheetContext } from '../../manifest/sheets';
 import type { SheetId } from '../../manifest/types';
 
@@ -29,6 +29,12 @@ export function HaloSheet({
   actions,
   children,
 }: HaloSheetFrameProps): JSX.Element {
+  // A scrolling body must be reachable by keyboard (WCAG 2.1.1, axe `scrollable-region-focusable`) even when the
+  // sheet holds no control (About of a character from a file). The kit's body has no tabindex yet (patch P-T6B-4).
+  useEffect(() => {
+    const body = document.querySelector<HTMLElement>(`[data-testid="halo-sheet-${id}"] [data-touch-scroll]`);
+    if (body !== null && !body.hasAttribute('tabindex')) body.tabIndex = 0;
+  }, [id]);
   return (
     <Sheet
       open
@@ -93,7 +99,7 @@ export function FieldRow(props: {
     <div className="flex min-h-[52px] items-center gap-3 px-2.5 py-1.5" data-testid={props.testId}>
       <span className="flex min-w-0 flex-1 flex-col" {...props.labelHandlers}>
         <span className="font-medium text-fg">{props.label}</span>
-        {props.pro === undefined || props.pro === '' ? null : (
+        {props.pro === undefined || props.pro === '' || props.pro === props.label ? null : (
           <span className="truncate text-touch-label text-fg-3">{props.pro}</span>
         )}
       </span>

@@ -126,7 +126,9 @@ test('no floating item covers the selection', async ({ page }) => {
     const point = await call(page, 'screenOfControl', control.id, pane);
     if (point === null) continue;
     for (const testId of ['halo-path', 'halo-status-corner', 'halo-next-chip']) {
-      const box = await page.getByTestId(testId).boundingBox();
+      const floater = page.getByTestId(testId);
+      if ((await floater.count()) === 0) continue;
+      const box = await floater.boundingBox();
       if (box === null) continue;
       const inside =
         point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height;

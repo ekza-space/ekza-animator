@@ -231,7 +231,10 @@ export function HaloT6bHarness(): JSX.Element {
           ))}
         </Cluster>
         {Open === null || sheet === null ? null : (
-          <div className="absolute inset-0 top-14" data-testid="halo-sheet-host">
+          <div
+            className="pointer-events-none absolute inset-0 top-14 [&>*]:pointer-events-auto"
+            data-testid="halo-sheet-host"
+          >
             <Suspense fallback={null}>
               <Open ctx={ctx} {...(sheet.args === undefined ? {} : { args: sheet.args })} />
             </Suspense>
