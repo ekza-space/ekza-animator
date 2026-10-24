@@ -97,6 +97,15 @@ const LOUPE: readonly LoupeCandidate[] = [
   { id: 'body', label: 'Body mesh' },
 ];
 
+// The gallery's own one-off looks are inline styles, so its page adds no utilities to the shared stylesheet.
+const CANVAS_BACKGROUND =
+  'radial-gradient(circle at 50% 120%, rgba(124, 92, 255, 0.08), transparent 60%), linear-gradient(var(--viewport-top), var(--viewport-bottom))';
+const SELECTED_FACE = {
+  borderRadius: 6,
+  border: '2px solid var(--comp-selected)',
+  background: 'rgba(255, 163, 26, 0.35)',
+} as const;
+
 type Stage = 'make' | 'paint' | 'rig' | 'animate';
 type Pick = 'whole' | 'points' | 'edges' | 'faces';
 type Scale = '0.85' | '1' | '1.25' | '1.5';
@@ -215,11 +224,16 @@ export function TouchGallery(): JSX.Element {
 
   return (
     <TouchRoot uiScale={Number(scale)} className="min-h-dvh bg-app">
-      <main className="mx-auto flex max-w-[1240px] flex-col gap-6 px-(--touch-inset-left) py-6">
+      <main className="mx-auto flex flex-col gap-6 px-(--touch-inset-left) py-6" style={{ maxWidth: 1240 }}>
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h1 className="text-[26px] leading-tight font-semibold tracking-[-0.02em]">Touch kit</h1>
-            <p className="max-w-[60ch] text-fg-2">
+            <h1
+              className="text-touch-title font-semibold"
+              style={{ fontSize: 26, lineHeight: 1.15, letterSpacing: '-0.02em' }}
+            >
+              Touch kit
+            </h1>
+            <p className="text-fg-2" style={{ maxWidth: '60ch' }}>
               The primitives of Ekza Studio’s Simple layout: 44 px targets, 16 px gutters and input text, a visible
               focus ring, reduced motion honoured. Tap a petal, drag a value chip sideways, tap it for the numpad,
               long-press the canvas for the ring.
@@ -243,22 +257,19 @@ export function TouchGallery(): JSX.Element {
           aria-label="Canvas demo"
           ref={canvas}
           data-testid="touch-canvas"
-          className={`relative ${compact ? 'h-[1180px]' : 'h-[940px]'} overflow-hidden rounded-[22px] border border-line bg-linear-to-b from-(--viewport-top) to-(--viewport-bottom)`}
+          className="relative overflow-hidden rounded-touch-card border border-line"
+          style={{ height: compact ? 1180 : 940, background: CANVAS_BACKGROUND }}
         >
           {/* The empty canvas: tap clears, long-press opens the ring at the finger. */}
-          <div
-            aria-hidden="true"
-            data-testid="touch-backdrop"
-            className="absolute inset-0 touch-none bg-[radial-gradient(circle_at_50%_120%,rgba(124,92,255,0.08),transparent_60%)]"
-            {...backdrop}
-          />
+          <div aria-hidden="true" data-testid="touch-backdrop" className="absolute inset-0 touch-none" {...backdrop} />
           {/* The selected face (stands in for the 3D view). */}
           <button
             type="button"
             aria-label="Selected face"
             data-testid="touch-selection"
-            className="absolute rounded-[6px] border-2 border-[var(--comp-selected)] bg-[rgba(255,163,26,0.35)]"
+            className="absolute"
             style={{
+              ...SELECTED_FACE,
               left: target.left,
               top: target.top,
               width: target.right - target.left,
@@ -276,7 +287,7 @@ export function TouchGallery(): JSX.Element {
             {compact ? null : path}
             <span className="flex-1" />
             <Cluster className="hidden md:flex">
-              <TouchButton variant="ghost" className="min-w-[220px] justify-start font-normal text-fg-2">
+              <TouchButton variant="ghost" className="justify-start font-normal text-fg-2" style={{ minWidth: 220 }}>
                 Do or find…
               </TouchButton>
             </Cluster>
@@ -483,7 +494,7 @@ export function TouchGallery(): JSX.Element {
                 onPressedChange={setSnap}
                 className="shadow-none"
               />
-              <span aria-hidden="true" className="mx-1 h-[26px] w-px shrink-0 bg-line-strong" />
+              <span aria-hidden="true" className="mx-1 h-6 w-px shrink-0 bg-line-strong" />
               <TouchButton variant="ghost" icon={<Icon name="shape" />}>
                 New shape
               </TouchButton>
@@ -562,7 +573,8 @@ export function TouchGallery(): JSX.Element {
 
           <Card title="Verb bar (phone width)" wide>
             <div
-              className="w-full max-w-[390px] rounded-touch border border-line bg-app p-2"
+              className="w-full rounded-touch border border-line bg-app p-2"
+              style={{ maxWidth: 390 }}
               data-testid="touch-verbbar"
             >
               <VerbBar
@@ -576,7 +588,7 @@ export function TouchGallery(): JSX.Element {
 
           <Card title="Loupe chips">
             <p className="text-fg-2">Overlapping candidates under a finger become named chips above it.</p>
-            <div className="relative h-[180px] rounded-touch border border-line bg-app">
+            <div className="relative rounded-touch border border-line bg-app" style={{ height: 180 }}>
               <TouchButton className="absolute bottom-3 left-3" onClick={() => setLoupe((v) => !v)}>
                 {loupe ? 'Close the Loupe' : 'Touch overlapping parts'}
               </TouchButton>
@@ -599,7 +611,7 @@ export function TouchGallery(): JSX.Element {
 
           <Card title="Bottom sheet">
             <p className="text-fg-2">Portrait and phones: peek, half and full, set by the grab bar.</p>
-            <div className="relative h-[300px] overflow-hidden rounded-touch border border-line bg-app">
+            <div className="relative overflow-hidden rounded-touch border border-line bg-app" style={{ height: 300 }}>
               <TouchButton className="absolute top-3 left-3" onClick={() => setBottomSheet(true)}>
                 Show Numbers
               </TouchButton>
