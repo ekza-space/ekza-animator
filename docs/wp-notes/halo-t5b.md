@@ -119,8 +119,8 @@ Measured with `check:size` (production build, gzip -9):
 
 ## Gate run
 
-`EKZA_E2E_PORT=3166 pnpm run ci` on the branch head, five runs on 2026-10-24 while nine other agents ran their gates
-(load average 70–210):
+`EKZA_E2E_PORT=3166 pnpm run ci` on the branch head, six runs on 2026-10-24 while nine other agents ran their gates
+(load average 37–210):
 
 - format, lint, typecheck, `check:deps`, `check:fixtures`, `check:licenses`: green in every run.
 - Unit tests: 22 / 22 packages green (editor-core 1,711 incl. `autorigFlow` 17 + the journey; autorig 115 incl. the
@@ -128,8 +128,9 @@ Measured with `check:size` (production build, gzip -9):
   50,000-key search bound; editor's `shell.test.tsx`, which passes alone and in a direct and a turbo run of the whole
   editor suite on this branch, as on a clean dev checkout at the same load).
 - Build and `check:size`: green (table above).
-- e2e: 364 passed, 24 skipped, **every `ar-*` spec green (106 / 106, 37 files incl. `ar-as-12`)** in runs 4 and 5;
-  each run had one different Pro timing failure under load (run 4: E2E-M2A-23 "Character 'Polybot' has no runtime
-  yet"; run 5: acceptance-round1's Graph Editor double-click window, 549 ms > 400 ms). Both pass when rerun alone on
-  this branch; neither touches Auto-Rig or `autorigFlow`.
-- Final run: see the hand-off report.
+- e2e: 363–364 passed, 24 skipped, **every `ar-*` spec green (106 / 106, 37 files incl. `ar-as-12`) in runs 4, 5
+  and 6**; each run had different Pro timing failures under load (run 4: E2E-M2A-23 "Character 'Polybot' has no
+  runtime yet"; run 5: acceptance-round1's Graph Editor double-click window, 549 ms > 400 ms; run 6: E2E-MOD-25 and
+  E2E-MOD-26, 33 s timeouts). Each passes when rerun alone on this branch; none touches Auto-Rig or `autorigFlow`.
+  No single run was fully green end to end under that load; the integration agent's gate run on `halo/int` is the one
+  to confirm it.
