@@ -78,6 +78,10 @@ export const BOUNDARIES = [
   { id: 'path-browserify', label: 'path-browserify (loaded by the export path)', markers: ['Path must be a string.'] },
   // M6A-SPEC §2 (B0a): the mesh kernel (mesh-core root: ops, editMeshFrom, triangulation, normals, revisions) and the
   // mesh view (mesh-view, three-mesh-bvh) load on first need; their marker constants are referenced by every entry.
+  // MODELING-PLAN §7.2 G-a (M7): the intake chain (mesh-wasm, its worker and the meshoptimizer simplifier WASM) loads
+  // on the first intake operator run, never with a route. Listed before the kernel: the intake worker's chunk carries
+  // both markers, and a chunk is labelled by the first boundary whose marker it holds.
+  { id: 'mesh-wasm', label: 'mesh-wasm (intake chain, meshoptimizer simplifier)', markers: ['ekza-mesh-wasm'] },
   { id: 'mesh-kernel', label: 'mesh kernel (mesh-core)', markers: ['ekza-mesh-kernel'] },
   { id: 'mesh-view', label: 'mesh view (mesh-view, three-mesh-bvh)', markers: ['ekza-mesh-view'] },
   // M6A-SPEC §5.18 (B9): the drawings of the marking menu and the command palette load when first opened.
@@ -92,9 +96,6 @@ export const BOUNDARIES = [
   // their entry modules only.
   { id: 'rig-workspace', label: 'Rig & Skin workspace', markers: ['ekza-rig-workspace'] },
   { id: 'skin-worker', label: 'skin worker (bind solvers)', markers: ['ekza-skin-worker'] },
-  // MODELING-PLAN §7.2 G-a (M7): the intake chain (mesh-wasm, its worker and the meshoptimizer simplifier WASM) loads
-  // on the first intake operator run, never with a route.
-  { id: 'mesh-wasm', label: 'mesh-wasm (intake chain, meshoptimizer simplifier)', markers: ['ekza-mesh-wasm'] },
   {
     id: 'character-runtime',
     label: 'character runtime (model-sourced characters)',
