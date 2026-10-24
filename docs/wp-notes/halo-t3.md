@@ -92,32 +92,45 @@ Recovery dialog for a clean project; T0's iOS store keeps the snapshot through c
 
 ## 4. Measurements (production build, gzip -9, `check:size`)
 
-| Route | `halo/int` `fcf43871` | `halo/int` `154e7188` | T3 (`eb70f436`) | Δ vs `154e7188` |
-|---|---|---|---|---|
-| `/editor` | 892,680 B | 892,678 B | **891,883 B** | **−795 B** |
-| `/autorig` | 653,319 B | 653,319 B | **653,471 B** | **+152 B** |
-| `/app` | 635,893 B | 635,895 B | 636,050 B | +155 B (unenforced) |
+| Route | `halo/int` `154e7188` | T3 at `eb70f436` | Δ | `halo/int` `9d7b3a09` (+T0, T5b) | T3 at `a294c4d5` (gate) | Δ |
+|---|---|---|---|---|---|---|
+| `/editor` | 892,678 B | 891,883 B | **−795 B** | 895,135 B | **894,422 B** | **−713 B** |
+| `/autorig` | 653,319 B | 653,471 B | **+152 B** | 655,718 B | **655,922 B** | **+204 B** |
+| `/app` | 635,895 B | 636,050 B | +155 B | 638,344 B | 638,542 B | +198 B (unenforced) |
 
 T3's allowance (T1a's ST-B1 proposal): 256 B on `/editor` and `/autorig` for the re-homing, plus 128 B on `/editor`
 for the Pro switch items. Both routes are inside it; `/editor` is net smaller because the re-homing moved eager Pro code
-into lazy chunks:
+into lazy chunks. The second step (+52 B on `/autorig`) is T0's hide flush in `startShellAutosave` (host code, every
+route).
 
 - **Out of `/editor`'s eager scripts**: B10's `model.modes` / `model.convert` data (now with the first Model entry),
   `view.selectionMask` / `view.toggleFullscreen` (now the host's lazy chunk), the modal readout's loader of B12a's menus,
   the inline `promptRecovery`.
 - **Into every route's eager scripts** (`/autorig`, `/app`, `/editor`): the seam (one async loader, the session
-  subscription) and the Recovery watcher (`recovery.ts`; Turbopack keeps it a separate module, ≈ 60 B of wrapper,
-  because Pro's shell and the host both import it).
+  subscription), the Recovery watcher (`recovery.ts`; Turbopack keeps it a separate module, ≈ 60 B of wrapper, because
+  Pro's shell and the host both import it) and the hide flush.
 - **Into `/editor` only**: `shell.halo`, its two menu items, the status-line button and the lazy loader of
   `haloSwitch.ts`.
 
 A first version with one async loader per part (view, model, rig) measured `/editor` −612 B, `/autorig` **+333 B**:
 each Turbopack async loader is ≈ 110 B raw with an incompressible chunk name. One lazy `parts` chunk that loads the
-workspace parts itself brought `/autorig` to +152 B (ST-T3-1).
+workspace parts itself brought `/autorig` to +152 B (ST-T3-1). The UI wrappers add 0 eager bytes (called from the lazy
+`parts` chunk).
 
 ## 5. Gate
 
-`EKZA_E2E_PORT=3168 pnpm run ci` — see the result below (filled in after the run).
+`EKZA_E2E_PORT=3168 pnpm run ci` at `a294c4d5` (`halo/int` `9d7b3a09` merged): **green** (exit 0) — format, lint,
+typecheck, check:deps, fixtures, licences, 23 test tasks (editor 668 passed + 1 skipped in 68 files, editor-core
+1,756, headless-tests 223, autorig 115, web 105, mcp 69, halo 6, curve-editor 209 + 3 skipped, …), the production
+build, check:size (all three routes OK; the AR-B1 eager delta −1,266 B) and **the e2e suite: 437 tests, 403 passed,
+34 skipped, 0 failed, 0 flaky** in 5.5 min (`chrome`, `chrome-touch`, `webkit-ipad`). The skips are the existing
+stretch `test.fixme`s and conditional skips, T0's project-specific ones, and `ha-t3-pro-switch` on the two touch
+projects (Chrome only).
+
+Three earlier runs stopped in the unit step on load-sensitive tests of packages T3 does not touch, each green when run
+alone right after, while the load average stood at 60–100 on 14 cores: `editor-core` `test/agent/keys.test.ts`
+(50,000 keys "well inside the compute bound", 7.9 s) and `test/m6a/mesh-io.test.ts` (a 30 s display-hook wait), and
+`mcp-server` `test/bridge.test.ts` (the ninth-socket 503 timing).
 
 ## 6. Deviations and files outside the row
 
