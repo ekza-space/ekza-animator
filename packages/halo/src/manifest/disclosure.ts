@@ -299,6 +299,13 @@ export const DISCLOSURE: Readonly<Record<string, ManifestEntry>> = {
   'target.slot.assign': on(2, [M('clip', 'Animation')], ANIMATE),
   'target.slot.clear': on(2, [M('clip', 'Animation')], ANIMATE),
   'target.slot.alias': on(2, [M('clip', 'Animation')], ANIMATE),
+  // CHARACTER-CONTRACT-SPEC §8.7–§8.10 (C2): a game target's slots, their fixes and markers, the hero package. Share's
+  // card lists the slots (T11); the Animations row and the Thread make and time the slot clips (T7); Health shows the
+  // slot issues of the one readiness list with their fix.
+  'target.slot.create': on(1, [S('share', 'destination'), C('animationsRow')], { plain: 'Make the slot’s animation' }),
+  'target.fix': on(1, [S('health', 'problems'), S('share', 'destination')], { plain: 'Fix' }),
+  'target.marker.set': on(0, [C('thread'), M('clip', 'Animation')], { ...ANIMATE, plain: 'Move a marker' }),
+  'target.exportPackage': on(1, [S('share')], { plain: 'Export the OMOBA package to Files' }),
 
   // ===== view (§15.1) =====
   'view.frame': on(0, [C('canvas'), C('puck')]),
