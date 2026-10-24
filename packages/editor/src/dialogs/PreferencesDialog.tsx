@@ -2,13 +2,28 @@
 // import reduction, Graph Editor handles; Reset Workspace. Preferences are P state, never written to the document.
 // Auto-Rig (AUTORIG-SPEC §3.3, D2): *Start in: Ask / Auto-Rig / Studio* — what the landing page `/` opens on this
 // device. It is the landing's remembered choice in `localStorage` (`./entryChoice`), not a `Prefs` field: `/` reads it
-// before any app code loads. Blocked storage = Ask.
+// before any app code loads. Blocked storage = Ask. STUDIO-TOUCH-SPEC §1.2 (T2): with `HALO_ENTRY` on (T12) nothing
+// remembered opens Ekza Studio, and Ekza Studio can be pinned too; while it is off the rows are today's.
 import type { Prefs } from '@ekza-studio/editor-core';
 import { Button, Dialog, DialogContent, DialogFooter, NativeSelect } from '@ekza-studio/ui';
 import { type JSX, type ReactNode, useState } from 'react';
 import { usePrefs } from '../hooks';
 import { useShell } from '../shell/context';
-import { type EntryChoice, readEntryChoice, writeEntryChoice } from './entryChoice';
+import { type EntryChoice, HALO_ENTRY, readEntryChoice, writeEntryChoice } from './entryChoice';
+
+/** Start in's rows: `ask` forgets the choice (the landing's default). */
+const START_IN: readonly { readonly value: EntryChoice | 'ask'; readonly label: string }[] = HALO_ENTRY
+  ? [
+      { value: 'ask', label: 'Default (Ekza Studio)' },
+      { value: 'halo', label: 'Ekza Studio' },
+      { value: 'studio', label: 'Ekza Studio Pro' },
+      { value: 'autorig', label: 'Rig a model for me' },
+    ]
+  : [
+      { value: 'ask', label: 'Ask (show the chooser)' },
+      { value: 'autorig', label: 'Auto-Rig' },
+      { value: 'studio', label: 'Studio' },
+    ];
 
 function Row(props: { readonly label: string; readonly hint?: string; readonly children: ReactNode }): JSX.Element {
   return (
@@ -49,16 +64,13 @@ export function PreferencesDialog(): JSX.Element {
               data-testid="prefs-start-in"
               onChange={(event) => {
                 const value = event.currentTarget.value;
-                const choice = value === 'autorig' || value === 'studio' ? value : null;
+                const choice =
+                  value === 'autorig' || value === 'studio' || (HALO_ENTRY && value === 'halo') ? value : null;
                 writeEntryChoice(choice);
                 // what is stored now: a blocked write leaves Ask (or the old choice) showing, not the new value
                 setStartIn(readEntryChoice() ?? 'ask');
               }}
-              options={[
-                { value: 'ask', label: 'Ask (show the chooser)' },
-                { value: 'autorig', label: 'Auto-Rig' },
-                { value: 'studio', label: 'Studio' },
-              ]}
+              options={START_IN}
             />
           </Row>
           <Row label="Navigation" hint="Viewport and Graph Editor gestures">

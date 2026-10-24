@@ -5,14 +5,15 @@
 // chooser works without JavaScript; this island only adds the memory. Once hydrated it ticks the box when a choice is
 // remembered (the visitor came by `/?chooser=1`) and lets the cards carry the page's query (e2e switches); unticking
 // it forgets the choice at once (Ask); following a card with the box ticked remembers that card. Blocked storage
-// leaves the box working and remembers nothing.
+// leaves the box working and remembers nothing. STUDIO-TOUCH-SPEC §1.2 (T2): with `HALO_ENTRY` the Ekza Studio row
+// (`data-entry="halo"`) is a choice too.
 import { type JSX, useEffect, useState, useSyncExternalStore } from 'react';
-import { type EntryChoice, entryHref, readChoice, writeChoice } from './entry';
+import { type EntryChoice, entryHref, isChoice, readChoice, writeChoice } from './entry';
 
 const choiceOf = (target: EventTarget | null): EntryChoice | null => {
   const link = target instanceof Element ? target.closest<HTMLAnchorElement>('a[data-entry]') : null;
   const choice = link?.dataset.entry;
-  return choice === 'autorig' || choice === 'studio' ? choice : null;
+  return isChoice(choice) ? choice : null;
 };
 
 /** Nothing to subscribe to: storage is read on the client render; the server render is "not hydrated, Ask". */

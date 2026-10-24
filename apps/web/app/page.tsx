@@ -2,9 +2,12 @@
 // Studio second. The cards are plain links, so they work without JavaScript, open in new tabs and are keyboard-reachable;
 // `EntryChooser` (client, small) adds *Remember my choice*, and `REDIRECT_SCRIPT` (inline, runs while the page is
 // parsed) applies a remembered choice unless `?chooser=1`. The credits and the third-party notice link stay.
+// STUDIO-TOUCH-SPEC §1.2 (T2): behind `HALO_ENTRY` (off until T12, ST-30) a first visit opens Ekza Studio (`/app`)
+// and `/?chooser=1` lists three rows — Ekza Studio, Ekza Studio Pro, Rig a model for me; with the flag off this page
+// renders exactly today's two cards.
 import type { JSX } from 'react';
 import { EntryChooser } from './EntryChooser';
-import { ENTRY_ROUTES, REDIRECT_SCRIPT } from './entry';
+import { ENTRY_ROUTES, type EntryChoice, HALO_ENTRY, REDIRECT_SCRIPT } from './entry';
 
 const SAMPLE_CREDITS = [
   { work: '"Seed-san" VRM 1.0 model', author: 'VirtualCast, Inc.', license: 'VRM Public License 1.0' },
@@ -14,7 +17,17 @@ const SAMPLE_CREDITS = [
   { work: '"Cube Lad" model', author: 'Ekza Studio contributors', license: 'MIT' },
 ] as const;
 
-const CARDS = [
+interface Card {
+  readonly choice: EntryChoice;
+  readonly glyph: string;
+  readonly title: string;
+  readonly tagline: string;
+  readonly body: string;
+  readonly action: string;
+  readonly note: string;
+}
+
+const TWO_CARDS: readonly Card[] = [
   {
     choice: 'autorig',
     glyph: '⟐',
@@ -33,7 +46,40 @@ const CARDS = [
     action: 'Open Studio',
     note: 'Best on a desktop',
   },
-] as const;
+];
+
+/** `/?chooser=1` with `HALO_ENTRY` on (§1.1, §1.2): one studio, two layouts, and Auto-Rig as *Rig a model for me*. */
+const HALO_ROWS: readonly Card[] = [
+  {
+    choice: 'halo',
+    glyph: '◆',
+    title: 'Ekza Studio',
+    tagline: 'One thing at a time, by touch',
+    body: 'Touch a part of your character and what you can do with it appears next to it. Model, paint, rig, animate and share on an iPad or a computer.',
+    action: 'Open Ekza Studio',
+    note: 'Simple layout · touch, Pencil, mouse and keyboard',
+  },
+  {
+    choice: 'studio',
+    glyph: '▦',
+    title: 'Ekza Studio Pro',
+    tagline: 'Every panel at once',
+    body: 'The same studio and the same files, with docked panels, many editors at once and industry-standard DCC hotkeys.',
+    action: 'Open Studio Pro',
+    note: 'Pro layout · best with a mouse and keyboard',
+  },
+  {
+    choice: 'autorig',
+    glyph: '⟐',
+    title: 'Rig a model for me',
+    tagline: 'Five steps to a rigged character',
+    body: 'Upload a model, place a few markers, get a skinned skeleton, try animations, export a VRM for OMOBA and Ekza Space.',
+    action: 'Start',
+    note: 'GLB · VRM · desktop and tablet',
+  },
+];
+
+const CARDS = HALO_ENTRY ? HALO_ROWS : TWO_CARDS;
 
 const linkClass =
   'text-accent-text underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-accent-text';
@@ -61,9 +107,9 @@ export default function LandingPage(): JSX.Element {
         </header>
         <section aria-labelledby="entry-question" className="flex flex-col gap-5">
           <h2 id="entry-question" className="text-xl font-medium text-fg-2">
-            What do you want to do?
+            {HALO_ENTRY ? 'One studio, two layouts' : 'What do you want to do?'}
           </h2>
-          <ul className="grid gap-4 min-[720px]:grid-cols-2" data-testid="entry-chooser">
+          <ul className={HALO_ENTRY ? 'grid gap-4' : 'grid gap-4 min-[720px]:grid-cols-2'} data-testid="entry-chooser">
             {CARDS.map((card) => (
               <li key={card.choice} className="flex">
                 {/* A plain link (AUTORIG-SPEC §3.2): works without JavaScript; a full page load into the app. */}

@@ -10,6 +10,7 @@
   "references": [
     { "path": "../../packages/editor/src" },
     { "path": "../../packages/ui/src" },
-    { "path": "../../packages/autorig/src" }
+    { "path": "../../packages/autorig/src" },
+    { "path": "../../packages/halo/src" }
   ]
 }
