@@ -190,7 +190,9 @@ describe('file pipeline', () => {
   it('reports failures once: unknown types reject, dropped files become toasts', async () => {
     const { shell, app, toasts } = createTestShell();
     app.contribute({ kind: 'importer', def: MODEL });
-    await expect(shell.files.openFile('notes.txt', new Uint8Array())).rejects.toThrow('not a 3D model or an Ekza Studio project');
+    await expect(shell.files.openFile('notes.txt', new Uint8Array())).rejects.toThrow(
+      'not a 3D model or an Ekza Studio project',
+    );
     app.contribute({
       kind: 'operator',
       def: {

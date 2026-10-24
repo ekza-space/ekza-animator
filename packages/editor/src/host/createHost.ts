@@ -1,8 +1,9 @@
 // Creates the HostShell of one page (AUTORIG-SPEC §4.4, D1): the UI store, the frame hooks and the fallback frame
 // scheduler, the help line, the confirm prompt, the operator runner for UI surfaces, the file pipeline, the export
 // recorder, the keyboard adapter, the probes, autosave, the command palette behind the overlay port, the host's
-// operators (`ui.open`, `ui.close`, `prefs.set`) and the navigation port. Every shell (Studio, Auto-Rig, Halo) sits on
-// top of it; it outlives every switch between them.
+// operators (`ui.open`, `ui.close`, `prefs.set`), the navigation port and the shell-neutral registrations
+// (STUDIO-TOUCH-SPEC T3: marking-menu definitions, Rig menus and settings, view operators, the Recovery prompt). Every
+// shell (Studio, Auto-Rig, Halo) sits on top of it; it outlives every switch between them.
 import type { Disposer } from '@ekza-studio/anim-core';
 import {
   type EditorApp,
@@ -29,6 +30,7 @@ import type { ConfirmRequest, FilePipeline, HelpMessage, ShellUiState } from '..
 import type { EditorParams } from '../test-api/params';
 import { createNavigation, type NavigationOptions } from './navigation';
 import { registerHostOperators } from './operators';
+import { startHostRegistrations } from './registrations';
 import type { HostShell, MountedShell } from './types';
 
 export interface CreateHostOptions {
@@ -256,6 +258,9 @@ export function createHostShell(opts: CreateHostOptions): HostShell {
   disposers.push(registerHostOperators(app, { onImportClosed: () => files.cancelImport() }));
   // ST-T2 P1: `shell.navigate` (Halo ⇄ Pro ⇄ Auto-Rig) is a host operator on every route.
   disposers.push(registerShellNavigate(app));
+  // STUDIO-TOUCH-SPEC §20.3 item 12 (T3): what every shell needs and only Studio registered before — lazy, once per
+  // app, kept across switches — and the Recovery prompt's timing (the mounted shell provides how it offers the slots).
+  disposers.push(startHostRegistrations(app, params));
 
   // M6A-SPEC §5.18 (B9): the command palette (`Mod+K`); AUTORIG-SPEC §4.4: the overlay port is the host's on every
   // route (its chunk loads on first use); marking menus come from the mounted shell (Studio).
@@ -278,8 +283,8 @@ export function createHostShell(opts: CreateHostOptions): HostShell {
     }),
   );
 
-  // M2A-SPEC §5.20: autosave (browser services only); the Recovery prompt is the Studio shell's (§4.4).
-  disposers.push(startShellAutosave({ app, runFromUi: (op, args) => runFromUi(op, args), prompt: false }));
+  // M2A-SPEC §5.20: autosave (browser services only); the Recovery prompt is the registrations' (above, T3).
+  disposers.push(startShellAutosave({ app }));
 
   // AUTORIG-SPEC §3.4, §4.4: the navigation port (eager; the handoff record behind it is a lazy chunk).
   const navigation = createNavigation({ app, ui, mounted, commandPalette, keyboard, runFromUi }, opts.navigation);

@@ -3,6 +3,8 @@
 // viewport layout preset. Every control runs an operator.
 // M6a (M6A-SPEC §8.2; B9): the groups and their order come from the active workspace's `statusGroups` (Animate's are
 // the shipped ones); Model adds the mode, symmetry, soft-selection, snapping and pivot groups (./statusGroups.tsx).
+// STUDIO-TOUCH-SPEC §16.1 (T3): the AI group ends with *▤ Simple layout*, the switch to Ekza Studio's Simple layout
+// (`shell.halo`); the agent pill comes from the host's hook (`useAgentPill`), which Halo uses too.
 import {
   ANIMATE_STATUS_GROUPS,
   type KeyTarget,
@@ -30,17 +32,8 @@ import {
   ToggleGroupItem,
   Tooltip,
 } from '@ekza-studio/ui';
-import {
-  Fragment,
-  type JSX,
-  lazy,
-  type ReactNode,
-  Suspense,
-  useCallback,
-  useEffect,
-  useSyncExternalStore,
-} from 'react';
-import { agentPill, subscribeAgentPill } from '../agent/ui/slot';
+import { Fragment, type JSX, lazy, type ReactNode, Suspense, useCallback } from 'react';
+import { useAgentPill } from '../host/registrations/agent';
 import { usePrefs, useSession } from '../hooks';
 import { useRegistryList } from '../hooks/useRegistry';
 import { TweenBar } from '../panels/shared/TweenBar';
@@ -48,10 +41,10 @@ import { useShell, useShellUi } from './context';
 import { RIG_LAYOUTS } from './rig/layouts';
 import { shortcutFor } from './menus';
 
-/** M-AI (§7.1): `?agentPort=` opens the Agent panel once per page (the panel applies the port rules). */
-let agentPortHandled = false;
-
-/** M-AI (§7.5): the muted "AI" pill until the lazy agent module puts its live pill in the slot. */
+/**
+ * M-AI (§7.5): the muted "AI" pill until the lazy agent module puts its live pill in the slot; `?agentPort=` opens the
+ * Agent panel once per page, once dockview is bound (the workspace mounts after the status line; ≤ 10 s).
+ */
 function AgentPillSlot({
   open,
   ready,
@@ -59,18 +52,7 @@ function AgentPillSlot({
   readonly open: () => Promise<unknown>;
   readonly ready: () => boolean;
 }): JSX.Element {
-  const live = useSyncExternalStore(subscribeAgentPill, agentPill, agentPill);
-  useEffect(() => {
-    if (agentPortHandled || typeof location === 'undefined' || !/[?&]agentPort=/.test(location.search)) return;
-    agentPortHandled = true;
-    // the workspace mounts after the status line: open the panel once dockview is bound (≤ 10 s)
-    let tries = 0;
-    const attempt = (): void => {
-      if (ready() || ++tries >= 40) void open();
-      else setTimeout(attempt, 250);
-    };
-    attempt();
-  }, [open, ready]);
+  const live = useAgentPill(open, ready);
   if (live !== null) return live;
   return (
     <Tip text="AI agent (Windows › Agent)">
@@ -383,9 +365,24 @@ export function StatusLine(): JSX.Element {
   const workspaceReady = useCallback(() => shell.workspace.dockview !== null, [shell]);
   const openAgentPanel = useCallback(() => shell.runFromUi('workspace.showPanel', { panel: 'agent' }), [shell]);
   const agentGroup = (
-    <Group key="agent" label="AI agent">
-      <AgentPillSlot open={openAgentPanel} ready={workspaceReady} />
-    </Group>
+    <Fragment key="agent">
+      <Group label="AI agent">
+        <AgentPillSlot open={openAgentPanel} ready={workspaceReady} />
+      </Group>
+      {/* STUDIO-TOUCH-SPEC §16.1: the same project in the Simple layout (Help › and File › have it too). */}
+      <Group label="Layout">
+        <Tip text="The same project in Ekza Studio's Simple layout, one thing at a time">
+          <button
+            type="button"
+            className="rounded px-1.5 text-ui text-fg-3 hover:bg-hover hover:text-fg"
+            data-testid="status-halo"
+            onClick={() => run('shell.halo')}
+          >
+            ▤ Simple layout
+          </button>
+        </Tip>
+      </Group>
+    </Fragment>
   );
 
   return (

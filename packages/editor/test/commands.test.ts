@@ -5,7 +5,7 @@ import { GLOBAL_SCOPE, type MenuItemDef } from '@ekza-studio/editor-core';
 import { describe, expect, it } from 'vitest';
 import { menuContents, shortcutFor, stableKey, topMenus } from '../src/shell/menus';
 import { shellMenuItems } from '../src/shell/menuItems';
-import { createTestShell, waveFixtures } from './shell-helpers';
+import { createTestShell, waitFor, waveFixtures } from './shell-helpers';
 
 describe('shell operators', () => {
   it('ui.open / ui.close drive session.dialog; export needs a character', async () => {
@@ -81,6 +81,8 @@ describe('shell operators', () => {
 
   it('view.selectionMask merges into the session tool state', async () => {
     const { shell, app } = createTestShell();
+    // a host registration since STUDIO-TOUCH-SPEC T3 (a lazy chunk registered at once)
+    await waitFor(() => app.operators.get('view.selectionMask') !== undefined);
     await shell.runFromUi('view.selectionMask', { mask: { joints: true } });
     expect(app.session.getState().tools.selectionMask).toEqual({
       controls: true,

@@ -4,6 +4,8 @@
 // small eager operator of the Studio shell that calls the host's navigation port directly (never through the Rig & Skin
 // chunk; `autorig.navigate` is that chunk's palette/script wrapper of the same port). Its subject rule is the small
 // lazy `./autoRigSwitch`, prefetched when the menu opens.
+// Ekza Studio's Simple layout (STUDIO-TOUCH-SPEC §16.1; T3): Help › and File › Switch to the Simple Layout (and the
+// status line's *▤ Simple layout*) run `shell.halo`, built the same way with the lazy `./haloSwitch`.
 import type { Disposer } from '@ekza-studio/anim-core';
 import {
   type EditorApp,
@@ -15,6 +17,7 @@ import {
   type WorkspaceId,
 } from '@ekza-studio/editor-core';
 import type * as AutoRigSwitch from './autoRigSwitch';
+import type * as HaloSwitch from './haloSwitch';
 import { ANIMATE_SLOTS, type ChromePart, MODEL_SLOTS } from './layout';
 import { BUILTIN_PRESETS, type LayoutPresetStore } from './presets';
 import { RIG_LAYOUTS } from './rig/layouts';
@@ -76,6 +79,42 @@ const AUTO_RIG_OPERATOR: OperatorDef<{ readonly subject?: boolean; readonly reme
   apply() {},
 };
 
+/**
+ * STUDIO-TOUCH-SPEC §1.1, ST-30 (T3): Pro's own chrome names it "Ekza Studio Pro" once the Simple layout ships as
+ * Ekza Studio; T12 turns this on with `HALO_ENTRY` (until then it stays "Ekza Studio", as shipped).
+ */
+export const PRO_TITLE: boolean = false;
+/** The name Pro's chrome shows (the menu bar's mark). */
+export const PRO_NAME = PRO_TITLE ? 'Ekza Studio Pro' : 'Ekza Studio';
+
+/** The lazy half of the Simple layout switch (`./haloSwitch`); null when it cannot load (the switch still happens). */
+const loadHaloSwitch = (): Promise<typeof HaloSwitch | null> => import('./haloSwitch').catch(() => null);
+
+/**
+ * `shell.halo` (STUDIO-TOUCH-SPEC §16.1, ST-B1; T3): switches to Ekza Studio's Simple layout (`/app`) on the same page
+ * through the host's navigation port, the document, its undo history, selection, time and cameras kept; the workspace
+ * travels (Halo arrives at the matching stage) and, behind `HALO_ENTRY`, a remembered Pro becomes Ekza Studio (§1.2).
+ * Both are the small `./haloSwitch` chunk, prefetched by the poll when a menu showing the item opens; the status line
+ * runs it from its button. Not undoable; hidden from the palette. Without a port (a harness) it does nothing.
+ */
+const HALO_OPERATOR: OperatorDef<undefined> = {
+  id: 'shell.halo',
+  label: 'Switch to the Simple Layout',
+  category: 'ui',
+  scope: 'global',
+  flags: { internal: true },
+  poll() {
+    void loadHaloSwitch();
+    return true;
+  },
+  async prepare({ app }) {
+    const lazy = await loadHaloSwitch();
+    lazy?.rememberSimpleLayout();
+    await hostNavigation(app)?.go(lazy?.haloRequest(app) ?? { to: 'halo', from: 'studio' });
+  },
+  apply() {},
+};
+
 export function shellMenuItems(
   extraPanels: readonly { readonly kind: PanelKind; readonly title: string }[],
   state?: ShellMenuState,
@@ -117,6 +156,15 @@ export function shellMenuItems(
       group: 'export',
       order: 80,
       label: 'Auto-Rig This Model…',
+    },
+    {
+      // STUDIO-TOUCH-SPEC §16.1 (T3).
+      id: 'shell.file.halo',
+      menu: 'file',
+      op: 'shell.halo',
+      group: 'export',
+      order: 90,
+      // label: the operator's, "Switch to the Simple Layout"
     },
     {
       id: 'shell.file.export',
@@ -161,6 +209,14 @@ export function shellMenuItems(
       group: 'help',
       order: 30,
       // label: the operator's, "Switch to Auto-Rig"
+    },
+    {
+      // STUDIO-TOUCH-SPEC §16.1, J9 (T3).
+      id: 'shell.help.halo',
+      menu: 'help',
+      op: 'shell.halo',
+      group: 'help',
+      order: 35,
     },
     {
       id: 'shell.help.about',
@@ -376,7 +432,10 @@ export function registerShellMenuItems(
   extraPanels: readonly { readonly kind: PanelKind; readonly title: string }[],
   state?: ShellMenuState,
 ): Disposer {
-  const disposers: Disposer[] = [app.contribute({ kind: 'operator', def: AUTO_RIG_OPERATOR })];
+  const disposers: Disposer[] = [
+    app.contribute({ kind: 'operator', def: AUTO_RIG_OPERATOR }),
+    app.contribute({ kind: 'operator', def: HALO_OPERATOR }),
+  ];
   for (const def of shellMenuItems(extraPanels, state)) {
     if (app.menus.get(def.id) !== undefined) continue;
     disposers.push(app.contribute({ kind: 'menu', def }));
