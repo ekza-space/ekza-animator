@@ -4,7 +4,8 @@
 // (`library.preview`) and Add (`library.useClip`, one Use Clip step, Studio Pro's Clip Library call) — and the starter
 // set (Idle · Walk · Run, each with its slot: `autorig.clip.add`, the call Auto-Rig's ④ makes through `autorigFlow`).
 import type { CharacterId } from '@ekza-studio/doc';
-import { type ClipParams, clipAddArgs, IDENTITY_FLOW_CLIP_PARAMS } from '@ekza-studio/editor-core';
+import { type ClipParams, IDENTITY_FLOW_CLIP_PARAMS } from '@ekza-studio/editor-core';
+import { starterSteps } from '../../recipes/addAnimations';
 import type { OpCall } from '../../stages/animate/model';
 
 export type LibraryKind = 'move' | 'combat' | 'react' | 'fun' | 'other';
@@ -111,16 +112,12 @@ export function addCall(character: CharacterId, clip: string, params: ClipParams
   return { op: 'library.useClip', args: isIdentity(params) ? { character, clip } : { character, clip, params } };
 }
 
-/** The starter set's call per clip: Auto-Rig's ④ (`autorig.clip.add`, its slot from the pack). */
-export function starterCall(character: CharacterId, clip: string): OpCall {
-  return { op: 'autorig.clip.add', args: clipAddArgs(character, clip, IDENTITY_PARAMS) };
-}
-
-/** The starter set (§10.6): Idle · Walk · Run, each added as it is (its slot comes from the pack). */
-export const STARTER_SET = ['idle', 'walk', 'run'] as const;
-
+/**
+ * The starter set (§10.6): Idle · Walk · Run, each added as it is (its slot comes from the pack) — the steps of the
+ * *Add animations* recipe (T11, P-T11-6: one starter list), less what the pack does not ship.
+ */
 export function starterCalls(character: CharacterId, available: ReadonlySet<string>): readonly OpCall[] {
-  return STARTER_SET.filter((id) => available.has(id)).map((id) => starterCall(character, id));
+  return starterSteps(character, available);
 }
 
 /** "Loop · 1.0 s" / "Once · 0.7 s" (a card's line). */

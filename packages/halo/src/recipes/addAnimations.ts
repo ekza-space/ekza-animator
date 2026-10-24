@@ -7,8 +7,22 @@ import { clipAddArgs } from '@ekza-studio/editor-core';
 import { en } from '../i18n/en';
 import { type Recipe, recipeCharacter } from './recipe';
 
-/** The starter set (§9 J1 step 5). */
+/** The starter set (§9 J1 step 5, §10.6): the one list Home's recipe and the Library's *Add starter set* add. */
 export const STARTER_SET = ['idle', 'walk', 'run'] as const;
+
+/**
+ * The starter set's steps for a character: Auto-Rig ④'s `autorig.clip.add` with identity parameters per animation
+ * (its slot from the pack), in the set's order; `available` leaves out what the clip library does not ship.
+ */
+export function starterSteps(
+  character: CharacterId,
+  available?: ReadonlySet<string>,
+): readonly { readonly op: 'autorig.clip.add'; readonly args: ReturnType<typeof clipAddArgs> }[] {
+  return STARTER_SET.filter((clip) => available === undefined || available.has(clip)).map((clip) => ({
+    op: 'autorig.clip.add',
+    args: clipAddArgs(character, clip),
+  }));
+}
 
 export const addAnimationsRecipe: Recipe<Record<string, never>> = {
   id: 'addAnimations',
@@ -18,8 +32,6 @@ export const addAnimationsRecipe: Recipe<Record<string, never>> = {
   plan(app) {
     const character = recipeCharacter(app);
     if (character === null) return { problem: en.recipes.needsCharacter };
-    return {
-      steps: STARTER_SET.map((clip) => ({ op: 'autorig.clip.add', args: clipAddArgs(character as CharacterId, clip) })),
-    };
+    return { steps: starterSteps(character as CharacterId) };
   },
 };
