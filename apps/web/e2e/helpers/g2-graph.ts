@@ -77,7 +77,7 @@ export async function slopesAt(page: Page, curve: string, frame: number, h = 1e-
   };
 }
 
-/** Maya tangent weight of a stored handle (MVP-SPEC §4.11.4): 3·hypot(|dt|/fps, dv·k). */
+/** Tangent weight of a stored handle (MVP-SPEC §4.11.4): 3·hypot(|dt|/fps, dv·k). */
 export function weightOf(handle: { readonly dt: number; readonly dv: number }, fps: number, k = K_ROT): number {
   return 3 * Math.hypot(Math.abs(handle.dt) / fps, handle.dv * k);
 }

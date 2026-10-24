@@ -2,7 +2,7 @@ import { EkzaError } from '../errors';
 import type { Quat, ReadonlyQuat, ReadonlyVec3, RotateOrder, ThreeEulerOrder, Vec3 } from '../types';
 import { quatMultiply, quatRotateVec3 } from './quat';
 
-// Rotate orders use DCC (Maya/Blender) semantics: the first letter is applied first (inner), the last letter last
+// Rotate orders use the common DCC semantics: the first letter is applied first (inner), the last letter last
 // (outer). For order (i, j, k): R = R_k(e[k])·R_j(e[j])·R_i(e[i]) with column vectors, which is three.js order
 // "KJI" (research 07 §1.3). Euler triples are always indexed by axis ([rx, ry, rz]), never by role.
 
@@ -161,7 +161,7 @@ export function eulerNear(q: ReadonlyQuat, order: RotateOrder, reference: Readon
 }
 
 /**
- * Maya's Euler filter on synchronized samples, in place and sequential: each sample becomes the equivalent
+ * The standard DCC Euler filter on synchronized samples, in place and sequential: each sample becomes the equivalent
  * triple (2π unwrap, or the alternate (a + π, π − b, c + π)) nearest to the already-filtered previous sample.
  */
 export function eulerFilter(samples: Vec3[], order: RotateOrder): void {

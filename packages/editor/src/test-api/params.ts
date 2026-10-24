@@ -2,15 +2,16 @@
 // opened with `?e2e=1`; ordinary builds ignore them, so no URL can switch a user's editor into test mode. The
 // exceptions are M6a `ws=<id>` (M6A-SPEC §4.8), a deep link to a workspace, and AUTORIG-SPEC §3.1/§4.4's `handoff=<id>`
 // (a one-shot handoff record to open) and `from=studio|autorig` (labels the entry), read in any build.
-import type { NavProfile } from '@ekza-studio/editor-core';
+import { migrateLegacyId, type NavProfile } from '@ekza-studio/editor-core';
 
 export interface EditorParams {
   /** e2e mode: fresh storage, seeded IDs, no UI transitions, the test API on window. */
   readonly e2e: boolean;
   /** `firstRun=1`: show the first-run dialog even in e2e mode. */
   readonly firstRun: boolean;
-  readonly nav: Extract<NavProfile, 'maya' | 'trackpad'> | null;
-  readonly space: 'maya' | 'play' | null;
+  /** `nav=dcc|trackpad`, `space=maximize|play`; a renamed id (DECISIONS-OPEN TM-1) is read as its current id. */
+  readonly nav: Extract<NavProfile, 'dcc' | 'trackpad'> | null;
+  readonly space: 'maximize' | 'play' | null;
   readonly platform: 'mac' | 'other' | null;
   /**
    * M2a `ns=<string>`: the storage namespace (localStorage prefix and IndexedDB database suffix), so a reload of the
@@ -66,15 +67,15 @@ export function parseEditorParams(search: string, buildAllowsE2e: boolean): Edit
       ? DEFAULT_PARAMS
       : { ...DEFAULT_PARAMS, ...links };
   }
-  const nav = query.get('nav');
-  const space = query.get('space');
+  const nav = migrateLegacyId('navProfile', query.get('nav'));
+  const space = migrateLegacyId('spaceBehaviour', query.get('space'));
   const platform = query.get('platform');
   const ns = query.get('ns');
   return {
     e2e: true,
     firstRun: query.get('firstRun') === '1',
-    nav: nav === 'maya' || nav === 'trackpad' ? nav : null,
-    space: space === 'maya' || space === 'play' ? space : null,
+    nav: nav === 'dcc' || nav === 'trackpad' ? nav : null,
+    space: space === 'maximize' || space === 'play' ? space : null,
     platform: platform === 'mac' || platform === 'other' ? platform : null,
     ns: ns !== null && NAMESPACE.test(ns) ? ns : null,
     storageBlocked: query.get('storage') === 'blocked',

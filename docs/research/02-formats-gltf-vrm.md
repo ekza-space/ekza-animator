@@ -4,6 +4,7 @@
 > Scope: glTF 2.0 animation semantics, three.js loader/exporter behaviour, glTF Transform, VRM 0.x / 1.0, VRM Animation (`.vrma`), retargeting, other export formats, the editor's internal animation representation, and a concrete import → model → export pipeline.
 > Versions checked today: `three@0.186.1`, `@pixiv/three-vrm@3.5.5` (+ `3.6.0-beta.0` on `next`), `@pixiv/three-vrm-animation@3.5.5`, `@gltf-transform/core@4.5.1`, `gltf-validator@2.0.0-dev.3.10`, `bevy_gltf@0.19.1` (the version OMOBA uses).
 > Companion notes: `03-ekza-reuse-audit.md` (ecosystem integration, metadata schema, upload tiers). This note owns format semantics and the IO algorithms; where both touch the same topic, the names here match note 03 (`ekza_animator_bake_v1`, `ekza_animation_v1`).
+> Naming: "the desktop DCC" is a leading commercial desktop DCC, "the open-source DCC" a popular open-source DCC, and "the auto-rigging service" a web auto-rigging service.
 
 ---
 
@@ -11,12 +12,12 @@
 
 | # | Question | Recommendation |
 |---|---|---|
-| D1 | Source of truth for animation | The **project file** (`.ekzanim`). It holds Maya-style scalar F-curves (Bezier/Hermite keys with tangent types, per-node rotate order) on **zeroed controls**, plus imported **baked layers** (sampled quaternion streams). Every glTF/VRMA output is a *derived, sampled* artifact. |
-| D2 | Rotation authoring | **Euler curves** per control (Maya model), with an Euler filter and an explicit rotate order. Quaternion-slerp curves are a post-MVP per-node option. Humanoid control values are expressed **relative to the VRM T-pose in normalized space**, so a zero value is the T-pose. |
+| D1 | Source of truth for animation | The **project file** (`.ekzanim`). It holds desktop-DCC-style scalar F-curves (Bezier/Hermite keys with tangent types, per-node rotate order) on **zeroed controls**, plus imported **baked layers** (sampled quaternion streams). Every glTF/VRMA output is a *derived, sampled* artifact. |
+| D2 | Rotation authoring | **Euler curves** per control (the desktop DCC's model), with an Euler filter and an explicit rotate order. Quaternion-slerp curves are a post-MVP per-node option. Humanoid control values are expressed **relative to the VRM T-pose in normalized space**, so a zero value is the T-pose. |
 | D3 | What we write to glTF | Evaluate the rig, then **resample at the clip fps** (default 30), convert to unit quaternions with **hemisphere continuity**, apply **error-bounded key reduction**, and write **`LINEAR`** samplers (`STEP` for channels that are stepped throughout). **Never write `CUBICSPLINE` into VRMA.** For plain GLB it stays an opt-in "compact" mode, post-MVP. |
 | D4 | Bake into an existing GLB/VRM | An **append-only GLB patcher** ("surgeon"): keep the original JSON objects and the BIN bytes, append accessors, bufferViews, animations and BIN bytes, and record an `asset.extras.ekza_animator_bake_v1` baseline marker so a re-bake can roll back. This is lossless by construction for VRM 0.x/1.0, Draco, meshopt, KTX2 and unknown extensions. **Do not** round-trip through three's `GLTFExporter` or through glTF Transform (both drop VRM). |
 | D5 | Animation-only GLB and VRMA writers | Build fresh documents with **glTF Transform** (`Document` API), plus a small Ekza-owned `VRMC_vrm_animation` extension class. **One clip per `.vrma`.** VRMA uses a T-pose skeleton with **identity rest rotations**, so the stored rotations are exactly the normalized local rotations. |
-| D6 | Imports, MVP | GLB, VRM 0.x/1.0 (embedded clips), VRMA. **P1:** FBX (Mixamo) and BVH via the three.js loaders and a bone-map retarget, and `.gltf` with external buffers. |
+| D6 | Imports, MVP | GLB, VRM 0.x/1.0 (embedded clips), VRMA. **P1:** FBX (incl. clips from the auto-rigging service) and BVH via the three.js loaders and a bone-map retarget, and `.gltf` with external buffers. |
 | D7 | Other exports | BVH writer (easy, P1/P2). FBX through an MIT JS exporter behind an adapter interface (P2, needs DCC round-trip tests). **USDZ is not useful for skinned characters**, because three's exporter has no UsdSkel. Ekza JSON clip formats (renderer library, OMOBA motion rows) are adapters "later": consumers should learn to read VRMA instead. |
 | D8 | Validation | Run Khronos **glTF-Validator** (JS build, ~300 KB, Apache-2.0) in a Web Worker on every export and in CI. Add Ekza lints (VRMA rules, Bevy name-path rules, clip names) and byte-preservation tests for the surgeon. |
 | D9 | `KHR_animation_pointer` | **Ignore on write** (no MVP need; unsupported by three core, glTF Transform and Bevy). **Tolerate on read**: skip channels without `target.node` and warn. Revisit for material, camera and light animation. |
@@ -139,7 +140,7 @@ glTF is right-handed and **+Y up**, in **metres**. The front of an asset faces *
 
 ### 2.3 Other three.js IO pieces
 
-- `FBXLoader`: FBX ASCII ≥ 7.0 or binary ≥ 6400. It loads Mixamo animations as `AnimationClip` named `mixamo.com`.
+- `FBXLoader`: FBX ASCII ≥ 7.0 or binary ≥ 6400. It loads clips from the auto-rigging service as an `AnimationClip` named after the service's domain.
 - `BVHLoader`: parses `HIERARCHY` and `MOTION` with arbitrary channel orders.
 - `USDZExporter` (r186) can now write **node transform animation** (`xformOp:*.timeSamples`, `animationFrameRate` 60 by default), but it has **no skinning or UsdSkel**. Skinned characters export as static meshes. See §8.
 
@@ -193,8 +194,8 @@ VRM T-pose (1.0, normative): the model stands along +Z, is symmetric about X = 0
   The inverse, used when we import raw clips into normalized space, is `N = P · q_raw_local · L_rest⁻¹ · P⁻¹ = P · q_raw_local · W⁻¹` with `W = P · L_rest` (the rest world rotation of the bone). This matches the VRMA spec's "NormalizedLocalRotation" (`W · L⁻¹ · q · W⁻¹`) and the VRMA loader (`q.premultiply(parentWorldRest).multiply(worldRest⁻¹)`).
 - **Pitfall** (already handled in `ekza-avatar-renderer/src/vrm.ts`): embedded clips target **raw** nodes, so the loader must use `autoUpdateHumanBones: false`. Otherwise `vrm.update()` overwrites the mixer every frame. Normalized clips (VRMA, the shared library) need it set to `true`. The editor must use **one authoritative writer per bone per mode** (§6.1).
 - VRM 0.x ↔ 1.0 facing conversion is a conjugation by a 180° yaw `Y = (0,1,0,0)`:
-  `q' = Y·q·Y⁻¹ = (−x, y, −z, w)` and `p' = (−x, y, −z)`. This is an involution, so applying it twice is the identity. `three-vrm-animation`, the three-vrm Mixamo example and `ekza-avatar-renderer` (`flipYawQuaternion`) all apply exactly this when `metaVersion === "0"`. `VRMUtils.rotateVRM0(vrm)` instead rotates the whole scene by π, which is what `ekza-avatar-renderer` does with `facingCorrection`.
-- **Left/right mirror** of a pose in +Z-facing normalized (world-aligned) space, as OMOBA uses for derived motions: swap the `left*` and `right*` bone streams, then `q' = (x, −y, −z, w)` and hips `p' = (−x, y, z)`. This is the reflection through the YZ plane (`S R S`). It holds for both world deltas and normalized locals, which makes it the basis for Maya-style "Mirror pose" and "Flip pose" commands.
+  `q' = Y·q·Y⁻¹ = (−x, y, −z, w)` and `p' = (−x, y, −z)`. This is an involution, so applying it twice is the identity. `three-vrm-animation`, the three-vrm humanoid-animation (FBX) example and `ekza-avatar-renderer` (`flipYawQuaternion`) all apply exactly this when `metaVersion === "0"`. `VRMUtils.rotateVRM0(vrm)` instead rotates the whole scene by π, which is what `ekza-avatar-renderer` does with `facingCorrection`.
+- **Left/right mirror** of a pose in +Z-facing normalized (world-aligned) space, as OMOBA uses for derived motions: swap the `left*` and `right*` bone streams, then `q' = (x, −y, −z, w)` and hips `p' = (−x, y, z)`. This is the reflection through the YZ plane (`S R S`). It holds for both world deltas and normalized locals, which makes it the basis for desktop-DCC-style "Mirror pose" and "Flip pose" commands.
 
 ---
 
@@ -246,7 +247,7 @@ input : original bytes B (GLB/VRM), clips C[] (sampled + reduced, per raw node i
 | `VRMC_node_constraint` destination nodes | **None** for VRM consumers. Optional bake for plain-GLB consumers (Bevy has no VRM runtime) | Lint: warn when a curve targets a constrained node |
 | Scene root / armature root | **Never** | Note 03 §6.4: put translation only on hips, and keep root motion as metadata |
 | Morph weights (expressions) | `weights` channels on mesh nodes, **only for non-VRM consumers** | three-vrm's expression manager rewrites morph influences every update, so for VRM consumers expressions belong in VRMA |
-| `scale` on any bone | Only if a curve really animates scale | Blender writes T/R/S for every node (the CC0 fixture has 65 × 3 channels). Skip scale to avoid noise |
+| `scale` on any bone | Only if a curve really animates scale | The open-source DCC writes T/R/S for every node (the CC0 fixture has 65 × 3 channels). Skip scale to avoid noise |
 
 ### 5.4 Orphans and compaction
 
@@ -267,12 +268,12 @@ Replacing a pre-baseline clip leaves its accessors and bufferViews unreferenced.
 
 | Layer | Representation | Lives in | Lossless? |
 |---|---|---|---|
-| **Authoring** | Scalar F-curves per animatable attribute on **controls** (and optionally joints): `tx ty tz rx ry rz sx sy sz` + custom attrs (IK/FK blend, space switch, expression weights, lookAt yaw/pitch). Keys with Maya-like tangents. Plus **baked layers** (dense per-joint quaternion and vector streams from imports or mocap) | `.ekzanim` | Yes |
+| **Authoring** | Scalar F-curves per animatable attribute on **controls** (and optionally joints): `tx ty tz rx ry rz sx sy sz` + custom attrs (IK/FK blend, space switch, expression weights, lookAt yaw/pitch). Keys with the AnimX-compatible tangent model. Plus **baked layers** (dense per-joint quaternion and vector streams from imports or mocap) | `.ekzanim` | Yes |
 | **Evaluation** | `evaluate(clip, t) → PoseBuffer`: struct-of-arrays `Float32Array` of raw joint local TRS, plus the normalized humanoid locals as a by-product. Controls → constraints/IK → joints | memory (Worker or main) | — |
 | **Interchange** | Sampled, reduced glTF samplers (raw nodes for GLB/VRM; normalized identity-rest skeleton for VRMA) | `.glb`/`.vrm`/`.vrma` | No (tangent intent, Euler, rig and constraints are lost) |
 
 Why not store quaternion keys with Bezier tangents as the source of truth?
-1. Animators edit **per-axis** curves in a graph editor. Maya's default rotation interpolation is per-channel Euler, so its graph editor shows `rotateX/Y/Z`. Quaternion splines (squad, cubic quaternion) cannot be shaped per channel.
+1. Animators edit **per-axis** curves in a graph editor. The desktop DCC's default rotation interpolation is per-channel Euler, so its graph editor shows `rotateX/Y/Z`. Quaternion splines (squad, cubic quaternion) cannot be shaped per channel.
 2. glTF cannot store Bezier tangent *types* (auto, clamped, flat, plateau…), broken/unified state, weighted handles, infinity modes or rotate order. Those must live in the project anyway.
 3. Rig output (IK, constraints, space switches, layers) is non-linear, so any interchange format needs evaluation plus sampling regardless of the authoring curve type.
 
@@ -308,13 +309,13 @@ interface BakedTrack {        // imported or mocap data, editable via layers/off
 interface ProjectTime { fps: { num: number; den: number } } // 24, 25, 30, 30000/1001, 60…
 ```
 
-- Store **time in frames** and **fps as a rational**, as Maya and DCC tools do. Convert to seconds only on export (`t = frame · den / num`).
+- Store **time in frames** and **fps as a rational**, as DCC tools do. Convert to seconds only on export (`t = frame · den / num`).
 - Store angles in **radians** and display degrees in the UI. Slopes are in value per frame.
-- **Rotate order** is per node and uses Maya semantics. **Maya `xyz` = three.js `'ZYX'`** (reverse the letters). three's `Euler('XYZ')` builds `Rx·Ry·Rz` (column vectors, intrinsic X first), while Maya `xyz` applies X first in the parent frame, i.e. `Rz·Ry·Rx`. Blender's `XYZ` Euler also equals three's `'ZYX'`. Put this mapping in a single function covered by a unit test.
-- **Zeroed controls:** a control's channel values are relative to its offset, the analogue of Maya's `offsetParentMatrix` / joint orient. For humanoid FK controls the offset is the VRM T-pose in normalized space, so **zero = T-pose**, which matches VRMA and three-vrm. If an animator wants bone-aligned axes, give the control an orientation `O` relative to the world-aligned normalized frame:
+- **Rotate order** is per node and uses desktop-DCC semantics. **DCC `xyz` = three.js `'ZYX'`** (reverse the letters). three's `Euler('XYZ')` builds `Rx·Ry·Rz` (column vectors, intrinsic X first), while the desktop DCC's `xyz` applies X first in the parent frame, i.e. `Rz·Ry·Rx`. The open-source DCC's `XYZ` Euler also equals three's `'ZYX'`. Put this mapping in a single function covered by a unit test.
+- **Zeroed controls:** a control's channel values are relative to its offset, the analogue of the desktop DCC's `offsetParentMatrix` / joint orient. For humanoid FK controls the offset is the VRM T-pose in normalized space, so **zero = T-pose**, which matches VRMA and three-vrm. If an animator wants bone-aligned axes, give the control an orientation `O` relative to the world-aligned normalized frame:
   `N = O · R_euler(rx, ry, rz; order) · O⁻¹`.
   The curves stay readable (X down the bone) while the stored meaning stays normalized.
-- **Euler filter** (Maya's command) runs on import and on "Convert baked → curves". For each key after the first, choose among `angle + 2πn` and the alternate triple `(x+π, π−y, z+π)` (adjusted to the order's middle axis) to minimize `Σ|Δ|` against the previous key.
+- **Euler filter** (the desktop DCC's command) runs on import and on "Convert baked → curves". For each key after the first, choose among `angle + 2πn` and the alternate triple `(x+π, π−y, z+π)` (adjusted to the order's middle axis) to minimize `Σ|Δ|` against the previous key.
 - **Quaternion continuity** applies to every sampled stream: if `dot(q_k, q_{k−1}) < 0`, set `q_k = −q_k`. Do this before reduction, before CUBICSPLINE tangent estimation and before writing. OMOBA's retarget and the Ekza bake already do it.
 
 ### 6.3 Sampling (export)
@@ -322,13 +323,13 @@ interface ProjectTime { fps: { num: number; den: number } } // 24, 25, 30, 30000
 | Target | Default rate | Interpolation | Notes |
 |---|---|---|---|
 | VRMA | **30 fps** (the VRMA spec's guideline) | LINEAR (STEP for stepped channels) | Never CUBICSPLINE (§7.3) |
-| Bake into GLB/VRM | the project fps (24/30/60) | LINEAR / STEP | Bevy, three, Unity glTFast and Blender all support LINEAR |
+| Bake into GLB/VRM | the project fps (24/30/60) | LINEAR / STEP | Bevy, three, Unity glTFast and the open-source DCC all support LINEAR |
 | Animation-only GLB | the project fps | LINEAR / STEP; CUBICSPLINE opt-in (post-MVP) | — |
 | Ekza shared library adapters | 24 or 30 fps | — | The OMOBA library uses 24 fps. The renderer bake defaults to 30 and its README uses 24 |
 
 - Sample times `t_i = i / fps` are computed in float64 and stored as float32. The last sample is **exactly the clip end**.
 - **Loops:** copy the first pose to the last sample and close the hips drift (OMOBA's `loop_processing` does the same). Make the last→first quaternion pair hemisphere-consistent.
-- **Stepped segments** inside a LINEAR channel: add a key at `t_next − ε` (ε = 1 ms, kept strictly increasing after `fround`) holding the previous value. A channel that is stepped throughout is written as a STEP sampler at its key times only. Maya's `stepNext` maps to STEP with each value shifted to the previous key time.
+- **Stepped segments** inside a LINEAR channel: add a key at `t_next − ε` (ε = 1 ms, kept strictly increasing after `fround`) holding the previous value. A channel that is stepped throughout is written as a STEP sampler at its key times only. The desktop DCC's `stepNext` maps to STEP with each value shifted to the previous key time.
 
 ### 6.4 Error-bounded key reduction (export)
 
@@ -379,7 +380,7 @@ JSON overhead is about 150–250 B per channel (sampler, channel, two accessors,
 |---|---|---|
 | Embedded glTF clips (raw nodes) | `BakedTrack(space:'raw')` per node, kept at the source's sample times (resampled to the project fps only on edit) | VRM: also derive `space:'normalized'` via §4.1, which retargets onto other avatars |
 | VRMA | `BakedTrack(space:'normalized')` + expression/lookAt scalar tracks | `VRMAnimationLoaderPlugin` gives normalized tracks directly |
-| FBX (Mixamo), BVH | `BakedTrack(space:'normalized')` after the bone-map retarget (§7.4) | — |
+| FBX (incl. the auto-rigging service), BVH | `BakedTrack(space:'normalized')` after the bone-map retarget (§7.4) | — |
 | `.ekzanim` | Curves + baked layers verbatim | — |
 | Re-import of our own GLB | Baked tracks, **unless** curve source data is embedded and its hash matches (post-MVP §12) | — |
 
@@ -418,7 +419,7 @@ JSON overhead is about 150–250 B per channel (sampler, channel, two accessors,
 |---|---|
 | `@pixiv/three-vrm-animation` | **Load only.** No exporter in 3.5.5 or 3.6.0-beta.0 |
 | `vrm-c/bvh2vrma` (MIT, Next.js app) | A ~50-line `GLTFExporterPlugin` (`VRMAnimationExporterPlugin.ts`) that adds `VRMC_vrm_animation` with `humanoid.humanBones` from `root.userData.vrmBoneMap` after three's `GLTFExporter` has written a bone-only skeleton plus clip. Humanoid only (no expressions or lookAt). It is a good reference |
-| VRM Add-on for Blender | Lists "VRM Animation" among its features on extensions.blender.org. Use it as an interop test target |
+| VRM add-on for the open-source DCC | Lists "VRM Animation" among its features on the DCC's official extensions site. Use it as an interop test target |
 | `gltf-transform-vrm-extensions` | Read and write helpers for VRMA documents. Young, reference only |
 
 ### 7.4 Ekza VRMA writer (spec)
@@ -452,8 +453,8 @@ source has fewer bones: drive only the bones present
 |---|---|---|
 | **VRM 1.0 ↔ VRM 0.x** | yaw conjugation, thumb rename, expression rename | Exact |
 | **VRMA → any VRM** | `createVRMAnimationClip` | Exact up to the hips scale |
-| **Mixamo FBX → VRM** | three-vrm example `loadMixamoAnimation.js` + `mixamoVRMRigMap`: `q' = parentRestWorld · q · restWorld⁻¹` per track, hips × `vrmHipsY / mixamoHipsY` | Mixamo rigs are in centimetres, and the ratio cancels units. It assumes the FBX rest is a T-pose. An A-pose or other source needs a **reference pose** override |
-| **Arbitrary GLB rig (Rigify `DEF-*`, UE mannequin, `Bip01`, `mixamorig:`)** | A bone-map preset or auto-map by name, then the world-delta method of OMOBA `retarget_animations.py`: `delta = R_src_world(t)·R_src_ref⁻¹`, `R_tgt_world = A·delta·A⁻¹·R_tgt_ref`, local rotations recovered root to leaf. `A` is the yaw alignment chosen from the rest facing | The reference pose matters: OMOBA uses the UAL `A_TPose` clip's first key as the source reference instead of the bind pose. Expose "pick reference frame" in the UI |
+| **Auto-rigger FBX → VRM** (clips from the auto-rigging service) | three-vrm humanoid-animation example (FBX loader + a bone-name rig map): `q' = parentRestWorld · q · restWorld⁻¹` per track, hips × `vrmHipsY / sourceHipsY` | The service's rigs are in centimetres, and the ratio cancels units. It assumes the FBX rest is a T-pose. An A-pose or other source needs a **reference pose** override |
+| **Arbitrary GLB rig (Rigify `DEF-*`, UE mannequin, `Bip01`, the auto-rigger's `…rig:*` names)** | A bone-map preset or auto-map by name, then the world-delta method of OMOBA `retarget_animations.py`: `delta = R_src_world(t)·R_src_ref⁻¹`, `R_tgt_world = A·delta·A⁻¹·R_tgt_ref`, local rotations recovered root to leaf. `A` is the yaw alignment chosen from the rest facing | The reference pose matters: OMOBA uses the UAL `A_TPose` clip's first key as the source reference instead of the bind pose. Expose "pick reference frame" in the UI |
 | **Non-humanoid extras** (tails, wings) | Not retargeted, and only written to GLB/VRM | — |
 
 IK-quality retargeting (foot locking, hand contacts, proportions) is post-MVP. The FK delta method is what VRMA, three-vrm and both Ekza pipelines use today, so it defines "compatible".
@@ -466,7 +467,7 @@ IK-quality retargeting (foot locking, hand contacts, proportions) is post-MVP. T
 |---|---|---|---|
 | **glTF (`.gltf` + `.bin` + images)** | GLTFLoader with a multi-file drop or zip | Surgeon can append a new buffer, or convert to GLB (move image URIs into bufferViews; the bytes stay unchanged) | P1. Ekza requires self-contained GLB anyway |
 | **BVH** | three `BVHLoader` + bone map | **Easy writer** (~150 LOC): `HIERARCHY` (offsets from normalized rest positions, `CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation` for the root, 3 rotation channels for the rest), `MOTION Frames/Frame Time`, Euler degrees from normalized locals (rest = zero rotation is native to BVH). Run the Euler filter per channel | P1/P2. Lossy (Euler, no expressions). Good for mocap tools |
-| **FBX** | three `FBXLoader` (ASCII ≥ 7.0, binary ≥ 6400) | MIT JS writers exist: `@comfyorg/fbx-exporter-three` 1.0.2 (binary, skinning, TRS + morph animation, presets for Unity/Unreal/Maya/Blender, uses `fflate`) and `three-js-fbx-exporter` 0.1.3 (binary + ASCII 7400/7500). Both are from 2026 and young. The alternative is `assimpjs` (MIT, WASM assimp), which is heavier. Do **not** port Blender's exporter (GPL). The Autodesk SDK is not browser-usable | P2 behind an `Exporter` interface, gated by Blender/Maya/Unity round-trip tests |
+| **FBX** | three `FBXLoader` (ASCII ≥ 7.0, binary ≥ 6400) | MIT JS writers exist: `@comfyorg/fbx-exporter-three` 1.0.2 (binary, skinning, TRS + morph animation, presets for Unity, Unreal and common DCCs, uses `fflate`) and `three-js-fbx-exporter` 0.1.3 (binary + ASCII 7400/7500). Both are from 2026 and young. The alternative is `assimpjs` (MIT, WASM assimp), which is heavier. Do **not** port the open-source DCC's exporter (GPL). The vendor's FBX SDK is not browser-usable | P2 behind an `Exporter` interface, gated by round-trip tests in common DCCs and Unity |
 | **USDZ** | — | three `USDZExporter` r186 writes node `xformOp` timeSamples but **no UsdSkel or skinning**. Ekza Mirror's `arkit-body-v1` profile has `embeddedAnimation: false` (ARKit drives the skeleton) | **Out of scope** |
 | **Ekza shared clip** (`SerializedHumanoidClip`, `ekza-avatar-renderer`) | Decoder in the renderer (`decodeQuaternions`, `retargetHumanoidClip`) | Trivial from normalized streams: parent-local N, VRM 1.0 facing, int16 quantization, hips = world / hipsRestY, constant-track collapse at ε 4e-3 | Later. Prefer that the renderer reads VRMA |
 | **OMOBA `humanoid-motion-v1.json`** | — | World rotation deltas `D = Π N` (glTF xyzw), hips world deltas in source metres + `source_hips_height`, `contacts`, `looping`, 24 fps | Later. Prefer an OMOBA VRMA loader (note 03 §7.4) |
@@ -496,7 +497,7 @@ IK-quality retargeting (foot locking, hand contacts, proportions) is post-MVP. T
    - three-vrm loads the baked VRM: `vrm.meta`, expressions and the spring-bone joint count are unchanged.
    - The exported VRMA plays on a VRM 0.x and a VRM 1.0 target, with pose error ≤ θ_tol versus the editor's evaluation at 10 random times.
    - Golden VRMA files from third-party tools import correctly.
-5. **Downstream smoke tests** (later): Bevy loads the baked GLB and finds the named clips (OMOBA CI), and Blender imports the animation-only GLB and the VRMA (VRM add-on).
+5. **Downstream smoke tests** (later): Bevy loads the baked GLB and finds the named clips (OMOBA CI), and the open-source DCC imports the animation-only GLB and the VRMA (VRM add-on).
 6. **Hashing**: SHA-256 over the exact output bytes (`crypto.subtle.digest`), shown in the export manifest to match the Registry record.
 
 ---
@@ -534,7 +535,7 @@ Suggested module boundaries (all framework-free so they also run in Node for CLI
 | `anim-core` | curves, tangent solver, Euler/quaternion math, rotate-order mapping, Euler filter, sampler, reducer |
 | `io-gltf` | GLB container read/write, surgeon, accessor writer, animation-only GLB writer (glTF Transform), validator wrapper |
 | `io-vrm` | humanoid tables (VRM0/1 names, required sets, parent map), normalized ↔ raw, facing and mirror, VRMA read/write, expression mapping |
-| `io-interop` (P1/P2) | BVH read/write, FBX import + exporter adapter, bone-map presets (Mixamo, Rigify `DEF-*`, UE, `Bip01`) |
+| `io-interop` (P1/P2) | BVH read/write, FBX import + exporter adapter, bone-map presets (common auto-rigger skeletons, Rigify `DEF-*`, UE, `Bip01`) |
 
 **Project file `.ekzanim`** (target 4):
 - A zip (`fflate`, MIT) with `manifest.json` (`{format:"ekza-animator-project", schema, appVersion}`), a deterministic `project.json` (sorted keys, stable IDs, JSON Schema published in the repo, forward migrations), optional `models/<sha256>.{vrm,glb}` (embedded originals: required for an offline, self-contained project; optional when the model comes from the Ekza Registry by id + sha256) and `thumbs/`.
@@ -579,7 +580,7 @@ Suggested module boundaries (all framework-free so they also run in Node for CLI
 - *Embedded clips disable Space's shared library.* Baking a single custom clip into a VRM removes Space's `idle`/`walk` (§5.5). This needs a renderer change or a preset warning.
 - *OMOBA builder and marker interplay.* Both tools append. Rollback must never cross another tool's baseline. Users should bake source VRMs, not renditions.
 - *three-vrm-animation silently mis-reads CUBICSPLINE and non-1:1 channel or track layouts*, so the VRMA writer must stay strictly LINEAR or STEP and humanoid/expression/lookAt only.
-- *Rotate-order and handedness mistakes* (Maya `xyz` vs three `'XYZ'`; VRM 0.x −Z facing) are the classic source of "the arm bends backwards". Mitigate with one tested module and golden poses.
+- *Rotate-order and handedness mistakes* (DCC `xyz` vs three `'XYZ'`; VRM 0.x −Z facing) are the classic source of "the arm bends backwards". Mitigate with one tested module and golden poses.
 - *Name-based binding*: three re-sanitizes names and Bevy needs a named ancestor path. Never rename nodes, and lint for missing or duplicate names.
 - *Young third-party libraries* (FBX writers, `gltf-transform-vrm-extensions`) may change or be abandoned. Keep them behind interfaces and never on the lossless path.
 - *glTF-Validator npm cadence*: the last release was 2024-10. It is fine for core glTF, but it does not validate VRM extensions. Evaluate the VRM consortium's validator for VRM-specific checks.
@@ -588,7 +589,7 @@ Suggested module boundaries (all framework-free so they also run in Node for CLI
 1. Should `ekza-avatar-renderer` always load the shared library and fill name gaps (drop the `embedded.length === 0` gate)? Recommended: yes.
 2. Default project fps: 30 (matches VRMA) or 24 (matches the OMOBA library)? Recommendation: 30, with 24 and 60 selectable per clip.
 3. Should Ekza standardize on **VRMA** as the cross-runtime humanoid clip asset (renderer, OMOBA, Registry `vrma-humanoid-v1`) and retire the two bespoke JSON formats over time?
-4. Animation-only GLB for Blender: bones without a skin may import as empties rather than an armature. Should we include the source mesh ("full GLB with clips") or a minimal skin? This needs a Blender test.
+4. Animation-only GLB for the open-source DCC: bones without a skin may import as empties rather than an armature. Should we include the source mesh ("full GLB with clips") or a minimal skin? This needs a test in the open-source DCC.
 5. When baking expressions for non-VRM consumers (OMOBA GLB), should material/texture-transform expression binds be dropped (they need `KHR_animation_pointer`) or should the bake be refused when such binds exist?
 6. Should editable curve source be embedded in uploads at all (privacy and size), or only in "working file" exports?
 
@@ -599,7 +600,7 @@ Suggested module boundaries (all framework-free so they also run in Node for CLI
 | Convention | Where | Our rule |
 |---|---|---|
 | Normalized, rest-relative, parent-local humanoid rotations; VRM 1.0 (+Z) facing as canonical; VRM 0.x via `(−x, y, −z, w)` | `ekza-avatar-renderer/src/humanoidRetarget.ts` (`flipYawQuaternion`, `retargetHumanoidClip`), `scripts/bake-shared-animations.mjs` | Same canonical space as VRMA. The `io-vrm` facing helper must produce identical numbers |
-| Hips = world position / hips rest height, rescaled by the target's hips height | renderer (`readHipsRestHeight`), VRMA loader, three-vrm Mixamo example | Same. VRMA writes absolute hips with `restHipsPosition` |
+| Hips = world position / hips rest height, rescaled by the target's hips height | renderer (`readHipsRestHeight`), VRMA loader, three-vrm humanoid-animation example | Same. VRMA writes absolute hips with `restHipsPosition` |
 | Missing optional bones: recompose world deltas and re-parent to the nearest driven ancestor | renderer `composeWorldRotations`, VRMA spec | Same rule in `io-vrm` |
 | Embedded clips target raw bones and load with `autoUpdateHumanBones: false`; normalized clips need `true` | renderer `vrm.ts`, `sharedAnimations.ts` | Editor uses a single writer per bone (§4.1); bakes always write raw |
 | VRM 0.x thumb aliases | bake script `VRM0_BONE_ALIASES`, three-vrm `thumbBoneNameMap` | Same table |
@@ -622,13 +623,13 @@ Suggested module boundaries (all framework-free so they also run in Node for CLI
 - gltf-transform-vrm-extensions: https://www.npmjs.com/package/gltf-transform-vrm-extensions
 - VRM 1.0 humanoid: https://github.com/vrm-c/vrm-specification/blob/master/specification/VRMC_vrm-1.0/humanoid.md ; T-pose: https://github.com/vrm-c/vrm-specification/blob/master/specification/VRMC_vrm-1.0/tpose.md
 - VRM Animation spec: https://github.com/vrm-c/vrm-specification/blob/master/specification/VRMC_vrm_animation-1.0/README.md ; pose conversion: https://github.com/vrm-c/vrm-specification/blob/master/specification/VRMC_vrm_animation-1.0/how_to_transform_human_pose.md ; https://vrm.dev/en/vrma/
-- three-vrm: https://github.com/pixiv/three-vrm ; three-vrm-animation 3.5.5 (inspected): https://unpkg.com/@pixiv/three-vrm-animation@3.5.5/lib/three-vrm-animation.module.js ; three-vrm-core 3.5.5 (`VRMHumanoidRig`, `v0v1PresetNameMap`): https://unpkg.com/@pixiv/three-vrm-core@3.5.5/lib/three-vrm-core.module.js ; Mixamo example: https://github.com/pixiv/three-vrm/blob/dev/packages/three-vrm/examples/humanoidAnimation/loadMixamoAnimation.js
+- three-vrm: https://github.com/pixiv/three-vrm ; three-vrm-animation 3.5.5 (inspected): https://unpkg.com/@pixiv/three-vrm-animation@3.5.5/lib/three-vrm-animation.module.js ; three-vrm-core 3.5.5 (`VRMHumanoidRig`, `v0v1PresetNameMap`): https://unpkg.com/@pixiv/three-vrm-core@3.5.5/lib/three-vrm-core.module.js ; humanoid-animation (FBX retarget) example: https://github.com/pixiv/three-vrm/tree/dev/packages/three-vrm/examples/humanoidAnimation
 - VRM 0.x → 1.0 facing (secondary): https://scrapbox.io/ke456memo/VRM%E3%81%AE%E5%90%91%E3%81%8D%E3%81%AE%E8%A9%B1
 - bvh2vrma (MIT): https://github.com/vrm-c/bvh2vrma (`src/lib/bvh-converter/VRMAnimationExporterPlugin.ts`)
-- VRM Add-on for Blender: https://extensions.blender.org/add-ons/vrm/
+- VRM add-on for the open-source DCC (its official extensions site; URL omitted)
 - glTF-Validator: https://github.com/KhronosGroup/glTF-Validator ; issue codes: https://github.com/KhronosGroup/glTF-Validator/blob/main/ISSUES.md ; npm: https://www.npmjs.com/package/gltf-validator
 - Bevy glTF 0.19 (supported extensions, animation loading): https://docs.rs/bevy_gltf/0.19.1/bevy_gltf/
 - FBX writers: https://github.com/Comfy-Org/fbx-exporter-three , https://github.com/fourthtemple/three-js-fbx-exporter ; assimpjs: https://github.com/kovacsv/assimpjs
-- Maya Graph Editor tangents: https://help.autodesk.com/cloudhelp/2025/ENU/Maya-Animation/files/GUID-43A4FE2C-4863-4EA6-B6AE-6D2B6757F6C7.htm ; keyTangent: https://help.autodesk.com/cloudhelp/2024/ENU/Maya-Tech-Docs/Commands/keyTangent.html
+- Desktop DCC Graph Editor tangents (2025) and the `keyTangent` command (2024): vendor documentation, URLs omitted
 - Animation Compression Library (error metric reference): https://github.com/nfrechette/acl
 - Local Ekza code inspected (read-only): `ekza-avatar-renderer` (`src/humanoidRetarget.ts`, `src/vrm.ts`, `src/sharedAnimations.ts`, `src/AvatarModel.tsx`, `scripts/bake-shared-animations.mjs`, `test/fixtures/vrm1-sample.vrm`), `omoba-bevy` (`scripts/retarget_animations.py`, `scripts/export_humanoid_motion.py`, `scripts/ekza_publish.py`, `assets-src/animations/README.md`), `ekza-registry` (`backend/app/services/profile_checks.py`, `supabase/migrations/202609190001_game_integration.sql`), `bevy_gltf 0.19.1` crate source.

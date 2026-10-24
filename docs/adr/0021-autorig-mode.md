@@ -6,18 +6,19 @@
   The shared `(studio)` layout shipped (undo history kept across the switch); `/autorig` 658,122 B under its 660,000 B
   gate; an Auto-Rig export is byte-equal to Studio's (AS-AR-1, AS-AR-2, AS-AR-4).
 - Inputs: the owner's request of 2026-10-22 ("on opening choose the full interface or a simplified auto-rig built on
-  the interfaces we already have — like Mixamo … Studio must become a universal combine"); the owner's decision on
-  Q-AR-4 (build the A-pose path in this milestone); M6B-SPEC v1.5 §0 and ADR 0020 (the M6b MVP cut, merged on `dev`);
-  ADRs 0006, 0008, 0010, 0013; the market survey in AUTORIG-SPEC §2 (Mixamo, AccuRIG, Cascadeur, Tripo, Meshy).
+  the interfaces we already have — like a web auto-rigging service … Studio must become a universal combine"); the
+  owner's decision on Q-AR-4 (build the A-pose path in this milestone); M6B-SPEC v1.5 §0 and ADR 0020 (the M6b MVP
+  cut, merged on `dev`); ADRs 0006, 0008, 0010, 0013; the market survey in AUTORIG-SPEC §2 (a web auto-rigging
+  service, AccuRIG, Cascadeur, Tripo, Meshy).
 
 ## Context
 
-The M6b MVP gives Studio everything a Mixamo-style flow needs — Quick Rig markers with a One-Click guess, Create
-Skeleton, Bind Skin, weight painting, a CC0 clip library with preview and Use Clip, and a VRM 1.0 writer whose lints
-are OMOBA's runtime rules — but inside a Maya-style workspace with docked panels, menus and a checklist. Newcomers who
-only want "upload, rig, see it move, get a file for OMOBA" meet the whole package at once. The owner wants a choice on
-opening: the full Studio, or a simple auto-rig made from the same parts, and wants Studio to grow into a "universal
-combine".
+The M6b MVP gives Studio everything a one-click auto-rigging flow needs — Quick Rig markers with a One-Click guess,
+Create Skeleton, Bind Skin, weight painting, a CC0 clip library with preview and Use Clip, and a VRM 1.0 writer whose
+lints are OMOBA's runtime rules — but inside a desktop-DCC-style workspace with docked panels, menus and a checklist.
+Newcomers who only want "upload, rig, see it move, get a file for OMOBA" meet the whole package at once. The owner
+wants a choice on opening: the full Studio, or a simple auto-rig made from the same parts, and wants Studio to grow
+into a "universal combine".
 
 Four ways to build that were considered:
 
@@ -69,8 +70,8 @@ Four ways to build that were considered:
 - **Workspace tab (2)**: keeps dockview, menus and the Studio chrome on screen and in the bundle, and duplicates C7's
   mode, scope and test-pose logic keyed on the `rig` workspace. Rejected; Auto-Rig uses the `rig` and `animate`
   workspaces as they are.
-- **Layout preset (3)**: cannot turn a Maya-style toolkit into a guided flow (one primary action per step, plain-language
-  checks, progress) and does not make the route lighter. Rejected; Studio's presets stay as they are.
+- **Layout preset (3)**: cannot turn a desktop-DCC-style toolkit into a guided flow (one primary action per step,
+  plain-language checks, progress) and does not make the route lighter. Rejected; Studio's presets stay as they are.
 
 ## Consequences
 

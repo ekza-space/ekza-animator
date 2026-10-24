@@ -53,9 +53,9 @@ that `model/vrma` has no registry or IANA meaning, and that the Hub → Studio d
 3. **Authoring the metadata.** `ClipRecord` carries `contact` (clip frames → `contactSeconds`), `tags` and
    `provenance { derivedFrom[], redistributable }`, editable in the clip settings. Import fills provenance
    (research 03 R7, §7.5 item 5): embedded clips inherit the avatar's VRM meta (title, authors, licence,
-   `allowRedistribution`); clip or node names matching `/mixamo/i` force `redistributable: 'no'`; VRMA or GLB of
-   unknown origin get `'unknown'`; bundled samples pass their known licence; new clips are `'yes'` with an empty
-   `derivedFrom`.
+   `allowRedistribution`); clip or node names that carry a web auto-rigging service's marker force
+   `redistributable: 'no'`; VRMA or GLB of unknown origin get `'unknown'`; bundled samples pass their known licence;
+   new clips are `'yes'` with an empty `derivedFrom`.
 4. **Lints and export profiles.** Lint codes use the registry's issue code where one exists, otherwise a
    namespaced code. Export profiles are **data** (`ExportProfileDef`, same shape as the registry's
    `GET /v1/profiles/{platform}/{profile}`; static offline copies ship in `io`): built-ins `ekza/space-avatar-v1`

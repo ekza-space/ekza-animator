@@ -3,7 +3,7 @@ import { type CameraSnapshot, cameraDelta, centreOf, drag, paneRect, settle } fr
 import { seedSample } from './helpers/seed';
 import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
 
-// E2E-05 (MVP-SPEC §6.2, §4.11.16): Maya navigation (Alt+LMB tumble) is swallowed by the locked shot camera and
+// E2E-05 (MVP-SPEC §6.2, §4.11.16): Alt+drag navigation (Alt+LMB tumble) is swallowed by the locked shot camera and
 // moves the free one; an unlocked shot camera moves and persists outside undo (Mod+Z undoes the unlock, not the
 // move); the quad layout has four panes; Space over a pane maximizes and restores it.
 const alt = { modifiers: ['Alt'] } as const;

@@ -1,5 +1,5 @@
 // M6A-SPEC §5.18 (B9): the command palette — fuzzy search over the operators visible in the current workspace
-// (labels, ids, Blender-style aliases), menu items with arguments and "Workspace: …" entries, key labels and poll
+// (labels, ids, alternative-name aliases), menu items with arguments and "Workspace: …" entries, key labels and poll
 // reasons, Enter runs (`source: 'palette'`), the inline prompt of operators with params, and the list UI.
 import type { ParamDef } from '@ekza-studio/anim-core';
 import {

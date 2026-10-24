@@ -189,7 +189,7 @@ describe('case (b): after a keyboard-invoked operation', () => {
     expect(t.capture.state).toEqual({ armed: 'keyboard-op', field: 'dy', text: null });
     expect(t.capture.key(ESC)).toBe(false);
     expect(t.capture.state.armed).toBeNull();
-    // Without an entry Backspace is not part of one: it disarms and reaches the keymap (Maya's Delete).
+    // Without an entry Backspace is not part of one: it disarms and reaches the keymap (Delete).
     const u = await armedByKeyboard();
     expect(u.capture.key(BACKSPACE)).toBe(false);
     expect(u.capture.state.armed).toBeNull();
@@ -201,7 +201,7 @@ describe('case (b): after a keyboard-invoked operation', () => {
     type(t.capture, '5');
     expect(t.capture.key(BACKSPACE)).toBe(true);
     expect(t.capture.state.text).toBe('');
-    // One Backspace too many stays in the window (Maya's Delete must not run on the selection).
+    // One Backspace too many stays in the window (the keymap's Delete must not run on the selection).
     expect(t.capture.key(BACKSPACE)).toBe(true);
     expect(t.capture.key(ENTER)).toBe(true);
     await settle();

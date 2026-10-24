@@ -5,10 +5,11 @@
 // (Apache-2.0, © Autodesk, Inc.). Changes: ported to TypeScript; returns the time mapping (in-range time, value
 // offset, mirror flag) instead of evaluating, so slopes and painters reuse it; linear infinity uses the resolved end
 // slope (AnimX: `tan(tangentAngle)`, the same slope); a single key with a cyclic infinity maps to itself (AnimX
-// returns 0 there because the range is 0); the mapped time is not rounded to Maya ticks (`toTickDoubleTime`, which
-// models Maya's seconds; the engine's frames have no such quantum) — instead a mapped time within the mapping's
-// rounding error of a key is snapped onto that key, which is what the tick rounding achieves for tick-aligned keys
-// (see `mapCyclicInfinity`); the mapped time is clamped into the key range so it can never recurse into the infinity.
+// returns 0 there because the range is 0); the mapped time is not rounded to AnimX ticks (`toTickDoubleTime`, which
+// models the host application's seconds; the engine's frames have no such quantum) — instead a mapped time within
+// the mapping's rounding error of a key is snapped onto that key, which is what the tick rounding achieves for
+// tick-aligned keys (see `mapCyclicInfinity`); the mapped time is clamped into the key range so it can never recurse
+// into the infinity.
 
 import type { CompiledAnimCurve, InfinityMode } from '../../types';
 
@@ -38,8 +39,8 @@ function isCyclicMode(mode: InfinityMode): mode is CyclicInfinity {
  * with AnimX `evaluateInfinity`'s arithmetic. `n ≥ 2` and `t[n − 1] > t[0]` are required. Writes the mapped frame
  * (clamped, not yet snapped) and the key-snap tolerance into INFINITY_MAP; `snapToKey` applies it.
  *
- * AnimX then rounds the mapped time to Maya ticks. Besides modelling Maya's seconds, that rounding removes the
- * mapping's rounding error where the exact mapped time is a key: without it, a time that should land on a key can
+ * AnimX then rounds the mapped time to ticks. Besides modelling its host application's seconds, that rounding removes
+ * the mapping's rounding error where the exact mapped time is a key: without it, a time that should land on a key can
  * come out a hair after it (10.000000000000002 for 10), and a step-next span, which jumps right after its start key,
  * would return the next key's value. The port snaps exactly that case: a mapped time within the rounding-error bound
  * of a key becomes the key's time. Elsewhere the mapping is left unrounded, which agrees with AnimX on tick-aligned

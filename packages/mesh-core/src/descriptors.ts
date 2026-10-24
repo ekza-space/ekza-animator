@@ -92,5 +92,5 @@ export const MESH_SET_OP_DESCRIPTORS: Readonly<Record<string, MeshSetOpDescripto
 ]);
 
 export { EDGE_CREASE, EDGE_HARD, EDGE_SEAM, FACE_FLIP_DIAGONAL } from './constants';
-export { MAYA_PRIMITIVE_DEFAULTS, PRIMITIVE_PARAMS } from './primitiveParams';
+export { DCC_PRIMITIVE_DEFAULTS, PRIMITIVE_PARAMS } from './primitiveParams';
 export type * from './types';

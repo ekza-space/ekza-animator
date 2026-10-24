@@ -69,7 +69,8 @@ demanded impossible byte identity of re-serialized JSON.
    present humanoid ancestor; hips at its canonical rest world position under an identity root); tracks are `N_b`
    and the absolute hips position; `extensionsUsed: ["VRMC_vrm_animation"]`, `specVersion "1.0"`, exactly one
    animation, clip fps (30 default), LINEAR/STEP only. A test recomposes rest world positions from the file
-   (≤ 1e-5 m). Expressions and lookAt are V1; a Blender VRM add-on import smoke test is V1.
+   (≤ 1e-5 m). Expressions and lookAt are V1; an import smoke test with the VRM add-on of a popular open-source DCC
+   is V1.
 9. **Validation**: fresh writers (2) and (3) produce **0 validator errors**; surgeon outputs must add **no
    error-severity issue whose `(code, pointer)` is absent from the source file's report** (sources may carry their
    own errors, which the surgeon must preserve). In the app, export validates by **read-back** (re-parse, compare

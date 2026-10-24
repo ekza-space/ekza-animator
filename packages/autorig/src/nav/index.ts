@@ -2,8 +2,9 @@
 // ViewportManager's `setNavigationOverride` hook while it is mounted — in the persp pane a left drag on empty space
 // orbits, a right (or middle) drag pans, the wheel zooms (the profile's wheel, unchanged); ortho panes never orbit; a
 // press the active tool claims (a manipulator, a joint, a control, the mesh under a painting or marker tool, or a
-// claim a step registers) goes to the tool; `Alt` + mouse falls through to the user's profile (Maya keeps working).
-// On a touch screen two fingers pan and pinch-zoom (`./touch`, a lazy chunk loaded only where touch points exist).
+// claim a step registers) goes to the tool; `Alt` + mouse falls through to the user's profile (Alt+drag navigation
+// keeps working). On a touch screen two fingers pan and pinch-zoom (`./touch`, a lazy chunk loaded only where touch
+// points exist).
 // Not a `NavProfile` value and never a preference: the user's Studio `navProfile` is never written, and the
 // disposer removes the override (shell unmount), so Studio after a switch navigates with the user's own profile.
 import type { Disposer } from '@ekza-studio/anim-core';
@@ -19,7 +20,7 @@ export interface SimplePress {
 
 /** §8.1's table as a pure function: the gesture of a press, or null for the tool / the profile. */
 export function simpleGesture(e: NavPointerInput, press: SimplePress): NavGesture | null {
-  if (e.altKey) return null; // the profile's Alt chords (Maya) keep working
+  if (e.altKey) return null; // the profile's Alt chords (Alt+drag navigation) keep working
   if (e.button === 1 || e.button === 2) return 'track';
   if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || press.ortho) return null;
   return press.claimed() ? null : 'tumble';

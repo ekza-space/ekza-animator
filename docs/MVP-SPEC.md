@@ -86,10 +86,10 @@ and frame numbers keep out of each other's area.
 | Rig | Auto-generated FK rig: humanoid (VRM) with NURBS-like circle controls sized from the skinned mesh, offset groups (zero pose = rest), side colours, `root` + `cog` (pure space, translate+rotate) + `fk.hips` (pelvis), secondary controls for non-humanoid joints (hidden by default); 1:1 FK rig for generic skinned GLBs. Constraint and solver slots in the kernel (no implementations). `VRMC_node_constraint` evaluated in the preview. A pure two-bone IK *solver function* used by `Plant Feet`. |
 | Outliner | Character → Rig (controls tree) / Skeleton (bones, read-only) / Clips; filter by name and VRM humanoid name; selection sync. |
 | Channel Box | Values of the lead selection's keyable channels (degrees for rotation), multi-selection editing, colour states keyed-on-frame / keyed / changed / locked, numeric entry with relative expressions, right-click: key selected, reset, lock/unlock. Rotate order shown read-only. |
-| Viewport | One canvas; layouts single / 2-pane (left: locked shot camera, right: free persp) / 4-view (top, persp, front, side); Maya navigation (Alt+LMB/MMB/RMB, wheel) and a trackpad profile; F/A framing; display toggles mesh, skeleton, controls, x-ray, grid; HUD with camera name, `LOCKED` badge, clip frame and scene time; navigating an unlocked shot camera persists without entering undo. |
+| Viewport | One canvas; layouts single / 2-pane (left: locked shot camera, right: free persp) / 4-view (top, persp, front, side); Alt+drag navigation (industry-standard DCC: Alt+LMB tumble, Alt+MMB track, Alt+RMB dolly; wheel) and a trackpad profile; F/A framing; display toggles mesh, skeleton, controls, x-ray, grid; HUD with camera name, `LOCKED` badge, clip frame and scene time; navigating an unlocked shot camera persists without entering undo. |
 | Selection | Click, Shift/Mod modifiers, **marquee** (crossing test), **click-cycling** through overlapping controls, hover/selected/lead highlight tokens; outliner sync. |
 | Manipulators | `W` translate (object/world), `E` rotate (object/world/**gimbal**); constant pixel size; picking priority manipulator > control > joint. `Q` select tool. |
-| Keying | `S` (all keyable), `Shift+W/E/R` (translate/rotate/scale), key selected channels (Channel Box), auto-key toggle (Maya rule: only channels that already have curves; preference "all"), delete keys at frame / selected keys. |
+| Keying | `S` (all keyable), `Shift+W/E/R` (translate/rotate/scale), key selected channels (Channel Box), auto-key toggle (default rule: only channels that already have curves; preference "all"), delete keys at frame / selected keys. |
 | Time | Time slider with ruler, key ticks of the selected controls (summary row), scrub, **Shift-select a frame or range and move, scale, delete, copy, paste or set tangents of its keys**, playback range, play/stop, loop/once/oscillate, real-time and every-frame playback, per-clip fps (24/25/30/48/50/60/custom), a scene clock shared by all characters. |
 | Graph Editor | Canvas2D; channel list with X/Y/Z colours; pan/zoom/frame per navigation profile; click, box and double-click (whole curve) selection of keys and tangent handles; move keys (LMB on selection or MMB anywhere) with axis lock and frame snapping; tangent types auto, spline, clamped, linear, flat, stepped (+ stepped-next, fixed in the menu); break/unify; weighted curves with lock/free weight; pen-like handle dragging; insert key on curve (shape preserving); numeric fields (frame, value, in/out angle, in/out weight); pre/post infinity constant/linear/cycle/cycle-offset/oscillate with dotted display; Euler filter; **Simplify** (error-bounded key reduction); copy/paste keys at the current frame. |
 | Clips | Multiple named clips per character (new, rename, duplicate, delete, switch, settings: fps, range, loop, root motion, Ekza slot, contact frame, tags, provenance); embedded clips imported as editable curves at the **source frame rate** with key reduction (selectable per clip at import). |
@@ -106,7 +106,7 @@ and frame numbers keep out of each other's area.
 | Item | Why it is stretch | Fallback in M1 core |
 |---|---|---|
 | Plateau tangent (FR-GE-08) | No oracle; "plateau if cheap" | Key `7` and the menu item poll-fail with "not available yet"; the enum value exists |
-| Cycle-aware auto tangents (FR-GE-17) | Improvement over Maya, no oracle | Plain AnimX auto at the ends |
+| Cycle-aware auto tangents (FR-GE-17) | Improvement over a leading commercial desktop DCC, no oracle | Plain AnimX auto at the ends |
 | Mesh-click picking (CPU skinned raycast) | Cost of skinned raycasts; controls are pickable | Click controls, outliner, marquee |
 | Space-hold camera radial; one-button macOS navigation profile | UI polish | Pane header camera menu; Trackpad profile |
 | Pose-preserving rotate-order change (FR-RIG-08, FR-CB-06) | Needs union-time resampling (§4.11.5) | Rotate order is read-only in the Channel Box and Attributes |
@@ -345,7 +345,7 @@ export interface ReadonlyXf { readonly t: ReadonlyVec3; readonly q: ReadonlyQuat
 export type Disposer = () => void;
 
 /**
- * Rotate order in DCC (Maya/Blender) semantics: the FIRST letter is applied FIRST.
+ * Rotate order in common DCC semantics: the FIRST letter is applied FIRST.
  * 'xyz' ⇒ R = Rz·Ry·Rx (column vectors) ≡ three.js Euler order 'ZYX'.
  */
 export type RotateOrder = 'xyz' | 'yzx' | 'zxy' | 'xzy' | 'yxz' | 'zyx';
@@ -430,7 +430,7 @@ export interface ReduceOptions {
 }
 export interface ReduceResult { readonly keys: KeyData[]; readonly removed: number; readonly maxError: number }
 
-/** Graph Editor numeric tangent fields in Maya convention (x in seconds, display units). */
+/** Graph Editor numeric tangent fields in the desktop-DCC convention (x in seconds, display units). */
 export interface TangentFields { readonly angleDeg: number; readonly weight: number }
 
 // ---------- geometry (control shapes now, spline modeling later) ----------
@@ -736,7 +736,7 @@ export interface CurveRecord {
   readonly weighted: boolean;
   readonly pre: InfinityMode;
   readonly post: InfinityMode;
-  /** Maya "static attribute value": used when the curve has no keys. null = channel default. */
+  /** "Static attribute value" (desktop-DCC term): used when the curve has no keys. null = channel default. */
   readonly staticValue: number | null;
   readonly locked: boolean;                    // Graph Editor lock (no edits)
   readonly muted: boolean;                     // V1 (evaluator ignores in MVP)
@@ -1565,16 +1565,16 @@ export interface SessionState {
 export type SessionStore = StoreApi<SessionState>;
 
 // ---------- preferences (P state) ----------
-export type NavProfile = 'maya' | 'trackpad' | 'mayaOneButton';   // mayaOneButton: M1-stretch
+export type NavProfile = 'dcc' | 'trackpad' | 'oneButton';   // oneButton: M1-stretch
 export interface Prefs {
   readonly version: 1;
   readonly firstRunDone: boolean;
-  readonly navProfile: NavProfile;                                // default: 'trackpad' on macOS, else 'maya'
-  readonly spaceBehaviour: 'maya' | 'play';                       // default 'maya' (tap maximize, hold radial)
+  readonly navProfile: NavProfile;                                // default: 'trackpad' on macOS, else 'dcc'
+  readonly spaceBehaviour: 'maximize' | 'play';                   // default 'maximize' (tap maximize, hold radial)
   readonly keymapOverrides: readonly KeyBinding[];
   readonly defaultTangents: { readonly in: TangentType; readonly out: TangentType };   // 'auto'/'auto'
   readonly autoKey: boolean;                                      // default false
-  readonly autoKeyMode: 'keyed-only' | 'all';                     // default 'keyed-only' (Maya)
+  readonly autoKeyMode: 'keyed-only' | 'all';                     // default 'keyed-only'
   readonly graphHandles: 'selected' | 'all';                      // default 'selected'
   readonly moveSpace: 'object' | 'world';                         // default 'world'
   readonly rotateSpace: ManipSpace;                               // default 'object'; remembered per user
@@ -1665,7 +1665,7 @@ export interface KeyInput {
 }
 export interface KeymapManager {
   readonly platform: 'mac' | 'other';
-  readonly preset: 'maya';
+  readonly preset: 'dcc';
   bindings(): readonly KeyBinding[];                              // preset + overrides
   /** scopes: most specific first, e.g. ['graph', 'global']. */
   resolve(input: KeyInput, scopes: readonly KeyScope[], trigger: KeyTrigger): KeyBinding | null;
@@ -2172,9 +2172,9 @@ export type TimeSliderHit =
 `NEXT_PUBLIC_EKZA_E2E=1` **and** the URL has `?e2e=1`.
 
 URL parameters (e2e builds only): `e2e=1` uses a fresh storage namespace, sets `firstRunDone: true`,
-`navProfile: 'maya'`, `spaceBehaviour: 'maya'`, seeds IDs (`seededIdSource(1)`), disables UI transitions and
-records the last export artifact. Overrides: `firstRun=1` (show the first-run dialog), `nav=maya|trackpad`,
-`space=maya|play`, `platform=mac|other` (keymap labels and `mod`).
+`navProfile: 'dcc'`, `spaceBehaviour: 'maximize'`, seeds IDs (`seededIdSource(1)`), disables UI transitions and
+records the last export artifact. Overrides: `firstRun=1` (show the first-run dialog), `nav=dcc|trackpad`,
+`space=maximize|play`, `platform=mac|other` (keymap labels and `mod`).
 
 Every function that takes a `control` accepts a `ControlId` or a template key of the active character.
 
@@ -2232,7 +2232,7 @@ Stable `data-testid` values (owners in brackets). Specs use only these selectors
 | Element | `data-testid` | Owner |
 |---|---|---|
 | Empty-state drop zone, sample buttons | `dropzone`, `sample-seed-san`, `sample-polybot`, `sample-quaternius-ual` | WP-5 (viewport panel) |
-| First-run dialog | `firstrun-dialog`, `firstrun-nav-maya`, `firstrun-nav-trackpad`, `firstrun-space-maya`, `firstrun-space-play`, `firstrun-done` | WP-8 |
+| First-run dialog | `firstrun-dialog`, `firstrun-nav-dcc`, `firstrun-nav-trackpad`, `firstrun-space-maximize`, `firstrun-space-play`, `firstrun-done` | WP-8 |
 | Import dialog | `import-dialog`, `import-format-badge`, `import-license-badge`, `import-clip-<animationIndex>`, `import-reduce`, `import-confirm` | WP-8 |
 | Export dialog | `export-dialog`, `export-kind-<kind>`, `export-clip-<clipId>`, `export-profile`, `export-ack-license`, `export-lints`, `export-confirm` | WP-8 |
 | Channel Box | `cb-field-<channel>` (e.g. `cb-field-rz`), `cb-name-<channel>`, `cb-menu-key-selected`, `cb-menu-reset`, `cb-menu-lock` | WP-9 |
@@ -2287,7 +2287,7 @@ runner rules of §4.11.0; behaviour details live in the referenced subsection.
 | `time.step` | — | 7b | ±active-clip frames. |
 | `time.nextKey` / `time.prevKey` | — | 7b | Next/previous key time of the selected controls (all controls if none). |
 | `time.goToStart` / `time.goToEnd` | — | 7b | Playback range start/end. |
-| `time.togglePlay` / `time.play` / `time.stop` | — | 7b | Playback clock; `stop` keeps the current frame (Maya). |
+| `time.togglePlay` / `time.play` / `time.stop` | — | 7b | Playback clock; `stop` keeps the current frame. |
 | `time.setPlaybackRange` | — | 7b | Session state (scene frames internally; the UI passes clip frames converted by the panel). |
 | `time.setLoop` / `time.setSpeed` | — | 7b | Session state. |
 | `time.selectBand` | — | 6t | §4.11.17: sets `time.band` and selects the keys inside it on the target controls. |
@@ -2314,7 +2314,7 @@ runner rules of §4.11.0; behaviour details live in the referenced subsection.
 | `clip.setSettings` | U | 7b | `fpsMode: 'keep-seconds'` rescales key `t`, handle `dt`, range and contact by `newFps/oldFps` (`flags.structural`). |
 | `view.layout` | — | 5 | Single / split / quad. |
 | `view.toggleMaximize` | — | 8 | Space tap: viewport → maximize/restore the pane under the pointer (`session.maximizedPane`); other panels → maximize/restore the dockview group. |
-| `view.frame` | — | 5 | `F`/`A` in the hovered pane. *Acceptance round 1 (INT-37)*: `selection` frames the selected controls' shapes with the visible controls below them (Maya transform bounds: `F` on a hand shows its fingers). |
+| `view.frame` | — | 5 | `F`/`A` in the hovered pane. *Acceptance round 1 (INT-37)*: `selection` frames the selected controls' shapes with the visible controls below them (transform-hierarchy bounds: `F` on a hand shows its fingers). |
 | `view.display.toggle` | — | 5 | Per-pane display flag. |
 | `view.lookThrough` | — | 5 | Pane camera binding (U state). |
 | `view.copyViewToShot` | U | 5 | Creates/updates a shot camera from the pane's view camera. |
@@ -2333,7 +2333,7 @@ runner rules of §4.11.0; behaviour details live in the referenced subsection.
 | `prefs.set` | — | 8 | *v0.3 integration* (WP-8 R-1): patches preference fields (Preferences dialog, status line, first run). |
 | `workspace.reset` / `workspace.showPanel` | — | 8 | *v0.3 integration* (WP-8 R-1): rebuilds the default Animate layout / shows (re-opens) a dock panel (Windows menu). |
 
-### 4.10 Default keymap (preset `maya`)
+### 4.10 Default keymap (preset `dcc`)
 
 Chords use `KeyboardEvent.code`. `Mod` = Ctrl (Windows/Linux) / Cmd (macOS); `Alt` = Option on macOS.
 Scope `V` viewport, `G` Graph Editor, `T` time slider, `O` outliner, `C` Channel Box, `*` global. A more
@@ -2402,8 +2402,8 @@ Unbound in the MVP (menu or status line only): Gimbal/Object/World rotate space 
 `pose.pinFeet`, `pose.plantFeet`, `graph.curves.simplify`, `graph.eulerFilter`, `select.mirror`.
 Never bound (browser/OS reserved): `Mod+W/T/N/Q/H/M`, `Mod+1…9`, `Mod+Tab`, `Alt+←/→`, `F1`–`F12`,
 `Mod+L/R`, `Alt+E`/`Alt+F` (browser menus on Windows). *Layout presets (2026-10, owner request):* `Ctrl+Space` is
-bound to focus mode (Maya's "hide UI"); macOS and Windows IMEs may take it for the input-source switch first, so
-`Alt+0` does the same ([LAYOUT-PRESETS.md](LAYOUT-PRESETS.md)). Navigation chords and wheel gestures are
+bound to focus mode (the desktop-DCC "hide UI" toggle); macOS and Windows IMEs may take it for the input-source switch
+first, so `Alt+0` does the same ([LAYOUT-PRESETS.md](LAYOUT-PRESETS.md)). Navigation chords and wheel gestures are
 handled by the navigation profile, not the keymap (§4.11.16, §4.11.18).
 
 ### 4.11 Normative behaviours
@@ -2508,7 +2508,7 @@ add nothing and keep the redo stack.
    with `prefs.defaultTangents`, handles `{dt: 0, dv: 0}`, `broken: false`, `weightLocked: true`.
 5. Keyed channels leave `session.overrides`; one transaction labelled `Set Key` (`Key Translate`,
    `Key Rotate`, `Key Scale`). *Acceptance round 1 (INT-32)*: the step records the consumed overrides in its
-   override delta and earlier steps keep theirs, so undo follows Maya: the first `Mod+Z` removes the key and shows
+   override delta and earlier steps keep theirs, so undo takes two steps: the first `Mod+Z` removes the key and shows
    the unkeyed (pink) value again, the next one reverts the edit that set it. Undoing N actions returns to the
    starting state.
 
@@ -2521,8 +2521,8 @@ For each edit (locked or non-keyable channels are skipped with a toast):
 | curve with keys | key at frame | key at frame | session override (light pink) | override |
 | curve without keys / no curve | create curve + key | `autoKeyMode: 'all'` → curve + key; else set `staticValue` | set `staticValue` (creates the curve record if missing) | `staticValue` |
 
-- `staticValue` is Maya's *static attribute value*: used by the evaluator when a curve has no keys. Writes are
-  document writes (undoable, saved).
+- `staticValue` is the *static attribute value* (desktop-DCC term): used by the evaluator when a curve has no keys.
+  Writes are document writes (undoable, saved).
 - **Overrides** are U state and are **undoable through the editor history** (one step per gesture or typed edit).
   They are discarded on clip-frame change, clip switch, `file.new/open`, and consumed by keying.
 - Rotation edits that come from a quaternion (object/world manipulator, paste, mirror, plant feet) are converted
@@ -2533,7 +2533,7 @@ For each edit (locked or non-keyable channels are skipped with a toast):
 #### 4.11.3 Moving and scaling keys
 
 - **Graph Editor**: LMB-drag on a selected key or handle (select or move tool), or **MMB-drag anywhere** (moves
-  the current key/handle selection, Maya). Shift locks to time or value by the dominant axis after 4 px.
+  the current key/handle selection). Shift locks to time or value by the dominant axis after 4 px.
 - **Time slider**: dragging the band middle moves the band's selected keys in time; dragging a band end scales
   them around the opposite end (§4.11.17).
 - Times snap to integer frames unless `snapToFrames` is off or Alt is held during an LMB key drag; values never
@@ -2586,7 +2586,7 @@ inverse   : keep the side's current |dt| (non-weighted: span/3); out: dv = tan(a
             in: dt = −|dt|, dv = −tan(angle)·(|dt|/fps_s)/k; weight → scale (dt, dv) along the angle
 ```
 
-`fps_s` = frames per second. Maya's weight unit is to be pinned with a Maya `.anim` fixture later (Q-ANIM-4).
+`fps_s` = frames per second. The desktop DCC's weight unit is to be pinned with its `.anim` fixture later (Q-ANIM-4).
 Typing an in-angle of +30° on a rising curve gives a positive incoming slope.
 
 **Shape-preserving insert** (`insertKeyPreservingShape`, `insertKeyOnCurve`) — the explicit exception to the
@@ -2656,9 +2656,9 @@ Tolerance per channel kind from `ReduceSpec` (rotation radians, translation metr
    curve when `prefs.reduceOnImport` is `'always'`, or `'auto'` and any curve of the clip has > 0.5 keys per
    frame (import dialog checkbox `import-reduce`).
 7. **Provenance** per clip: embedded clips of a VRM inherit the VRM meta (`title`, `authors`, licence →
-   `DerivedFrom`, `allowRedistribution` → `redistributable`); clip or node names matching `/mixamo/i` force
-   `redistributable: 'no'`; GLB/VRMA without licence data → `'unknown'`. Bundled samples pass their known
-   licence (Quaternius UAL: CC0-1.0, `'yes'`).
+   `DerivedFrom`, `allowRedistribution` → `redistributable`); clip or node names that carry the auto-rigging
+   service's marker force `redistributable: 'no'` (`isNonRedistributableSource`); GLB/VRMA without licence data →
+   `'unknown'`. Bundled samples pass their known licence (Quaternius UAL: CC0-1.0, `'yes'`).
 8. One transaction `Import <name>`: `CharacterRecord`, `RigRecord` + controls from `autoRig` (humanoid when
    `skeleton.humanoid` has the 15 VRM-required bones, else generic), shot camera `shotCam` (only if the project has
    none; framed from `height`: 50 mm, 3/4 front, chest height), and per clip: `ClipRecord`, base layer, curves and
@@ -2820,8 +2820,8 @@ source key time and integer frame is ≤ tolerance.
 - Tracks: `N_b` rotations and the absolute hips position (canonical); LINEAR/STEP only; exactly one animation;
   `extensionsUsed: ["VRMC_vrm_animation"]`, `specVersion "1.0"`; `ekza_animation_v1` in `asset.extras`.
 - Lint/test: recompose rest world positions from the written file and compare with the canonical rest worlds
-  (≤ 1e-5 m) on Seed-san and Polybot; Seed-san hips rest y = 0.7956 m (±1e-4). Blender VRM add-on import
-  smoke test is V1.
+  (≤ 1e-5 m) on Seed-san and Polybot; Seed-san hips rest y = 0.7956 m (±1e-4). An import smoke test with
+  the VRM add-on of a popular open-source DCC is V1.
 
 #### 4.11.13 Validation policy and lints
 
@@ -2928,8 +2928,8 @@ Errors (`budget-exceeded` / `malformed-gltf`) abort the import before any large 
 - **RMB** on the slider opens a menu: Delete keys, Copy, Paste (at the current frame), Tangent ▸ (auto, spline,
   clamped, linear, flat, stepped), Select band keys in Graph Editor. Plain click outside the band clears it.
   *v0.3 integration, acceptance round 2*: a press on the band middle released without moving the keys is a click
-  too: it clears the band and sets the time there (Maya; it read as a dead click). Moving needs a drag.
-  *Acceptance round 3*: without a band the menu acts on the current frame (Maya): opening it selects the current
+  too: it clears the band and sets the time there (it read as a dead click). Moving needs a drag.
+  *Acceptance round 3*: without a band the menu acts on the current frame: opening it selects the current
   frame as a 1-frame band (what Shift+click there does), so Delete, Copy and Tangent act on the keys at the
   playhead. Without an active clip it offers Paste only.
 - `Digit1…6`, `Delete`, `Mod+C/V` work in scope `T` on the band's keys.
@@ -2945,9 +2945,9 @@ Errors (`budget-exceeded` / `malformed-gltf`) abort the import before any large 
   presses count as a double-click only when both use the same tool (an Insert click, `Q`, then a click on the new
   key selects that key).
   *Acceptance round 3 (INT-51)*: the second press of a double-click can still drag. On a key it is a key press (a
-  drag moves the selection, so a quick click-then-drag on a key moves it, as in Maya) and only its release without
+  drag moves the selection, so a quick click-then-drag on a key moves it) and only its release without
   a drag selects the curve; on a curve segment it selects the curve's keys at once and a drag moves them.
-- Navigation per profile (no keymap): **Maya** — wheel zoom around the cursor (Shift: value axis, Alt: time
+- Navigation per profile (no keymap): **DCC** — wheel zoom around the cursor (Shift: value axis, Alt: time
   axis), Alt+MMB pan, Alt+RMB zoom; **Trackpad** — two-finger scroll pans, Ctrl+wheel (pinch) zooms (Alt: time
   axis, Shift: value axis). `F`/`A` frame selection/all with 8 % padding.
 - Space tap over the Graph Editor maximizes its dockview group (`view.toggleMaximize`).
@@ -3018,11 +3018,11 @@ Requirement IDs refer to [REQUIREMENTS.md](REQUIREMENTS.md). Timings in stories 
 | US-16 | As a creator I export VRMA for any VRM avatar. | (E) VRMA of `wave` → 0 validator errors; plays via `@pixiv/three-vrm-animation` on Seed-san (1.0) and Polybot (0.x) with normalized-pose error < 1e-3 rad at 10 frames vs `humanLocal` (vrm1) / `flipYaw(humanLocal)` (vrm0). FR-EXP-05..07 |
 | US-17 | As a creator I export an animation-only GLB for other tools. | (E) 0 validator errors; node names equal the source skeleton names; re-read in Node, sampled raw locals at frame 10 match the editor within 1e-4 rad. FR-EXP-08 |
 | US-18 | As an animator I save my project and continue later. | (E) Save `.ekzanim`, reload page, open the file → identical `counts()`, identical curves, identical `channelValues` at 5 frames; the original model bytes SHA-256 matches. FR-PROJ-01..04 |
-| US-19 | As a Maya user my hotkeys work on any keyboard layout. | (E) `keydown` with `code: 'KeyS'`, `key: 'ы'` sets a key; `Alt+KeyV` toggles playback on macOS where `key` is `√`. FR-HK-01..03 |
+| US-19 | As a desktop-DCC user my hotkeys work on any keyboard layout. | (E) `keydown` with `code: 'KeyS'`, `key: 'ы'` sets a key; `Alt+KeyV` toggles playback on macOS where `key` is `√`. FR-HK-01..03 |
 | US-20 | As a trackpad user I can navigate without a middle mouse button. | (E) With nav profile `trackpad`: two-finger `wheel` events orbit the free camera; `wheel` with `ctrlKey` dollies; the locked pane ignores both. FR-VP-04 |
 | US-21 | As an animator I retime poses on the time slider. | (E) Keys at 0/10/20 on three controls; Shift+click the tick at 10, drag the band to 14 → all three controls' keys at 10 move to 14; one `Mod+Z` restores. FR-TIME-07 |
 | US-22 | As an animator I can undo a pose tweak I did not key. | (E) Keyed control, auto-key off, rotate it, `Mod+Z` → pose restored, keys deep-equal, no document change. FR-KEY-07, FR-UNDO-02 |
-| US-23 | As a Maya animator I rotate in Gimbal mode to keep curves clean. | (E) Rotate space gimbal, drag the middle ring → only that rotation channel changes (other two values equal before/after within 1e-12). FR-VP-12 |
+| US-23 | As a desktop-DCC animator I rotate in Gimbal mode to keep curves clean. | (E) Rotate space gimbal, drag the middle ring → only that rotation channel changes (other two values equal before/after within 1e-12). FR-VP-12 |
 | US-24 | As an animator I time two characters against each other. | (H/E) Seed-san clip at 24 fps and Polybot clip at 30 fps (`sceneStart` 6): at scene time 1 s both clips evaluate at clip frame 24; switching the active character keeps the instant. FR-TIME-11 |
 | US-25 | As an animator I lower the hips without the feet sinking. | (H) Polybot: pin feet at frame 0, `cog ty −0.05` at frame 10, `Plant Feet` → foot bone worlds equal the pins (1e-4). FR-RIG-17 |
 | US-26 | As an animator the robot arm of Seed-san follows its arm. | (H, three-vrm in Node) posing `fk.upperArm.L` gives `robo_upper_arm.L` the same rest-relative local rotation as `upper_arm.L` (1e-6). FR-RIG-18 |
@@ -3058,7 +3058,7 @@ Requirement IDs refer to [REQUIREMENTS.md](REQUIREMENTS.md). Timings in stories 
 | ID | Name | Steps | Assertions |
 |---|---|---|---|
 | E2E-00 | WebGL available | open `/editor?e2e=1` | `webgl.ok`; `dropzone` visible; `renderedFrames()` stops increasing within 1 s of idle (0 frames over the next 1 s) |
-| E2E-01 | First run + sample VRM 1.0 | `/editor?e2e=1&firstRun=1`; `firstrun-nav-maya`, `firstrun-space-maya`, `firstrun-done`; `sample-seed-san` | `counts().characters === 1`; ≥ 50 visible controls incl. `root`, `cog`, `fk.hips`, `fk.head`, `fk.upperArm.L/R`; secondary controls hidden; `panes()` = 2 with the left camera `shot` and locked |
+| E2E-01 | First run + sample VRM 1.0 | `/editor?e2e=1&firstRun=1`; `firstrun-nav-dcc`, `firstrun-space-maximize`, `firstrun-done`; `sample-seed-san` | `counts().characters === 1`; ≥ 50 visible controls incl. `root`, `cog`, `fk.hips`, `fk.head`, `fk.upperArm.L/R`; secondary controls hidden; `panes()` = 2 with the left camera `shot` and locked |
 | E2E-02 | Rest pose integrity | seed Seed-san | `channelValues` all 0 (t, r); `boneWorld(hips)` equals the glTF rest world of hips (1e-6) |
 | E2E-03 | Drag-and-drop VRM 0.x | drop `polybot.vrm` on the window | `import-format-badge` "VRM 0.x", `import-license-badge` CC0; after `import-confirm`: humanoid controls; facing yaw of `facing(polybot)` > 0.999 (§4.11.9) |
 | E2E-04 | Generic GLB + embedded clip | `loadFile('quaternius-ual.glb')`, check only `import-clip-<Idle_Loop index>`, `import-confirm` | clip `Idle_Loop` active with fps 24; every key `t` is an integer; total keys < 1/3 of the source sample count of curves with ≥ 20 source keys; `channelValues` at frame 10 differ from rest; scrubbing to `screenOfFrame(20)` sets clip frame 20 |
@@ -3584,7 +3584,7 @@ export function loadGltfInNode(bytes: Uint8Array): Promise<{ readonly scene: Obj
 
 - **Dirs**: `packages/viewport/`, `packages/editor/src/panels/viewport/`.
 - **Responsibilities**: `ViewportManager` (ADR 0006); view cameras and shot-camera binding; layouts from session
-  (single, split, quad; maximized pane); `NavigationController` per pane over camera-controls with the Maya and
+  (single, split, quad; maximized pane); `NavigationController` per pane over camera-controls with the DCC and
   Trackpad profiles (one-button: stretch) and lock handling; shot-camera navigation persistence (§4.11.16);
   `SceneSync` (characters from `CharacterRegistry` 'display' events, facing root, hidden bones, skeleton lines,
   control line geometry from `getControlShape` + `ControlShape.offset`, pose application, single
@@ -3741,7 +3741,7 @@ export function registerTimelineContributions(app: EditorApp, focused: () => Tim
 - **Dir**: `packages/editor-core/` except `src/operators/builtin/`, `src/workflows/`.
 - **Responsibilities**: `createEditorApp`; session and prefs stores (prefs persisted through `services.storage`,
   try/catch, schema version); operator registry and **runner** (§4.11.0); contribution registries and
-  `contribute`; **editor history**; **edit kernel** helpers; keymap manager with `MAYA_KEYMAP` and scope/tap/hold
+  `contribute`; **editor history**; **edit kernel** helpers; keymap manager with `DCC_KEYMAP` and scope/tap/hold
   resolution; tool registry; character registry (runtime creation awaiting `assets.get`, recompile on structural
   rig change, display model loading with `models.setRenderer` precondition, 'display' events); evaluation service
   (curve cache, samplers, scene→clip mapping per character, once-per-tick evaluation, channel states); playback
@@ -3765,7 +3765,7 @@ export function createEditorApp(opts: {
   readonly idSource?: IdSource;
   readonly builtins?: boolean;                                // default true: registerBuiltins (WP-7b)
 }): EditorApp;
-export const MAYA_KEYMAP: readonly KeyBinding[];
+export const DCC_KEYMAP: readonly KeyBinding[];
 export function defaultSession(user?: UserId): SessionState;
 export function defaultPrefs(platform: 'mac' | 'other'): Prefs;
 export function createMemoryAssetStore(): AssetStore;
@@ -3821,7 +3821,7 @@ export const BUILTIN_IMPORTERS: readonly ImporterDef[];
 export const BUILTIN_EXPORTERS: readonly ExporterDef[];
 export const BUILTIN_MENU_ITEMS: readonly MenuItemDef[];
 export function registerBuiltinOperators(app: EditorApp): Disposer;
-/** Operators, importers, exporters, BUILTIN_EXPORT_PROFILES, menu items and MAYA_KEYMAP. */
+/** Operators, importers, exporters, BUILTIN_EXPORT_PROFILES, menu items and DCC_KEYMAP. */
 export function registerBuiltins(app: EditorApp): Disposer;
 ```
 
@@ -3909,8 +3909,8 @@ export function useDocQuery<T>(read: (store: DocumentStore) => T, tables: readon
   secondary toggle); Clips panel (list, active radio, inline rename with validation, new, duplicate, delete,
   settings popover: fps + fps mode, range, scene start, loop, root motion, Ekza slot, contact frame, tags,
   provenance with licence picker and "redistributable" state); Channel Box (lead-selection header, rotate order
-  read-only, TRS rows filtered by keyable, Maya colour states from `evaluation.channelState`, bar shape cues,
-  mixed values `—`, numeric entry with expressions through `channel.setValues`, Tab/Shift+Tab, ↑/↓ nudge
+  read-only, TRS rows filtered by keyable, standard channel colour states from `evaluation.channelState`, bar shape
+  cues, mixed values `—`, numeric entry with expressions through `channel.setValues`, Tab/Shift+Tab, ↑/↓ nudge
   (coalesced), channel-name selection for "key selected", right-click menu: key selected, reset to default,
   lock/unlock); Attributes (control: name, side, rotate order (read-only; editable when the stretch item lands),
   shape size; clip settings; character: format, licence badge, credits, height; shot camera: lock, focal length ↔
@@ -3979,7 +3979,7 @@ Each merge: CI green (`pnpm ci` minus e2e scenarios that depend on unmerged pack
 
 ### 8.3 Manual QA checklist (owner demo script, 12 minutes)
 
-1. Open `/editor`, choose Maya navigation, load Seed-san; split view shows the locked shot and the free camera;
+1. Open `/editor`, choose Alt+drag navigation, load Seed-san; split view shows the locked shot and the free camera;
    the "Getting started" card says what M1 is for.
 2. Marquee-select the left-hand fingers, then click overlapping finger controls to cycle.
 3. Select `fk.upperArm.L`, rotate with `E` in Gimbal mode, key with `S` at 0, 15, 30; play; set post-infinity

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BUILTIN_MENU_ITEMS,
   type ComponentMode,
-  MAYA_KEYMAP,
+  DCC_KEYMAP,
   type MenuItemDef,
   MODEL_MENU_ITEMS,
   MODEL_MENUS,
@@ -207,7 +207,7 @@ describe('Model menus (§8.3)', () => {
       const item = MODEL_ITEMS.find((entry) => entry.id === id);
       expect([id, item === undefined]).toEqual([id, false]);
       const want = ch(chord);
-      const bound = MAYA_KEYMAP.filter(
+      const bound = DCC_KEYMAP.filter(
         (binding) =>
           binding.op === item?.op &&
           stableKeyOf(binding.args) === stableKeyOf(item?.args) &&

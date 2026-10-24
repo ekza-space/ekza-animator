@@ -464,7 +464,7 @@ describe('operator runner (§4.11.0)', () => {
     await app.runUntyped('test.key');
     expect(app.session.getState().overrides.size).toBe(0);
     expect(app.store.query.keysOfCurve(W.curve).map((key) => key.t)).toEqual([0, 5, 15, 30]);
-    // Maya: the first undo removes the key and leaves the unkeyed pose; the second undoes the edit that made it.
+    // The first undo removes the key and leaves the unkeyed pose; the second undoes the edit that made it.
     const undone = app.history.undo();
     expect(undone).toMatchObject({ label: 'Set Key', overridesRestored: true, warnings: [] });
     expect(app.store.query.keysOfCurve(W.curve).map((key) => key.t)).toEqual([0, 15, 30]);

@@ -1,5 +1,5 @@
 {
-  "hash": "96e5c15a9e6c655d308d74e9f502e0c59a473ba5e56b13376c05e4132de95e9e",
+  "hash": "8c27ef1b483befc44b72fce0d4032f401b3e282cc5c9600f226b6bc7ae851ab6",
   "tools": [
     {
       "access": "pairing",
@@ -2898,7 +2898,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Set Channel Box values (degrees, metres) of one or more controls at one clip frame and key them (pose-to-pose blocking). set: [{control, rotateDeg {x,y,z}, translateM, scaleFactor, attrs}] in pose_read's shape (≤ 100 controls); rotations are the control's Channel Box rotations in its rotate order, zero = rest. key: key (default) always keys every edited channel, and syncRotation (default true) keys all rotation axes of a control, like Maya's S; static sets clip-wide values on channels without keys; pose_only proposes an unkeyed pose at the user's current frame (needs the View grant). mode relative adds to the keyed values. Prefer pose_aim and pose_ik_target for limbs.",
+      "description": "Set Channel Box values (degrees, metres) of one or more controls at one clip frame and key them (pose-to-pose blocking). set: [{control, rotateDeg {x,y,z}, translateM, scaleFactor, attrs}] in pose_read's shape (≤ 100 controls); rotations are the control's Channel Box rotations in its rotate order, zero = rest. key: key (default) always keys every edited channel, and syncRotation (default true) keys all rotation axes of a control, as the S key (Set Key) does; static sets clip-wide values on channels without keys; pose_only proposes an unkeyed pose at the user's current frame (needs the View grant). mode relative adds to the keyed values. Prefer pose_aim and pose_ik_target for limbs.",
       "group": "pose",
       "hosts": [
         "live",
@@ -3091,7 +3091,7 @@
           },
           "syncRotation": {
             "default": true,
-            "description": "Also key the other rotation axes of each control, like Maya’s S.",
+            "description": "Also key the other rotation axes of each control, as the S key (Set Key) does.",
             "type": "boolean"
           },
           "tangent": {
@@ -11208,5 +11208,5 @@
       "title": "Add a library clip"
     }
   ],
-  "toolset": "1.0.0-mvp.1"
+  "toolset": "1.0.0-mvp.2"
 }

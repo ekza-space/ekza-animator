@@ -3,7 +3,7 @@
 Status: v1.1 (2026-10-19; v1.0 plus design-review round 1, recorded in §12.3), the binding build spec for milestone
 M6a, derived from
 [MODELING-PLAN](MODELING-PLAN.md) v0.2 §2–§4 and its design-review record (§12), research
-[10](research/10-maya-poly-modeling.md)–[16](research/16-model-workspace-ui.md), the owner defaults of
+[10](research/10-dcc-poly-modeling.md)–[16](research/16-model-workspace-ui.md), the owner defaults of
 [DECISIONS-OPEN §G](DECISIONS-OPEN.md#g-modeling-iteration-m6am7-defaults-chosen-2026-10-18) and the shipped
 architecture ([ARCHITECTURE](../ARCHITECTURE.md), [MVP-SPEC](MVP-SPEC.md) v0.3, [M2A-SPEC](M2A-SPEC.md) v0.3). With
 this version ADRs [0014](adr/0014-mesh-kernel.md), [0015](adr/0015-mesh-storage-in-the-document.md) and
@@ -19,15 +19,16 @@ Requirements: [REQUIREMENTS](REQUIREMENTS.md) FR-MOD-06…30 and FR-SHELL-08, -0
 
 Normative words: **MUST**, **SHOULD**, **MAY**. "Contract" means a type or signature in §4 or a package's *Public
 API* block in §9. "Kernel" means `@ekza-studio/mesh-core`. Counts are written **V/E/F** (vertices, edges, faces).
-Distances are metres, angles are stored in radians and shown in degrees. Fractions (param kind `fraction`: Maya's
-Fraction, Weight, Offset, Strength) are stored 0…1 and **shown as fractions** (`0.300`, as Maya shows them); typed
-input accepts `0.3` and `30%` for the same value, and a bare number is always a fraction (`30` is clamped to the
-field's maximum with a problem string), §5.10.
+Distances are metres, angles are stored in radians and shown in degrees. Fractions (param kind `fraction`: the
+Fraction, Weight, Offset and Strength fields of a leading commercial desktop DCC, "the desktop DCC" below) are stored
+0…1 and **shown as fractions** (`0.300`, as the desktop DCC shows them); typed input accepts `0.3` and `30%` for the
+same value, and a bare number is always a fraction (`30` is clamped to the field's maximum with a problem string),
+§5.10.
 
 Contents: [1 Scope](#1-scope) · [2 Dependencies and toolchain](#2-dependencies-and-toolchain) ·
 [3 Conventions](#3-conventions-deltas-to-mvp-spec-3-and-m2a-spec-3) · [4 Contract deltas](#4-contract-deltas) ·
 [5 Normative behaviours](#5-normative-behaviours) · [6 Operator table](#6-operator-table) ·
-[7 Keymap additions](#7-keymap-additions-preset-maya) · [8 UI placement](#8-ui-placement) ·
+[7 Keymap additions](#7-keymap-additions-preset-dcc) · [8 UI placement](#8-ui-placement) ·
 [9 Work packages](#9-work-packages) · [10 Acceptance](#10-acceptance-tests-e2e-scenarios-and-as-lp) ·
 [11 Integration and definition of done](#11-integration-plan-and-m6a-definition-of-done) ·
 [12 Defaults and refinements](#12-defaults-chosen-and-refinements-of-the-plan)
@@ -40,12 +41,12 @@ Contents: [1 Scope](#1-scope) · [2 Dependencies and toolchain](#2-dependencies-
 
 | # | Area | Content | Requirements |
 |---|---|---|---|
-| 1 | **Shell** | Workspace tabs `Model › Rig & Skin › Animate › Review` with status glyphs (Model and Animate built; Rig & Skin and Review shown disabled with "arrives in v0.4" / "arrives in V1"); per-workspace layout, menu set, status-line groups, default tool and pick mask, key-scope prefix, timeline visibility; generic `MarkingMenu`; command palette (`Mod+K`) with Blender aliases; hierarchical key scopes; viewport Scale tool; shading modes `4`–`7` | FR-SHELL-08, -09, -11, FR-MOD-06 |
+| 1 | **Shell** | Workspace tabs `Model › Rig & Skin › Animate › Review` with status glyphs (Model and Animate built; Rig & Skin and Review shown disabled with "arrives in v0.4" / "arrives in V1"); per-workspace layout, menu set, status-line groups, default tool and pick mask, key-scope prefix, timeline visibility; generic `MarkingMenu`; command palette (`Mod+K`) with aliases from other DCCs; hierarchical key scopes; viewport Scale tool; shading modes `4`–`7` | FR-SHELL-08, -09, -11, FR-MOD-06 |
 | 2 | **Kernel** | `mesh-core`: BMesh-style radial-edge structure of arrays, attribute layers with interpolation and mirror rules, write log + `MeshDelta`, Euler operators, `validateMesh`, `topologyStats`, revision manifest + ~32 KiB chunks, one deterministic triangulation, derived normals with one hard-flag rule, six primitives, refusal policy | FR-MOD-22, -28 |
 | 3 | **Storage** | Schema v3 (seven new tables, `CharacterRecord.source`, `AssetRecord.provenance`), `MeshRecord.data` revision refs, `BlobStore` (memory, IndexedDB autosave, `.ekzanim` `blobs/`), derived GC roots, undo byte budget and journal cap, `MeshRuntime` with two-phase commit and `loading` state, `MeshSetOp` runner | FR-MOD-28 |
-| 4 | **Selection** | Component modes (`F8`, `F9`/`1`, `F10`/`2`, `3`, RMB menu), hilite (others opaque and unpickable; per-pane "Dim unhilited"), per-mode selection memory, click/marquee with Maya modifiers, hover pre-selection, camera-based selection, Maya's loop table, grow/shrink/convert/border/shell, **selection undo in Model**, hide/show/isolate | FR-MOD-07, -08, -09 |
-| 5 | **Precision** | Component W/E/R in World/Object/Component space, MMB-drag (Maya rule; a trackpad stand-in, §5.15), Tweak style (`` ` `` toggles it), snapping `X`/`V`/`J`, pivot editing, soft select (Volume/Surface), symmetry Object/World X/Y/Z remembered per mesh with partner maps, mirrored selection drawn and counted, and **every base tool mirrored** (§5.14) | FR-MOD-10, -11, -13 |
-| 6 | **Topology tools** | Extrude (faces, border edges) with the **extrude session** (its own args undo stack) and smart extrude; Inset; Bevel (edges, or the edges of selected faces; 1–3 segments); Insert Edge Loop (relative, equal, multiple); Offset Edge Loop; Multi-Cut (points on edges/vertices, Ctrl loop, snap, RMB/Enter completes); Connect; Slide Edge/Vertex; Average Vertices; Bridge (equal counts, two faces; divisions, twist, offset); Fill Hole; Merge, Merge to Center, Target Weld, Collapse, Merge by Distance; Delete (Maya plain) and Delete Edge/Vertex; Spin Edge, Flip Triangle Edge | FR-MOD-14…20 |
+| 4 | **Selection** | Component modes (`F8`, `F9`/`1`, `F10`/`2`, `3`, RMB menu), hilite (others opaque and unpickable; per-pane "Dim unhilited"), per-mode selection memory, click/marquee with desktop-DCC modifiers, hover pre-selection, camera-based selection, the desktop-DCC loop table, grow/shrink/convert/border/shell, **selection undo in Model**, hide/show/isolate | FR-MOD-07, -08, -09 |
+| 5 | **Precision** | Component W/E/R in World/Object/Component space, MMB-drag (desktop-DCC rule; a trackpad stand-in, §5.15), Tweak style (`` ` `` toggles it), snapping `X`/`V`/`J`, pivot editing, soft select (Volume/Surface), symmetry Object/World X/Y/Z remembered per mesh with partner maps, mirrored selection drawn and counted, and **every base tool mirrored** (§5.14) | FR-MOD-10, -11, -13 |
+| 6 | **Topology tools** | Extrude (faces, border edges) with the **extrude session** (its own args undo stack) and smart extrude; Inset; Bevel (edges, or the edges of selected faces; 1–3 segments); Insert Edge Loop (relative, equal, multiple); Offset Edge Loop; Multi-Cut (points on edges/vertices, Ctrl loop, snap, RMB/Enter completes); Connect; Slide Edge/Vertex; Average Vertices; Bridge (equal counts, two faces; divisions, twist, offset); Fill Hole; Merge, Merge to Center, Target Weld, Collapse, Merge by Distance; Delete (plain) and Delete Edge/Vertex; Spin Edge, Flip Triangle Edge | FR-MOD-14…20 |
 | 7 | **Mesh level** | Combine, Separate, Extract, Duplicate Faces (`MeshSetOp`s); Mirror (cut, merge, reversed winding); Symmetrize; Triangulate, Quadrangulate; Freeze / Reset Transformations; Group, Parent, Unparent, Duplicate | FR-MOD-21 |
 | 8 | **Normals and shading** | Per-edge hard flag, faceted new meshes, Soften/Harden, Set Normal Angle (one-shot), Reverse, Conform, WYSIWYG normals and triangulation, overlays (wire on shaded, flat, cull, normals, face orientation, triangulation) | FR-MOD-22 |
 | 9 | **Colour and UV** | Per-face palette slot as colour truth, project palettes, Palette panel, Paint Colour tool, fill shell, select by swatch, replace swatch, eyedropper, palette variants; export outputs palette PNG (default) / `COLOR_0` / one material per colour; planar, box and cylindrical UV projections | FR-MOD-23, -24 |
@@ -61,8 +62,8 @@ Contents: [1 Scope](#1-scope) · [2 Dependencies and toolchain](#2-dependencies-
 | Extrude Manifold option; Auto-weld toggle | Extrude + Merge by Distance |
 | Select Similar; lasso and paint select; multi-component mode; component pick-walk (arrows in component mode) | Mesh Check "select matching", select by swatch, marquee; arrows poll-fail with "Component pick-walk arrives later" |
 | Selection constraints other than Off (Angle, Border, Edge Loop, Edge Ring, Shell) | Toolkit constraint dropdown shows them disabled; Ctrl+RMB convert and the walkers cover the same selections |
-| Multi-Cut points inside faces and slice plane; a cut between two clicks on faces that share no face (Maya cuts through the faces between them along the screen-space line) | Points on edges and vertices only; a click inside a face is ignored with a help-line hint; consecutive points must share a face ("Click on each face the cut crosses") |
-| Maya-style **Normal** axis orientation (each component moves along its own normal on the N handle); Move tool **Retain component spacing** off (every moved vertex snaps to the grid on its own) | **Component** orientation (one averaged frame, §5.15); snapping moves the pivot and keeps spacing |
+| Multi-Cut points inside faces and slice plane; a cut between two clicks on faces that share no face (the desktop DCC cuts through the faces between them along the screen-space line) | Points on edges and vertices only; a click inside a face is ignored with a help-line hint; consecutive points must share a face ("Click on each face the cut crosses") |
+| Desktop-DCC-style **Normal** axis orientation (each component moves along its own normal on the N handle); Move tool **Retain component spacing** off (every moved vertex snaps to the grid on its own) | **Component** orientation (one averaged frame, §5.15); snapping moves the pivot and keeps spacing |
 | Bridge with unequal counts or curve (Blend) interpolation | Refusal with "Bridge needs the same number of edges on both sides (12 vs 10)"; linear only |
 | Poke, Chamfer Vertex, vertex extrude, extrude of interior edges | Menu items present and poll-failing with "not available yet" |
 | Edge snapping `C`; interactive primitive placement; `Shift+D` duplicate with transform | Grid and vertex snap; creation at the origin; `Mod+D` then move |
@@ -78,18 +79,19 @@ NURBS, sculpting, construction history, booleans, subdivision and smooth preview
 editor, seams/unwrap and packing (M6c), image textures and texture painting, normal/AO bakes, tangents (refused with a
 reason, §5.21), LODs, retopology and Quad Draw, decimation and AI intake operators (M7 G-a), skeletons, skinning and
 weight tools, the VRM character writer and the Rig & Skin workspace (M6b), per-vertex CRDT and mesh claims (M3), the
-Blender keymap preset (V1+), topology symmetry, vertex-face mode, custom normal editing. Schema v3 already contains
-the M6b records (`skeletons`, `joints`, `CharacterRecord.source.kind 'model'`) so M6b starts against fixed records;
-M6a registers and validates them but creates none.
+alternative keymap preset (open-source-DCC style, V1+), topology symmetry, vertex-face mode, custom normal editing.
+Schema v3 already contains the M6b records (`skeletons`, `joints`, `CharacterRecord.source.kind 'model'`) so M6b
+starts against fixed records; M6a registers and validates them but creates none.
 
 ### 1.4 What M6a is for (say it plainly)
 
-M6a makes the editor a **low-poly box modeller for Maya hands**: block out a prop or a character body from a cube
-against front and side reference images, with Maya's modes, marking menus and keys, Blender's "adjust the last
-operation" and typed numbers, and symmetry that every tool respects; colour it with a palette; check it with the
-HUD and Mesh Check; export a static GLB (OMOBA handheld profile included); and fix meshes of imported avatars without
-breaking their skin, expressions or MToon outlines. It does **not** yet rig or skin your own model (M6b, `v0.4.0`), so
-a character made in M6a is exported as a static mesh. The release is `v0.3.0` (the tag is the owner's call).
+M6a makes the editor a **low-poly box modeller for desktop-DCC hands**: block out a prop or a character body from a
+cube against front and side reference images, with the desktop DCC's modes, marking menus and keys, the "adjust the
+last operation" and typed numbers of a popular open-source DCC ("the open-source DCC" below), and symmetry that every
+tool respects; colour it with a palette; check it with the HUD and Mesh Check; export a static GLB (OMOBA handheld
+profile included); and fix meshes of imported avatars without breaking their skin, expressions or MToon outlines. It
+does **not** yet rig or skin your own model (M6b, `v0.4.0`), so a character made in M6a is exported as a static mesh.
+The release is `v0.3.0` (the tag is the owner's call).
 
 ---
 
@@ -221,7 +223,7 @@ INPUTS, option boxes, command-palette prompts, numeric capture) and, later, scri
 (ADR 0016 D6, plan R34).
 
 ```ts
-/** Scalar kinds. Compound Maya attributes are flattened per component (`localTranslateX/Y/Z`), so every param is a
+/** Scalar kinds. Compound DCC attributes are flattened per component (`localTranslateX/Y/Z`), so every param is a
  *  scalar and can be the primary field; structured pointer/selection data uses kind 'data'. */
 export type ParamKind = 'number' | 'int' | 'distance' | 'angle' | 'fraction' | 'bool' | 'enum' | 'axis' | 'data';
 /** 'fraction': stored 0…1, shown as a fraction ('0.300'); typed '30%' and '0.3' are the same value (§1, §5.10). */
@@ -238,8 +240,8 @@ export type ParamBound = 'selection' | 'pointer' | 'value';
 export type ParamValue = number | boolean | string | null | JsonValue;
 export type JsonValue = null | boolean | number | string | readonly JsonValue[] | { readonly [k: string]: JsonValue };
 export interface ParamDef {
-  readonly name: string;                       // JSON arg name; Maya parameter name where one exists
-  readonly label: string;                      // UI label, Maya wording: 'Local Translate Z', 'Divisions'
+  readonly name: string;                       // JSON arg name; desktop-DCC parameter name where one exists
+  readonly label: string;                      // UI label, desktop-DCC wording: 'Local Translate Z', 'Divisions'
   readonly kind: ParamKind;
   readonly bound: ParamBound;
   /** Default; null only with `nullable` ("auto", resolved at invoke time, e.g. smoothingAngle). */
@@ -766,7 +768,7 @@ export interface OpContext {
   readonly epsilon: number;
 }
 export interface OpResult {
-  readonly selection: ComponentSelection;            // the new selection (Maya and Blender behaviour)
+  readonly selection: ComponentSelection;            // the new selection (common DCC behaviour)
   readonly warnings: readonly OpWarning[];
   readonly frame?: OpFrame;                          // extrude cap frame, bevel handle frame …
   /** Fast path for continuous value args during a live preview; false → caller reverts and re-runs. */
@@ -783,7 +785,7 @@ export interface OpFlags {
 /** *descriptors* (eager, `./descriptors`): everything menus, keymap, palette, option boxes and cards need. */
 export interface MeshOpDescriptor {
   readonly id: `mesh.${string}`;
-  readonly label: string;                            // Maya name
+  readonly label: string;                            // desktop-DCC name
   readonly kinds: readonly ComponentKind[] | 'object';
   readonly params: readonly ParamDef[];
   readonly flags: OpFlags;
@@ -941,7 +943,7 @@ export function mirrorEdgePoint(m: EditMesh, map: SymmetryMap, p: { readonly edg
 
 // ---------- loop gestures (B2), Mesh Check (B5), region frames (B3) ----------
 export type LoopGesture = 'double' | 'shift-double' | 'mod-double';   // mod = Cmd on macOS, Ctrl elsewhere (§5.6)
-/** Maya's loop table (§5.6) as a pure function: the selection after the gesture on `component` of `kind`. */
+/** The desktop-DCC loop table (§5.6) as a pure function: the selection after the gesture on `component` of `kind`. */
 export function loopGesture(m: EditMesh, sel: ComponentSelection, kind: ComponentKind, component: number,
   gesture: LoopGesture, hidden?: HiddenSet | null): ComponentSelection;
 export type CheckCode = 'non-manifold-edge' | 'non-manifold-vertex' | 'lamina' | 'zero-length-edge' | 'zero-area-face'
@@ -967,7 +969,7 @@ export function extrudeGroupFrame(m: EditMesh, kind: 'face' | 'edge', picks: Arr
 export type PrimitiveKind = 'cube' | 'sphere' | 'cylinder' | 'cone' | 'plane' | 'torus' | 'humanoidBody';
 export function primitive(kind: PrimitiveKind, params: Readonly<Record<string, number | boolean | string>>): MeshData;
 export const PRIMITIVE_PARAMS: Readonly<Record<PrimitiveKind, readonly ParamDef[]>>;   // §6.3; *descriptors*
-export const MAYA_PRIMITIVE_DEFAULTS: Readonly<Record<PrimitiveKind, ParamValues>>;    // *descriptors*
+export const DCC_PRIMITIVE_DEFAULTS: Readonly<Record<PrimitiveKind, ParamValues>>;    // *descriptors*
 export function humanoidBody(params: { readonly style: 'smooth' | 'segmented'; readonly height: number }): MeshData;
 
 // ---------- the operation registry (every op of §6, stubs until its owner lands it) ----------
@@ -1294,7 +1296,7 @@ export interface ExtrudeSessionState {
   /** The session's args undo stack (§5.8): stack[0] = the extrude's first args; `index` = the args now applied. */
   readonly stack: readonly ParamValues[];
   readonly index: number;
-  readonly manipSpace: 'local' | 'world';      // the extrude manipulator's local/world toggle (Maya)
+  readonly manipSpace: 'local' | 'world';      // the extrude manipulator's local/world toggle
 }
 export interface NumericCaptureState {
   readonly armed: 'drag' | 'keyboard-op' | null;
@@ -1339,7 +1341,7 @@ export interface Prefs {
   …M1/M2a… (version stays 1; missing fields take defaults on load)
   readonly lastWorkspace: WorkspaceId;                   // 'animate'
   readonly modeling: {
-    readonly primitiveDefaults: 'low-poly' | 'maya';     // 'low-poly'
+    readonly primitiveDefaults: 'low-poly' | 'dcc';      // 'low-poly'
     readonly numericCapture: 'auto' | 'explicit';        // 'auto'
     readonly undoSelection: Readonly<Record<string, boolean>>;   // { model: true, animate: false }
     readonly undoBudgetMB: number;                       // 256
@@ -1392,7 +1394,7 @@ export interface OperatorDef<A = void, R = void, P = void> {
   readonly extraArgs?: readonly string[];
   readonly tool?: ToolId;                      // G (non-repeatable) and Y re-activate it
   readonly workspaces?: readonly WorkspaceId[];   // menus and palette list it only there; poll is unaffected
-  readonly aliases?: readonly string[];        // command-palette aliases (Blender names: 'Loop Cut', 'Knife', …)
+  readonly aliases?: readonly string[];        // command-palette aliases (other DCCs' names: 'Loop Cut', 'Knife', …)
 }
 export interface MenuItemDef { …M1…; readonly workspaces?: readonly WorkspaceId[]; readonly modes?: readonly ComponentMode[] }   // changed
 export type CompassSlot = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW';
@@ -1901,19 +1903,20 @@ survive load and save; an op that cannot propagate an unknown layer's rule (`int
 
 - `select.mode {mode}`: `'vertex' | 'edge' | 'face'` enters that mode on the **hilite set**; pressing the active
   mode's **digit** again (`1`, `2`, `3`, the Industry Compatible habit) returns to object mode, while `F9` and `F10`
-  are idempotent (Maya: tapping `F9` again keeps vertex mode); `'toggle'` (`F8`) switches between object mode and
-  `lastComponentMode`; `'object'` returns to object mode. Mode switches are U state and **not** undo steps.
+  are idempotent (desktop-DCC convention: tapping `F9` again keeps vertex mode); `'toggle'` (`F8`) switches between
+  object mode and `lastComponentMode`; `'object'` returns to object mode. Mode switches are U state and **not** undo
+  steps.
 - Entering a component mode hilites the selected mesh objects; with none selected it hilites the mesh under the
   pointer, else the help line says "Select a mesh first". RMB on another mesh in component mode opens the mode menu
   for that mesh and adds it to the hilite set; clicking a mesh row in the Outliner adds it too.
-- **Returning to object mode** (Maya `F8`): the hilited meshes become the object selection; if that changes the object
+- **Returning to object mode** (`F8`): the hilited meshes become the object selection; if that changes the object
   selection it is recorded as an `objects` selection step (and closes the Last-op card, §5.7), otherwise nothing is
   recorded. `session.model.hilite` keeps the list while in object mode (not drawn); the next component entry
   recomputes it from the object selection, and the Last-op card compares the two lists (§5.7).
 - **Component tools in object mode**: activating Multi-Cut, Insert Edge Loop, Target Weld, Slide or Paint Colour
   while in object mode hilites the selected mesh objects (else the mesh under the pointer at the first pointer-down)
-  without changing the mode badge, as Maya does; the tool works on the hilited meshes' components and the hilite
-  ends with the tool.
+  without changing the mode badge (desktop-DCC convention); the tool works on the hilited meshes' components and the
+  hilite ends with the tool.
 - Meshes outside the hilite set are drawn **opaque** and are not pickable for components; a pane's "Dim unhilited"
   flag fades them to 35 % (Q-MOD-UI-15). A character's glTF mesh that is not made editable (no record, §5.21) cannot
   be hilited: "Make editable first" with the Outliner action.
@@ -1930,7 +1933,7 @@ pre-selection highlights the candidate (`--comp-hover`) and, under symmetry, its
 **Click and marquee modifiers** (09 §6.1, unchanged from Animate): click replaces; `Shift` toggles; `Mod` removes;
 `Mod+Shift` adds; a click on empty space clears the current mode's selection on the hilited meshes. Marquee uses the
 same modifiers and selects every visible candidate inside the rectangle: vertices and face dots by their projected
-point, edges when **both projected endpoints are inside** (Maya's rule; E2E-MOD-25 asserts an edge with one endpoint
+point, edges when **both projected endpoints are inside** (desktop-DCC rule; E2E-MOD-25 asserts an edge with one endpoint
 outside is not selected).
 
 **Mirrored selection** (symmetry on; research 16 §12.1). The stored selection holds what the user picked; ops,
@@ -1942,8 +1945,8 @@ partner is derived). Grow, shrink, convert, loop, ring, border and shell read th
 Components without a partner (`unmatched`, or a deliberately one-sided part) are selected and drawn on their own side
 only.
 
-**Maya's loop table** (research 10 §4.1, Maya help; B2 walkers, B10 gestures). "The reference" is the active
-component of the current mode (last picked).
+**The desktop-DCC loop table** (research 10 §4.1, the desktop DCC's help; B2 walkers, B10 gestures). "The reference"
+is the active component of the current mode (last picked).
 
 | Gesture | Vertex mode | Edge mode | Face mode |
 |---|---|---|---|
@@ -1967,9 +1970,9 @@ All honour hidden components.
 **Selection undo in Model (ADR 0016 D12; Q-MOD-UI-13).** With `prefs.modeling.undoSelection[workspace]` true (Model
 default) every selection change of components or objects records a `SelectionPart` through
 `history.recordSelection` (label "Select"); operators with `flags.selection` do this instead of a doc step. Hide and
-show record `kind: 'hide'` parts ("Hide", "Show"). **Every discrete gesture is its own step** (Maya records each
-selection click): a click, a `Shift`/`Mod`/`Mod+Shift` click, a marquee, a loop or ring pick, a convert, an object
-selection. **Coalescing** applies only to **auto-repeated** grow/shrink keys (`KeyboardEvent.repeat`, the same
+show record `kind: 'hide'` parts ("Hide", "Show"). **Every discrete gesture is its own step** (the desktop DCC records
+each selection click): a click, a `Shift`/`Mod`/`Mod+Shift` click, a marquee, a loop or ring pick, a convert, an
+object selection. **Coalescing** applies only to **auto-repeated** grow/shrink keys (`KeyboardEvent.repeat`, the same
 gesture, nothing recorded in between) and to continuous drags (a paint-select stroke, stretch): they merge into one
 step. So "build a loop, click empty space, `Mod+Z`" restores the loop, and three quick `Shift`-clicks followed by
 `Mod+Z` remove only the last one (E2E-MOD-26). A selection step clears redo in EditorHistory and the doc
@@ -2009,7 +2012,7 @@ unchanged. Selection-only operators never become `lastRun`.
 | workspace switch | yes |
 | a remote or import batch touching a target mesh | yes ("Changed by another user") |
 | symmetry or soft-select settings change for a target mesh | yes ("Settings changed") |
-| a **component-mode switch** with the same hilited meshes (`1`/`2`/`3`, `F8`, RMB menu; returning to object mode keeps the hilite list for this comparison, §5.6) | **no**: Maya's INPUTS stay with the object (E2E-MOD-19) |
+| a **component-mode switch** with the same hilited meshes (`1`/`2`/`3`, `F8`, RMB menu; returning to object mode keeps the hilite list for this comparison, §5.6) | **no**: the desktop DCC's INPUTS stay with the object (E2E-MOD-19) |
 | shading (`4`–`7`), display toggles, camera navigation, panel changes, `T`, opening menus | no |
 
 **`edit.adjustLast {args}`** (dispatcher, no `flags.undo`; its `prepare` does the work, ADR 0008 §1):
@@ -2028,11 +2031,11 @@ unchanged. Selection-only operators never become `lastRun`.
   journal (no doc writes, ≤ 1 re-run per frame; above 50 ms per re-run the card switches to "update on release");
   release runs `edit.adjustLast` once, which finds and commits the matching session.
 
-**`edit.repeatLast`** (`G`, dispatcher) decides by the **run source**, as Maya's `G` does:
+**`edit.repeatLast`** (`G`, dispatcher) decides by the **run source**, as the desktop DCC's `G` does:
 1. `lastRun.source === 'tool'` and `lastRun.tool` set (a Multi-Cut cut, an Insert Edge Loop placed by its tool, a
-   Target Weld, a Slide, a Paint Colour stroke): `G` **activates that tool**, like `Y` (Maya re-enters the tool; a
-   re-run would seed from the new loop's own edges and cut a perpendicular loop). Smart extrude and extrude-session
-   runs record `source: 'tool'` but `mesh.extrude` declares no `tool`, so rule 2 applies.
+   Target Weld, a Slide, a Paint Colour stroke): `G` **activates that tool**, like `Y` (the desktop DCC re-enters
+   the tool; a re-run would seed from the new loop's own edges and cut a perpendicular loop). Smart extrude and
+   extrude-session runs record `source: 'tool'` but `mesh.extrude` declares no `tool`, so rule 2 applies.
 2. Otherwise, if `lastRun.repeatable`: `app.run(lastRun.id, stripBound(params, lastRun.args, ['pointer',
    'selection']))` on the current selection (selection-bound args re-resolve: a menu-run Insert Edge Loop seeds from
    the selected edge with the same mode, divisions and weight). A repeated `mesh.extrude` opens a new session (§5.8).
@@ -2046,7 +2049,7 @@ File, view, UI and selection operators are never repeatable.
 **`view.lastOpCard {expand?, focusPrimary?}`** (`T`): expands the card of the pane where `lastRun` ran (or the
 pane under the pointer) and focuses the primary field; when `lastRun` is a live `mesh.extrude` and the current
 selection still equals its result, `T` also **reopens the extrude session and its manipulator** (`app.extrude.reopen`,
-Maya's `T` on the extrude node). With no live `lastRun` the help line says "No operation to adjust".
+the desktop DCC's `T` on the extrude node). With no live `lastRun` the help line says "No operation to adjust".
 
 ### 5.8 Extrude and the extrude session (B3 geometry; B12b session and manipulator)
 
@@ -2086,7 +2089,7 @@ Maya's `T` on the extrude node). With no live `lastRun` the help line says "No o
   menus, marking menus, Toolkit, smart extrude, `G`), and again on `T` (§5.7):
   `session.model.extrudeSession = { stepId, meshes, frame, stack: [args], index: 0, manipSpace: 'local' }` (world
   frame of the first region), and the **extrude manipulator** (translate arrows X/Y/Z, rotate rings, scale handles,
-  a centre handle and Maya's **local/world toggle**) is shown on the cap; the Last-op card is live.
+  a centre handle and a **local/world toggle**) is shown on the cap; the Last-op card is live.
 - While the session is open, every drag on the extrude manipulator **and every `W`/`E`/`R` or MMB drag on the cap**
   goes through `app.extrude.beginAbsorb(tool, space)`: the drag delta (about the frame pivot) is converted into the
   extrude's `local*` args and committed with **one `edit.adjustLast` per drag** (one history step for the whole
@@ -2098,12 +2101,12 @@ Maya's `T` on the extrude node). With no live `lastRun` the help line says "No o
   always uses the session frame (a world-axis scale of a rotated cap is a shear the args cannot represent);
   `localScale *= ` the frame-aligned factors. The status line shows "Extrude · W World" etc.; the manipulator's
   local/world toggle sets `manipSpace` for its own translate/rotate handles.
-- **Args undo stack** (Maya: each manipulator drag on `polyExtrudeFace` is its own undo chunk). Every absorbed drag,
-  typed value and card edit pushes its args onto `stack` (dropping entries above `index`, like redo). While the
-  session is open, `edit.undo` and `edit.redo` first ask `app.extrude.stepBack()` / `stepForward()`: they move `index`
-  and re-run through `edit.adjustLast` with `stack[index]`, the session stays open and the history length is
-  unchanged. Only `edit.undo` at `index` 0 undoes the extrude itself (and ends the session; no zero-drop is needed,
-  the step is gone).
+- **Args undo stack** (desktop-DCC convention: each manipulator drag on `polyExtrudeFace` is its own undo chunk).
+  Every absorbed drag, typed value and card edit pushes its args onto `stack` (dropping entries above `index`, like
+  redo). While the session is open, `edit.undo` and `edit.redo` first ask `app.extrude.stepBack()` /
+  `stepForward()`: they move `index` and re-run through `edit.adjustLast` with `stack[index]`, the session stays open
+  and the history length is unchanged. Only `edit.undo` at `index` 0 undoes the extrude itself (and ends the
+  session; no zero-drop is needed, the step is gone).
 - The session survives the `edit.adjustLast` re-runs it causes (typed values, card edits, absorbed drags, stack
   steps): its `stepId` follows each re-run's step, and the undo inside `edit.adjustLast` does not end it.
 - **What ends the session** — at the **start** of the ending gesture (pointer-down of a selection click, keydown of a
@@ -2116,7 +2119,7 @@ Maya's `T` on the extrude node). With no live `lastRun` the help line says "No o
   | any other undoable operator (another extrude, `G`, Bevel, Inset, Delete …), except `edit.adjustLast` and the absorb path | yes | yes |
   | `Shift` held at the start of a W/E/R handle drag (smart extrude: the old session ends, a new extrude runs) | yes | yes |
   | workspace switch; a remote change hitting a target mesh | yes | yes |
-  | a **component-mode switch** (`1`/`2`/`3`, `F8`, `F9`/`F10`, RMB mode menu) | yes | **no**: Maya users press `1` to pull single cap vertices; Mesh Check still reports zero-area faces |
+  | a **component-mode switch** (`1`/`2`/`3`, `F8`, `F9`/`F10`, RMB mode menu) | yes | **no**: desktop-DCC users press `1` to pull single cap vertices; Mesh Check still reports zero-area faces |
   | a pivot edit starts | yes | no |
   | `edit.undo` at stack index 0 | yes (the extrude is undone) | — |
   | `view.*`, `ui.*`, camera navigation, shading `4`–`7`, tool switches (`Q`/`W`/`E`/`R`/`Y`), `T`, typed values, card edits, `edit.undo`/`edit.redo` inside the stack | **no** | — |
@@ -2132,7 +2135,7 @@ Maya's `T` on the extrude node). With no live `lastRun` the help line says "No o
   `localTranslate`/`localRotate`/`localScale` (one step, card titled "Extrude", Divisions editable), opening a new
   session — so Shift+drag, Shift+drag, Shift+drag builds a three-segment chain (spine, tail, sword fuller) in three
   steps. `Shift` pressed **after** a drag has started is the fine adjustment (×0.1, §7). In object mode `Shift`+drag
-  is reserved (Maya smart duplicate, M6a-stretch; it moves normally).
+  is reserved (smart duplicate, M6a-stretch; it moves normally).
 
 ### 5.9 Inset and Bevel (B3 inset; B5 bevel)
 
@@ -2144,13 +2147,13 @@ extrude with zero thickness (rim quads between the old boundary and the inset bo
 faces. Requires a manifold region boundary (`inset.non-manifold`).
 
 **Bevel** (`mesh.bevel`; research 10 §4.3, 13 §5.3 bounded to M6a): edge mode bevels the selected edges; **face
-mode bevels every edge of the selected faces** (Maya; the selection is converted to the faces' edges inside the op,
-so the card, `G` and symmetry are the same).
+mode bevels every edge of the selected faces** (desktop-DCC behaviour; the selection is converted to the faces'
+edges inside the op, so the card, `G` and symmetry are the same).
 
-- Width (Maya semantics): `offsetAsFraction` (default) → each new vertex slides along its adjacent unselected edge by
-  `fraction × ½ × L`, where `L` is the shortest edge adjacent to that end, so `fraction` 1 means bevels from both ends
-  of an edge meet; the default 0.5 is a quarter of `L` and never meets. Where both ends of an adjacent edge are
-  bevelled, the effective fraction is clamped to 0.98 with the warning `bevel.clamped` (no coincident points, no
+- Width (desktop-DCC semantics): `offsetAsFraction` (default) → each new vertex slides along its adjacent unselected
+  edge by `fraction × ½ × L`, where `L` is the shortest edge adjacent to that end, so `fraction` 1 means bevels from
+  both ends of an edge meet; the default 0.5 is a quarter of `L` and never meets. Where both ends of an adjacent edge
+  are bevelled, the effective fraction is clamped to 0.98 with the warning `bevel.clamped` (no coincident points, no
   zero-width strips); absolute → `offset` metres, clamped to the same distance with the same warning.
 - **Endpoint valence** (selected edges meeting at an endpoint `v`):
   - 1: `v` splits into two vertices on the two neighbouring edges; the face opposite the strip gains a corner
@@ -2159,16 +2162,16 @@ so the card, `G` and symmetry are the same).
   - ≥ 3: `segments = 1` → one polygon whose corners are the new vertices (all 12 cube edges: 24/48/26);
     `segments > 1` → a fan from a new centre vertex (the average of the corner's boundary points pushed along the
     vertex normal by the profile) with the warning `bevel.fan-corner` naming the vertex.
-- `segments` 1…3: `segments − 1` intermediate rows between the two offset lines `A` and `B`. With `chamfer` (Maya's
+- `segments` 1…3: `segments − 1` intermediate rows between the two offset lines `A` and `B`. With `chamfer` (desktop-DCC
   default, on) the rows lie on the straight chord `A → B` (a subdivided flat chamfer); with `chamfer` off they lie on
   the quadratic Bézier `A → C′ → B` at `s = i / segments`, where `C` is the original edge position and
   `C′ = M + 2·roundness·(C − M)` with `M` the chord midpoint (`roundness` 0 flat, 0.5 rounded, 1 sharp corner;
-  Maya `depth`).
+  the desktop DCC's `depth`).
 - Hardness: strip interior edges follow H2; with `hardenBorders` (default on) the strip's border edges are hard.
 - Refusals: non-manifold or border edges (`bevel.non-manifold`, `bevel.border-edge` "Bevel needs edges with two
   faces"; in face mode a selected face's border edge refuses the same way); an empty result after clamping
   (`bevel.zero-width`, unreachable through the fraction path).
-- `selection′` = the new bevel faces (face mode: the bevel faces plus the shrunk original faces, Maya).
+- `selection′` = the new bevel faces (face mode: the bevel faces plus the shrunk original faces, as in the desktop DCC).
 
 ### 5.10 Numeric capture and the modal tool contract (B11 capture; B12a/B12b tools)
 
@@ -2202,9 +2205,9 @@ conformance test and each tool's unit test assert it); the wheel stays dolly; `P
   `0.3` are 0.3; a bare number is a fraction) and leaves the shipped parser and its callers unchanged.
 - **Outside the window** digits keep their meanings (`1`–`3` modes, `4`–`7` shading) and `-`/`=` keep manipulator
   size. `T` is the explicit opener at any time (§5.7). With `numericCapture: 'explicit'` only `T` and card fields
-  take numbers. Case (b) takes a digit pressed right after `Mod+E` (a mode key for a Maya hand): "`Ctrl+E`, then `2`"
-  is on the B12a owner feel-check script, and INT records the owner's choice (keep, or exempt `1`–`7` from case (b))
-  in DECISIONS-OPEN §I.
+  take numbers. Case (b) takes a digit pressed right after `Mod+E` (a mode key for a desktop-DCC hand): "`Ctrl+E`,
+  then `2`" is on the B12a owner feel-check script, and INT records the owner's choice (keep, or exempt `1`–`7` from
+  case (b)) in DECISIONS-OPEN §I.
 - The modal readout chip (B12a) shows the active field, the entry text and the keys ("Enter ✓ · Esc ✕ · Tab next");
   the help line mirrors it; a polite live region announces committed values ("Extrude local translate Z 0.5 metres").
 
@@ -2226,7 +2229,8 @@ conformance test and each tool's unit test assert it); the wheel stays dolly; `P
 
 **Offset Edge Loop** (`mesh.offsetLoop`): for each selected edge loop, insert two loops on the two adjacent rings at
 `offset` × the crossing edge length from the loop; open loops ending at an interior vertex produce end triangles,
-which `deleteEnds` (default on) converts to quads by removing the end edges (Maya `polyDuplicateEdge -deleteEdge`).
+which `deleteEnds` (default on) converts to quads by removing the end edges (desktop DCC:
+`polyDuplicateEdge -deleteEdge`).
 
 **Connect** (`mesh.connect`, research 10 §4.9): vertices — in every face with ≥ 2 selected non-adjacent vertices,
 split by chords between consecutive selected vertices in boundary order; two selected vertices without a common face
@@ -2239,10 +2243,11 @@ skipped with a warning.
   places a point at the projected `t`; `Shift` snaps `t` to multiples of `prefs.modeling.multiCutSnapStep` (25 %);
   within 8 px of a vertex the point snaps to the vertex. Points inside faces are M6a-stretch (ignored with a hint).
 - Consecutive points must share a face (a click on a face that shares none with the previous point is not added and
-  the help line says "Click on each face the cut crosses"; Maya's cut through the faces in between is M6a-stretch,
-  §1.2); the face is split along the chord: split the edges, then `splitFaceMakeEdge`. A chord in an n-gon is valid when it lies inside the polygon: projected to the Newell plane,
-  the open segment crosses no face edge (`orient2d`, exact) and its midpoint is inside (exact point-in-polygon); an
-  invalid chord is refused with "That cut would leave the face" and the point is not added.
+  the help line says "Click on each face the cut crosses"; the desktop DCC's cut through the faces in between is
+  M6a-stretch, §1.2); the face is split along the chord: split the edges, then `splitFaceMakeEdge`. A chord in an
+  n-gon is valid when it lies inside the polygon: projected to the Newell plane, the open segment crosses no face edge
+  (`orient2d`, exact) and its midpoint is inside (exact point-in-polygon); an invalid chord is refused with "That cut
+  would leave the face" and the point is not added.
 - Splitting an edge inserts the vertex into both adjacent faces (a neighbour of the cut becomes an n+1-gon; no
   automatic fix).
 - Gestures: LMB places points; **RMB (pointer-down button 2) or `Enter` completes** (one `mesh.cut` run);
@@ -2255,7 +2260,7 @@ skipped with a warning.
 
 ### 5.12 Slide, Average, Bridge, Fill Hole, Merge, Delete, Spin (B3, B4; tools B12b)
 
-**Slide Edge/Vertex** (`mesh.slide`, Maya Slide Edge Tool): selected edges (edge mode) or vertices (vertex mode)
+**Slide Edge/Vertex** (`mesh.slide`, desktop-DCC Slide Edge Tool): selected edges (edge mode) or vertices (vertex mode)
 slide along their **rails** — for an edge-loop vertex, the two non-selected edges of the adjacent quads on either
 side; `percent` in −1…1 moves each vertex toward the rail's far end on one side (positive = the side of the
 pointer-bound `reference` rail picked by the tool's first drag direction, negative = the other side), clamped to the
@@ -2273,10 +2278,10 @@ mesh** (Combine first), resolved from the selection (`loops`, selection-bound: t
 selected faces (deleted first, their boundaries bridged). Counts must be equal (`bridge.unequal-counts`). Pairing:
 for closed loops, the start offset and direction minimizing the summed squared distances over all cyclic shifts and
 both directions, then the direction that makes each new face traverse the border edge opposite to its existing face;
-`twist` shifts the pairing by whole steps (direction sign as the loop order); `offset` (Maya `bridgeOffset`) shifts
-the start; `taper` scales the intermediate rings about the interpolated centroid. Rows = `divisions + 1`, linear
-interpolation (curve/blend is stretch). Strip edges follow H2. Two closed open-ended 8-sided cylinders bridged with
-divisions 2: 32/48/18 → 48/88/42 (§5.29). `selection′` = the new faces.
+`twist` shifts the pairing by whole steps (direction sign as the loop order); `offset` (desktop DCC: `bridgeOffset`)
+shifts the start; `taper` scales the intermediate rings about the interpolated centroid. Rows = `divisions + 1`,
+linear interpolation (curve/blend is stretch). Strip edges follow H2. Two closed open-ended 8-sided cylinders bridged
+with divisions 2: 32/48/18 → 48/88/42 (§5.29). `selection′` = the new faces.
 
 **Fill Hole** (`mesh.fillHole`): every border loop touched by the selection (any mode) gets one n-gon with the loop's
 vertices in the order opposite to the existing faces' traversal (consistent winding). Open 8-sided cylinder (no
@@ -2288,28 +2293,28 @@ caps) → 16/24/8 → two fills → 16/24/10.
   (pick order, else the smallest index) at the cluster centroid; with exactly two selected vertices and
   `alwaysMergeTwo`, they merge regardless of distance.
 - `mesh.mergeToCenter`: every selected vertex → one vertex at the selection's centroid (cube top face → 5/8/5).
-- `mesh.mergeByDistance {distance}`: all **visible** vertices of the targets (Blender name; Maya "Merge" on the whole
-  mesh) — two coplanar planes side by side after Combine: 8/8/2 → 6/7/2.
+- `mesh.mergeByDistance {distance}`: all **visible** vertices of the targets (the open-source DCC's name; the
+  desktop DCC's "Merge" on the whole mesh) — two coplanar planes side by side after Combine: 8/8/2 → 6/7/2.
 - `mesh.targetWeld {pairs, mode}`: each pair `{source, target}` (pointer-bound, vertices; edges weld endpoint to
   endpoint by proximity) merges `source` into `target` at the target (`mode: 'target'`, default) or at their midpoint
-  (`'center'`: an MMB drag in Maya, the MMB stand-in on a trackpad, or the Toolkit's Active tool mode). Same mesh only.
-  A cube's adjacent pair → 7/11/6.
+  (`'center'`: an MMB drag (desktop-DCC convention), the MMB stand-in on a trackpad, or the Toolkit's Active tool
+  mode). Same mesh only. A cube's adjacent pair → 7/11/6.
 - `mesh.collapse`: each selected edge → its midpoint; each selected face → its centroid (one cube edge → 7/11/6).
 - After any merge: drop repeated consecutive corners, kill faces with < 3 distinct corners, kill unused edges and
   vertices, merge exactly coincident duplicate faces (lamina: the face with the larger index is killed), report
   non-manifold results (`merge.non-manifold`), merged edges by H3. Symmetry: §5.14.
 
 **Delete family** (research 10 §4.11; Q-MOD-UI-6):
-- `mesh.delete` — vertex mode (**Maya plain Delete**): only **winged** vertices (valence 2) are deleted, each
-  dissolved into the edge joining its two neighbours; a selection with any vertex of valence > 2 refuses with
-  `delete.not-winged` "Use Delete Edge/Vertex (Mod+Delete)" (a cube corner would otherwise become a non-planar
+- `mesh.delete` — vertex mode (**plain Delete**, desktop-DCC behaviour): only **winged** vertices (valence 2) are
+  deleted, each dissolved into the edge joining its two neighbours; a selection with any vertex of valence > 2 refuses
+  with `delete.not-winged` "Use Delete Edge/Vertex (Mod+Delete)" (a cube corner would otherwise become a non-planar
   hexagon); edge mode: each selected edge is removed and its two faces merge into one polygon; end vertices stay (cube
   edge → 8/11/5); a border edge goes with its face; face mode: the faces are removed with their now-unused edges and
   vertices.
 - `mesh.deleteEdgeVertex` (`Mod+Delete`, "Delete Edge/Vertex"): edge mode as plain Delete, then every vertex left
   with valence 2 by this deletion is dissolved (cube edge → 6/9/5; the shape changes, a prism); vertex mode: each
   selected vertex is removed with its edges and its incident faces merge into one n-gon (a border vertex with two
-  edges joins them; Maya `polyDelVertex`). Border edges refuse (`delete.border-edge`).
+  edges joins them; the desktop DCC's `polyDelVertex`). Border edges refuse (`delete.border-edge`).
 - Stray-vertex lint: valence-2 vertices whose edges are collinear within 1° are flagged by Mesh Check with a
   one-click fix (`mesh.cleanup {fix: 'stray-vertices'}`).
 
@@ -2335,9 +2340,9 @@ triangles = one spin; on a selected quad face it toggles `FACE_FLIP_DIAGONAL`. C
   morph layers united in the first mesh's manifest order, missing deltas zero; skin layers need the same skeleton
   (`combine.skeleton-mismatch`), joint palettes united and remapped. Inputs other than the first are removed.
   `faceted` = true only if every input is faceted. An input whose world transform relative to the first has
-  `det < 0` (Maya's mirror route: `Mod+D`, scale X −1, Combine) is appended with reversed winding (`appendMesh`), so
-  the combined half faces outward; golden: a half cube duplicated with scale X −1 and combined is 12/20/10 after Merge
-  by Distance, closed, with consistent winding.
+  `det < 0` (the desktop-DCC mirror route: `Mod+D`, scale X −1, Combine) is appended with reversed winding
+  (`appendMesh`), so the combined half faces outward; golden: a half cube duplicated with scale X −1 and combined is
+  12/20/10 after Merge by Distance, closed, with consistent winding.
 - **Separate**: one output per shell (flood fill over shared vertices), each keeping the original placement; the
   first shell (lowest face index) stays in the input record, the others become new records named "<name> 2", "3"…
 - **Extract** (`separate`, default true; `offset`): detaches the selected faces (duplicating boundary vertices so they
@@ -2350,7 +2355,7 @@ triangles = one spin; on a selected quad face it toggles `FACE_FLIP_DIAGONAL`. C
   `duplicate.static-copy`.
 - Symmetry: not mirrored (object level); symmetry is re-detected on the outputs.
 
-**Mirror** (`mesh.mirror`, research 10 §4.14; Maya `polyMirror` semantics): `axis` (x), `keep: 'positive' |
+**Mirror** (`mesh.mirror`, research 10 §4.14; the desktop DCC's `polyMirror` semantics): `axis` (x), `keep: 'positive' |
 'negative'` (the source half; positive = +X, the character's left), `position: 'object' | 'world'` (plane through the
 object origin or the world origin), `cutMesh` (default true: faces crossing the plane are clipped and the other half
 deleted first), vertices within `mergeThreshold` (default 0.001 m) of the plane snap onto it, the source half is
@@ -2450,33 +2455,34 @@ soft select; E2E-MOD-20/21/22 are rewritten for Live Mirror in the same decision
 ### 5.15 Component transforms, MMB-drag, Tweak, snapping, pivots, soft select (B12a; B2 kernel)
 
 - **Component W/E/R** (`move`, `rotate`, `scale` tools in component mode): pivot = the bounding-box centre of the
-  selected vertices in world space (Maya), or the pinned `componentPivot`; orientation World / Object /
-  **Component** (Maya's name for one averaged frame: Z = the area-weighted average of the selected faces' normals, or
-  of the selected vertices' corner normals; X/Y by the region-frame rule of §5.8). Maya's **Normal** orientation, where
-  each component moves along its own normal on the N handle, is M6a-stretch (§1.2); the B12a feel check compares
-  Component against Maya 2026. A drag previews through a `MeshOpSession` of `mesh.transformComponents` and commits one
-  step labelled "Move", "Rotate" or "Scale". `mesh.transformComponents` args: `translateX/Y/Z`, `rotateX/Y/Z`,
-  `scaleX/Y/Z`, `pivot` and `orientation` (selection-bound, 'data'); soft and symmetry come from the recorded context.
+  selected vertices in world space (desktop-DCC convention), or the pinned `componentPivot`; orientation World /
+  Object / **Component** (the desktop DCC's name for one averaged frame: Z = the area-weighted average of the selected
+  faces' normals, or of the selected vertices' corner normals; X/Y by the region-frame rule of §5.8). The desktop
+  DCC's **Normal** orientation, where each component moves along its own normal on the N handle, is M6a-stretch
+  (§1.2); the B12a feel check compares Component against the desktop DCC (2026 release). A drag previews through a
+  `MeshOpSession` of `mesh.transformComponents` and commits one step labelled "Move", "Rotate" or "Scale".
+  `mesh.transformComponents` args: `translateX/Y/Z`, `rotateX/Y/Z`, `scaleX/Y/Z`, `pivot` and `orientation`
+  (selection-bound, 'data'); soft and symmetry come from the recorded context.
 - **Scale tool** (B9, `R`, all workspaces): in object mode it scales mesh objects (placement scale) and, in Animate,
   controls with keyable scale; axis handles `sx`/`sy`/`sz` and the centre handle `suniform`.
-- **MMB-drag** (Maya rule, Q-MOD-UI-14), with W, E or R active in a viewport pane: if Channel Box channels or an
+- **MMB-drag** (desktop-DCC rule, Q-MOD-UI-14), with W, E or R active in a viewport pane: if Channel Box channels or an
   INPUTS field are selected, MMB-drag runs the virtual slider (the shipped M2a behaviour); otherwise it transforms the
   selection — along/about/along the **last-picked handle axis** (`session.model.tweakHandle`, set by a LMB press on a
   handle, cleared on tool switch), or in the view plane through the pivot / about the view axis / uniformly when the
   last pick was the centre handle or none. It works in object and component mode, in Model and **in Animate**
   (controls move through the channel-edit gesture; additive: MMB without channels did nothing before). On a trackpad
   every MMB gesture of the Model viewport goes through the **MMB stand-in** (§5.17).
-- **Tweak** (`selectionStyle: 'tweak'`, a Move tool option, off by default as in Maya; a tap of `` ` ``
-  (`Backquote`) toggles it, Maya's key): LMB-drag that starts on an unselected component replaces the selection with
-  it and moves it in the view plane in one gesture (one step "Move" whose `selectionBefore/After` carry the change; no
-  separate "Select" step).
+- **Tweak** (`selectionStyle: 'tweak'`, a Move tool option, off by default; a tap of `` ` ``
+  (`Backquote`) toggles it, the desktop DCC's key): LMB-drag that starts on an unselected component replaces the
+  selection with it and moves it in the view plane in one gesture (one step "Move" whose `selectionBefore/After` carry
+  the change; no separate "Select" step).
 - **Snapping** (holds and sticky toggles): `X` — the moved pivot snaps per moved axis to the grid
   (`prefs.modeling.gridStep`, 0.1 m); `V` — the pivot snaps to the nearest **visible** vertex within 12 px on **any**
   visible, unlocked mesh (its own moved vertices excluded), so a separate arm or head can be aligned before Combine;
   `J` — increments (0.1 m, 15°, 0.1). A ring marks the candidate and the readout names it ("→ vertex 128 · Torso").
-  Snapping moves the pivot and the selection keeps its spacing (Maya's **Retain component spacing** on); turning it
-  off, so that every moved vertex snaps on its own (many vertices onto one grid line), is M6a-stretch. Edge snap `C`
-  is stretch.
+  Snapping moves the pivot and the selection keeps its spacing (the desktop DCC's **Retain component spacing** on);
+  turning it off, so that every moved vertex snaps on its own (many vertices onto one grid line), is M6a-stretch. Edge
+  snap `C` is stretch.
 - **Pivot editing**: `D` held, or `Insert` / `Home` (both on every platform; `Home` shadows `time.goToStart` only in
   `model.viewport`) toggles pivot edit: the manipulator draws dashed and drags move the pivot (`X`/`V` snap it). In
   object mode it writes `MeshRecord.pivot`/`GroupRecord.pivot` (`mesh.pivot.set`, undoable); in component mode it pins
@@ -2495,11 +2501,12 @@ soft select; E2E-MOD-20/21/22 are rewritten for Live Mirror in the same decision
 - `mesh.create.<kind>` (B7: the operator and record creation; B13: menus, start card, Attributes) creates an
   authored scene mesh (`owner: { scene: true }`, `faceted: true`, all edges hard, default palette assigned when the
   project has one, id `derivedId('mesh', 'mesh.create.<kind>', [], seed, 0)` so an adjusted re-run keeps the id)
-  **at the world origin, centred** (Maya), selected, in object mode; its parameters are the §6.3 table with the
-  `prefs.modeling.primitiveDefaults` set (`low-poly` or `maya`). The Last-op card shows the parameters; `G` creates
-  another. **Into a template group**: when exactly one group with a non-null `template` is the selected object (or
-  the lead of the selection), the new mesh is created as its child (same owner) at the group's origin, centred, and
-  takes the template's symmetry (humanoid: Object X), so the template's budget and export root apply (AS-LP-A).
+  **at the world origin, centred** (desktop-DCC convention), selected, in object mode; its parameters are the §6.3
+  table with the `prefs.modeling.primitiveDefaults` set (`low-poly` or `dcc`). The Last-op card shows the parameters;
+  `G` creates another. **Into a template group**: when exactly one group with a non-null `template` is the selected
+  object (or the lead of the selection), the new mesh is created as its child (same owner) at the group's origin,
+  centred, and takes the template's symmetry (humanoid: Object X), so the template's budget and export root apply
+  (AS-LP-A).
 - Winding CCW seen from outside; UVs generated per primitive (cube: per-face 0–1; sphere/cylinder/cone: cylindrical
   with the seam on −Z, split corners at the wrap; plane: 0–1; torus: two angles); `paint` = slot 0 everywhere.
 - **Live parameters** (Q-MOD-UI-17): while `generator` is non-null, Attributes › Primitive, the Channel Box
@@ -2545,7 +2552,7 @@ soft select; E2E-MOD-20/21/22 are rewritten for Live Mirror in the same decision
   `model.viewport` → `viewport` → `model` → `global`; over another panel `model.<panel>` → `<panel>` → `model` →
   `global`. In Animate the chain is today's (`<panel>` → `global`). `KeymapManager.resolve` is unchanged (first match
   in chain order); a deeper scope shadows a shallower one; the help line shows the resolved meaning under the pointer.
-  `KeymapManager.preset` widens from `'maya'` to `string` (registered preset id; only `maya` ships).
+  `KeymapManager.preset` widens from `'dcc'` to `string` (registered preset id; only `dcc` ships).
 - **Animate-only rows are shadowed in Model.** Shipped `viewport`-scope rows that would act on controls the modeler
   cannot see resolve in `model.viewport` to `model.animateOnly` (poll-fails "Keys and poses are set in Animate"): `S`,
   `Shift+W/E/R`, `Alt+S` (`key.set`), `Alt+M` (`pose.mirror`), `Mod+C`, `Mod+V`, `Mod+Shift+V` (pose copy/paste).
@@ -2571,10 +2578,10 @@ soft select; E2E-MOD-20/21/22 are rewritten for Live Mirror in the same decision
   `contextmenu` event is always suppressed and **never** treated as RMB: marking menus, Multi-Cut completion and the
   RMB mode menu trigger on pointer-down with `button === 2` only. On macOS a Ctrl-click arrives as `button 0` +
   `ctrlKey` and is a Ctrl-click (Multi-Cut loop, E2E-MOD-05 `platform=mac` case). (b) **MMB stand-in**: in the
-  `trackpad` and `mayaOneButton` navigation profiles, an `Alt+Shift`+LMB drag in a **Model** viewport pane is delivered
+  `trackpad` and `oneButton` navigation profiles, an `Alt+Shift`+LMB drag in a **Model** viewport pane is delivered
   to tools as an MMB drag (`button 1`, `Alt`/`Shift` cleared), so the MMB rule, `B`+MMB radius, Target Weld centre,
   Slide Edge, `Ctrl`+MMB centred loop (`Ctrl+Alt+Shift`+LMB) and the INPUTS virtual slider are all reachable without a
-  middle button; Animate and the `maya` profile are unchanged (`Alt`+LMB stays tumble everywhere).
+  middle button; Animate and the `dcc` profile are unchanged (`Alt`+LMB stays tumble everywhere).
 
 ### 5.18 Marking menus, Toolkit and the command palette (B9 generic; B10, B11, B12a data)
 
@@ -2899,8 +2906,8 @@ expanded selection, `ptr` = maps pointer/selection args, `—` = not mirrored. "
 directory `mesh-core/src/ops/<dir>/` (the binding op-id → directory map; related ops share a directory, each op's
 descriptor and object exported from it); "UI" owns the tool, menus and card wiring (B11 registers every `mesh.*`
 operator through `meshOperator`, §9; ops marked *internal* are registered `flags.internal` and run by the named
-editor operator). B0a lands every row as a stub. Labels are Maya's; Blender names are palette aliases. Every op
-honours the unmatched-partner rule of §5.14.
+editor operator). B0a lands every row as a stub. Labels follow the desktop DCC; names used by other DCCs are palette
+aliases. Every op honours the unmatched-partner rule of §5.14.
 
 ### 6.1 Kernel operations (`mesh.*`; `MeshOp` unless marked set-op)
 
@@ -2920,10 +2927,10 @@ honours the unmatched-partner rule of §5.14.
 | `mesh.fillHole` (Fill Hole) | v e f | — | — | ✓ | exp | B3 `fill` / B11 | §5.12; new faces; `fillHole.no-border` |
 | `mesh.merge` (Merge) | v e f | `distance*: distance = 0.001 (min 0)`, `alwaysMergeTwo: bool = true` | ✓ | ✓ | exp | B3 `merge` / B11 | §5.12; merged vertices |
 | `mesh.mergeToCenter` (Merge to Center) | v e f | — | — | ✓ | exp | B3 `merge` / B11 | §5.12; the new vertex |
-| `mesh.mergeByDistance` (Merge by Distance; alias of Maya Merge on a whole mesh) | object, any | `distance*: distance = 0.0001 (min 0)` | ✓ | ✓ | — | B3 `merge` / B11 | visible vertices of the whole mesh; warning with the merged count |
+| `mesh.mergeByDistance` (Merge by Distance; alias of the desktop DCC's Merge on a whole mesh) | object, any | `distance*: distance = 0.0001 (min 0)` | ✓ | ✓ | — | B3 `merge` / B11 | visible vertices of the whole mesh; warning with the merged count |
 | `mesh.targetWeld` (Target Weld) | v e (tool) | `pairs: data (ptr)`, `mode: enum target/center = target` | ✓ | — | ptr | B3 `targetWeld` / B12b | §5.12; tool `targetWeld`; the target vertex |
 | `mesh.collapse` (Collapse) | e f | — | — | ✓ | exp | B3 `collapse` / B11 | §5.12; resulting vertices |
-| `mesh.delete` (Delete) | v e f | — | — | ✓ | exp | B3 `delete` / B11 | §5.12 (Maya plain Delete; vertices: winged only); empty selection; `delete.not-winged` |
+| `mesh.delete` (Delete) | v e f | — | — | ✓ | exp | B3 `delete` / B11 | §5.12 (plain Delete; vertices: winged only); empty selection; `delete.not-winged` |
 | `mesh.deleteEdgeVertex` (Delete Edge/Vertex) | v e | — | — | ✓ | exp | B3 `delete` / B11 | §5.12; `delete.border-edge` |
 | `mesh.spinEdge` (Spin Edge Forward / Backward) | e | `direction: enum forward/back = forward` | — | ✓ | exp | B4 `spin` / B11 | §5.12; `spin.border-edge`, `spin.same-face` |
 | `mesh.flipTriangleEdge` (Flip Triangle Edge) | e f | — | — | ✓ | exp | B4 `flip` / B11 | §5.12 |
@@ -3002,10 +3009,10 @@ honours the unmatched-partner rule of §5.14.
 
 ### 6.3 Primitive parameters
 
-Distances in metres; `low-poly` defaults first, `maya` defaults second (`prefs.modeling.primitiveDefaults`). Every
+Distances in metres; `low-poly` defaults first, `dcc` defaults second (`prefs.modeling.primitiveDefaults`). Every
 param is `value`-bound; the primary field is the first subdivision count.
 
-| Kind | Params (low-poly / maya) |
+| Kind | Params (low-poly / dcc) |
 |---|---|
 | cube | `width` 1/1, `height` 1/1, `depth` 1/1, `subdivisionsWidth*` 1/1, `subdivisionsHeight` 1/1, `subdivisionsDepth` 1/1 (ints 1–64) |
 | sphere | `radius` 0.5/0.5, `subdivisionsAxis*` 12/20 (3–128), `subdivisionsHeight` 8/20 (2–128) |
@@ -3019,19 +3026,20 @@ Plane lies in XZ facing +Y; cylinder, cone and torus axes along +Y; all centred 
 
 ---
 
-## 7. Keymap additions (preset `maya`)
+## 7. Keymap additions (preset `dcc`)
 
 Scopes: `m` = `model` (the whole Model workspace), `mv` = `model.viewport`, `mvc` = `model.viewport.component`,
 `mvv`/`mve`/`mvf` = `model.viewport.vertex / .edge / .face`, `V` = `viewport` (both workspaces), `G` = `global`, `mo` =
 `model.outliner`. Chords use
 `KeyboardEvent.code`; `Mod` = Cmd on macOS, Ctrl elsewhere; `Ctrl` is literal Ctrl on every platform. B0b lands every
 row (bound to stub operators that poll-fail until their owners land); later rows come through contract PRs to this
-table. Origin: **M** Maya default, **M~** Maya-inspired, **E** Ekza, **E-B** Blender Industry Compatible habit.
+table. Origin: **M** desktop-DCC default, **M~** desktop-DCC-inspired, **E** Ekza, **E-B** Industry Compatible habit of
+the open-source DCC.
 
 | Chord | Operator (args) | Scope | Origin | Notes |
 |---|---|---|---|---|
 | `F8` | `select.mode {mode: 'toggle'}` | mv | M | object ↔ last component mode |
-| `F9`, `Digit1` | `select.mode {mode: 'vertex'}` | mv | M, E-B | `1` again returns to object mode; `F9` is idempotent (Maya) |
+| `F9`, `Digit1` | `select.mode {mode: 'vertex'}` | mv | M, E-B | `1` again returns to object mode; `F9` is idempotent |
 | `F10`, `Digit2` | `select.mode {mode: 'edge'}` | mv | M, E-B | `2` again → object; `F10` idempotent; `preventDefault`; F10 in the QA matrix |
 | `Digit3` | `select.mode {mode: 'face'}` | mv | E-B | `3` again → object; **F11 and F12 are never bound** |
 | `Mod+F9` / `Mod+F10` / `Mod+F11` | `select.mesh.convert {to: 'vertex' / 'edge' / 'face', mode: 'touching'}` | mvc | M | also Ctrl+RMB |
@@ -3043,10 +3051,10 @@ table. Origin: **M** Maya default, **M~** Maya-inspired, **E** Ekza, **E-B** Ble
 | `KeyK` | `view.tool {panel: 'viewport', tool: 'multiCut'}` | mv | E-B | Animate's `K`+drag time scrub (M2c) stays separate |
 | `KeyM` | `ui.markingMenu {menu: 'model.merge'}` | mvc | E-B | N Merge to Center · E Target Weld · S Merge · W Collapse; `Alt+M` stays Mirror Pose |
 | `KeyG` | `edit.repeatLast` | mv | M | |
-| `KeyT` | `view.lastOpCard {expand: true, focusPrimary: true}` | mv | M~ | Maya `T` brings back the In-View Editor |
+| `KeyT` | `view.lastOpCard {expand: true, focusPrimary: true}` | mv | M~ | The desktop DCC's `T` brings back its In-View Editor |
 | `KeyY` | `tool.last` | mv | M | |
 | `KeyR` | `view.tool {panel: 'viewport', tool: 'scale'}` | V | M | new viewport Scale tool (both workspaces) |
-| `Delete`, `Backspace` | `mesh.delete` | mvc | M | Maya plain Delete |
+| `Delete`, `Backspace` | `mesh.delete` | mvc | M | plain Delete (desktop-DCC behaviour) |
 | `Delete`, `Backspace` | `scene.delete` | mv | M | objects in object mode |
 | `Mod+Delete`, `Mod+Backspace` | `mesh.deleteEdgeVertex` | mvc | M | Delete Edge/Vertex |
 | `Shift+Period` / `Shift+Comma` | `select.mesh.grow` / `select.mesh.shrink` | mvc | M | unshifted `,`/`.` stay prev/next key |
@@ -3060,9 +3068,9 @@ table. Origin: **M** Maya default, **M~** Maya-inspired, **E** Ekza, **E-B** Ble
 | `Mod+KeyD` | `mesh.duplicateFaces` | mvf | M~ | |
 | `Mod+KeyG` | `scene.group` | mv, mo | M | `preventDefault` (find next) |
 | `KeyP` / `Shift+KeyP` | `scene.parent` / `scene.unparent` | mv, mo | M | |
-| `Insert`, `Home` | `model.pivot.editToggle` | mv | M | both on every platform (Maya: `Insert`, `Home` on macOS keyboards without `Insert`); `Home` keeps `time.goToStart` outside the Model viewport |
+| `Insert`, `Home` | `model.pivot.editToggle` | mv | M | both on every platform (desktop-DCC convention: `Insert`, `Home` on macOS keyboards without `Insert`); `Home` keeps `time.goToStart` outside the Model viewport |
 | `KeyB` (tap) | `model.softSelect.toggle` | mv | M | tap/hold only here and only without modifiers (§5.17); `B`+drag radius is a tool modifier |
-| `Backquote` | `model.selectionStyle.set {style: 'toggle'}` | mv | M | Tweak ↔ Marquee (Maya's `` ` ``) |
+| `Backquote` | `model.selectionStyle.set {style: 'toggle'}` | mv | M | Tweak ↔ Marquee (the desktop DCC's `` ` ``) |
 | `KeyS`, `Shift+KeyW/E/R`, `Alt+KeyS`, `Alt+KeyM`, `Mod+KeyC`, `Mod+KeyV`, `Mod+Shift+KeyV` | `model.animateOnly` | mv | E | shadow the Animate `viewport` rows (key.set, pose.mirror, pose copy/paste) so control selection carried over from Animate is never keyed or pasted unseen (§5.17) |
 | `Mod+KeyA` | `select.mesh.all` | mvc | M | components of the hilited meshes |
 | `Mod+KeyA` | `select.objects {all: 'meshes'}` | mv | M | every visible mesh object |
@@ -3172,8 +3180,8 @@ timeline row hidden (Windows › Timeline shows it). Presets: M-Single, M-Quad, 
 | `model.options` (Ctrl+Shift+RMB, `Q`+LMB) | N Symmetry: Object X · NE Symmetry: Off · E Soft Select ✓ · SE Camera-based ✓ · S Constraint ▸ (stretch items disabled) · SW Backfaces ✓ · W Selection Style ▸ (Marquee, Tweak; Drag disabled) · NW Symmetry ▸ (World X/Y/Z, Object Y/Z) | Tolerance… · Preserve Seam ✓ |
 | `model.merge` (`M`) | N Merge to Center · E Target Weld · S Merge · W Collapse | Merge by Distance |
 
-The S/W/SW slots are the same family in every component menu (S Extrude, W Multi-Cut, SW Delete — Maya's plain
-Delete). Owners: `model.modes` and `model.convert` B10; `model.tools.*`, `model.primitives` and `model.merge` B11;
+The S/W/SW slots are the same family in every component menu (S Extrude, W Multi-Cut, SW Delete — the desktop DCC's
+plain Delete). Owners: `model.modes` and `model.convert` B10; `model.tools.*`, `model.primitives` and `model.merge` B11;
 `model.options` B12a; the generic component B9.
 
 ### 8.5 Modeling Toolkit panel (right dock, first tab; B11)
@@ -3201,10 +3209,10 @@ px): icon-only, two columns. Empty state: "Select a mesh, or create one" + primi
   card. A closed card shows its reason in a tooltip of the pill for 3 s, then disappears.
 - **Channel Box › INPUTS**: under the selected mesh object's Translate/Rotate/Scale rows (B11 adds object TRS rows for
   meshes and groups, editing `placement` through `scene.object.transform`) and SHAPES, up to two entries:
-  - the **primitive entry** while the mesh's `generator` is non-null ("cylinder (primitive)", Maya's `polyCylinder1`):
-    the §6.3 fields of its kind, persistent across selection changes, driving `mesh.primitive.set` (an edit right
-    after the creation run is an `edit.adjustLast` of `mesh.create.<kind>`, so the id and the step stay), with MMB
-    virtual sliders like any channel; `cb-prim-field-<param>`, `cb-prim-name-<param>`;
+  - the **primitive entry** while the mesh's `generator` is non-null ("cylinder (primitive)", the desktop DCC's
+    `polyCylinder1`): the §6.3 fields of its kind, persistent across selection changes, driving `mesh.primitive.set`
+    (an edit right after the creation run is an `edit.adjustLast` of `mesh.create.<kind>`, so the id and the step
+    stay), with MMB virtual sliders like any channel; `cb-prim-field-<param>`, `cb-prim-name-<param>`;
   - the **last-op entry** ("extrude (last operation)") with the Last-op card's fields while `lastRun` is live and
     targets this mesh; `cb-inputs-field-<param>`, `cb-inputs-name-<param>`. When the last op is this mesh's own
     creation or `mesh.primitive.set`, only the primitive entry is shown.
@@ -3547,9 +3555,9 @@ package's **Dirs** below; where two globs could overlap, the narrower one in thi
 
 - **Dirs**: `mesh-core/src/ops/{bevel,cleanup,uv}/**`, `mesh-core/src/check/**`, `mesh-core/src/uv/project/**`,
   matching tests, `docs/wp-notes/m6a-mesh-bevel-check-uv.md`.
-- **Responsibilities**: §5.9 bevel (Maya fraction semantics, absolute, 1–3 segments, chamfer/roundness, clamp, harden
-  borders, fan corners, face mode through the faces' edges, refusals), §5.25 `checkMesh` with every code and the
-  `mesh.cleanup` fixes, §5.28 projections.
+- **Responsibilities**: §5.9 bevel (desktop-DCC fraction semantics, absolute, 1–3 segments, chamfer/roundness, clamp,
+  harden borders, fan corners, face mode through the faces' edges, refusals), §5.25 `checkMesh` with every code and
+  the `mesh.cleanup` fixes, §5.28 projections.
 - **Tests**: bevel oracles (one edge 1/2/3 segments, all edges at the default fraction 0.5 → 24/48/26 with no
   coincident vertices, one cube face in face mode = its four edges), fraction 0.3 on a 1 m cube edge puts the new
   vertices 0.15 m along the adjacent edges, clamp property (no inverted faces and no coincident points for any
@@ -3659,7 +3667,7 @@ package's **Dirs** below; where two globs could overlap, the narrower one in thi
 - **Tests**: workspace switching keeps document, selection, time, pane cameras; layouts persist per workspace and
   Animate's v2 layout is untouched; Model's `colours` shading and quad layout never show in Animate after a round trip;
   a `contextmenu` event alone opens no marking menu; `Alt+Shift`+LMB in a Model pane on the trackpad profile reaches the
-  tool as `button 1`, while it still tumbles in Animate and on the `maya` profile; marking menu flick/drag/click selection and disabled reasons (component tests);
+  tool as `button 1`, while it still tumbles in Animate and on the `dcc` profile; marking menu flick/drag/click selection and disabled reasons (component tests);
   palette search and aliases; Scale tool on a mesh object and a control (undo); shading per pane (pixel probes);
   `check:size` fixture tests; shell e2e in Chrome.
 - **DoD**: CI green; `check:size` passes with both gates; READY flag `b9`.
@@ -3675,7 +3683,7 @@ package's **Dirs** below; where two globs could overlap, the narrower one in thi
 - **Responsibilities**: research 16 U-1 and §5.6: modes and hilite (opaque others, Dim unhilited; digits toggle back
   to object mode, `F9`/`F10` idempotent; returning to object mode selects the hilited meshes; component tools hilite in
   object mode; the runtime `open`/`close` calls of §5.5 rule 8), per-mode memory, picking wiring (hover pre-selection
-  with partner highlight, click, marquee with the both-endpoints edge rule, Maya modifiers, camera-based selection,
+  with partner highlight, click, marquee with the both-endpoints edge rule, desktop-DCC modifiers, camera-based selection,
   back faces), the **mirrored selection** (expanded set for walkers and ops, partners at 60 %, removal of both sides,
   HUD `(+N sym)`), the loop table gestures (`Mod`+double-click), grow/shrink/convert/border/shell operators,
   **selection undo** through `recordSelection` with the workspace preference (one step per gesture), hide/show/isolate (components and objects, per-pane isolate),
@@ -3730,9 +3738,9 @@ package's **Dirs** below; where two globs could overlap, the narrower one in thi
   selected / last-picked axis / none), Tweak one-step gesture, snapping exactness, pivot edits undo, soft drag bench
   (1,000 vertices ≤ 4 ms, 10k soft ≤ 8 ms per frame); E2E-MOD-10, -23.
 - **Owner feel check**: when B12a merges, the owner gets a 30-minute Chrome session script (component W/E/R with
-  Component orientation compared against Maya 2026's Normal, MMB-drag, snapping, pivot, soft select, symmetry,
-  "`Ctrl+E`, then `2`" for the capture window of §5.10, `Ctrl+E` then `W` in World on a tilted face); findings and the
-  two owner choices become a B12a follow-up or INT items (DECISIONS-OPEN §I).
+  Component orientation compared against the desktop DCC's Normal (2026 release), MMB-drag, snapping, pivot, soft
+  select, symmetry, "`Ctrl+E`, then `2`" for the capture window of §5.10, `Ctrl+E` then `W` in World on a tilted
+  face); findings and the two owner choices become a B12a follow-up or INT items (DECISIONS-OPEN §I).
 - **DoD**: CI green; READY flag `b12a`.
 
 ### B12b — Topology tools: extrude session, smart extrude, Multi-Cut, Insert Edge Loop, Target Weld, Slide, Bridge
@@ -3828,7 +3836,7 @@ into failures.
 | E2E-MOD-04 | Symmetry: extrude both arms | Model scene; `run('mesh.create.template', {template:'humanoidBody', style:'smooth', height:1.6})`; select it; `run('model.symmetry.set', {mode:'object-x'})`; `3`; click `screenOfFace(body, f, 'pane-side')` where `f` = the left-hand end-cap face (max centroid x, normal ≈ +X; `pane-side` looks along −X, so the cap faces the camera); `Mod+E`; type `0.1`, `Enter` | after the click: `model().selected[body].face` = [f], `model().expanded[body].face` = [f, p(f)], `hud('pane-side').selected.face` = 1 and `selectedSym.face` = 1 (HUD text `1 (+1 sym)`); after `Enter`, with `n = faceLen(f)`: V/E/F grow by exactly +2n/+4n/+2n (two single-face extrudes of an n-gon); the two cap centroids are mirror images (x negated, 1e-6); `symmetry(body).unmatched` = 0; `history().undo` grew by exactly one step | B12b | b12a, b13 |
 | E2E-MOD-05 | Multi-Cut across two quads | Model scene; `run('mesh.create.plane', {width:2, subdivisionsWidth:2, subdivisionsHeight:1})` (6/7/2; the plane lies in XZ); select; `K`; click the left border edge at its midpoint, the shared middle edge at its midpoint, the right border edge at its midpoint; RMB; then `K`, click two points, `Esc`; then `K`, `Ctrl`-click the edge of the left half that lies on z = −0.5 at t = 0.5; part (b): the same Ctrl-click on a fresh 9/12/4 plane with `platform=mac` and the trackpad profile (pointer-down button 0 + `ctrlKey`; the browser's `contextmenu` follows) | after RMB: 9/12/4, the three cut points at z = 0 and y = 0 (1e-6), one history step "Multi-Cut"; after `Esc`: counts and `history().undo` unchanged; after the `Ctrl`-click: **+3/+5/+2 (12/17/6)**: the ring runs from that border edge across the bottom-left quad, the first cut's chord and the top-left quad to the opposite border, one step "Insert Edge Loop"; (b) the same counts, the tool still active, no marking menu open | B12b | — |
 | E2E-MOD-06 | Insert Edge Loop: menu, `G`, tools | Model scene; `run('mesh.create.cylinder')` (16/24/10); select; `2`; select one vertical side edge (`select.components`); option box `optbox-mesh.insertLoop`: `mode` = multiple, `divisions` = 3; Edit Mesh › Insert Edge Loop; select one vertical edge segment of another band; `G`; then the Insert Edge Loop **tool** (Shift+RMB edge `N`), click a vertical edge segment of a third band; `G`; then `K`, click two edge points, RMB; `G` | after the menu run: 40/72/34 and `lastOp().source` = `menu`; after `G`: 64/120/58 with the same three weights; after the tool click: 88/168/82 (the tool honours the option box's `multiple`, 3) and `lastOp().source` = `tool`; after that `G`: `state().tool` = `insertLoop` and counts unchanged; after the cut and `G`: `state().tool` = `multiCut` and counts unchanged by `G` | B12b | — |
-| E2E-MOD-07 | Bevel and adjust | Model scene; cube; `2`; click a top edge; `Mod+B`; type `0.3`, `Enter`; `lastop-field-segments` = `2`; `T`, type `30%`, `Enter`; one undo | after `Enter`: 10/15/7, `lastop-field-fraction` text "0.300", and the new vertices lie 0.15 m (= 0.3 × ½ × the 1 m adjacent edges, Maya fraction) along the adjacent edges (1e-6); after Segments 2: 12/18/8 with no new history entry; `30%` leaves `fraction` = 0.3; after one undo: 8/12/6 | B11 | b5, b10 |
+| E2E-MOD-07 | Bevel and adjust | Model scene; cube; `2`; click a top edge; `Mod+B`; type `0.3`, `Enter`; `lastop-field-segments` = `2`; `T`, type `30%`, `Enter`; one undo | after `Enter`: 10/15/7, `lastop-field-fraction` text "0.300", and the new vertices lie 0.15 m (= 0.3 × ½ × the 1 m adjacent edges, desktop-DCC fraction) along the adjacent edges (1e-6); after Segments 2: 12/18/8 with no new history entry; `30%` leaves `fraction` = 0.3; after one undo: 8/12/6 | B11 | b5, b10 |
 | E2E-MOD-08 | Target Weld, Merge to Center, Merge by Distance | (a) cube; `1`; Target Weld tool (`mtk-btn-…` or Shift+RMB vertex NE); drag vertex A onto adjacent vertex B; (b) new cube; `3`; select the top face; `M` → `mm-slot-N` (Merge to Center); (c) two planes 1 × 1, the second moved +1 m in X (`scene.object.transform`), select both; Mesh › Combine; Mesh › Merge by Distance (`distance` 0.001) | (a) 7/11/6 and B's position unchanged (bit-equal); (b) 5/8/5 with the apex at (0, 0.5, 0); (c) after Combine one mesh 8/8/2, after merge 6/7/2 | B12b | b12a |
 | E2E-MOD-09 | Delete half, Mirror, Conform, Mesh Check | cube; `run('mesh.insertLoop', {meshes:[cube], seedEdge: <a top edge along X>, weight: 0.5})` → 12/20/10; `3`; select the five faces with centroid x < 0; `Delete`; `F8`; Mesh › Mirror (defaults); Mesh Display › Conform | after Delete: 8/12/5; after Mirror: 12/20/10, closed (`stats.boundaryLoops` 0), manifold; after Conform: unchanged positions; `meshCheck(cube)` empty | B11 | b3, b4, b5, b10 |
 | E2E-MOD-10 | Soft selection drag | `run('mesh.create.plane', {width:10, height:10, subdivisionsWidth:99, subdivisionsHeight:99})` (10,000 vertices); select; `1`; select the centre vertex; `B`; `run('model.softSelect.set', {radius:1.8})`; `W`; drag the `ty` handle 50 px up | the centre vertex moved by Δy > 0; every vertex within 1.8 m moved by `w(d/r)·Δy` (smooth preset, 1e-6) and every other vertex is bit-equal; between 900 and 1,100 vertices moved; one history step; drag frame times recorded (report; budget ≤ 8 ms per frame) | B12a | — |
@@ -3857,7 +3865,7 @@ into failures.
 
 Stretch scenarios (`m6a-stretch.spec.ts`, `test.fixme`): Live Mirror, Extrude Manifold, Select Similar, lasso, Poke,
 edge snap `C`, ramp swatches, `.gpl` import, component pick-walk, selection constraints, unequal bridge, a Multi-Cut
-between faces that share no face, Maya Normal orientation, Retain component spacing off.
+between faces that share no face, desktop-DCC Normal orientation, Retain component spacing off.
 
 ### 10.2 Unit and headless gates (additions)
 
@@ -3874,12 +3882,12 @@ between faces that share no face, Maya Normal orientation, Retain component spac
 
 ### 10.3 AS-LP — "Lowpoly Lad and his sword" (M6a parts)
 
-Run by a Maya-experienced tester (the owner) in Chrome on a fresh profile with built-ins only; times recorded, not
-gating (character ≤ 90 min, prop ≤ 15 min). The scripted twin **AS-LP-S** (INT, `m6a-aslp-{a,b}.spec.ts`) replays the
-same operator sequence (every tool of Part A in the same order) and asserts golden counts, Mesh Check, validator
-results and file hashes; `m6a-aslp-a.spec.ts` replays every Part A step above in order, including the cube created
-into the group, the 2 × 2 patch delete, the one-sided Bridge with its warning, and the delete-half + Mirror after the
-joins. The rig/skin/animate/VRM parts (C, D, E for characters) belong to M6b.
+Run by a tester experienced in the desktop DCC (the owner) in Chrome on a fresh profile with built-ins only; times
+recorded, not gating (character ≤ 90 min, prop ≤ 15 min). The scripted twin **AS-LP-S** (INT,
+`m6a-aslp-{a,b}.spec.ts`) replays the same operator sequence (every tool of Part A in the same order) and asserts
+golden counts, Mesh Check, validator results and file hashes; `m6a-aslp-a.spec.ts` replays every Part A step above in
+order, including the cube created into the group, the 2 × 2 patch delete, the one-sided Bridge with its warning, and
+the delete-half + Mirror after the joins. The rig/skin/animate/VRM parts (C, D, E for characters) belong to M6b.
 
 | Part | Steps | Checks |
 |---|---|---|
@@ -3959,35 +3967,36 @@ Filled by INT (as M2A-SPEC §10.4) on 2026-10-20; details in
 
 ### 12.1 Owner defaults applied (DECISIONS-OPEN §G; the owner may override any)
 
-Maya interaction model with Blender semantics (Q-MOD-DIR-1); `Mod+E` = Extrude **in the whole Model workspace**,
-Export gains `Mod+Shift+E` everywhere and keeps `Mod+E` in Animate (Q-MOD-UI-3 as presented to the owner; S17); `1`/`2`/`3` component modes, `F11`/`F12` never bound, smooth preview
-reserved on `Shift+1/2/3` (Q-MOD-UI-2); `Mod+B`, `K`, `M` (Q-MOD-UI-4); workspaces as pipeline tabs without a switch
-hotkey (Q-MOD-UI-5); Maya plain Delete + `Mod+Delete` clean (Q-MOD-UI-6); last operation only + extrude session +
-`G`/`T`/`Y` (Q-MOD-UI-7); narrow numeric capture with `T` (Q-MOD-UI-8); Live Mirror stretch with the overrun rule
-(Q-MOD-UI-9); low-poly primitive defaults with a Maya preference (Q-MOD-UI-11); **faceted new meshes** with one
-hard-flag rule (Q-MOD-UI-12); **selection undoable in Model**, off in Animate (Q-MOD-UI-13); **MMB-drag moves the
-selection** (Q-MOD-UI-14); opaque non-hilited meshes (Q-MOD-UI-15); `H`/`Shift+H`/`Alt+H`/`Shift+L` (Q-MOD-UI-16);
-primitives freeze at the first component edit (Q-MOD-UI-17); Tweak and reference image planes in core (Q-MOD-UI-18);
-**one step per selection gesture** (S3); no construction history, adjust-last by undo + re-run (Q-MOD-K-1, -4); owner's partition for meshes (Q-MOD-K-2); skin
+Desktop-DCC interaction model with open-source-DCC semantics (Q-MOD-DIR-1); `Mod+E` = Extrude **in the whole Model
+workspace**, Export gains `Mod+Shift+E` everywhere and keeps `Mod+E` in Animate (Q-MOD-UI-3 as presented to the owner;
+S17); `1`/`2`/`3` component modes, `F11`/`F12` never bound, smooth preview reserved on `Shift+1/2/3` (Q-MOD-UI-2);
+`Mod+B`, `K`, `M` (Q-MOD-UI-4); workspaces as pipeline tabs without a switch hotkey (Q-MOD-UI-5); plain Delete +
+`Mod+Delete` clean (Q-MOD-UI-6); last operation only + extrude session + `G`/`T`/`Y` (Q-MOD-UI-7); narrow numeric
+capture with `T` (Q-MOD-UI-8); Live Mirror stretch with the overrun rule (Q-MOD-UI-9); low-poly primitive defaults
+with a desktop-DCC preference (Q-MOD-UI-11); **faceted new meshes** with one hard-flag rule (Q-MOD-UI-12); **selection
+undoable in Model**, off in Animate (Q-MOD-UI-13); **MMB-drag moves the selection** (Q-MOD-UI-14); opaque non-hilited
+meshes (Q-MOD-UI-15); `H`/`Shift+H`/`Alt+H`/`Shift+L` (Q-MOD-UI-16); primitives freeze at the first component edit
+(Q-MOD-UI-17); Tweak and reference image planes in core (Q-MOD-UI-18); **one step per selection gesture** (S3); no
+construction history, adjust-last by undo + re-run (Q-MOD-K-1, -4); owner's partition for meshes (Q-MOD-K-2); skin
 weights as layers in the revision (Q-MOD-K-3); 4 normalized influences (Q-MOD-K-5); `robust-predicates` through a
 reviewed exception (Q-MOD-K-6); bevel ≤ 3 segments (Q-MOD-K-8); quad recovery on request (Q-MOD-K-9); ~32 KiB chunks
 (Q-MOD-K-10); > 200k-tri imports refused for editing (Q-MOD-K-11); undo byte budget (Q-MOD-K-12); tangents refused
 unless dropped (Q-MOD-K-13); `data.base` in v3 (Q-MOD-K-14); palette slot as colour truth and palette texture by
 default (Q-LP-0); advisory budgets (Q-LP-2); `COLOR_0` float32 linear (Q-LP-11). **Compass positions of every marking
-menu are provisional until the owner's calibration on a real Maya (Q-MOD-UI-1).** Two more choices wait for the B12a
-feel check: whether capture case (b) keeps a digit typed right after `⌘E`/`Ctrl+E` (§5.10), and whether Component
-orientation is enough or Maya's per-component Normal moves into core (§1.2).
+menu are provisional until the owner's calibration in the desktop DCC (Q-MOD-UI-1).** Two more choices wait for the
+B12a feel check: whether capture case (b) keeps a digit typed right after `⌘E`/`Ctrl+E` (§5.10), and whether Component
+orientation is enough or the desktop DCC's per-component Normal moves into core (§1.2).
 
 ### 12.2 Refinements of MODELING-PLAN v0.2 made by this spec
 
 | # | Plan | This spec | Why |
 |---|---|---|---|
-| S1 | Extrude args "`localTranslate` XYZ" | flattened per component (`localTranslateX/Y/Z`, …), Maya's child attribute names | every `ParamDef` is a scalar; the primary field is one of them; card, INPUTS and typed digits need no vector kind |
+| S1 | Extrude args "`localTranslate` XYZ" | flattened per component (`localTranslateX/Y/Z`, …), the desktop DCC's child attribute names | every `ParamDef` is a scalar; the primary field is one of them; card, INPUTS and typed digits need no vector kind |
 | S2 | `ComponentSelection` "service" | kernel value object `ComponentSelection` (mesh-core) + editor-core `ComponentSelectionService` (`app.components`) | mesh-core cannot import editor-core; ops take a value |
-| S3 | "consecutive selection gestures coalesce" (ADR 0016 D12, Q-MOD-UI-13) | **every discrete gesture is its own step**; only auto-repeated grow/shrink keys and continuous drags coalesce (v1.1; v1.0 merged additive clicks within 1 s) | Maya records each selection click; "build a loop, click empty space, `Mod+Z`" restores the loop, and a misclick in a fast `Shift`-click burst is undone alone (E2E-MOD-26) |
-| S4 | ADR 0016 D7: a mode change closes the Last-op card | a component-mode switch on the same hilited meshes keeps it (the extrude session ends without a zero-drop); returning to object mode keeps the hilite list for the comparison; Adjust Last re-runs on the recorded kind and targets | Maya's INPUTS stay with the object; E2E-MOD-19 presses `3` and then `T` |
-| S5 | Zero-commit drop "when the session ends" | the session ends **at the start** of the ending gesture, before it reads the mesh; the drop is an undo (its redo entry is cleared by the next step) with a toast offering Undo; **a component-mode switch or a pivot edit ends the session without a drop** | a pick made on the extruded mesh would refer to vertices the drop removes; Maya users press `1` after `Ctrl+E` to pull cap vertices |
-| S6 | W/E/R absorbed into `local*` args | W and E honour the tool's World/Object/Component space (exact conversion); only R uses the session frame; the extrude manipulator gets Maya's local/world toggle (v1.1; v1.0 forced the session frame for all three) | a world-axis scale of a rotated cap is a shear the args cannot represent, but translation and rotation convert exactly, and pulling a leg straight down world Y from a tilted face is a daily move |
+| S3 | "consecutive selection gestures coalesce" (ADR 0016 D12, Q-MOD-UI-13) | **every discrete gesture is its own step**; only auto-repeated grow/shrink keys and continuous drags coalesce (v1.1; v1.0 merged additive clicks within 1 s) | The desktop DCC records each selection click; "build a loop, click empty space, `Mod+Z`" restores the loop, and a misclick in a fast `Shift`-click burst is undone alone (E2E-MOD-26) |
+| S4 | ADR 0016 D7: a mode change closes the Last-op card | a component-mode switch on the same hilited meshes keeps it (the extrude session ends without a zero-drop); returning to object mode keeps the hilite list for the comparison; Adjust Last re-runs on the recorded kind and targets | The desktop DCC's INPUTS stay with the object; E2E-MOD-19 presses `3` and then `T` |
+| S5 | Zero-commit drop "when the session ends" | the session ends **at the start** of the ending gesture, before it reads the mesh; the drop is an undo (its redo entry is cleared by the next step) with a toast offering Undo; **a component-mode switch or a pivot edit ends the session without a drop** | a pick made on the extruded mesh would refer to vertices the drop removes; desktop-DCC users press `1` after `Ctrl+E` to pull cap vertices |
+| S6 | W/E/R absorbed into `local*` args | W and E honour the tool's World/Object/Component space (exact conversion); only R uses the session frame; the extrude manipulator gets a local/world toggle (v1.1; v1.0 forced the session frame for all three) | a world-axis scale of a rotated cap is a shear the args cannot represent, but translation and rotation convert exactly, and pulling a leg straight down world Y from a tilted face is a daily move |
 | S7 | Dead BIN ranges of replaced primitives "dropped" | kept (unused accessors, validator infos) | marker v2's rollback re-points the original primitives at them; dropping would also shift untouched `byteOffset` values |
 | S8 | `CharacterRecord.source` replaces `asset` (research 14) | `asset` kept, nullable only for model characters | projects without v3-only content stay usable by M2a apps (`minWriterVersion` 2); M6a never creates model characters |
 | S9 | Image plane `scale` | `size` = displayed height in metres | unambiguous across image aspect ratios |
@@ -3997,26 +4006,26 @@ orientation is enough or Maya's per-component Normal moves into core (§1.2).
 | S13 | Static exports through the export registry | `file.exportModel` with a `StaticExportRequest` | `ExportRequest` is character-and-clip shaped; the shipped `local/generic` profile (kind `*`) still applies |
 | S14 | Bevel on border edges unspecified | refused in M6a (`bevel.border-edge`) | bounded v1 scope (risk table, MODELING-PLAN §4.7) |
 | S15 | Painting imported meshes unspecified | refused in M6a | the surgeon writes no new materials; asset materials stay intact |
-| S16 | Primitive placement "at the origin or under the pointer" (research 16) | at the origin, centred (Maya); interactive placement stretch; a primitive created with a template group selected goes into the group with its symmetry | deterministic e2e and AS-LP-S; the template's budget and export root then apply |
-| S17 | Q-MOD-UI-3: `Ctrl+E` = Extrude in `model.viewport.component` | `Mod+E` = Extrude in the **whole Model workspace** (`model` scope; poll-fails in object mode and over other panels); Export is `Mod+Shift+E` in Model and keeps `Mod+E` in Animate | the default as presented to the owner ("Ctrl+E in the Model tab is Extrude; export moves to Ctrl+Shift+E there"); a Maya user pressing `Ctrl+E` before entering face mode no longer gets the Export dialog |
-| S18 | ADR 0016 D7: the extrude session is one undo step | still one **history** step, plus an **args undo stack** inside the session: `Mod+Z`/redo step through absorbed drags and card edits; only `Mod+Z` at the first args undoes the extrude | Maya undoes one manipulator drag on `polyExtrudeFace` at a time; losing the whole extrude to correct one drag would happen many times a day |
-| S19 | ADR 0016 D6: `G` re-activates tools "when not repeatable" | `G` decides by the **run source**: a tool run re-activates the tool, a menu/keyboard run with a selection seed repeats; paramless repeatable ops are recorded | a tool-placed Insert Edge Loop's selection is its own new loop, so a re-run would cut a perpendicular loop; Maya re-enters the tool |
+| S16 | Primitive placement "at the origin or under the pointer" (research 16) | at the origin, centred (desktop-DCC convention); interactive placement stretch; a primitive created with a template group selected goes into the group with its symmetry | deterministic e2e and AS-LP-S; the template's budget and export root then apply |
+| S17 | Q-MOD-UI-3: `Ctrl+E` = Extrude in `model.viewport.component` | `Mod+E` = Extrude in the **whole Model workspace** (`model` scope; poll-fails in object mode and over other panels); Export is `Mod+Shift+E` in Model and keeps `Mod+E` in Animate | the default as presented to the owner ("Ctrl+E in the Model tab is Extrude; export moves to Ctrl+Shift+E there"); a desktop-DCC user pressing `Ctrl+E` before entering face mode no longer gets the Export dialog |
+| S18 | ADR 0016 D7: the extrude session is one undo step | still one **history** step, plus an **args undo stack** inside the session: `Mod+Z`/redo step through absorbed drags and card edits; only `Mod+Z` at the first args undoes the extrude | The desktop DCC undoes one manipulator drag on `polyExtrudeFace` at a time; losing the whole extrude to correct one drag would happen many times a day |
+| S19 | ADR 0016 D6: `G` re-activates tools "when not repeatable" | `G` decides by the **run source**: a tool run re-activates the tool, a menu/keyboard run with a selection seed repeats; paramless repeatable ops are recorded | a tool-placed Insert Edge Loop's selection is its own new loop, so a re-run would cut a perpendicular loop; the desktop DCC re-enters the tool |
 | S20 | ADR 0016 §Consequences: the doc `UndoManager` stays untouched | `UndoManager.clearRedo()` (a selection step clears doc redo) and the existing `evictOldest` pair with every EditorHistory drop | otherwise redo-only chunks stay pinned and doc entries outlive their steps |
-| S21 | ADR 0016 D1: a Normal space for component manipulators | the averaged frame is named **Component** (Maya's name); Maya's per-component Normal is stretch | Maya's Normal moves each component along its own normal; the averaged frame would surprise a Maya hand under that name |
+| S21 | ADR 0016 D1: a Normal space for component manipulators | the averaged frame is named **Component** (the desktop DCC's name); its per-component Normal is stretch | The desktop DCC's Normal moves each component along its own normal; the averaged frame would surprise a desktop-DCC hand under that name |
 | S22 | Research 16 §12.1 partner highlight on hover only (v1.0) | selected partners drawn at 60 % and counted (`+N sym`); removal acts on both sides; walkers read the expanded set | the user must see what an op will touch (research 16 §12.1 already said so) |
-| S23 | Bevel `fraction × length`, clamped at 0.5 (v1.0) | Maya semantics: `fraction × ½ × the shortest adjacent edge` (1 = bevels meet; clamped to 0.98 where both ends bevel); face mode bevels the faces' edges | the v1.0 default 0.5 sat exactly on the clamp (zero-width strips on the default run); low-poly props are softened by face bevels |
-| S24 | Plain Delete on vertices dissolves into an n-gon (v1.0) | plain Delete deletes winged (valence-2) vertices only and refuses others; Delete Edge/Vertex dissolves | Maya's plain Delete; a cube corner would become a non-planar hexagon |
+| S23 | Bevel `fraction × length`, clamped at 0.5 (v1.0) | Desktop-DCC semantics: `fraction × ½ × the shortest adjacent edge` (1 = bevels meet; clamped to 0.98 where both ends bevel); face mode bevels the faces' edges | the v1.0 default 0.5 sat exactly on the clamp (zero-width strips on the default run); low-poly props are softened by face bevels |
+| S24 | Plain Delete on vertices dissolves into an n-gon (v1.0) | plain Delete deletes winged (valence-2) vertices only and refuses others; Delete Edge/Vertex dissolves | The desktop DCC's plain Delete; a cube corner would become a non-planar hexagon |
 | S25 | Make editable "from the Outliner badge" (records implied at import) | records are created lazily by `mesh.makeEditable {character, meshIndex}` with a derived id; import writes none | Animate's import stays byte-for-byte (rule 10), animation-only projects stay writable in M2a, M3 peers never duplicate records |
 | S26 | Reference images as plain assets in `.ekzanim` | stored under the manifest key `images` (`images/<sha256>.<ext>`), not `assets` | the M2a reader rejects any `assets` entry that is not glb/vrm/vrma; with `images` it opens the project read-only as §4.2 promises |
 | S27 | ADR 0015 §3 `BlobStore.persist` to IndexedDB | no persistence on `BlobStore`; the autosave store is the single owner of the IndexedDB `blobs` store and receives the chunk closure | one GC owner per store; the browser store never parses manifests |
 | S28 | `mesh.freezeTransforms` as a kernel MeshOp "that also patches placement" | an editor operator over the kernel op `mesh.applyTransform`; `palette.replaceSwatch` over `mesh.paint.remap` | a MeshOp writes only the EditMesh; record patches need the operator's transaction |
 | S29 | One modifier rule per surface (v1.0: card "Ctrl slower, Shift faster", viewport "Shift ×0.1") | one rule everywhere: the shipped M2a virtual-slider rule, `Shift` ×0.1, `Mod` ×10; `Shift` at drag start = smart extrude | the shipped Channel Box already uses Shift fine / Mod coarse and Animate must not change (rule 10) |
 | S30 | Trackpad users: MMB features unspecified; ADR 0016 D1 loop-table deselect on `Ctrl`+double-click | the MMB stand-in (`Alt+Shift`+LMB in Model panes, trackpad and one-button profiles); `contextmenu` never counts as RMB; the loop-table deselect is `Mod`+double-click (Multi-Cut's loop stays literal `Ctrl`) | the owner works on macOS where the default profile is trackpad and Ctrl-click fires `contextmenu` |
-| S31 | Research 16 §8: primitive parameters in Channel Box INPUTS (dropped in v1.0) | restored: a persistent primitive entry while `generator` is non-null | Maya modelers change `polyCube1` subdivisions in INPUTS |
+| S31 | Research 16 §8: primitive parameters in Channel Box INPUTS (dropped in v1.0) | restored: a persistent primitive entry while `generator` is non-null | Desktop-DCC modelers change `polyCube1` subdivisions in INPUTS |
 
 ### 12.3 Design review round 1 (v1.0 → v1.1)
 
-Two reviewers (a Maya-workflow review and a code-contract review against the shipped tree) raised 2 blockers, 30
+Two reviewers (a desktop-DCC workflow review and a code-contract review against the shipped tree) raised 2 blockers, 30
 majors and 29 minors; duplicates are merged below. Every item was applied unless the Resolution says otherwise.
 
 | Area | Issue (severity) | Resolution |
@@ -4033,7 +4042,7 @@ majors and 29 minors; duplicates are merged below. Every item was applied unless
 | Extrude | mode switch zero-dropped the extrude (major) | ends without drop; toast with Undo; E2E-MOD-17 (b) (S5) |
 | Extrude | Shift+drag ambiguous with absorption and fine adjustment (major) | Shift at start = new extrude, Shift during = fine; E2E-MOD-18 (b) chain |
 | Capture | unfinished entry, `Enter` without entry, swallowed digit undefined (major) | apply on Enter/Tab only, discard on disarm, Enter no-op; "`Ctrl+E`, then `2`" on the feel check (owner decision pending) (§5.10) |
-| Transforms | "Normal" was Maya's Component (major) | renamed Component; Maya Normal → stretch (S21) |
+| Transforms | "Normal" was the desktop DCC's Component (major) | renamed Component; the desktop DCC's Normal → stretch (S21) |
 | macOS | Ctrl-click = `contextmenu`; no MMB on a trackpad; Ctrl vs Mod mixed (major) | `contextmenu` never RMB; MMB stand-in `Alt+Shift`+LMB in Model; loop deselect on `Mod`; the `platform=mac` Ctrl-click case lives in **E2E-MOD-05** (its owner B12b), not E2E-MOD-02 as suggested, so B10's scenario does not wait for Multi-Cut (S30) |
 | INPUTS | primitive parameters only in Attributes (major) | persistent primitive entry; ids `cb-prim-*` rather than the suggested `cb-inputs-field-*`, so the two INPUTS entries never share an id; E2E-MOD-27 (§8.6, S31) |
 | AS-LP | cube outside the group, no 8-edge hole, no mirror step (major) | cube created into the template group; 2 × 2 patch; delete −X half + Mirror; mirrored in `m6a-aslp-a.spec.ts` (§10.3) |
@@ -4057,7 +4066,7 @@ majors and 29 minors; duplicates are merged below. Every item was applied unless
 | Minor | `T` could not bring the manipulator back | `T` reopens a live extrude session |
 | Minor | `Mod+E` still Export in Model object mode | `model` scope (S17); DECISIONS-OPEN Q-MOD-UI-3 annotated |
 | Minor | Animate rows leaking into Model | `model.animateOnly` shadows; `Mod+A` rows; time keys deliberately kept (harmless navigation) |
-| Minor | Shift meant slower and faster | **applied differently**: one rule, the shipped M2a `Shift` ×0.1 / `Mod` ×10, not Maya's `Ctrl` fine / `Shift` coarse, because changing the shipped Channel Box would break rule 10 (S29) |
+| Minor | Shift meant slower and faster | **applied differently**: one rule, the shipped M2a `Shift` ×0.1 / `Mod` ×10, not the desktop DCC's `Ctrl` fine / `Shift` coarse, because changing the shipped Channel Box would break rule 10 (S29) |
 | Minor | percent display and parsing | kind renamed `fraction`, shown as fractions, `parseParamInput` wrapper |
 | Minor | Multi-Cut across non-adjacent faces | stretch with the hint "Click on each face the cut crosses" |
 | Minor | face-mode bevel poll-failed | core: bevels the faces' edges (S23) |
@@ -4075,7 +4084,7 @@ majors and 29 minors; duplicates are merged below. Every item was applied unless
 | Minor | canonical tails, blob deflate level, limits, JSON variant | trailing default chunks never stored; level 6; `maxBlobBytes`/`maxImageBytes`; the JSON variant warns and carries no bytes |
 | Minor | selection snapshot cost and history interplay | tagged `BitSet.encode`, budgeted, selection-aware pruning, `clearRedo`, refcounts (S20) |
 | Minor | "additive" contracts that were not | call sites listed, `ToolDef.modes` metadata, per-workspace view state, `AttrLayer.data` capacity, §4 placement rule |
-| Minor | bevel default on the clamp | Maya fraction semantics (S23) |
+| Minor | bevel default on the clamp | Desktop-DCC fraction semantics (S23) |
 
 Rejected outright: none. Sizes grew by ≈ 8.5 agent-days (§9).
 

@@ -443,8 +443,8 @@ export class TopologyRuntime {
   }
 
   /**
-   * After an Inset or Bevel from the select tool, the manipulator tool shows its value handle (Maya shows the node's
-   * manipulator); the select tool comes back when that operation stops being the live last one.
+   * After an Inset or Bevel from the select tool, the manipulator tool shows its value handle (as a desktop DCC shows
+   * the node's manipulator); the select tool comes back when that operation stops being the live last one.
    */
   private followValueHandle(): void {
     const state = this.app.session.getState();

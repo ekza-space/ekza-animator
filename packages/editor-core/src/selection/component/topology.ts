@@ -42,7 +42,7 @@ export function forEachVertEdge(m: EditMesh, v: number, fn: (e: number) => void)
 
 /**
  * The faces a set of `kind` touches: faces themselves, faces using a vertex of the set, faces bounded by an edge of
- * the set (Maya converts a component hide to faces).
+ * the set (a component hide converts to faces, the desktop-DCC convention).
  */
 export function facesTouching(kernel: MeshKernel, m: EditMesh, kind: ComponentKind, set: BitSet): BitSet {
   const faces = new kernel.BitSet(m.counts.faces);

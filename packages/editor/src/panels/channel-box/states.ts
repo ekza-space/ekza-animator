@@ -1,4 +1,4 @@
-// Channel Box field states (FR-CB-02, research 09 §4.5): Maya's colours, repeated by a bar shape and a tooltip so
+// Channel Box field states (FR-CB-02, research 09 §4.5): standard DCC colours, repeated by a bar shape and a tooltip so
 // a state is never shown by colour alone. The `--cb-*` tokens are requested from WP-8's token build (wp-notes R-4);
 // the fallbacks are research 09's values.
 import type { ChannelState } from '@ekza-studio/editor-core';

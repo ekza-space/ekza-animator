@@ -10,19 +10,20 @@ every rejection is §12.5). M6b turns
 a mesh modelled in the editor (M6a) into
 an animatable, exportable character inside one browser tab, and — on the owner's request "do we have basic rigging
 tools? let's add them too" — grows from "characters from own models" into a full but bounded **Rig & Skin workspace**:
-Maya's joint tools, Orient and Mirror Joint, templates and Quick Rig, Bind Skin with automatic weights, Paint Skin
-Weights, the Component Editor weight table, weight utilities, parent/point/orient/aim constraints (moved from M2c,
-FR-RIG-10), control shape editing (moved from M2c, FR-RIG-13), bind-pose management, deformation tests and the
-VRM 1.0 / GLB character writer.
+the joint tools of a leading commercial desktop DCC ("the desktop DCC" below), Orient and Mirror Joint, templates and
+Quick Rig, Bind Skin with automatic weights, Paint Skin Weights, the Component Editor weight table, weight utilities,
+parent/point/orient/aim constraints (moved from M2c, FR-RIG-10), control shape editing (moved from M2c, FR-RIG-13),
+bind-pose management, deformation tests and the VRM 1.0 / GLB character writer.
 
 It is derived from [MODELING-PLAN](MODELING-PLAN.md) v0.3 §5 (expanded with this spec), research
-[14](research/14-skinning-own-models.md) (pipeline, data, writers), [17](research/17-maya-rigging-basics.md) (Maya's
-rigging tools, auto weights, painting), [18](research/18-constraints-control-shapes.md) (constraints and control
-shapes) and [19](research/19-rig-workspace-ui.md) (workspace UI), [M6A-SPEC](M6A-SPEC.md) v1.1 (whose contracts,
-conventions and shared-file rules this spec extends), [M2A-SPEC](M2A-SPEC.md) (IK, attribute channels, compile rules),
-research [07](research/07-rig-controls-math.md) and ADRs [0004](adr/0004-rig-model.md), [0005](adr/0005-export-strategy.md),
-[0010](adr/0010-ekza-integration-tiers.md), [0014](adr/0014-mesh-kernel.md)–[0016](adr/0016-modeling-interaction-paradigm.md).
-The contract freezes when C0 merges; after that a contract change needs a PR that updates this file first.
+[14](research/14-skinning-own-models.md) (pipeline, data, writers), [17](research/17-dcc-rigging-basics.md) (the
+desktop DCC's rigging tools, auto weights, painting), [18](research/18-constraints-control-shapes.md) (constraints and
+control shapes) and [19](research/19-rig-workspace-ui.md) (workspace UI), [M6A-SPEC](M6A-SPEC.md) v1.1 (whose
+contracts, conventions and shared-file rules this spec extends), [M2A-SPEC](M2A-SPEC.md) (IK, attribute channels,
+compile rules), research [07](research/07-rig-controls-math.md) and ADRs [0004](adr/0004-rig-model.md),
+[0005](adr/0005-export-strategy.md), [0010](adr/0010-ekza-integration-tiers.md),
+[0014](adr/0014-mesh-kernel.md)–[0016](adr/0016-modeling-interaction-paradigm.md). The contract freezes when C0
+merges; after that a contract change needs a PR that updates this file first.
 
 Audience: the M6b integration agent (C0 and INT), the implementation agents of C1…C11 and reviewers. Read MVP-SPEC,
 M2A-SPEC and M6A-SPEC first. This file lists the **M6b deltas**; where it disagrees with them, with a research note or
@@ -41,7 +42,7 @@ weights are fractions shown as `0.500`.
 Contents: [0 MVP cut](#0-mvp-cut-owner-flow-2026-10-22) · [1 Scope](#1-scope) · [2 Dependencies, branches, M6a prerequisites](#2-dependencies-branches-and-m6a-prerequisites) ·
 [3 Conventions](#3-conventions-deltas-to-m6a-spec-3) · [4 Contract deltas](#4-contract-deltas) ·
 [5 Normative behaviours](#5-normative-behaviours) · [6 Operator table](#6-operator-table) ·
-[7 Keymap](#7-keymap-additions-preset-maya) · [8 UI placement](#8-ui-placement) · [9 Work packages](#9-work-packages) ·
+[7 Keymap](#7-keymap-additions-preset-dcc) · [8 UI placement](#8-ui-placement) · [9 Work packages](#9-work-packages) ·
 [10 Acceptance](#10-acceptance-tests-e2e-scenarios-and-as-lp-t) · [11 Integration and definition of done](#11-integration-plan-and-m6b-definition-of-done) ·
 [12 Decisions, refinements, owner questions](#12-defaults-refinements-and-owner-questions) · [13 Sources](#13-sources)
 
@@ -751,7 +752,8 @@ One review of §0/§9.0 raised 18 issues (9 major, 9 minor). Every major and eve
 
 ### 0.10 Auto-Rig reuse requirements (CR-AR-1…6, owner request 2026-10-22)
 
-The owner asked for a Mixamo-style **Auto-Rig** mode (a second, minimal shell over the same document and operators;
+The owner asked for an **Auto-Rig** mode with one-click auto-rigging in the style of a web auto-rigging service (a
+second, minimal shell over the same document and operators;
 spec `docs/AUTORIG-SPEC.md`, built after this MVP). It reuses the M6b operators, services and
 panels, so the packages below **SHOULD** satisfy these requests now (cheap while building; each has a fallback owned
 by an Auto-Rig package later, so none is a blocker for the M6b DoD):
@@ -799,11 +801,11 @@ VRM 1.0, 35 nodes, 33 semantic bones"). The owner's run of AS-MVP-1 by hand is o
 
 | # | Area | Content | Requirements |
 |---|---|---|---|
-| 1 | **Workspace** | The Rig & Skin tab enabled between Model and Animate; four modes (Object, Skeleton `1`, Skin `2`, Shapes `3`, `F8` toggles); pose view `Bind │ Test │ Clip`; Maya's Rigging menus (Skeleton, Skin, Constrain, Control); marking menus; Rig Toolkit with a setup checklist; Paint Weights panel; Component Editor; Validation panel as the export gate; key scopes `rig.viewport.<mode>`; selection undo; Animate keying rows shadowed | FR-JNT-01, FR-SHELL-11 |
+| 1 | **Workspace** | The Rig & Skin tab enabled between Model and Animate; four modes (Object, Skeleton `1`, Skin `2`, Shapes `3`, `F8` toggles); pose view `Bind │ Test │ Clip`; desktop-DCC Rigging menus (Skeleton, Skin, Constrain, Control); marking menus; Rig Toolkit with a setup checklist; Paint Weights panel; Component Editor; Validation panel as the export gate; key scopes `rig.viewport.<mode>`; selection undo; Animate keying rows shadowed | FR-JNT-01, FR-SHELL-11 |
 | 2 | **Characters from models** | A model-sourced character from selected scene meshes (`char.fromModel`, run by the template step); `skeletonFromDoc`; the synthesized `GlbContainer` (display, export and rig keep one path); live skinned display in Rig & Skin; `rig.autoRig.update` inside every skeleton edit (control IDs, curves and user shape edits kept); **Attach Prop** (prop joint, rigid bind, prop control, parent constraint) | FR-JNT-09, FR-JNT-10 |
 | 3 | **Skeleton** | VRM humanoid templates Lite 17 / Core 21 / Standard 33 (default) / Full 52 with 2° rest flexion at elbows and knees, pre-fitted on M6a's generated body; **Quick Rig** (markers, guides, One-Click guess, projected centre; T- and A-posed meshes); **Joint tool** (Snap to Projected Center, X symmetry, MMB/`Insert` reposition, `Backspace`, `Enter`/RMB one step, `Esc` no step, automatic parent); Insert Joint, Split Bone, Add Chain, **Duplicate Joints**; Remove (splice) and Delete (subtree); reparent/unparent; rename with mirror rename; Map Humanoid Bone; Set Side; **joint roles** (deforming bone, non-deforming helper, prop) and **sockets** (helper joints with a control, for sheathes and aim targets); **Orient Joint**; **Mirror Joint** (YZ, update in place); joint display; Apply Pose as Rest; `skel.*` lints | FR-JNT-02…07 |
 | 4 | **Test loop** | One rule per state for move/rotate on joints (Move Skinned Joints at bind pose; rotate = test pose once bound, IK limbs switched to FK for the test); test poses as session values that never key; Go to Bind Pose (constraint-free); ROM test clip; painting on the posed mesh | FR-JNT-08 |
-| 5 | **Binding** | Bind Skin: `auto-lowpoly` (default), `closest` (hierarchy, dropoff), `rigid-islands`, `heat`; joint and point masks; bind to one joint = rigid attach; symmetrize; ≤ 4 influences, always normalized; in a worker; adjustable; Unbind; **Auto Weights for Selected Joints** (Maya's Add Influence for a new chain on a bound mesh) | FR-SKIN-01 |
+| 5 | **Binding** | Bind Skin: `auto-lowpoly` (default), `closest` (hierarchy, dropoff), `rigid-islands`, `heat`; joint and point masks; bind to one joint = rigid attach; symmetrize; ≤ 4 influences, always normalized; in a worker; adjustable; Unbind; **Auto Weights for Selected Joints** (Add Influence for a new chain on a bound mesh) | FR-SKIN-01 |
 | 6 | **Weights** | Normalization contract with holds; Paint Skin Weights (Replace/Add/Scale/Smooth, Flood, value/opacity, deterministic stroke rule, surface/volume, X-mirror stroke, sample, pick influence, posed painting); weight display (greyscale, ramp, influence colours, numbers overlay, Lock-Relative); Component Editor with a Hold row; assign, rigid islands, Mirror/Copy (inpainting)/Smooth/Hammer Skin Weights, copy/paste vertex weights, prune, normalize, Remove Unused Influences, Move Weights; missing weights after topology edits filled by inpainting with a review flag | FR-SKIN-02…06 |
 | 7 | **Constraints** | Built-in rig ops `parent`, `point`, `orient`, `aim` on the shipped `ConstraintRecord` (params v1); weights and blend as holder attribute channels; offsets rest-derived / stored / snap, per target (Add Target with an offset mode; Update Offset with a match target for drops); sequential hemisphere-aligned rotation average; five world-up types; compiler rules (data-flow edges, solvers before constraints, conflict and cycle disabling); influence, export and inverse fixes; create, edit, targets, Update/Clear Offset, Bake to Keys, Mirror, Delete; UI in Rig & Skin and in Animate's Rig menu | FR-RIG-10 |
 | 8 | **Control shapes** | Library (10 shipped + `arrow`, `arrow2`, `gear`, `doubleCircle`); colour (side, 32-swatch palette, hex); size; line width; `W`/`E`/`R` on the shape offset; CV edit converting to `custom`; Mirror/Copy/Paste/Reset/Size from Mesh; user edits survive `rig.autoRig.update`; never keys, never recompile | FR-RIG-13 |
@@ -818,10 +820,10 @@ VRM 1.0, 35 nodes, 33 semantic bones"). The owner's run of AS-MVP-1 by hand is o
 | Space switching as a select-mode parent constraint (`rig.space.add`, `rig.space.switch` with match, Graph Editor markers; research 18 §10) | weighted parent constraints with keyed weights; FR-RIG-12 space switching stays M5 |
 | MToon "toon palette" material preset in the VRM writer | unlit palette (`KHR_materials_unlit`), the M6a material set |
 | Paint Select mode; Gradient brush; Scene (world-unit) brush radius | Paint and Select modes; screen-pixel radius |
-| Envelope bind (capsule manipulators, Maya Interactive Skin Bind) | `auto-lowpoly`, `heat`, numbers and table |
+| Envelope bind (capsule manipulators, Interactive Skin Bind) | `auto-lowpoly`, `heat`, numbers and table |
 | Copy Skin Weights between different skeletons (name / humanoid / closest-joint influence passes) and in UV space | Copy Skin Weights within one skeleton |
 | Connect Joint (connect mode), Reroot Skeleton (generic skeletons) | Reparent / Disconnect |
-| Orient Joint options "match active joint" and "view axis" | presets and the Maya fields |
+| Orient Joint options "match active joint" and "view axis" | presets and the desktop-DCC fields |
 | Symmetric CV edits inside one centre control | Mirror Shape between counterparts |
 | ~~CC0 VRMA starter pack converted once from the Quaternius UAL fixture~~ — **now core: package C12 (§0.4.7)** | — |
 
@@ -830,26 +832,25 @@ Stretch scenarios live in `apps/web/e2e/m6b-stretch.spec.ts` as `test.fixme` wit
 ### 1.3 Out of scope (owner non-goals and later work)
 
 Set driven keys, a node editor, rig scripting, blend-shape authoring and the expressions UI, muscle systems (owner
-non-goals). Skin layers (Maya 2027's integrated ngSkinTools), dual-quaternion or weight-blended skinning (glTF is
-linear blend with one set of four influences), more than four influences, Normalize Off/Post, multiple bind poses,
-geodesic voxel binding (M7 G2), scale, geometry, normal and point-on-poly constraints, motion paths, the No Flip and
-Cache rotation modes (they need frame history), joint limits, HumanIK, spline IK, IK handle creation outside the limb
-templates, VRM 0.x export, spring-bone / lookAt / firstPerson / expression authoring, editing on the posed cage, a
-geometry surgeon that keeps VRM extensions through topology edits of imports, and collaboration claims (designed in
-§5.24, built in M3).
+non-goals). Skin layers (the desktop DCC's 2027 release integrates ngSkinTools), dual-quaternion or weight-blended
+skinning (glTF is linear blend with one set of four influences), more than four influences, Normalize Off/Post,
+multiple bind poses, geodesic voxel binding (M7 G2), scale, geometry, normal and point-on-poly constraints, motion
+paths, the No Flip and Cache rotation modes (they need frame history), joint limits, a full-body IK/retargeting
+system, spline IK, IK handle creation outside the limb templates, VRM 0.x export, spring-bone / lookAt / firstPerson /
+expression authoring, editing on the posed cage, a geometry surgeon that keeps VRM extensions through topology edits
+of imports, and collaboration claims (designed in §5.24, built in M3).
 
 ### 1.4 What M6b is for (say it plainly)
 
-After M6b a Maya user can take the low-poly character and sword they box-modelled in M6a, fit a VRM humanoid skeleton
-with a template or Quick Rig, add a ponytail chain with the Joint tool, bind it with automatic weights, test it by
-rotating joints and scrubbing a range-of-motion clip, fix weights by typing numbers into the Component Editor or
-painting with Maya's Paint Skin Weights semantics, attach the sword to the right hand with a parent constraint whose
-weights can be keyed, restyle the control shapes, animate a walk and an attack with the shipped M1/M2a tools, and
-export one VRM 1.0 that Ekza Space and OMOBA both admit (OMOBA plays its own motion library on it; corrected by §0.4.6)
-and pass the Ekza profiles. The release is `v0.4.0`
-("turnkey"; the tag is the owner's call). It does not author facial expressions or spring bones, does not do skin
-layers or envelopes, and keeps rotations of a weighted orient constraint stateless (targets far apart in rotation can
-flip, as Maya's Average mode does).
+After M6b a desktop-DCC user can take the low-poly character and sword they box-modelled in M6a, fit a VRM humanoid
+skeleton with a template or Quick Rig, add a ponytail chain with the Joint tool, bind it with automatic weights, test
+it by rotating joints and scrubbing a range-of-motion clip, fix weights by typing numbers into the Component Editor or
+painting with desktop-DCC Paint Skin Weights semantics, attach the sword to the right hand with a parent constraint
+whose weights can be keyed, restyle the control shapes, animate a walk and an attack with the shipped M1/M2a tools,
+and export one VRM 1.0 that Ekza Space and OMOBA both admit (OMOBA plays its own motion library on it; corrected by
+§0.4.6) and pass the Ekza profiles. The release is `v0.4.0` ("turnkey"; the tag is the owner's call). It does not
+author facial expressions or spring bones, does not do skin layers or envelopes, and keeps rotations of a weighted
+orient constraint stateless (targets far apart in rotation can flip, as the desktop DCC's Average mode does).
 
 ---
 
@@ -1212,9 +1213,9 @@ export interface SkinBindArgs {
   readonly method: BindMethod;               // 'auto-lowpoly'
   readonly joints: readonly string[] | null; // influence mask (palette keys); null = every deforming joint; one key = rigid attach
   readonly points: readonly number[] | null; // point mask: only these points are re-solved, the others keep their weights
-  readonly hierarchy: boolean;               // closest: true = Maya "Closest in hierarchy" (our reading), false = "Closest distance"
+  readonly hierarchy: boolean;               // closest: true = "Closest in hierarchy" (our reading), false = "Closest distance"
   readonly dropoff: number;                  // closest: 4 (0.1…10)
-  readonly stiffness: number;                // heat: 1 (0.1…10); the role of Maya's falloff
+  readonly stiffness: number;                // heat: 1 (0.1…10); the role of the desktop DCC's falloff
   readonly pruneBelow: number;               // 0.025 (0…0.2)
   readonly rigidifyAbove: number | null;     // null = off; 0.5…1
   /** null = auto, resolved by the operator at invoke time (true when `SkinGeometry.paired ≥ 0.9` and the skeleton has
@@ -1451,7 +1452,7 @@ export interface ConstraintParams {
     readonly worldUp: WorldUp } | null;      // aim only
 }
 /** Never throws: missing or partial params read as {v:1, key: type, holder: null, weights: static, blend: false, skip:
- *  none, interp: 'average', aim: Maya defaults for aim, else null}; an unknown `v` returns null (the op is disabled
+ *  none, interp: 'average', aim: DCC default axes for aim, else null}; an unknown `v` returns null (the op is disabled
  *  with `unsupported-op`). Unknown fields are preserved by writers. C0 working baseline. */
 export function parseConstraintParams(record: ConstraintRecord): ConstraintParams | null;
 /** Registered by `registerBuiltinRigOps` under ('constraint', type). */
@@ -1576,7 +1577,7 @@ export type RigMode = 'object' | 'skeleton' | 'skin' | 'shape';
 export type PoseView = 'bind' | 'test' | 'clip';
 export type PaintMode = 'paint' | 'select';
 export interface BrushSettings {
-  readonly op: PaintOp;                                        // 'replace' (Maya's default)
+  readonly op: PaintOp;                                        // 'replace' (desktop-DCC default)
   readonly value: number;                                      // 1
   readonly opacity: number;                                    // 1
   readonly radiusPx: number;                                   // 40
@@ -1591,7 +1592,7 @@ export interface RigSessionState {
   readonly character: CharacterId | null;                       // the active character of the workspace
   readonly poseView: PoseView;                                  // 'bind' on every entry
   readonly activeInfluence: { readonly mesh: MeshId; readonly joint: string } | null;   // palette key
-  /** Influence locks (Maya Hold) **per joint** (palette key) of a character, applied on every bound mesh of it; per
+  /** Influence locks (Hold weights) **per joint** (palette key) of a character, applied on every bound mesh of it; per
    *  user, never in the document; remembered across reloads in `prefs.rigging.holds` (§5.10). */
   readonly holds: ReadonlyMap<CharacterId, ReadonlySet<string>>;
   readonly paint: { readonly mode: PaintMode; readonly brush: BrushSettings };
@@ -1627,7 +1628,7 @@ export interface Prefs {
     /** Option boxes of rig operators, keyed by operator id; per constraint type for `rig.constraint.create:<type>`
      *  (the user's last choice per type is remembered, §5.19). */
     readonly optionDefaults: Readonly<Record<string, ParamValues>>;
-    readonly orientPreset: 'world' | 'maya' | 'blender';        // Joint tool and Orient Joint default for non-humanoid chains: 'maya'
+    readonly orientPreset: 'world' | 'xAim' | 'yAim';           // Joint tool and Orient Joint default for non-humanoid chains: 'xAim'
     readonly holds: Readonly<Record<string, readonly string[]>>; // '<projectId>/<characterId>' → held joint keys (§5.10)
   };
 }
@@ -1926,20 +1927,20 @@ Modal tool contract (M6A-SPEC §5.10): `idle → hover → placing → confirm |
 |---|---|
 | Click | adds a **preview** joint; each further click adds a child joint (a bone appears) |
 | First click on an existing joint (≤ 8 CSS px of its sphere) | that joint is the parent of the new chain (a branch) |
-| First click elsewhere: the **parent rule** (`chainParent`, §4.3) | (1) the joint selected before the tool started (Maya "continue from the selected joint"); else (2) the Add Chain preset's parent: `tail`, `skirt` → `hips`, `hair`, `ear` → `head` (when mapped); else (3) the joint whose segment (head → child heads; a leaf: head → tail) is nearest the first point. A new root only for an empty skeleton or with the tool setting **Parent: new root** (Active tool section). The parent is drawn as a dashed ghost line from it to the first point and named in the HUD (`JOINT · parent head`) and in the Last-op card; `skel.multiple-roots` (§5.21) flags any second root |
+| First click elsewhere: the **parent rule** (`chainParent`, §4.3) | (1) the joint selected before the tool started (desktop-DCC convention: "continue from the selected joint"); else (2) the Add Chain preset's parent: `tail`, `skirt` → `hips`, `hair`, `ear` → `head` (when mapped); else (3) the joint whose segment (head → child heads; a leaf: head → tail) is nearest the first point. A new root only for an empty skeleton or with the tool setting **Parent: new root** (Active tool section). The parent is drawn as a dashed ghost line from it to the first point and named in the HUD (`JOINT · parent head`) and in the Last-op card; `skel.multiple-roots` (§5.21) flags any second root |
 | Later clicks | never snap onto existing joints (no cycles); `V` vertex/joint snap and `X` grid snap holds as in Model; `Shift` held constrains the new bone to 45° steps in the view plane (provisional, Q-RIG-UI-1) |
-| MMB-drag, or `Insert`/`Home` then pointer | moves the last placed joint (Maya); the trackpad stand-in `Alt+Shift`+LMB (M6A-SPEC §5.17) is enabled in Rig panes |
+| MMB-drag, or `Insert`/`Home` then pointer | moves the last placed joint (desktop-DCC convention); the trackpad stand-in `Alt+Shift`+LMB (M6A-SPEC §5.17) is enabled in Rig panes |
 | `Backspace` | removes the last placed point (reserved modal key, never `skel.joint.delete`) |
 | `Enter`, `NumpadEnter`, RMB | completes the chain: **one** `app.run('skel.joint.create', {points, parent, prefix, orient, symmetry}, {source: 'tool'})`, one undo step "Create Joints (n)" |
 | `Esc` | cancels the chain, no step |
-| Depth | **Snap to Projected Center** (status-line toggle, default on): `projectedCenter` (§4.3) on the active character's meshes: cast the view ray, collect every hit (`raycastAll`), pair entry hits with the next exit hit by facing, take the slab midpoints; a new joint uses the slab nearest the camera, a moved joint the slab containing its current depth (Maya: "minimizes displacement"); an open mesh with one hit uses the hit pushed inward by `fallbackRadius` (0.5 × the parent bone's radius, else 0.02 H). No hit, or the toggle off: the depth of the plane through the parent joint (else the origin) facing the camera. Ortho panes take the two in-plane coordinates from the click |
+| Depth | **Snap to Projected Center** (status-line toggle, default on): `projectedCenter` (§4.3) on the active character's meshes: cast the view ray, collect every hit (`raycastAll`), pair entry hits with the next exit hit by facing, take the slab midpoints; a new joint uses the slab nearest the camera, a moved joint the slab containing its current depth (desktop-DCC behaviour: "minimizes displacement"); an open mesh with one hit uses the hit pushed inward by `fallbackRadius` (0.5 × the parent bone's radius, else 0.02 H). No hit, or the toggle off: the depth of the plane through the parent joint (else the origin) facing the camera. Ortho panes take the two in-plane coordinates from the click |
 | Hinge bias | joints the user maps as elbow/knee and joints the fitter places are shifted toward the back (elbow) / front (knee) by `hingeBias` × the slab thickness (0.15) |
 | Symmetry | `SkeletonRecord.symmetry` (default on): points within 0.005 H of `x = 0` snap onto it and get side `C`; other points create the mirror chain in the same run (names from `sideFromName`, `mirror` links both ways, rotations by the §5.6 mode); a ghost partner previews while placing. Y/Z symmetry: not offered |
 | Naming | prefix field (default `joint`; Add Chain presets `tail`, `ear`, `hair`, `skirt`, `prop`): `<prefix>_01…`, unique per skeleton; side suffixes `_L`/`_R` under symmetry; `humanBone` null; `key` = the sanitized name at creation (never changed by a rename, §4.1); `role: 'bone'` |
-| Orientation | joints mapped to human bones keep World (identity); new non-humanoid chains get `prefs.rigging.orientPreset` (Maya: +X down the bone, +Y up), computed by §5.5 at commit |
+| Orientation | joints mapped to human bones keep World (identity); new non-humanoid chains get `prefs.rigging.orientPreset` (default `xAim`: +X down the bone, +Y up), computed by §5.5 at commit |
 
 `skel.joint.create` arguments: `points: data (ptr)` (character-space positions in click order), `parent: data (sel|ptr)`
-(the joint the parent rule resolved, recorded; null only for a new root), `prefix`, `orient: enum world/maya/blender`,
+(the joint the parent rule resolved, recorded; null only for a new root), `prefix`, `orient: enum world/xAim/yAim`,
 `symmetry: bool`. It writes `JointRecord`s with derived IDs (`role 'bone'`), runs `rig.autoRig.update` in the same
 transaction (§5.16; the new chain's secondary controls are **visible**) and selects the new joints. On a bound
 character the toast offers **Auto Weights for Selected Joints** (§5.9). **Insert Joint tool**: a click on a bone
@@ -1947,10 +1948,10 @@ inserts a joint at the clicked parameter `t` (drag slides it before release): `s
 `t`. **Split Bone** `skel.bone.split {joint, n}` inserts `n − 1` evenly spaced joints. **Add Chain** opens the Joint
 tool with a prefix preset, the preset's parent (rule (2) above) and Snap to Projected Center in surface mode (the hit
 pushed inward), for tails, ears, hair, skirts and props. **Duplicate Joints** (`skel.joint.duplicate`, `Mod+D` in
-Skeleton mode; Maya's Duplicate on a joint chain): copies each selected joint with its subtree under the same parent
-(derived IDs, names with the next free numeric suffix, keys from the new names, `humanBone` null, roles kept, no
-weights), selects the copies and arms the `W` manipulator so the next drag offsets them; `mirror: true` also mirrors the
-copy through §5.6.1 (pigtails, skirt or cape strips, twist chains).
+Skeleton mode; the desktop DCC's Duplicate on a joint chain): copies each selected joint with its subtree under the
+same parent (derived IDs, names with the next free numeric suffix, keys from the new names, `humanBone` null, roles
+kept, no weights), selects the copies and arms the `W` manipulator so the next drag offsets them; `mirror: true` also
+mirrors the copy through §5.6.1 (pigtails, skirt or cape strips, twist chains).
 
 ### 5.4 Hierarchy edits (C2; research 17 §4)
 
@@ -1963,8 +1964,8 @@ property P-J1).
 | `skel.joint.insert {bone, t}` | `k` at `lerp(head, child head, t)`; `parent(k) = j`, `parent(child) = k`; rest rotations: aim-mode joints recompute `j` and `k`, World joints copy `j`'s | none on `k`; toast "Auto weights for the new joint" runs `skin.weights.autoForJoints {joints: [k]}` (§5.9) | `k.humanBone = null`; when the template has a free optional bone between them (e.g. `chest` between `spine` and `neck`) the toast offers mapping it |
 | `skel.bone.split {joint, n}` | `n − 1` joints evenly along the bone | as insert | as insert |
 | `skel.joint.remove {joints}` (**Remove Joints**, splice) | children re-parent to the removed joint's parent | folded into the nearest surviving ancestor, renormalized | refused for the 15 required bones ("leftLowerArm is required by VRM"); optional bones allowed |
-| `skel.joint.delete {joints}` (**Delete** key: joint **and subtree**, Maya) | joints and descendants | folded into the nearest surviving ancestor | refused when the subtree holds a required bone |
-| `skel.joint.reparent {joints, parent}` (`P`; Outliner drag; Maya order: children first, parent last) | new parent pointer; positions unchanged; cycles refused | unchanged | `skel.parent-map` re-runs |
+| `skel.joint.delete {joints}` (**Delete** key: joint **and subtree**, desktop-DCC behaviour) | joints and descendants | folded into the nearest surviving ancestor | refused when the subtree holds a required bone |
+| `skel.joint.reparent {joints, parent}` (`P`; Outliner drag; desktop-DCC order: children first, parent last) | new parent pointer; positions unchanged; cycles refused | unchanged | `skel.parent-map` re-runs |
 | `skel.joint.unparent {joints}` (`Shift+P`; Disconnect Joint) | new roots | unchanged | a humanoid joint outside `hips`' subtree raises `skel.parent-map` |
 | `skel.joint.rename {joint, name, mirror}` | unique per skeleton (refuse a duplicate); with `mirror` the partner gets the swapped name (`sideFromName`); `key` unchanged, so control ids and curves stay (P-J6) | — | renaming a template bone warns |
 | `skel.joint.duplicate {joints, mirror}` | §5.3 Duplicate Joints | none on the copies (toast offers Auto Weights for Selected Joints) | copies never carry a human bone |
@@ -1984,11 +1985,11 @@ refs; humanoid refs are stable). Weights of removed joints fold onto the nearest
 ### 5.5 Orient Joint (C2 maths; C3 option box; research 17 §2)
 
 Arguments: `OrientJointArgs` (§4.3). Presets in the option box: **World** (`mode: 'world'`, the humanoid default),
-**Maya** (`aim`, `+x` / `+y` / `+y`), **Blender** (`aim`, `+y` / `+z` / `+y`), **Custom** (the fields). The operator's
-`preset` defaults to **auto**, resolved at invoke time from the selection: World when every selected joint has a
-`humanBone`, otherwise `prefs.rigging.orientPreset` (Maya unless changed); the option box shows the resolved preset
-("Auto → Maya") and the resolved fields are recorded in the args. Algorithm per joint `j` in topological order
-(selected joints, plus descendants with `children`):
+**X-aim** (`xAim`: `aim`, `+x` / `+y` / `+y`), **Y-aim** (`yAim`: `aim`, `+y` / `+z` / `+y`), **Custom** (the fields).
+The operator's `preset` defaults to **auto**, resolved at invoke time from the selection: World when every selected
+joint has a `humanBone`, otherwise `prefs.rigging.orientPreset` (`xAim` unless changed); the option box shows the
+resolved preset ("Auto → X-aim") and the resolved fields are recorded in the args. Algorithm per joint `j` in
+topological order (selected joints, plus descendants with `children`):
 
 1. `world`: `restRotation = identity`.
 2. `aim`: target = the humanoid-chain child (`humanChainChildren`), else the first child by `order`, else `tail`; a
@@ -2102,7 +2103,7 @@ the Getting started card and the owner demo say so; Quick Rig's guide drags (§5
 `v′ = Σ_k w_k · (W_k(P) · IBM_k) · v` and normals likewise (the viewport's LBS); set each joint's `restPosition` to its
 posed world position; set `restRotation` to **identity for joints whose rest rotation was identity** (World-oriented:
 the humanoid template's joints and World chains) and to the **posed world rotation `q(W_k(P))`** for every other
-joint (Maya/Blender-oriented chains such as a ponytail or tail, prop joints placed at `W⁰_hand·G`, sockets), so
+joint (X-aim/Y-aim-oriented chains such as a ponytail or tail, prop joints placed at `W⁰_hand·G`, sockets), so
 bone-aligned controls and exported local frames keep their axes along the bones; weights unchanged; clear the test
 pose; `rig.autoRig.update`. A confirm dialog states "Clips authored on the old rest shift by the pose delta (n clips).
 Do this before animating." Blocked by the licence gate on `modification: prohibited` imports.
@@ -2111,7 +2112,8 @@ Do this before animating." Blocked by the licence gate on `modification: prohibi
 
 *MVP: replaced by Quick Rig v2 (§0.4.2: nine markers, front/side axis rule, live preview, one panel); the silhouette method below is the basis of its guess.*
 
-A stepper in the Rig Toolkit (not a modal dialog), modelled on Maya's Quick Rig Step-by-Step and Mixamo's markers:
+A stepper in the Rig Toolkit (not a modal dialog), modelled on the desktop DCC's Quick Rig Step-by-Step and the
+auto-rigging service's markers:
 
 1. **Geometry**: the meshes (default: the selection, else the character's meshes). Checks: facing +Z, Y-up, grounded
    (min y within 0.01 H of 0), roughly X-symmetric (`skel.facing`, `skel.grounded`); fixes *Center and ground*
@@ -2157,12 +2159,13 @@ clean and every humanoid joint within 0.05 H of the T-pose truth.
 
 ### 5.9 Bind Skin (C4 solvers; C6 option box; research 14 §5, 17 §8–§9)
 
-`skin.bind {meshes, …SkinBindArgs}` (§4.2). Maya's options map as: Bind to Joint hierarchy → `joints: null`; Selected
-joints → `joints: [...]` (one joint = rigid attach for hats, helmets, props); Object hierarchy: not offered. Bind method
-Closest distance → `closest {hierarchy: false}`, Closest in hierarchy → `closest {hierarchy: true}`, Heat Map → `heat`,
-Geodesic Voxel → not offered (M7 G2); **default `auto-lowpoly`**. Skinning method: linear only. Normalize: always
-interactive. Max influences: 4, always maintained (read-only field with its reason). Remove unused influences: automatic
-palette compaction. Dropoff rate → `dropoff`; Heatmap falloff → `stiffness`.
+`skin.bind {meshes, …SkinBindArgs}` (§4.2). The desktop DCC's options map as: Bind to Joint hierarchy →
+`joints: null`; Selected joints → `joints: [...]` (one joint = rigid attach for hats, helmets, props); Object
+hierarchy: not offered. Bind method Closest distance → `closest {hierarchy: false}`, Closest in hierarchy →
+`closest {hierarchy: true}`, Heat Map → `heat`, Geodesic Voxel → not offered (M7 G2); **default `auto-lowpoly`**.
+Skinning method: linear only. Normalize: always interactive. Max influences: 4, always maintained (read-only field
+with its reason). Remove unused influences: automatic palette compaction. Dropoff rate → `dropoff`; Heatmap falloff →
+`stiffness`.
 
 Pipeline per mesh (the welded **points** of the revision; UV and normal seams share weights by construction, research
 17 R5), in the skin worker, deterministic:
@@ -2213,16 +2216,16 @@ layers (`withSkin`, `writeData` with `skinDirty`), `MeshRecord.skin = {skeleton,
 when the character has no control rig yet — `rig.autoRig.update` (the control rig exists from the moment of binding,
 research 17 J7). Several meshes (body, separate head, eyes, accessories) are solved separately; small far islands bind
 rigidly by the island rule. The Last-op card is live: adjusting re-runs through undo + run (M6A-SPEC §5.7) in "update
-on release" mode (a solve can exceed 50 ms). **Rebinding a bound mesh** (Maya refuses to bind a mesh that already has
-a skinCluster): with `points: null` the operator first opens the `rebindSkin` confirm ("Rebind replaces painted
-weights on 612 points of body. Undo restores them.", buttons Rebind / Only selected points / Cancel; "Only selected
-points" re-runs with the Skin-mode point selection as the mask); adjust-last re-runs never ask again. Refusals: a mesh
-with a non-identity placement; a mesh of another character; an empty joint mask (`skin.empty-mask`); an asset-sourced
-character's skeleton for a model mesh. **Unbind** (`skin.unbind {meshes}`): removes the skin layers, the review layer
-and `MeshRecord.skin`; confirm "Weights are discarded (undo restores them)".
+on release" mode (a solve can exceed 50 ms). **Rebinding a bound mesh** (the desktop DCC refuses to bind a mesh that
+already has a skinCluster): with `points: null` the operator first opens the `rebindSkin` confirm ("Rebind replaces
+painted weights on 612 points of body. Undo restores them.", buttons Rebind / Only selected points / Cancel; "Only
+selected points" re-runs with the Skin-mode point selection as the mask); adjust-last re-runs never ask again.
+Refusals: a mesh with a non-identity placement; a mesh of another character; an empty joint mask (`skin.empty-mask`);
+an asset-sourced character's skeleton for a model mesh. **Unbind** (`skin.unbind {meshes}`): removes the skin layers,
+the review layer and `MeshRecord.skin`; confirm "Weights are discarded (undo restores them)".
 
-**Adding influences** (`skin.weights.autoForJoints {joints, meshes}`, Skin › Auto Weights for Selected Joints; Maya's
-Add Influence for a ponytail or twist joint added to a bound mesh). Per bound mesh: the points to re-solve are
+**Adding influences** (`skin.weights.autoForJoints {joints, meshes}`, Skin › Auto Weights for Selected Joints; the desktop
+DCC's Add Influence for a ponytail or twist joint added to a bound mesh). Per bound mesh: the points to re-solve are
 `autoWeightPoints(geom, skeleton, joints)` (§4.2: points whose nearest visible segment, over every deforming joint
 plus `joints`, belongs to one of `joints`, grown by one ring); the candidates are `joints` plus their parents and
 children; the solve is `bindSkin` with `method: 'auto-lowpoly'`, that joint mask and that point mask; every other point
@@ -2232,10 +2235,10 @@ nothing changes. One transaction, one undo step, adjustable (`joints`); `MeshRec
 ### 5.10 Normalization contract and holds (C5; every weight tool; research 14 §6.1)
 
 Per point: `w_k ≥ 0`, at most 4 non-zero, `Σ w_k = 1` (float64 while editing; §5.9 step 3e when writing). **Held**
-(locked) joints never change. A hold belongs to the **joint** (Maya's `lockInfluenceWeights` lives on the influence):
-`RigSessionState.holds` is per character × joint key and applies on every bound mesh of the character; a lock click in
-the Paint Weights panel (whose list is the union of the hilited meshes' influences) or the Component Editor's Hold row
-toggles it for every mesh; it is per user, never in the document, and remembered across reloads in
+(locked) joints never change. A hold belongs to the **joint** (the desktop DCC's `lockInfluenceWeights` lives on the
+influence): `RigSessionState.holds` is per character × joint key and applies on every bound mesh of the character; a
+lock click in the Paint Weights panel (whose list is the union of the hilited meshes' influences) or the Component
+Editor's Hold row toggles it for every mesh; it is per user, never in the document, and remembered across reloads in
 `prefs.rigging.holds` (per project and character). Weight operators resolve the held keys at invoke time and record
 them in their args (`holds`), so adjust-last and replay never read the session again. When a tool sets the active
 joint `a` of a point to `t`:
@@ -2255,8 +2258,8 @@ utilities that act on every joint of a point (smooth, hammer, paste, mirror, nor
 unweighted point (Σ = 0) receives `w_a' = clamp(t, 0, 1)` and the remainder per the ancestor rule. Painting or typing
 weight onto a non-deforming joint (`helper`, `prop`) is allowed (a rigid prop bind does it) and shows the toast "socket_back
 does not deform by default" once per joint; the lint `skin.non-deforming-weighted` lists such points (§5.21). Property tests P-S1: sums within 1e-9, non-negative, ≤ 4 influences, held weights bit-equal, `normalize`
-idempotent. **Lock-Relative** display (Blender): weights are shown as if held joints were removed and the rest
-renormalized; editing is unchanged.
+idempotent. **Lock-Relative** display (as in a popular open-source DCC, "the open-source DCC" below): weights are
+shown as if held joints were removed and the rest renormalized; editing is unchanged.
 
 ### 5.11 Paint Skin Weights (C5 maths; C6 tool; research 17 §11)
 
@@ -2265,7 +2268,7 @@ Operations per point with active joint `a`, value `v` (`N`+drag; −1…1 for Ad
 
 | Op | Rule on `w_a` | Notes |
 |---|---|---|
-| Replace | `w_a' = w_a + (v − w_a)·s` | Maya: `w = 0`, `v = 1`, opacity 0.5 → 0.5 |
+| Replace | `w_a' = w_a + (v − w_a)·s` | As in the desktop DCC: `w = 0`, `v = 1`, opacity 0.5 → 0.5 |
 | Add | `w_a' = w_a + v·s` (negative `v` subtracts) | clamped by §5.10 |
 | Scale | `w_a' = w_a · (1 − (1 − v)·s)` | `v = 0.5` at full strength halves |
 | Smooth | the point's whole vector → `lerp(w, avg over its 1-ring, s)` over not-held joints, then §5.10 | per stamp, on the stroke's current values |
@@ -2277,8 +2280,8 @@ s_max)` (overlapping stamps do not compound; a new stroke does). Smooth applies 
 shows the result live through a `StrokeSession` (`beginStroke`, §4.2: incremental, private copies, no document
 writes, bit-identical to the batch `editWeights` on the same stamps); release commits `skin.weights.paint {mesh, joint,
 op, value, stamps, mirror, holds}` (`stamps: data (ptr)`, sparse per-stamp strengths) as one undo step; `Esc` during a
-stroke cancels it with no step. Replaying the same stamps gives bit-equal layers (P-S2). Brush defaults (Maya's):
-**Replace, value 1, opacity 1**.
+stroke cancels it with no step. Replaying the same stamps gives bit-equal layers (P-S2). Brush defaults (the desktop
+DCC's): **Replace, value 1, opacity 1**.
 
 **Brush**: radius in CSS px (default 40; `B`+drag; `B`+MMB from zero), converted to world units at the hit depth
 (`r = radiusPx × metres per px at the hit`); falloff `smooth` `1 − 3t² + 2t³`, `linear` `1 − t`, `constant` 1, with
@@ -2292,8 +2295,8 @@ else — as Mirror Skin Weights does — the closest point to the mirrored posit
 by the smaller point index), else none: then no partner ring is drawn and the stroke stays one-sided at that point.
 **Order per point** (normative, so implementations agree when the brush covers both `v` and `p(v)`): first every
 direct op of the stamp, then every mirrored op, then the symmetrize of seam points. Seam points (`p(v) = v`) or centre
-joints (`M(a) = a`) apply the op once with `s`, then the point is symmetrized (`½(w + M(w))`). Maya disables reflection
-in this tool; this is the one place we follow Blender (research 17 S3).
+joints (`M(a) = a`) apply the op once with `s`, then the point is symmetrized (`½(w + M(w))`). The desktop DCC
+disables reflection in this tool; this is the one place we follow the open-source DCC (research 17 S3).
 
 **Test rotate without leaving the brush** (Skin mode): `E` shows a rotate manipulator on the **active influence's
 joint**; dragging it writes a test pose exactly as `E` on that joint in Skeleton mode (§5.7, §5.17, IK limbs switched
@@ -2309,26 +2312,28 @@ pointer frame at 10k points (pick, surface flood, partial upload; §5.25).
 
 ### 5.12 Weight display, numbers overlay and the Component Editor (C6)
 
-- **Display modes** (`DisplayFlags.weights`, Skin mode default **greyscale**, Maya's *Color feedback*, Q-RIG-UI-5):
-  greyscale (`--weight-0` black → `--weight-1` white, interpolated over faces, replacing palette colours); **ramp**
-  (colour-blind-safe sequential `--weight-ramp-0…4`); **influence colours** (each joint its golden-angle hue over its
-  topological index, user overrides by joint name; vertex colour `Σ w_i·c_i`). Shader side `w = dot(skinWeight,
-  vec4(equal(skinIndex, vec4(uActive))))`: switching the active influence changes a uniform and uploads **0 bytes**
-  (gate). Problem points: > 4 influences or `|Σ − 1| > 1e-6` (imports) get a `--lint-error` dot; unweighted points a
-  `--danger` ring.
-- **Numbers overlay** (`DisplayFlags.weightNumbers`; Maya 2026 *Show Numbers*, 2 decimals, `0.00` hidden): the active
-  joint's weight per visible point of the hilited skinned meshes; above 2,000 visible labels only selected points are
-  labelled; labels are never pickable; recomputed on camera moves and weight changes, never per frame while idle.
+- **Display modes** (`DisplayFlags.weights`, Skin mode default **greyscale**, the desktop DCC's *Color feedback*,
+  Q-RIG-UI-5): greyscale (`--weight-0` black → `--weight-1` white, interpolated over faces, replacing palette
+  colours); **ramp** (colour-blind-safe sequential `--weight-ramp-0…4`); **influence colours** (each joint its
+  golden-angle hue over its topological index, user overrides by joint name; vertex colour `Σ w_i·c_i`). Shader side
+  `w = dot(skinWeight, vec4(equal(skinIndex, vec4(uActive))))`: switching the active influence changes a uniform and
+  uploads **0 bytes** (gate). Problem points: > 4 influences or `|Σ − 1| > 1e-6` (imports) get a `--lint-error` dot;
+  unweighted points a `--danger` ring.
+- **Numbers overlay** (`DisplayFlags.weightNumbers`; the desktop DCC's *Show Numbers* (2026 release), 2 decimals,
+  `0.00` hidden): the active joint's weight per visible point of the hilited skinned meshes; above 2,000 visible
+  labels only selected points are labelled; labels are never pickable; recomputed on camera moves and weight changes,
+  never per frame while idle.
 - **Readout chip** under the brush: `0.62 · leftLowerArm`; with `Alt` held the point's full list (≤ 4 rows).
-- **Component Editor** (bottom dock; Maya's Smooth Skins tab): rows = the selected points of the hilited skinned meshes
-  (virtualized); columns = joints with non-zero weight on the selection plus the active joint, by hierarchy, plus
-  **Total**; `+ influence` adds a column. A **Hold** row at the top (checkboxes, the same state as the panel's lock
-  icons). Typing in a cell uses the research 09 §6.4 grammar (`0.3`, `+=0.1`, `*0.5`) and commits `skin.weights.set
-  {mesh, points, joint, value, mode}` — every point normalized independently by §5.10; several selected cells take the
-  value at once; one undo step per commit; the row re-reads and briefly highlights moved cells; a value that cannot
-  fit (holds) is clamped and the cell flashes the reason. **Averaged** mode (one row; default above 50 selected points;
-  `rows: each ▾ / averaged`): typing sets every selected point. A Total cell turns `--danger` when > 4 influences or
-  `|Σ − 1| > 1e-6`. Toolbar: Prune `< [0.01]`, Normalize, Hammer, Copy/Paste, Mirror ▸, "Select points of the column".
+- **Component Editor** (bottom dock; the desktop DCC's Smooth Skins tab): rows = the selected points of the hilited
+  skinned meshes (virtualized); columns = joints with non-zero weight on the selection plus the active joint, by
+  hierarchy, plus **Total**; `+ influence` adds a column. A **Hold** row at the top (checkboxes, the same state as the
+  panel's lock icons). Typing in a cell uses the research 09 §6.4 grammar (`0.3`, `+=0.1`, `*0.5`) and commits
+  `skin.weights.set {mesh, points, joint, value, mode}` — every point normalized independently by §5.10; several
+  selected cells take the value at once; one undo step per commit; the row re-reads and briefly highlights moved
+  cells; a value that cannot fit (holds) is clamped and the cell flashes the reason. **Averaged** mode (one row;
+  default above 50 selected points; `rows: each ▾ / averaged`): typing sets every selected point. A Total cell turns
+  `--danger` when > 4 influences or `|Σ − 1| > 1e-6`. Toolbar: Prune `< [0.01]`, Normalize, Hammer, Copy/Paste,
+  Mirror ▸, "Select points of the column".
 
 ### 5.13 Weight utilities (C5 kernel; C6 wiring; research 17 §12)
 
@@ -2337,13 +2342,13 @@ pointer frame at 10k points (pick, surface flood, partial upload; §5.25).
 | `skin.weights.assign {joint}` | selected points (or the points of selected faces/islands) → weight 1 on the joint (`set` 1); the low-poly 80 % tool |
 | `skin.weights.rigidIslands {}` | each selected island → the joint nearest its centroid (§5.9 rigid rule) |
 | `skin.weights.mirror {direction, surface, selection}` (Mirror Skin Weights) | YZ plane fixed; default `positive-to-negative` (+X → −X, VRM left to right); joint map: `mirror` link → `mirrorHumanBone` → name swap (`left`/`right`, `.L`/`.R`, `_l`/`_r`, `L_`/`R_`) → the joint nearest the mirrored head; point map: partner map (`surface: 'partners'`, default when present), else an exact match within 1e-4 H by spatial hash, else the closest point on the source half (`TriangleBvh.closestPoint`) with barycentric interpolation; seam points symmetrize; holds respected; prune 4, normalize; involution on symmetric meshes (P-S3) |
-| `skin.weights.transfer {source, method, distance, angle}` (Copy Skin Weights) | from another skinned mesh of the **same skeleton** (`influence: same`); `inpaint` (default, §5.14), `closest-point` (Maya's default; barycentric), `closest-component` (nearest point, no interpolation); writes the review layer (`transferred`) |
-| `skin.weights.smooth {factor = 0.5, iterations = 1, expand = 0}` (Smooth Skin Weights) | each selected point's vector `lerp`s toward the 1-ring average, `iterations` times; `expand > 0` grows the affected set by rings, `< 0` shrinks it (Blender's operator) |
-| `skin.weights.hammer {}` (Hammer Skin Weights) | selected points take the weights of their neighbours (Maya: "Assigns selected vertices with the same weight values as their neighboring vertices"), **from the selection boundary inward**: ring 0 = selected points with an unselected neighbour, each ← the average of its unselected neighbours; ring k ← the average of its neighbours that are unselected or in rings < k, using their **new** values; a selected component with no unselected neighbour at all ← one average over all neighbours of the original values; then §5.10. A two-ring band therefore gets defined values everywhere (unit test) |
+| `skin.weights.transfer {source, method, distance, angle}` (Copy Skin Weights) | from another skinned mesh of the **same skeleton** (`influence: same`); `inpaint` (default, §5.14), `closest-point` (the desktop DCC's default; barycentric), `closest-component` (nearest point, no interpolation); writes the review layer (`transferred`) |
+| `skin.weights.smooth {factor = 0.5, iterations = 1, expand = 0}` (Smooth Skin Weights) | each selected point's vector `lerp`s toward the 1-ring average, `iterations` times; `expand > 0` grows the affected set by rings, `< 0` shrinks it (the open-source DCC's operator) |
+| `skin.weights.hammer {}` (Hammer Skin Weights) | selected points take the weights of their neighbours (desktop DCC reference: "Assigns selected vertices with the same weight values as their neighboring vertices"), **from the selection boundary inward**: ring 0 = selected points with an unselected neighbour, each ← the average of its unselected neighbours; ring k ← the average of its neighbours that are unselected or in rings < k, using their **new** values; a selected component with no unselected neighbour at all ← one average over all neighbours of the original values; then §5.10. A two-ring band therefore gets defined values everywhere (unit test) |
 | `skin.weights.autoForJoints {joints}` (Auto Weights for Selected Joints) | §5.9 "Adding influences"; points outside the affected set bit-equal (P-S9) |
 | `skin.weights.copyVertex {}` / `skin.weights.pasteVertex {mirrorJoints}` | copy the active point's vector to `app.rig.skin.clipboard`; paste onto the selection (holds respected, normalized); pasting across the plane offers `mirrorJoints` |
 | `skin.weights.prune {below = 0.01}` (Prune Small Weights) | `w < below` → 0, renormalize; held joints skipped; `below` capped at 0.2 (four influences summing to 1 always keep one ≥ 0.25) |
-| `skin.weights.normalize {lockActive = false}` | Blender Normalize All with holds (and the active joint with `lockActive`); for imports with Σ ≠ 1 |
+| `skin.weights.normalize {lockActive = false}` | The open-source DCC's Normalize All with holds (and the active joint with `lockActive`); for imports with Σ ≠ 1 |
 | `skin.palette.compact {meshes}` (Remove Unused Influences) | drops palette joints with zero weight on every point and rewrites indices (one new revision); keeps every point's joint keys and weights (P-S6); runs after every bind |
 | `skin.weights.move {from, to, fraction = 1}` (Move Weights to Influences) | on the selected points `w_to += fraction·w_from` split over `to` by their current ratio (equal when all 0), `w_from −= …`; holds respected |
 
@@ -2464,9 +2469,9 @@ or older projects. Weight edits never run it and never recompile (§5.1 "When it
   test pose and keeps a copy: **Test** restores it (before/after checks); **Reset Test Pose** forgets it. It can never be
   blocked: the `bind` channel source evaluates the **constraint-free program** (`withoutConstraints`, §4.3, compiled
   once per program version), so default channels give `boneLocal = rest` exactly even when a constraint has a stored
-  or snap offset (Maya blocks Go to Bind Pose under such constraints, research 17 §6). Painting, rest edits and Apply
-  Pose as Rest therefore always see the true bind pose; Attributes › Constraint notes "Bind view ignores this
-  constraint's offset" when it is not rest-derived.
+  or snap offset (the desktop DCC blocks Go to Bind Pose under such constraints, research 17 §6). Painting, rest edits
+  and Apply Pose as Rest therefore always see the true bind pose; Attributes › Constraint notes "Bind view ignores
+  this constraint's offset" when it is not rest-derived.
 - **Keying is impossible in Rig & Skin**: `S`, `Shift+W/E/R`, `Alt+S`, `Alt+M`, pose copy/paste and `Delete` (key
   delete) resolve to `rig.animateOnly` (§7); auto-key is off while the channel source is not `animate`.
 - **Entering Rig & Skin** sets the view to Bind; **leaving** clears every character's test pose (and drops its history
@@ -2487,11 +2492,11 @@ or older projects. Weight edits never run it and never recompile (§5.1 "When it
 
 #### 5.18.1 Frames and the zero-frame rule
 
-A constraint drives a control's **zero frame** `Z_c` (Maya's offset group), never its channels: `W_c = Z_c · L_c`, so a
-constrained control stays animatable on top. Unconstrained `Z_c = W_p · O_c`; at rest `Z⁰_c = W⁰_c`. A constraint on a
-bone (`driven: {bone}`, only for bones no control drives) replaces the bone's world: `W_b = Z`. The **input frame**
-`Z_in` of a constraint op is `W_p · O_c` when the compiler knows the op is the first writer of `c`, else
-`W_c · L_c⁻¹` (fallback `W_p · O_c` when `|s| < 1e-12`); for a bone, the bone's current world.
+A constraint drives a control's **zero frame** `Z_c` (the desktop DCC's offset group), never its channels:
+`W_c = Z_c · L_c`, so a constrained control stays animatable on top. Unconstrained `Z_c = W_p · O_c`; at rest
+`Z⁰_c = W⁰_c`. A constraint on a bone (`driven: {bone}`, only for bones no control drives) replaces the bone's world:
+`W_b = Z`. The **input frame** `Z_in` of a constraint op is `W_p · O_c` when the compiler knows the op is the first
+writer of `c`, else `W_c · L_c⁻¹` (fallback `W_p · O_c` when `|s| < 1e-12`); for a bone, the bone's current world.
 
 #### 5.18.2 Targets and offsets
 
@@ -2516,7 +2521,8 @@ at default channels and attributes every rest-derived constraint gives `Z = Z⁰
 1e-9 (FR-RIG-02 gate, P-C1). Stored and snap offsets need not give `Z⁰` at default channels; the Bind view and Go to
 Bind Pose therefore evaluate the constraint-free program (§5.17), and P-C1 asserts that the Bind view gives `boneLocal
 = rest` within 1e-9 with a snap and a stored-offset constraint present. (Per-target offsets on point and orient
-constraints are a deliberate divergence from Maya, whose point and orient constraint nodes keep one offset, §7.)
+constraints are a deliberate divergence from the desktop DCC, whose point and orient constraint nodes keep one offset,
+§7.)
 
 #### 5.18.3 Weights and averaging
 
@@ -2524,12 +2530,12 @@ Effective weights in target order: `static` → `max(0, targets[k].weight)` (key
 `max(0, @<key>.<target>)`; `select` (stretch) → 1 for the target `clamp(round(@<key>), 0, n−1)` of `order`, else 0.
 Blend `b = clamp(@<key>.blend, 0, 1)` when `params.blend`, else 1. `Σ = Σ w_i`; **if `b·Σ = 0`, `run` returns false**
 (nothing written: bit-identical to no constraint, P-C2); else `ŵ_i = w_i/Σ`. Translations: `t = Σ ŵ_i t_i`.
-Rotations, `interp: 'average'` (default; Maya Average): sequential hemisphere alignment against the running sum —
-`s = 0; for each active target in order: σ = dot(s, q_i) < 0 ? −1 : +1; s += ŵ_i·σ·q_i`; `q = s/|s|` (`|s| < 1e-9` →
-the target with the largest `ŵ`, first on ties). `interp: 'shortest'`: exactly two active targets → `slerp(q_a, σ·q_b,
-ŵ_b)`, else average. The result is within 0.01 rad of the Markley eigenvector average for 2–4 targets within 60° of
-each other (P-C4; 0.0064 rad worst over 20,000 random cases, research 18 §3.3); the Attributes section warns when two
-active targets differ by more than 120°.
+Rotations, `interp: 'average'` (default; the desktop DCC's Average): sequential hemisphere alignment against the
+running sum — `s = 0; for each active target in order: σ = dot(s, q_i) < 0 ? −1 : +1; s += ŵ_i·σ·q_i`; `q = s/|s|`
+(`|s| < 1e-9` → the target with the largest `ŵ`, first on ties). `interp: 'shortest'`: exactly two active targets →
+`slerp(q_a, σ·q_b, ŵ_b)`, else average. The result is within 0.01 rad of the Markley eigenvector average for 2–4
+targets within 60° of each other (P-C4; 0.0064 rad worst over 20,000 random cases, research 18 §3.3); the Attributes
+section warns when two active targets differ by more than 120°.
 
 #### 5.18.4 Skip axes, assembly, holders and attributes
 
@@ -2560,7 +2566,7 @@ active targets differ by more than 120°.
 `q(Z) = shortestArc(q(Z_in) ⊗ a, f) · q(Z_in)`. `u⊥ = w − (w·f)f`; `|u⊥| < 1e-6` → use `q(Z_in) ⊗ u` projected; still
 degenerate → the character axis least parallel to `f`. `R = [f | u⊥ | f × u⊥]·[a | u | a × u]ᵀ`; `q(Z) = quat(R)·q(Off)`.
 Creation defaults: `a` = the ± local axis nearest the pivot → target direction, `u` = the ± local axis nearest +Y other
-than `a`, `worldUp: scene`; missing `params.aim` reads as Maya's `(1, 0, 0)`, `(0, 1, 0)`, vector `(0, 1, 0)`.
+than `a`, `worldUp: scene`; missing `params.aim` reads as the desktop DCC's `(1, 0, 0)`, `(0, 1, 0)`, vector `(0, 1, 0)`.
 
 #### 5.18.6 Compiler changes (`packages/rig`; gaps A–E of research 18 §1)
 
@@ -2586,9 +2592,9 @@ bones and the export dialog lists them.
 ### 5.19 Constraint operators and their UI rules (C8a cores; C8b operators and UI; research 18 §8, §12; 19 §9) — *deferred after the MVP (§0.3)*
 
 1. **Create** (`rig.constraint.create {type, maintainOffset: 'rest' | 'current' | 'none', skip, weights: 'attrs' |
-   'static', blend, interp, aim?, key?, follow: 'bone' | 'control'}`; Constrain › Parent/Point/Orient/Aim): **Maya
+   'static', blend, interp, aim?, key?, follow: 'bone' | 'control'}`; Constrain › Parent/Point/Orient/Aim): **desktop-DCC
    selection order** — targets first, the driven control last (the lead). Option-box values are remembered **per
-   constraint type** (`prefs.rigging.optionDefaults['rig.constraint.create:<type>']`; Autodesk's option pages describe
+   constraint type** (`prefs.rigging.optionDefaults['rig.constraint.create:<type>']`; the vendor's option pages describe
    Maintain offset without stating a default, §13), first-use default `maintainOffset: 'rest'`. An aim's look-at
    target is usually a socket (§5.6.3: Create Socket ▸ Custom under `root` gives a free look-at control). Joints are pickable as targets in Rig & Skin;
    a picked FK control that drives a bone becomes a **bone** target by default (`follow: 'bone'`), so the constraint
@@ -2607,19 +2613,20 @@ bones and the export dialog lists them.
    helper joint or its `sock.*` control), else `rest` — and its weight attribute; removal deletes the attribute and its
    curves in every clip, opening the clips' partitions first as `rig.setRotateOrder` does; select mode appends only).
 3. **Update Offset** `rig.constraint.updateOffset {constraint, targets?, match?}`: stored offsets captured at the
-   current frame (Animate) or test pose (Rig & Skin) keeping `W_c` (Maya Update Offset, Blender Set Inverse; §5.18.2
-   (b)); with `match: <target key>` each named target instead reproduces what the `match` target alone gives
-   (§5.18.2 (c)): the drop recipe is, at the drop frame, Update Offset `{targets: ['world'], match: 'hand'}`, then key
-   the weights. **Clear Offset** back to rest-derived.
-4. **Bake to Keys** `rig.constraint.bake {BakeConstraintsArgs}` (Maya Bake Simulation; Blender Bake Action with Visual
-   Keying): refused for bone-driven constraints ("export bakes it anyway"); `P_on` = the current program, `P_off` = the
-   definition compiled with these constraints disabled; per clip and integer frame of the range evaluate `P_on`, then
-   solve the driven controls in `P_off` slot order, one depth level at a time (`L = zeroFrame_off(c)⁻¹ · W_c(f)`,
-   rotations by `eulerNear` from the previous frame, translation and scale only where keyable); replace keys inside the
-   range, keep keys outside it; Euler filter on written rotation curves; optional reduction with `DEFAULT_REDUCE`;
-   **residual**: evaluate `P_off` with the baked curves and warn where a world differs by > 1e-4 m or 1e-4 rad ("fk.head:
-   translation is not keyable; the baked head is 3.1 cm off at frame 12"); then `after` (default **disable**; `delete`
-   also removes attributes and curves; `keep` warns of doubling). One undo step "Bake Constraint".
+   current frame (Animate) or test pose (Rig & Skin) keeping `W_c` (the desktop DCC's Update Offset, the open-source
+   DCC's Set Inverse; §5.18.2 (b)); with `match: <target key>` each named target instead reproduces what the `match`
+   target alone gives (§5.18.2 (c)): the drop recipe is, at the drop frame, Update Offset
+   `{targets: ['world'], match: 'hand'}`, then key the weights. **Clear Offset** back to rest-derived.
+4. **Bake to Keys** `rig.constraint.bake {BakeConstraintsArgs}` (the desktop DCC's Bake Simulation; the open-source
+   DCC's Bake Action with Visual Keying): refused for bone-driven constraints ("export bakes it anyway"); `P_on` = the
+   current program, `P_off` = the definition compiled with these constraints disabled; per clip and integer frame of
+   the range evaluate `P_on`, then solve the driven controls in `P_off` slot order, one depth level at a time
+   (`L = zeroFrame_off(c)⁻¹ · W_c(f)`, rotations by `eulerNear` from the previous frame, translation and scale only
+   where keyable); replace keys inside the range, keep keys outside it; Euler filter on written rotation curves;
+   optional reduction with `DEFAULT_REDUCE`; **residual**: evaluate `P_off` with the baked curves and warn where a
+   world differs by > 1e-4 m or 1e-4 rad ("fk.head: translation is not keyable; the baked head is 3.1 cm off at frame
+   12"); then `after` (default **disable**; `delete` also removes attributes and curves; `keep` warns of doubling).
+   One undo step "Bake Constraint".
 5. **Mirror** `rig.constraint.mirror {constraints}`: the counterpart record (driven and targets mapped by
    `ControlRecord.mirror`, humanoid left ↔ right and the research 07 §16.3 name patterns; vectors and world up by
    `(−x, y, z)` for world-aligned frames, by `B` of §5.20.4 for bone-aligned ones; offsets mirrored; same `key` and
@@ -2896,7 +2903,7 @@ The checklist collapses to one line (`Setup 6/7 · ●`) once ⑥ is done.
 | P-J2 orient invariance | on Seed-san-as-records and the generated body, every Orient preset (children on) leaves every skinned point at every ROM frame within 1e-9 m and every `humanLocal` within 1e-9; bone-aligned keyed controls convert with world rotations equal at key times (1e-9) | C2 |
 | P-J3 mirror involution | Mirror Joint twice: positions bit-equal, rotations within 1e-12; `mode: 'auto'` picks Orientation on an identity-rest subtree and Behavior on an aim-oriented one, and the mirrored aim-oriented chain's local +X points at its child (1e-9) | C2 |
 | P-J4 fitter | §5.8 gates (0.03 H, 0.01 H, 0.05 H, 5°) on T- and A-posed fixtures | C2 |
-| P-J5 apply pose as rest | after T-Stance + Apply Pose as Rest: identity-rest joints keep identity; every Maya-oriented chain's local +X still points at its child (1e-9); prop joints keep the grip on the hand (1e-9) | C2 |
+| P-J5 apply pose as rest | after T-Stance + Apply Pose as Rest: identity-rest joints keep identity; every X-aim-oriented chain's local +X still points at its child (1e-9); prop joints keep the grip on the hand (1e-9) | C2 |
 | P-J6 rename stability | renaming `tail_01` (and every joint of a random model-sourced skeleton) keeps every control id and the keys hash | C1 |
 | P-S1 normalization | sums within 1e-9, non-negative, ≤ 4 influences, held weights bit-equal, `normalize` idempotent — after every `WeightEdit` kind, `mirrorWeights`, `transferWeights`, `fillMissingWeights`, `foldJoints` | C5 |
 | P-S2 stroke determinism | replaying a stamp sequence gives bit-equal layers; overlapping stamps within one Replace/Add/Scale stroke equal one stamp at `s_max`; `beginStroke` … `finish()` is bit-identical to `editWeights({kind: 'stroke'})` for every op, with and without mirror | C5 |
@@ -2926,9 +2933,10 @@ repeatable (`G`), as M6A-SPEC §6. Params: `name: kind = default`, `*` on the pr
 selection- and pointer-bound params. "Owner" = the package that implements the operator (kernel / UI). Every operator is
 registered by C0 from its owner's stub file (poll-failing "not available yet") and lives in the lazy `rig-workspace`
 chunk (§2.1). Every operator of this table except those §3 rule 7 lists leaves the keys table unchanged (P-C6). Labels
-are Maya's; Blender names are palette aliases (Recalculate Roll → Orient Joint, Symmetrize Bones → Mirror Joint,
-With Automatic Weights → Bind Skin, Weight Paint → Paint Skin Weights, Child Of → Parent Constraint, Copy Location →
-Point Constraint, Copy Rotation → Orient Constraint, Damped Track → Aim Constraint, Custom Shape → Replace Shape).
+follow the desktop DCC; the open-source DCC's names are palette aliases (Recalculate Roll → Orient Joint, Symmetrize
+Bones → Mirror Joint, With Automatic Weights → Bind Skin, Weight Paint → Paint Skin Weights, Child Of → Parent
+Constraint, Copy Location → Point Constraint, Copy Rotation → Orient Constraint, Damped Track → Aim Constraint, Custom
+Shape → Replace Shape).
 
 ### 6.1 Characters and skeletons
 
@@ -2945,7 +2953,7 @@ Point Constraint, Copy Rotation → Orient Constraint, Damped Track → Aim Cons
 | `skel.template.addMissing` (Add Missing Bones) | ✓ | — | — | `skeleton: data` | C2 | Validation fix of `skel.required-bones`: an unmapped joint within 0.05 H of the template position of a missing bone is mapped to it; otherwise the bone is added at the template position scaled to the skeleton's bounds, under its template parent |
 | `skel.quickRig.start` / `.setMarker` / `.guess` | — | — | — | `name`, `point: data (ptr)` | C3 (C2 `guessMarkers`) | U state of the stepper (§5.8) |
 | `skel.quickRig.commit` (Create Skeleton) | ✓ | ✓ | — | `preset* = standard33`, `proportions = auto`, `flexion = 2°`, `markers: data`, `meshes: data` | C2 / C3 | §5.8 step 5 |
-| `skel.joint.create` (Create Joints) | ✓ | — | — | `points: data (ptr)`, `parent: data (sel)` (resolved by the parent rule, recorded), `prefix: data = 'joint'`, `orient: enum world/maya/blender = maya`, `symmetry: bool` | C2 / C3 | §5.3; tool `jointTool` (`G` re-activates it); Add Chain ▸ presets open it |
+| `skel.joint.create` (Create Joints) | ✓ | — | — | `points: data (ptr)`, `parent: data (sel)` (resolved by the parent rule, recorded), `prefix: data = 'joint'`, `orient: enum world/xAim/yAim = xAim`, `symmetry: bool` | C2 / C3 | §5.3; tool `jointTool` (`G` re-activates it); Add Chain ▸ presets open it |
 | `skel.joint.duplicate` (Duplicate Joints) | ✓ | ✓ | ✓ | `joints: data (sel)`, `mirror: bool = false` | C2 / C3 | §5.3; `Mod+D` in Skeleton mode |
 | `skel.joint.setRole` (Set Joint Role) | ✓ | — | — | `joints: data (sel)`, `role*: enum bone/helper/prop` | C2 / C3 | §5.4; menu labels Deform / Helper / Prop |
 | `skel.socket.create` (Create Socket) | ✓ | ✓ | — | `preset*: enum back/hipL/hipR/handL/handR/custom = custom`, `parent: data (sel) = null`, `name: data = null`, `position: data (ptr) = null` | C2 / C3 | §5.6.3; `custom` arms the Socket tool |
@@ -2960,7 +2968,7 @@ Point Constraint, Copy Rotation → Orient Constraint, Damped Track → Aim Cons
 | `skel.joint.move` (internal: Move) | ✓ | ✓ | — | `joints: data (sel)`, `translateX/Y/Z: distance`, `pivot: data (sel)`, `mode: enum subtree/joint`, `symmetry: bool` | C2 / C3 | §5.7 `W` |
 | `skel.joint.rotateRest` (internal: Rotate) | ✓ | ✓ | — | `joints`, `rotateX/Y/Z: angle`, `pivot`, `mode: enum subtree/joint` | C2 / C3 | §5.7 `E` before binding, `D`+`E` |
 | `skel.joint.setRest` | ✓ | — | — | `joint`, `position: data = null`, `rotation: data = null` | C2 / C3 | Channel Box rest rows, Attributes › Joint |
-| `skel.joint.orient` (Orient Joint) | ✓ | ✓ | ✓ | `preset*: enum auto/world/maya/blender/custom = auto` (resolved at invoke time, §5.5), `mode: enum world/aim`, `primary: axis6 = +x`, `secondary: axis6/auto = +y`, `secondaryWorld: axis6 = +y`, `children: bool = true`, `symmetry: bool = true`, `joints: data (sel)` | C2 / C3 | §5.5; converts keys of bone-aligned controls |
+| `skel.joint.orient` (Orient Joint) | ✓ | ✓ | ✓ | `preset*: enum auto/world/xAim/yAim/custom = auto` (resolved at invoke time, §5.5), `mode: enum world/aim`, `primary: axis6 = +x`, `secondary: axis6/auto = +y`, `secondaryWorld: axis6 = +y`, `children: bool = true`, `symmetry: bool = true`, `joints: data (sel)` | C2 / C3 | §5.5; converts keys of bone-aligned controls |
 | `skel.joint.mirror` (Mirror Joints) | ✓ | ✓ | ✓ | `direction: enum auto/left-to-right/right-to-left = auto`, `mode: enum auto/orientation/behavior = auto` (auto: Orientation iff every subtree joint has identity rest rotation), `search: data = ''`, `replace: data = ''`, `update: bool = true`, `root: data (sel)` | C2 / C3 | §5.6.1 |
 | `skel.joint.flex` (Restore Rest Flexion) | ✓ | ✓ | — | `angle*: angle = 2°`, `joints: data (sel)` | C2 | Validation fix of `skel.hinge-bend`: moves elbow/knee joints per §5.2 |
 | `skel.symmetry.set` | ✓ | — | — | `skeleton`, `on: bool` | C3 | the document flag (status line) |
@@ -3038,22 +3046,22 @@ keys, resolved from the session at invoke time, never shown in the card, recorde
 
 ---
 
-## 7. Keymap additions (preset `maya`)
+## 7. Keymap additions (preset `dcc`)
 
 Scopes: `r` = `rig`, `rv` = `rig.viewport` (Object mode, and the parent of every mode scope), `rvj` =
 `rig.viewport.skeleton`, `rvw` = `rig.viewport.skin`, `rvc` = `rig.viewport.shape`, `ro` = `rig.outliner`, `rpw` =
 `rig.paintWeights`, `rce` = `rig.componentEditor`, `V` = `viewport` (all workspaces), `G` = `global`. Chain over a pane:
 `rig.viewport.<mode>` → `rig.viewport` → `viewport` → `rig` → `global`; over a panel: `rig.<panel>` → `<panel>` → `rig`
 → `global` (the M6a builder with `WorkspaceDef.keyModes`, CR-4). Rows are registered with the `rig-workspace` chunk;
-C7 lands them all (bound to stubs that poll-fail until their owners land). Origin: **M** Maya default, **M~**
-Maya-inspired, **E** Ekza.
+C7 lands them all (bound to stubs that poll-fail until their owners land). Origin: **M** desktop-DCC default, **M~**
+desktop-DCC-inspired, **E** Ekza.
 
 | Chord | Operator (args) | Scope | Origin | Notes |
 |---|---|---|---|---|
 | `F8` | `rig.mode {mode: 'toggle'}` | rv | M~ | object ↔ last rig mode |
 | `Digit1` / `Digit2` / `Digit3` | `rig.mode {mode: 'skeleton' / 'skin' / 'shape'}` | rv | E (Model's digit rule) | the active digit again → Object; `4`–`7` stay shading (`V`) |
 | `KeyG` / `KeyT` / `KeyY` | `edit.repeatLast` / `view.lastOpCard {expand: true, focusPrimary: true}` / `tool.last` | rv | M / M~ / M | `Y` brings back the Joint tool or the brush |
-| `KeyP` / `Shift+KeyP` | `skel.joint.reparent` / `skel.joint.unparent` | rvj, ro | M | Maya order: children first, parent last |
+| `KeyP` / `Shift+KeyP` | `skel.joint.reparent` / `skel.joint.unparent` | rvj, ro | M | Desktop-DCC order: children first, parent last |
 | `Delete`, `Backspace` | `skel.joint.delete` | rvj | M | joint and subtree; Remove Joints (splice) is menu-only |
 | `Mod+KeyD` | `skel.joint.duplicate` | rvj | M (Duplicate) | the copies are selected and the next `W` drag offsets them |
 | `KeyE` | `skin.testRotate.toggle` (U state: the manipulator on the active influence's joint, §5.11) | rvw | M~ | the brush stays the tool; `Esc` hides it |
@@ -3063,7 +3071,7 @@ Maya-inspired, **E** Ekza.
 | `ArrowUp/Down/Left/Right` | `skin.influence.walk {direction}` | rvw, rpw | M (Paint Skin Weights) | |
 | `Shift+Period` / `Shift+Comma` | `select.mesh.grow` / `select.mesh.shrink` (points); along the curve for CVs | rvw, rvc | M | |
 | `Mod+KeyA` | `select.joints {all}` / `select.mesh.all` / `select.controls {all}` | rvj / rvw / rv, rvc | M~ | |
-| `Mod+KeyC` / `Mod+KeyV` | `skin.weights.copyVertex` / `skin.weights.pasteVertex` | rvw, rce | M~ (Maya menu items, no chord) | |
+| `Mod+KeyC` / `Mod+KeyV` | `skin.weights.copyVertex` / `skin.weights.pasteVertex` | rvw, rce | M~ (desktop-DCC menu items, no chord) | |
 | `Ctrl+Shift+Comma` / `Ctrl+Shift+Period` | `skin.paint.mode {step: −1 / +1}` | rvw, rpw | M (`Ctrl+<` / `Ctrl+>`) | literal Ctrl on every platform; QA matrix row |
 | `Alt+KeyC` | `view.display.toggle {flag: 'weights'}` | rvw | M (Artisan colour feedback) | shadows the shipped `Alt+C` (controls) in Skin mode only |
 | `Alt+KeyR` | `skin.paint.mirrorToggle` | rvw | M~ (Artisan reflection) | |
@@ -3089,8 +3097,8 @@ over a control in Shapes mode); Shift+RMB → `rig.tools.<mode>`; Ctrl+Shift+RMB
 `rig.pickMask` (Object mode); RMB never cancels (it completes the Joint tool chain); `contextmenu` is never RMB; the
 MMB stand-in `Alt+Shift`+LMB is enabled in Rig panes for the trackpad and one-button profiles.
 
-**Never bound** (additions to the M6a list): `Alt+F` (Maya flood: Windows browser menu, Firefox File menu), `Shift+B`
-(Maya lower radius; auto-repeat of a held `B` would fire it), no workspace-switch chord.
+**Never bound** (additions to the M6a list): `Alt+F` (desktop-DCC flood: Windows browser menu, Firefox File menu),
+`Shift+B` (desktop-DCC lower radius; auto-repeat of a held `B` would fire it), no workspace-switch chord.
 
 **Conformance additions** (C7 extends B0b's test): every `rig.*`, `skel.*`, `skin.*` binding names a registered
 operator; no binding uses `Alt+F` or `Shift+B`; through the DOM adapter: `S` in every Rig scope creates no key (keys
@@ -3098,19 +3106,19 @@ hash unchanged); `Mod+E` opens Export in Rig; `Alt+C` toggles controls in Rig Ob
 the Joint tool in phase `placing`, `Backspace` removes the last point and never runs `skel.joint.delete`; the Animate
 bindings resolve exactly as on M6a (snapshot).
 
-**Deliberate divergences from Maya** (help page and the cheat sheet): `Alt+F` flood → Flood button and `U` menu NE;
-moving a bound joint at bind pose never moves the mesh (bind = rest; Move Skinned Joints is the only behaviour);
-rotating a bound joint is a session test pose, never a key or a document change; Paint Skin Weights mirrors strokes
-through the joint map (Maya disables reflection); holds belong to the joint as in Maya but are per-user state
-(remembered across reloads), not a scene attribute; `1`/`2`/`3` are rig modes, not smooth-mesh preview; normalization
-is always interactive with 4 influences; joint labelling is the VRM mapping in Attributes and the RMB menu; the Joint
-tool parents a new chain to the selected or nearest joint instead of starting a new root (tool setting "Parent: new
-root"); the template root is a non-deforming helper; **point and orient constraints keep one offset per target** (Maya's
-point and orient constraint nodes keep one offset for the constraint; parent constraints are per target in both);
-**Maintain offset defaults to the rest-derived offset and option-box values are remembered per constraint type**
-(Autodesk's option pages describe Maintain offset without stating a default); Add Target takes its own offset mode
-(snap for sockets); test poses on IK limbs switch the limb to FK for the test; `E` in Skin mode test-rotates the active
-influence's joint.
+**Deliberate divergences from the desktop DCC** (help page and the cheat sheet): `Alt+F` flood → Flood button and `U`
+menu NE; moving a bound joint at bind pose never moves the mesh (bind = rest; Move Skinned Joints is the only
+behaviour); rotating a bound joint is a session test pose, never a key or a document change; Paint Skin Weights
+mirrors strokes through the joint map (the desktop DCC disables reflection); holds belong to the joint as in the
+desktop DCC but are per-user state (remembered across reloads), not a scene attribute; `1`/`2`/`3` are rig modes, not
+smooth-mesh preview; normalization is always interactive with 4 influences; joint labelling is the VRM mapping in
+Attributes and the RMB menu; the Joint tool parents a new chain to the selected or nearest joint instead of starting a
+new root (tool setting "Parent: new root"); the template root is a non-deforming helper; **point and orient
+constraints keep one offset per target** (the desktop DCC's point and orient constraint nodes keep one offset for the
+constraint; parent constraints are per target in both); **Maintain offset defaults to the rest-derived offset and
+option-box values are remembered per constraint type** (the vendor's option pages describe Maintain offset without
+stating a default); Add Target takes its own offset mode (snap for sockets); test poses on IK limbs switch the limb to
+FK for the test; `E` in Skin mode test-rotates the active influence's joint.
 
 ---
 
@@ -3308,7 +3316,7 @@ blend; Enabled; `[Select driven] [Select targets] [Bake… ] [Delete]`; the > 12
 ```
 
 The shape picker is a popover grid of the registered kinds (32 px previews) plus "Custom (from CVs)"; colour: Side, a
-32-swatch palette in Maya's index order, custom hex.
+32-swatch palette in the desktop DCC's index order, custom hex.
 
 ### 8.11 Outliner (Rig variant; C7 frame, joint rows C3, mesh badges C6, constraint rows C8b, shape badges C9)
 
@@ -3566,7 +3574,7 @@ then C10, C3, C6). **Critical path**: C0 (4.5) → C7 (5.5) → C6 (6) → INT (
 - **Dirs**: §9 C7 Dirs (`editor-core/src/workspaces/rig.ts`, `editor-core/src/app/factories/rig.ts`,
   `editor-core/src/session/rig.ts`, `editor-core/src/evaluation/rigSource.ts`, `editor-core/src/rig/{testPose,
   validation,chunk}/**`, `editor-core/src/operators/builtin/rig/{mode.ts,pose.ts,shadows.ts}`,
-  `editor-core/src/keymap/maya.rig.ts`, `editor/src/shell/rig/**`, `editor/src/shell/menus/rig.ts`,
+  `editor-core/src/keymap/dcc.rig.ts`, `editor/src/shell/rig/**`, `editor/src/shell/menus/rig.ts`,
   `editor/src/overlays/menus/rig/{index,modes}.ts`, `editor/src/panels/{rigToolkit,validation}/**` (frames, after
   C0's stubs and registrations; owners' sections excluded), `editor/src/panels/viewport/rig/**`, `apps/web/scripts/check-size.mjs` (the MVP gate lines),
   `editor/src/test-api/m6b/rig-shell.ts`, `apps/web/e2e/m6b-{rig-01,rig-02,rig-05,rig-08}-*.spec.ts`,
@@ -3740,7 +3748,7 @@ owner. M6b never edits an M6a-owned file except through C0's one-line registrati
 | `editor-core/src/types.ts`, `operators/args.ts`, `history/**` (`TestPosePart`, `recordTestPose`, `dropTestPoses`, working baselines) | §4.6 | closed | — |
 | `editor-core/src/operators/builtin/rig/*.ts` (one stub file per owner: `character.ts` C1, `autorig.ts` C1, `skeleton.ts`/`quickRig.ts`/`prop.ts` C2, `bind.ts` C4, `weights.ts` C5, `influence.ts` C6, `mode.ts`/`pose.ts`/`rom.ts`/`shadows.ts` C7, `constraints.ts` C8b, `shapes.ts` C9, `export.ts` C10, `makeEditable.ts`/`recovery.ts` C11) and their lazy registration list `operators/builtin/rig/index.ts` | every §6 operator registered from its stub file; one line in `operators/builtin/index.ts` (B11's file) for the lazy loader | each file its owner; `rig/index.ts` closed | — |
 | `editor-core/src/workspaces/rig.ts`, `editor-core/src/app/factories/rig.ts`, `editor-core/src/session/rig.ts`, `editor-core/src/evaluation/rigSource.ts` | the enabled `WorkspaceDef` and chunk loader; `app.rig` service stubs; `session.rig` defaults (one line in B10's `session/**` index); `setChannelSource` baseline (`animate` only; one line in the evaluation service) | **C7** | C4 implements `SkinService` in `editor-core/src/rig/skinService.ts` through the factory |
-| `editor-core/src/keymap/maya.rig.ts`, `editor/src/shell/menus/rig.ts`, `editor/src/overlays/menus/rig/index.ts` | empty registries with one import line each in B9's keymap and menu files | **C7** | owners of marking-menu data files `editor/src/overlays/menus/rig/<menu>.ts`: C7 (`modes`, `toolsObject`, `pickMask`, `options`), C3 (`toolsSkeleton`), C6 (`toolsSkin`, `skinJoint`, `paintOps`), C9 (`toolsShape`, `shapeControl`) |
+| `editor-core/src/keymap/dcc.rig.ts`, `editor/src/shell/menus/rig.ts`, `editor/src/overlays/menus/rig/index.ts` | empty registries with one import line each in B9's keymap and menu files | **C7** | owners of marking-menu data files `editor/src/overlays/menus/rig/<menu>.ts`: C7 (`modes`, `toolsObject`, `pickMask`, `options`), C3 (`toolsSkeleton`), C6 (`toolsSkin`, `skinJoint`, `paintOps`), C9 (`toolsShape`, `shapeControl`) |
 | `editor-core/src/characters/registry.ts` (B8), `editor/src/panels/{outliner,attributes,channel-box}/**` (B13, B11) | one-line hooks to `editor-core/src/characters/model.ts` (C1; the model-character hook) and, through CR-5 and CR-10 on `dev`, to the variant registries and C9's recompile filter `editor-core/src/characters/shapeOnly.ts` | M6a owners | M6b code lives in new files: `editor/src/panels/outliner/rig/**` (C7 frame; `joints/**` C3, `meshes/**` C6, `constraints/**` C8b, `controls/**` C9), `editor/src/panels/attributes/sections/rig/<section>.tsx` (joint, skeleton C3; skin C6; constraint C8b; controlShape C9; character C10), `editor/src/panels/channel-box/rig/<rows>.tsx` (joints C3, constraints C8b) |
 | `rig/src/compile/**`, `rig/src/kernel/{ops.ts,constants.ts}`, `rig/src/schedule/influence.ts`, `rig/src/inverse/solve.ts` | — | **C8a** | — |
 | `rig/src/autorig/**` | — | **C1** | C9 supplies `generatedShape` through `rig/src/shapes/**`; prop controls are C1's |
@@ -3769,7 +3777,7 @@ owner. M6b never edits an M6a-owned file except through C0's one-line registrati
   (2) schema v4 atomically on the memory store and `doc-yjs` (migration 3 → 4, validation and repairs, queries,
   `referencesOf`, `requiredWriterVersion`); (3) **files CR-1…CR-10 as M6A-SPEC contract PRs against `dev`** in its
   first two days (§2.4; never edits them on `m6b/dev`) and registers the `m6a:cr<n>` READY flags; (4) every §6
-  operator registered from its stub file behind the lazy loader, every §7 row (in `maya.rig.ts`, stub-bound), every
+  operator registered from its stub file behind the lazy loader, every §7 row (in `dcc.rig.ts`, stub-bound), every
   §8.15 test id reserved; (5) the `rig-workspace`, `skin-worker` and `character-runtime` lazy entries with their markers
   and BOUNDARIES; (6)
   the fixtures: `polybot-unskinned.glb` (Polybot's meshes with skin, skeleton and VRM extensions removed, A-pose, for
@@ -3926,7 +3934,7 @@ owner. M6b never edits an M6a-owned file except through C0's one-line registrati
 
 - **Dirs**: `editor-core/src/workspaces/rig.ts`, `editor-core/src/app/factories/rig.ts`, `editor-core/src/session/rig.ts`,
   `editor-core/src/evaluation/rigSource.ts`, `editor-core/src/rig/{testPose,validation,chunk}/**`,
-  `editor-core/src/operators/builtin/rig/{mode.ts,pose.ts,rom.ts,shadows.ts}`, `editor-core/src/keymap/maya.rig.ts`,
+  `editor-core/src/operators/builtin/rig/{mode.ts,pose.ts,rom.ts,shadows.ts}`, `editor-core/src/keymap/dcc.rig.ts`,
   `editor/src/shell/rig/**`, `editor/src/shell/menus/rig.ts`, `editor/src/overlays/menus/rig/{index,modes,toolsObject,
   pickMask,options}.ts`, `editor/src/panels/{rigToolkit,validation}/**` (frames; owners' sections excluded),
   `editor/src/panels/outliner/rig/{index.tsx,frame/**}`, `editor/src/panels/viewport/rig/**` (badges, empty state,
@@ -3967,7 +3975,7 @@ owner. M6b never edits an M6a-owned file except through C0's one-line registrati
   `viewport/src/rig/constraintLines/**`, `editor/src/panels/rigToolkit/sections/constraints/**`,
   `editor/src/test-api/m6b/constraint-ui.ts`, `apps/web/e2e/m6b-{rig-06,cns-01,cns-02}-*.spec.ts`,
   `docs/wp-notes/m6b-constraint-ui.md`.
-- **Responsibilities**: §5.19 operators and UI (Maya selection order, option boxes with per-type remembered values,
+- **Responsibilities**: §5.19 operators and UI (desktop-DCC selection order, option boxes with per-type remembered values,
   holder attributes in one transaction, add/remove target with its offset mode and curve removal, Update Offset ›
   Match, bake, mirror, delete, repair, Pole Vector routing), the Animate `Rig › Constrain ▸` submenu, constraint lines,
   Channel Box chip and rows, Outliner rows, Attributes › Constraint (per-target offset modes, the Bind-view note).
@@ -4085,12 +4093,12 @@ closure holds M6a's B4 or B13.
 | E2E-SKIN-06 | **OMOBA five-clip GLB (props excluded)** | bound body; five 1 s clips with slots `idle`, `walk`, `attack`, `cast`, `death` (helper); part (b): sword; `run('char.attachProp', {objects: [sword], hand: 'rightHand'})`; export with profile `ekza/omoba-humanoid-v1`; then with `includeProps: true` and profile `local/generic` | no `VRMC_vrm`; five animations with those names, every channel targets an existing node; no `uri`; profile lints 0 errors; (b) the OMOBA file has no sword mesh but a `prop_R` joint track; the generic file holds the sword mesh skinned to `prop_R` | C10 | c2, c4, m6a:b13; part (b): + c8a |
 | E2E-SKIN-07 | **Skin surgeon on Seed-san** | load Seed-san; Model: make the body mesh editable (M6a `outliner-make-editable-<id>`); Rig & Skin; `2`; select three forearm points; Component Editor: the `node:<leftLowerArm>` column `0.5`; export `bake-into-model` with `ekza/space-avatar-v1` | validator 0 errors; every JSON value outside the edited mesh's `primitives`, the appended accessors/bufferViews, the buffer length, the marker and the allowed extension diffs deep-equals the original; BIN prefix byte-identical; the three points' `WEIGHTS_0` hold 0.5 on that joint (renormalized rows); `VRMC_vrm`, `VRMC_springBone`, `VRMC_materials_mtoon` blocks value-equal | C11 | c6, c7, m6a:b13 |
 | E2E-SKIN-08 | **Turnkey walkthrough (scripted)** | `helpers/m6b-turnkey-script.ts`: AS-LP-S2 (§10.3) through operators and the key UI gestures | every AS-LP-T check of parts C–F | INT | — |
-| E2E-SKIN-09 | **Joint tool, Mirror Joint, Orient Joint** | character body; `1`; `select.joints {ids: []}`; Skeleton › Add Chain ▸ Tail; in `pane-side` click three points behind the hips; `Enter`; `run('skel.symmetry.set', {on: false})`; Create Joints (prefix `ear`): two clicks above the head at x > 0 in `pane-front`; `Enter`; Skeleton › Mirror Joints ⋯ Apply; drag the left ear tip +0.01 m in y; Mirror Joints again; select the tail root; Orient Joint ⋯ (the box shows "Auto → Maya"), children on, Apply; rename `tail_01` to `tailBase`; Object mode: `E` drag 20° on the tail's root control; leave to Animate and key that control at frame 0 (20°) | tail: three side-`C` joints with x = 0, **parent `hips`** (the HUD and the Last-op card named it), one step; the ears' parent is `head`; one root in the skeleton (`skel.multiple-roots` absent); ear mirror: `ear_01_R`, `ear_02_R` with `mirror` links both ways at `(−x, y, z)`; the second mirror **updates in place** (the right ids unchanged, positions mirrored); after Orient every tail joint's local +X points at its child (1e-9) and every `restPosition` is bit-equal to before; the tail's `sec.*` controls exist, are **visible** (`controls()` hidden false) and keep their ids after the rename (P-J6); the test rotation moved `tail_02`'s posed world (Test), and in Animate the key rotates `boneWorld(tail_02)` by 20° about the tail root (1e-6); each operation one step; keys hash unchanged by every rig operation | C3 | c1, m6a:b13 |
+| E2E-SKIN-09 | **Joint tool, Mirror Joint, Orient Joint** | character body; `1`; `select.joints {ids: []}`; Skeleton › Add Chain ▸ Tail; in `pane-side` click three points behind the hips; `Enter`; `run('skel.symmetry.set', {on: false})`; Create Joints (prefix `ear`): two clicks above the head at x > 0 in `pane-front`; `Enter`; Skeleton › Mirror Joints ⋯ Apply; drag the left ear tip +0.01 m in y; Mirror Joints again; select the tail root; Orient Joint ⋯ (the box shows "Auto → X-aim"), children on, Apply; rename `tail_01` to `tailBase`; Object mode: `E` drag 20° on the tail's root control; leave to Animate and key that control at frame 0 (20°) | tail: three side-`C` joints with x = 0, **parent `hips`** (the HUD and the Last-op card named it), one step; the ears' parent is `head`; one root in the skeleton (`skel.multiple-roots` absent); ear mirror: `ear_01_R`, `ear_02_R` with `mirror` links both ways at `(−x, y, z)`; the second mirror **updates in place** (the right ids unchanged, positions mirrored); after Orient every tail joint's local +X points at its child (1e-9) and every `restPosition` is bit-equal to before; the tail's `sec.*` controls exist, are **visible** (`controls()` hidden false) and keep their ids after the rename (P-J6); the test rotation moved `tail_02`'s posed world (Test), and in Animate the key rotates `boneWorld(tail_02)` by 20° about the tail root (1e-6); each operation one step; keys hash unchanged by every rig operation | C3 | c1, m6a:b13 |
 | E2E-SKIN-10 | **Test pose, posed painting with mirror stroke, Go to Bind Pose** | Animate: an unkeyed override on `fk.head` (record it); Rig & Skin; bound body; Object mode; select `fk.lowerArm.L`; `E` drag 60° about its hinge; `2`; active `leftLowerArm`; Replace value 1 with mirror on; stroke over the inner elbow (posed `screenOfVertex`); status `Bind`; status `Test`; Reset Test Pose; leave to Animate; part (b): `1`, `E` on the left elbow joint, then `W` on a joint; `E` 60° on the left **knee** joint (an IK leg); `2`, `E` with `leftLowerArm` active (the Skin-mode test rotate), drag 30° | after `E`: `rigState().poseView` `test`, badge `TEST POSE`, keys hash unchanged; the stroke changed left points and their partners with `rightLowerArm` (`w(p(v)) = M(w(v))`); one step per stroke; `Bind` → test pose empty, `Test` → restored, Reset → empty after `Bind`; in Animate the `fk.head` override is unchanged and `overrides(fk.lowerArm.L)` is empty; (b) `E` switches to Test; `W` on a joint is refused with "Go to Bind Pose"; the knee test bends the leg (`posedPositions` of the knee ring differ from bind by > 0.02 H, the test pose holds `@ikFk` 0 on `ik.leg.L`, HUD `L LEG · FK FOR TEST`, the document's `ikFk` unchanged); the Skin-mode `E` rotates the elbow while the tool stays `paintSkinWeights` | C6 | c2, m6a:b13; part (b): + c3 |
 | E2E-SKIN-11 | **Numbers overlay and Component Editor** | bound body; `2`; select the left elbow ring points; Display › Weight Display › Numbers; Component Editor: Hold `leftHand`; type `0.5` into `leftLowerArm` for every row; seed `spine` 0.004 on one point; Prune `< 0.01`; select the whole left arm (> 50 points) | `weightLabels` lists every selected point's active weight with 2 decimals and no `0.00` label; after typing every row has `leftLowerArm` 0.5, `leftHand` bit-equal, Σ within 1e-6; Prune removes the 0.004 weight (renormalized); the arm selection shows `mode: 'averaged'` with one row; one step per commit | C6 | c2, m6a:b13 |
 | E2E-SKIN-12 | **Missing weights after a Model edit** | bound body; Model; `run('mesh.create.cube', …)` at the hip (pouch; a scene mesh); `run('char.adopt', {character, objects: [cube]})` (Add to Character: Combine needs one owner); select body, then the cube; Mesh › Combine; switch to Rig & Skin | the combined record is the body (lead) and keeps `MeshRecord.skin` (CR-8); the cube's points arrived with Σ = 0; `history().undo` ends with "Fill Missing Weights"; no `skin.unweighted-vertex`; `skin(body).review.points` = the cube's points; Validation shows `skin.review`; tab glyph ◐; the pouch points' dominant joint is `hips` or an upper leg; Mark Reviewed → review null, glyph ●; one undo brings the review back | C11 | c2, c7, m6a:b4, m6a:b11, m6a:b13, m6a:cr8 |
 | E2E-SKIN-13 | **Make Character Editable** | load Polybot (CC0); key a pose on `fk.upperArm.L`; File › Make Character Editable; `1`; move `leftToes` +0.01 m; Export dialog › Character with `ekza/space-avatar-v1`; then export VRM with `local/generic` (CC0 meta); then load `fixtures/synthetic/prohibited-modification.vrm` and run the operator | `characters()[0].source` `model`; the joints are Polybot's skin joints and their ancestors with the humanoid map preserved; `controls()` ids unchanged and the keyed curve deep-equal; the joint moved; the Space export is **blocked by `skel.tpose`** (Polybot is A-posed, research 14 §4.4: the row is listed and Export disabled); the generic export loads in three-vrm with the same humanoid map, validator 0 errors; the prohibited file is refused with a reason naming modification and no record changes | C11 | c2, c3, c7 |
-| E2E-SKIN-14 | **Apply Pose as Rest** | Polybot made editable (as -13); Validation shows `skel.tpose`; select `head`; Skeleton › Add Chain ▸ Hair, three clicks behind the head, `Enter`; Orient Joint (Maya); Go to Bind Pose; Skeleton › T-Stance; Apply Pose as Rest; confirm | `skel.tpose` gone; upper arm and leg directions within 5° of the template; mesh points moved by the LBS bake; weights bit-equal; joints whose rest rotation was identity are still identity; the hair chain's local +X still points at its child (1e-9) (P-J5); the test pose cleared; one undo restores rest and mesh | C3 | c1, c11 |
+| E2E-SKIN-14 | **Apply Pose as Rest** | Polybot made editable (as -13); Validation shows `skel.tpose`; select `head`; Skeleton › Add Chain ▸ Hair, three clicks behind the head, `Enter`; Orient Joint (X-aim); Go to Bind Pose; Skeleton › T-Stance; Apply Pose as Rest; confirm | `skel.tpose` gone; upper arm and leg directions within 5° of the template; mesh points moved by the LBS bake; weights bit-equal; joints whose rest rotation was identity are still identity; the hair chain's local +X still points at its child (1e-9) (P-J5); the test pose cleared; one undo restores rest and mesh | C3 | c1, c11 |
 | E2E-RIG-01 | **Setup checklist** | Rig scene; body selected; checklist ① Standard 33 Create; ② `1`, hold `D` and move the left knee in `pane-front` (symmetry); ③ Bind Skin…; ④ Range of Motion, Pose view Clip; ⑤ seed a bad left shoulder weight, fix with one Replace stroke, Mirror Skin Weights; ⑥ Create Control Rig (legs IK); ⑦ Open in Animate | each step's glyph turns `done` (`rigState().checklist`); ③a never shows (T-posed body); the adopted body mesh has `generator: null` (`meshes()`); the right knee followed and the feet's rests did not move; no point weighted on `root`; ④ on the default IK legs: `posedPositions` of the left knee ring differ between the ROM's leg-forward and leg-back frames by > 0.05 H, and `ikFk` keys of the `__rom` clip are 0; the tab glyph turns ● after ⑤; ⑦ switches to Animate with the character active and its leg IK controls listed | C7 | c1, c2, c3, c4, c5, c6, m6a:b13 |
 | E2E-RIG-02 | **Modes, scopes, shadows** | bound body; `1`, `2`, `3`, `3`; `F8` twice; with `fk.hips` selected press `S` in every mode; `resolveKey` of `S`, `Mod+E`, `Alt+C` in each scope; Joint tool placing two points then `Backspace` | modes skeleton, skin, shape, object; `F8` → last mode → object; keys hash unchanged after every `S`; `S` → `rig.animateOnly`; `Mod+E` opens Export; `Alt+C` → controls in Object, weights in Skin; `Backspace` removed one preview point and no joint was deleted; the Animate keymap snapshot unchanged | C7 | c1, c2, c3, c4, m6a:b13 |
 | E2E-RIG-03 | **Joint tool gestures** | character body; `1`; Skeleton › Create Joints; in `pane-front` click three points along the left arm; MMB-drag the third 20 px; `Backspace`; click a new third point; `Enter`; then start a chain, `Esc`; then a chain finished by RMB | each joint's z within 0.01 H of `projectedCenter(pane, x, y)`; MMB moved the third; `Backspace` removed it; `Enter` → one step "Create Joints (6)" (three plus their mirrors); `Esc` → history unchanged; RMB completes with one step | C3 | c1, m6a:b13 |
@@ -4124,7 +4132,8 @@ MToon preset, Connect Joint, Reroot.
 
 ### 10.3 AS-LP-T — "Lowpoly Lad and his sword", turnkey (owner run; replaces MODELING-PLAN §8 parts C–E)
 
-Run by a Maya-experienced tester (the owner) in Chrome on a fresh profile with built-ins only, **in one project**;
+Run by a tester experienced in the desktop DCC (the owner) in Chrome on a fresh profile with built-ins only, **in one
+project**;
 times recorded, not gating (rig + skin ≤ 30 min, sword ≤ 10 min, walk ≤ 30 min, attack ≤ 20 min). The scripted twin
 **AS-LP-S2** (INT, `m6b-aslp.spec.ts`, E2E-SKIN-08) replays the same operator sequence (Node for the headless parts,
 SwiftShader for viewport steps) from a committed AS-LP-A project fixture and asserts golden counts, validator results and
@@ -4134,7 +4143,7 @@ file hashes.
 |---|---|---|
 | **A. Character** (M6a) | AS-LP-A of M6A-SPEC §10.3, plus a **3-segment ponytail** extruded from the back of the head (three `Shift`+drag extrudes) | M6a's checks; tris ≤ 3,000 |
 | **B. Sword** (M6a) | AS-LP-B **in the same project** (Create › Templates › Handheld; the sword is a scene prop); export `lowpoly-sword.glb` with `ekza/omoba-handheld-v1` | M6a's checks |
-| **C. Rig and skin** | select the Lad's meshes → Rig & Skin; checklist ① Standard 33 (Quick Rig: five markers or One-Click guess, adjust one knee with symmetry by `D` + drag); ponytail: Skeleton › Add Chain ▸ Hair (parent `head` by the preset), three joints with Snap to Projected Center, Orient Joint (Auto → Maya); Bind Skin (Auto (low-poly)); `E` on an elbow and on a knee to test; Range of Motion; fix the shoulders with Smooth and Replace (mirror stroke on; `E` in Skin mode to re-pose between strokes); type `0.5` on the middle elbow and knee loops in the Component Editor; Mirror Skin Weights L → R; Prune Small Weights 0.01 | the character is model-sourced with 34 + 3 joints and one root; the ponytail's parent is `head`; `skel.*` clean incl. `skel.tpose`, `skel.hinge-bend`; every point weighted, ≤ 4 influences, sums within 1e-6, none on `root`; the ponytail's points weighted to its joints; a **visible** `sec.*` control rotates the ponytail in Test; the knee bends in the test and the ROM; the split-vertex crack distance ≤ 1e-6 m over the ROM clip; no `skin.*` warning; the operator log holds Quick Rig, Create Joints, Orient Joint, Bind Skin, Paint, a table edit, Mirror Skin Weights, Prune |
+| **C. Rig and skin** | select the Lad's meshes → Rig & Skin; checklist ① Standard 33 (Quick Rig: five markers or One-Click guess, adjust one knee with symmetry by `D` + drag); ponytail: Skeleton › Add Chain ▸ Hair (parent `head` by the preset), three joints with Snap to Projected Center, Orient Joint (Auto → X-aim); Bind Skin (Auto (low-poly)); `E` on an elbow and on a knee to test; Range of Motion; fix the shoulders with Smooth and Replace (mirror stroke on; `E` in Skin mode to re-pose between strokes); type `0.5` on the middle elbow and knee loops in the Component Editor; Mirror Skin Weights L → R; Prune Small Weights 0.01 | the character is model-sourced with 34 + 3 joints and one root; the ponytail's parent is `head`; `skel.*` clean incl. `skel.tpose`, `skel.hinge-bend`; every point weighted, ≤ 4 influences, sums within 1e-6, none on `root`; the ponytail's points weighted to its joints; a **visible** `sec.*` control rotates the ponytail in Test; the knee bends in the test and the ROM; the split-vertex crack distance ≤ 1e-6 m over the ROM clip; no `skin.*` warning; the operator log holds Quick Rig, Create Joints, Orient Joint, Bind Skin, Paint, a table edit, Mirror Skin Weights, Prune |
 | **C′. Segmented variant** (optional, owner) | the same steps on a copy of the Lad made from M6a's segmented humanoid body | every upper/lower arm and leg island single-influence (100 % of their points; P-S7) |
 | **C2. Sword in hand** | select the sword group → Skeleton › Attach Prop ⋯ (right hand); in Test, move the right arm: the sword follows; Skeleton › Create Socket ▸ Back; `D` + `E` to lay the socket diagonally across the back; select `sock.socket_back`, then `prop.prop_R`; Constrain › Add Target (key `back`, weight 0; offset `snap`, the default for sockets) | the sword is bound rigidly to `prop_R`; the socket is a non-deforming helper with a visible control; the grip parent constraint has targets `hand` (1, rest-derived), `world` (0), `back` (0, snap); rest-exact (the sword sits in the hand at rest); one undo per operation |
 | **C3. Controls** | Shapes mode: replace the `prop.prop_R` shape with `arrow`, recolour the `cog` to a custom hex, scale the upper-arm circles 1.3× on the left and Mirror Shape L → R | keys hash unchanged by every shape edit; edited fields survive a later knee move |
@@ -4185,7 +4194,7 @@ unmerged packages as `test.fixme` naming them.
 
 1. Model → select the Lad → Rig & Skin → checklist ① Standard 33 → One-Click guess → Create Skeleton.
 2. `1` → hold `D` and drag a knee in front (the other follows, the feet stay) → Add Chain ▸ Hair (parent `head` shown;
-   three clicks, `Enter`) → Orient Joint (Auto → Maya).
+   three clicks, `Enter`) → Orient Joint (Auto → X-aim).
 3. Bind Skin (Auto (low-poly)) → `E` on an elbow (TEST POSE badge, no keys) → `E` on a knee (FK FOR TEST) → `2` →
    paint the inner elbow with the mirror stroke, `E` to re-pose the elbow without leaving the brush → Numbers → type
    `0.5` on the elbow loop in the Component Editor → Go to Bind Pose.
@@ -4226,8 +4235,8 @@ the user's prefs since v1.1; Q-RIG-UI-8); joint rest moves never move
 the mesh (Q-RIG-UI-9); animatable weights by default (Q-CNS-1); rest-derived offsets by default (Q-CNS-2); bake then
 disable (Q-CNS-4); weights, blend and space as `keyAll: false` (Q-CNS-6); point/parent on rotate-bound FK controls warn,
 not refuse (Q-CNS-7); Bézier anchors for shape CVs until M8 (Q-CNS-8). **Marking-menu compass positions, the Joint tool's
-`Shift` step and the `D`-held joint-only move are provisional until the owner's calibration on Maya (Q-RIG-UI-1, with
-Q-MOD-UI-1).**
+`Shift` step and the `D`-held joint-only move are provisional until the owner's calibration in the desktop DCC
+(Q-RIG-UI-1, with Q-MOD-UI-1).**
 
 ### 12.2 Refinements of the plan and research conflicts resolved by this spec
 
@@ -4241,26 +4250,26 @@ Q-MOD-UI-1).**
 | S6 | Plan C7 / research 14 §8.3: a separate skin surgeon appending joints and IBMs on imports | weight edits on imports use **M6a's replace-primitives step** (which already writes `JOINTS_0`/`WEIGHTS_0`); skeleton edits on imports go through `char.makeEditable` (conversion) | one surgeon; appending joints to someone else's VRM is where extensions break |
 | S7 | Plan: unspecified how scene meshes become a character | `char.fromModel` adopts selected scene meshes into a new model character (frozen placement, derived ids) | ADR 0015: a character's meshes live in its partition |
 | S8 | — | `mesh.importStatic` (Import Static Model…) | rigging meshes modelled elsewhere, and the Quick Rig and auto-skin gates on Polybot |
-| S9 | Research 19 §26: Bake to Keys later (rest of M2c); research 18: core | **core** (C8a/C8b) | the maths is shared with Update Offset and the inverse fixes; Maya users expect Bake Simulation |
+| S9 | Research 19 §26: Bake to Keys later (rest of M2c); research 18: core | **core** (C8a/C8b) | the maths is shared with Update Offset and the inverse fixes; desktop-DCC users expect Bake Simulation |
 | S10 | Research 19: space switching M5; research 18: M6b stretch | **M6b stretch** with fallback M5 (FR-RIG-12 unchanged) | 1.5 days on top of the constraint op; not needed for the turnkey loop |
 | S11 | Research 19 §9.1: the driven object must be a control | controls, and **bones no control drives** (prop or helper joints of imports) | research 18 §3.8; refusing bones would block constraint-driven helper joints |
-| S12 | Research 17 §11.3: Blender's blue → red ramp by default; research 19: greyscale | **greyscale** (Maya *Color feedback*), colour-blind-safe ramp, influence colours and numbers as options | no hue reading needed; Blender's ramp has a red/green pair |
-| S13 | Research 14 §6.4: deleting a joint splices it | `Delete` removes the subtree (Maya); Remove Joints splices; both fold weights | Maya muscle memory (research 17 R4) |
-| S14 | Research 17: `Shift` = 15° steps in the Joint tool; research 19: 45° | 45°, provisional (Q-RIG-UI-1) | neither is documented by Autodesk; 45° matches the straight-limb use; calibrate on Maya |
-| S15 | Research 14 §4.2: rotating a joint edits its rest | rotate = **test pose** once bound; `D`+`E` or Orient Joint edit the rest (research 17 R1) | Maya's "rotate a bound joint, paint, Go to Bind Pose" loop |
+| S12 | Research 17 §11.3: the open-source DCC's blue → red ramp by default; research 19: greyscale | **greyscale** (the desktop DCC's *Color feedback*), colour-blind-safe ramp, influence colours and numbers as options | no hue reading needed; the open-source DCC's ramp has a red/green pair |
+| S13 | Research 14 §6.4: deleting a joint splices it | `Delete` removes the subtree (desktop-DCC behaviour); Remove Joints splices; both fold weights | Desktop-DCC muscle memory (research 17 R4) |
+| S14 | Research 17: `Shift` = 15° steps in the Joint tool; research 19: 45° | 45°, provisional (Q-RIG-UI-1) | neither is documented by the vendor; 45° matches the straight-limb use; calibrate in the desktop DCC |
+| S15 | Research 14 §4.2: rotating a joint edits its rest | rotate = **test pose** once bound; `D`+`E` or Orient Joint edit the rest (research 17 R1) | The desktop DCC's "rotate a bound joint, paint, Go to Bind Pose" loop |
 | S16 | Research 14 §6.2: transfer by closest point | closest point is the matching stage of **inpainting** (research 17 R3) | robustness at armpits, crotches and loose parts |
 | S17 | Research 17 I = sample; research 19 adds Shift+I | `I`+click samples, `Shift+I`+click picks the dominant influence, LMB on a joint glyph sets it | both needed; no conflict left (Q-RIG-UI-11) |
 | S18 | — | **Attach Prop** (prop joint under the root, rigid bind, `prop.*` control, parent constraint with weight attributes); props excluded from the OMOBA humanoid GLB by default | "constraints for the sword" in the turnkey loop; OMOBA equips handhelds itself |
-| S19 | Research 17 §10: Quick Rig auto-orient "World" vs Maya's X-down default | World for humanoids, Maya preset for new non-humanoid chains (`prefs.rigging.orientPreset`) | VRM normalization stays trivial; Maya users get X-down chains for tails |
+| S19 | Research 17 §10: Quick Rig auto-orient "World" vs the desktop DCC's X-down default | World for humanoids, `xAim` preset for new non-humanoid chains (`prefs.rigging.orientPreset`) | VRM normalization stays trivial; desktop-DCC users get X-down chains for tails |
 | S20 | Plan: turnkey ≈ 40–45 working days after B0a | ≈ **46–47** | M6a v1.1's critical path grew by six days and M6b's scope by ≈ 21.5 agent-days; M6b's own work still ends before M6a's release |
 | S21 | Plan §3.1: the Rig & Skin workspace "loads as a lazy chunk" | the `rig-workspace` and `skin-worker` chunks with BOUNDARIES, operators registered lazily, an eager budget of +8,192 B gzip | M6a's B0a used 94 % of M6a's eager allowance (its wp-notes) |
 | S22 | Research 17 §8: `maxInfluences` an argument | fixed 4, shown read-only with its reason; not an argument | glTF clients read one set of four |
 | S23 | Research 19 §8.1: Bind requires frozen transforms, offers Freeze | adoption into the character freezes placements, so bound meshes always have identity placement; Bind still refuses a non-identity placement with the Freeze button | glTF ignores a skinned node's transform |
 | S24 | Research 14 §4.1: the template `root` is an ordinary joint | joint **roles** (`bone` / `helper` / `prop`); the template root, sockets and end helpers do not deform | the root's segment runs between the legs and won the inner thighs (design review blocker) |
 | S25 | Shipped auto-rig: non-humanoid template keys from sanitized names | model-sourced skeletons use the rename-proof `JointRecord.key` | a rename orphaned every curve of tails, props and generic chains |
-| S26 | Maya Joint tool: a click away from joints starts a new root | the parent rule (selected, preset, nearest segment); "new root" is a tool setting; `skel.multiple-roots` | a second root gets no control and lies outside the written skin's `skeleton` |
+| S26 | The desktop DCC's Joint tool: a click away from joints starts a new root | the parent rule (selected, preset, nearest segment); "new root" is a tool setting; `skel.multiple-roots` | a second root gets no control and lies outside the written skin's `skeleton` |
 | S27 | v1.0: `skeletonFromDoc` in `rig` | in `io` (`io/src/skeleton/fromDoc.ts`) | it needs `measureSkinned` and io's SHA-256; `rig` never imports `io` |
-| S28 | Maya: Go to Bind Pose is blocked by constraints | the Bind view evaluates the constraint-free program and is never blocked | bind = rest stays exact with stored or snap offsets |
+| S28 | The desktop DCC: Go to Bind Pose is blocked by constraints | the Bind view evaluates the constraint-free program and is never blocked | bind = rest stays exact with stored or snap offsets |
 | S29 | Research 14 §7.2: ROM and test poses keyed on controls | IK limbs switch to FK for test poses and the ROM clip (`@ikFk = 0`) | with IK legs on by default, FK test values did not move the knees |
 | S30 | v1.0 / research 17 §9.5: inpainting by PCG | sparse LDLᵀ per region (PCG only above 20k unknowns) | Jacobi CG on the bi-Laplacian needs about `|U|` iterations |
 
@@ -4270,7 +4279,7 @@ Q-MOD-UI-1).**
 |---|---|
 | Scope growth (≈ 70.5 vs 43.5 agent-days) delays the turnkey release | M6b's work ends before M6a's release (≈ day 32 vs 37.5); the turnkey minimum (≈ 62) names what moves to the fix round; stretch items are `test.fixme` |
 | Contract requests to M6a (CR-1…CR-10) land late or are declined | filed by C0 in its first two days as M6A-SPEC contract PRs; every CR has a fallback (§2.4) and a READY gate; an open CR at INT is an owner decision, not a blocker of the release |
-| Maya users expect the Joint tool to start a new root | the parent is shown before the click commits (ghost line, HUD), the "Parent: new root" setting, `skel.multiple-roots` with a Fix; Q-M6B-6 |
+| Desktop-DCC users expect the Joint tool to start a new root | the parent is shown before the click commits (ghost line, HUD), the "Parent: new root" setting, `skel.multiple-roots` with a Fix; Q-M6B-6 |
 | Compiler changes (priority swap, data-flow edges) shift M2a schedules or exports | P-C3 schedule identity and export byte-identity gates in C8a; M2a programs schedule only solvers |
 | Auto-skin quality on single-piece bodies | heat with stiffness and rigidify; the island rule calibrated on two fixture kinds; numbers and the table as first-class fixes (research 17 S4) |
 | Users expect `E` on a bound joint to edit the rest | `TEST POSE` badge and toast, help line, `D`+`E`, Orient Joint, Apply Pose as Rest; the feel check |
@@ -4291,29 +4300,29 @@ Q-MOD-UI-1).**
 | Q-M6B-3 | The sword in the turnkey loop as an attached prop (prop joint, rigid bind, parent constraint), excluded from the OMOBA humanoid GLB? | **Yes** (§5.6.2) | C2 |
 | Q-M6B-4 | Regenerate the control rig inside every skeleton edit (one undo step) rather than on demand? | **Yes** (§5.16) | C1 |
 | Q-M6B-5 | M6b's eager allowance of +8,192 B gzip on top of M6a's (option A of M6a's B0a notes) | **Yes**; INT records it if M6a's route ends above 891,808 B | C0 |
-| Q-M6B-6 | The Joint tool parents a new chain to the selected or nearest joint (Maya starts a new root) | **Auto parent**, "Parent: new root" as a tool setting (§5.3) | Q-RIG-UI-1 calibration |
-| Q-RIG-UI-1 | Calibrate the rig marking-menu slots, the Joint tool `Shift` step and the `D`-held move on Maya | **Once, with Q-MOD-UI-1**; provisional until then | before C3/C6 freeze their menus |
+| Q-M6B-6 | The Joint tool parents a new chain to the selected or nearest joint (the desktop DCC starts a new root) | **Auto parent**, "Parent: new root" as a tool setting (§5.3) | Q-RIG-UI-1 calibration |
+| Q-RIG-UI-1 | Calibrate the rig marking-menu slots, the Joint tool `Shift` step and the `D`-held move in the desktop DCC | **Once, with Q-MOD-UI-1**; provisional until then | before C3/C6 freeze their menus |
 | Q-RIG-UI-5 | Weight display default | **Greyscale** (S12) | any time |
 | Q-CNS-5 | Space switching in M6b (stretch) or M5? | **M6b stretch**, fallback M5 | C8b midpoint |
 
 ### 12.5 Design review record (v1.0 → v1.1, 2026-10-19)
 
-Two review rounds (a Maya rigger's and an engineer's) raised 45 issues. Every blocker and major is applied; every minor
-is applied, two partly with the reason given. "Dup" marks an issue raised twice.
+Two review rounds (a desktop-DCC rigger's and an engineer's) raised 45 issues. Every blocker and major is applied;
+every minor is applied, two partly with the reason given. "Dup" marks an issue raised twice.
 
 | # | Sev | Issue | Disposition | Where |
 |---|---|---|---|---|
 | R1 | blocker | The template `root` deforms: its segment between the legs wins the inner thighs and tears the crotch; no non-deforming joint exists | **Applied**: `JointRecord.role` gains `helper`; `SkinSkeleton.deform`; root and sockets are helpers, props stay non-deforming; automatic methods skip them unless masked in; paint and table may weight them with the lint `skin.non-deforming-weighted`; folds and remainders go to deforming ancestors; Set Joint Role; P-S7 asserts no weight on `root` | §4.1, §4.2, §5.2, §5.4, §5.9, §5.10, §5.21, P-S7 |
 | R2 | major | Add Chain in empty space makes a new root: no control, outside the skin's `skeleton`; user chains' controls hidden | **Applied**: the parent rule (selected → preset parent → nearest segment), shown in the HUD and the Last-op card; `skel.multiple-roots` with Fix; controls created for user chains visible; E2E-SKIN-09 and AS-LP-T assert parent and a visible control in Test and Animate | §5.3, §5.16 rule 5, §5.21, §10 |
 | R3 | major | `E` on a joint of an IK limb and the ROM legs do nothing visible at `ikFk = 1` | **Applied**: test poses write `@ikFk = 0` on that limb plus FK (HUD `FK FOR TEST`); the ROM keys `@ikFk = 0` on every IK limb; E2E-RIG-01 and E2E-SKIN-10 assert the knee bends | §5.7, §5.17, §10 |
-| R4 | major | Apply Pose as Rest resets every rest rotation to identity, losing Maya-oriented chains and prop frames | **Applied**: identity stays identity; every other joint takes `q(W_k(P))`; P-J5; E2E-SKIN-14 adds a Maya-oriented chain | §5.7, P-J5, §10 |
+| R4 | major | Apply Pose as Rest resets every rest rotation to identity, losing X-aim-oriented chains and prop frames | **Applied**: identity stays identity; every other joint takes `q(W_k(P))`; P-J5; E2E-SKIN-14 adds an X-aim-oriented chain | §5.7, P-J5, §10 |
 | R5 | major | Quick Rig forces horizontal arms; One-Click's widest band fails on A-poses | **Applied**: arms follow the marker line (0–50°); the guess fits the arm angle; A-pose fitter gates and the A-pose path in E2E-SKIN-01 (b); checklist ③a states the order | §5.8, §5.21, P-J4, §10 |
 | R6 | major | "Auto weights for the new joint" undefined (`affected`); a masked bind wipes the mesh onto the selection; rebinding silently replaces painted weights | **Applied**: `skin.weights.autoForJoints` with `autoWeightPoints` (nearest-segment owners + one ring; candidates = joints, parents, children; the rest bit-equal, P-S9); the `rebindSkin` confirm | §4.2, §5.4, §5.9, §6.2, P-S9 |
 | R7 | major | The Bind view runs constraints, so stored or snap offsets show a non-rest pose | **Applied**: the `bind` source evaluates the constraint-free program (`withoutConstraints`); P-C1 extended; Attributes note | §4.3, §4.6, §5.17, §5.18.2, P-C1 |
 | R8 | major | The `back` target (chest, rest-derived) puts the sword at the T-pose hand, not on the back; no socket or locator operator | **Applied**: sockets (`skel.socket.create`, helper joint + `sock.*` control, presets Back/Hip/Hand/Custom); `addTarget` offset modes (snap default for sockets); the sheathe recipe in AS-LP-T C2/D; aim targets use sockets | §5.6.3, §5.16, §5.19, §6.1, §6.3, §10.3 |
-| R9 | major | E2E-SKIN-04 and the scripts fit a knee with plain `W`, which drags the foot and its IK control | **Applied**: `D`-held `W` in E2E-SKIN-04, the checklist hint, the Getting started card, the demo and AS-LP-T. **Partly rejected**: a joint-only *default* for knee/elbow drags while fitting — only Quick Rig's guide drags are joint only; Skeleton mode keeps one rule (`W` = subtree, as Maya) rather than a context-dependent `W` | §5.7, §5.8, §8.12, §10, §11.3 |
+| R9 | major | E2E-SKIN-04 and the scripts fit a knee with plain `W`, which drags the foot and its IK control | **Applied**: `D`-held `W` in E2E-SKIN-04, the checklist hint, the Getting started card, the demo and AS-LP-T. **Partly rejected**: a joint-only *default* for knee/elbow drags while fitting — only Quick Rig's guide drags are joint only; Skeleton mode keeps one rule (`W` = subtree, desktop-DCC behaviour) rather than a context-dependent `W` | §5.7, §5.8, §8.12, §10, §11.3 |
 | R10 | major | E2E-SKIN-13 exports an A-posed Polybot with the Space profile, which `skel.tpose` blocks | **Applied**: the scenario asserts the Space export is blocked and exports with `local/generic` | §10.1 |
-| R11 | minor | Orient Joint defaults to World from the menu | **Applied**: preset `auto` (World iff every selected joint is humanoid, else the pref, Maya), shown resolved | §5.5, §6.1 |
+| R11 | minor | Orient Joint defaults to World from the menu | **Applied**: preset `auto` (World iff every selected joint is humanoid, else the pref, `xAim`), shown resolved | §5.5, §6.1 |
 | R12 | minor | Mirror Joint `auto` picks Orientation on any subtree with human bones | **Applied**: Orientation iff every subtree joint has identity rest rotation; P-J3 tests both | §5.6.1, P-J3 |
 | R13 | minor | One rest-derived default for all constraint types and per-target point/orient offsets are not listed as divergences | **Applied**: both in §7's divergences; option-box values remembered per type | §4.6, §5.19, §7 |
 | R14 | minor | Brush defaults missing; holds per mesh × joint vs a union list; the mirror stroke's 1e-4 H fallback | **Applied**: Replace, 1, 1; holds per character × joint, persisted per user in prefs; mirror fallback 0.01 H closest point, no ring without a partner | §4.6, §5.10, §5.11, §8.7 |
@@ -4360,33 +4369,34 @@ Verified for this spec on 2026-10-19:
   `@pixiv/three-vrm` 3.5.5 MIT (2026-07-09), `vrm-validator` 2.0.0-dev.3.10 Apache-2.0 (2024-11-07), `gltf-validator`
   2.0.0-dev.3.10 Apache-2.0 (2024-10-22), `@gltf-transform/core` 4.5.1 MIT (2026-09-28), `three-mesh-bvh` 0.9.16 MIT
   (2026-10-08) — https://registry.npmjs.org/
-- Autodesk Maya 2026, Paint Skin Weights Tool (Interactive normalization is the default; Show Numbers with 2 decimal
-  places, 0.00 hidden; Opacity 0 has no effect; `B`-drag radius and `M`-drag opacity; "Reflection is disabled for the
-  Paint Skin Weights Tool"; Flood applies the brush to every vertex; the page gives no default for Use Color Ramp) —
-  https://help.autodesk.com/cloudhelp/2026/ENU/Maya-CharacterAnimation/files/GUID-99189E9D-237F-471E-A02C-BE6593B4828B.htm
+- Desktop DCC reference (2026 release): Paint Skin Weights Tool (Interactive normalization is the default; Show Numbers
+  with 2 decimal places, 0.00 hidden; Opacity 0 has no effect; `B`-drag radius and `M`-drag opacity; "Reflection is
+  disabled for the Paint Skin Weights Tool"; Flood applies the brush to every vertex; the page gives no default for Use
+  Color Ramp) — the vendor's online help.
 - VRMC_vrm 1.0 meta schema (required `name`, `authors`, `licenseUrl`; defaults onlyAuthor, personalNonProfit,
   creditNotation required, modification prohibited, every `allow…` false; `thumbnailImage` an image index) —
   https://github.com/vrm-c/vrm-specification/blob/master/specification/VRMC_vrm-1.0/schema/VRMC_vrm.meta.schema.json
-- The Joint tool's `Shift` behaviour is not documented in the Autodesk pages found (a search on 2026-10-19 found no
+- The Joint tool's `Shift` behaviour is not documented in the vendor pages found (a search on 2026-10-19 found no
   source), hence provisional (S14).
-- Autodesk Maya 2026, Hammer Skin Weights ("Assigns selected vertices with the same weight values as their
-  neighboring vertices", §5.13) —
-  https://help.autodesk.com/cloudhelp/2026/ENU/Maya-CharacterAnimation/files/GUID-35ECFBC1-A65B-46AF-9542-213BD304C632.htm
-- Autodesk Maya, Point constraint options (Maintain Offset "preserves the original … relative translation of the
-  constrained object"; the page states no default, hence per-type remembered option values, §5.19, §7) —
-  https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-BB0B5F46-2BB7-4EA0-A611-27759EBA6609.htm
+- Desktop DCC reference (2026 release): Hammer Skin Weights ("Assigns selected vertices with the same weight values as
+  their neighboring vertices", §5.13) — the vendor's online help.
+- Desktop DCC reference (2017 help): Point constraint options (Maintain Offset "preserves the original … relative
+  translation of the constrained object"; the page states no default, hence per-type remembered option values, §5.19,
+  §7) — the vendor's online help.
 
 Inherited from the research notes of this round (each verified there with its date): research
-[17 §19](research/17-maya-rigging-basics.md#19-sources) (Maya Skeleton and Skin menus, Joint Tool, Orient/Mirror Joint,
-Bind Skin options, Copy/Mirror Skin Weights, Prune, bind pose, Quick Rig, Blender weight-paint references, Baran &
-Popović 2007, Dionne & de Lasa 2013, Abdrashitov et al. 2023 with its MIT reference code, Sharp & Crane 2020, generalized
-winding numbers); research [18 §19](research/18-constraints-control-shapes.md#19-sources) (Maya parent/point/orient/aim
-constraint commands and nodes, pairBlend, bakeResults, nurbsCurve and drawing overrides; Blender Child Of and
-bake_action; VRMC_node_constraint 1.0; Markley et al. 2007); research [19 §27](research/19-rig-workspace-ui.md#27-sources)
-(Maya Skeleton menu, Joint Tool settings, Paint Skin Weights influence picking, Artisan hotkeys, Parent constraint
-selection order; Maya 2027 and ngSkinTools 2; VRM 1.0 humanoid); research [14 Sources](research/14-skinning-own-models.md#sources)
-(glTF 2.0 skins, VRM 1.0 T-pose, meta and MToon, three.js r186 `GLTFLoader`, Bevy 0.19.1 attributes, OMOBA and registry
-validators read in their repositories).
+[17 §19](research/17-dcc-rigging-basics.md#19-sources) (the desktop DCC's Skeleton and Skin menus, Joint Tool,
+Orient/Mirror Joint, Bind Skin options, Copy/Mirror Skin Weights, Prune, bind pose, Quick Rig, the open-source DCC's
+weight-paint references, Baran & Popović 2007, Dionne & de Lasa 2013, Abdrashitov et al. 2023 with its MIT reference
+code, Sharp & Crane 2020, generalized winding numbers); research
+[18 §19](research/18-constraints-control-shapes.md#19-sources) (the desktop DCC's parent/point/orient/aim constraint
+commands and nodes, pairBlend, bakeResults, nurbsCurve and drawing overrides; the open-source DCC's Child Of and
+bake_action; VRMC_node_constraint 1.0; Markley et al. 2007); research
+[19 §27](research/19-rig-workspace-ui.md#27-sources) (the desktop DCC's Skeleton menu, Joint Tool settings, Paint Skin
+Weights influence picking, Artisan hotkeys, Parent constraint selection order; the desktop DCC's 2027 release and
+ngSkinTools 2; VRM 1.0 humanoid); research [14 Sources](research/14-skinning-own-models.md#sources) (glTF 2.0 skins,
+VRM 1.0 T-pose, meta and MToon, three.js r186 `GLTFLoader`, Bevy 0.19.1 attributes, OMOBA and registry validators read
+in their repositories).
 
 Repository evidence (read-only, branch `m6b/spec`): `packages/doc/src/records.ts` (`ConstraintRecord`, `ControlShape`,
 `ClipRecord`, `JointRecord`, `SkeletonRecord`, `CharacterRecord`), `packages/doc/src/snapshot/version.ts`

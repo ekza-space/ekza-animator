@@ -5,12 +5,12 @@ import {
   chordInput,
   type KeyBinding,
   keyScopeChain,
-  MAYA_KEYMAP,
+  DCC_KEYMAP,
   MODEL_SCOPE,
   type OperatorId,
   resolveChord,
 } from '../src';
-import { animateChain, ch, mayaKeymap, modelChain, resolved, sameChord } from './keymap-support';
+import { animateChain, ch, dccKeymap, modelChain, resolved, sameChord } from './keymap-support';
 
 const mv = MODEL_SCOPE.viewport;
 const mvc = MODEL_SCOPE.component;
@@ -114,11 +114,11 @@ const isM6aRow = (binding: KeyBinding): boolean =>
   binding.op === 'ui.commandPalette' ||
   (binding.op === 'ui.open' && binding.chord.shift === true && binding.chord.code === 'KeyE');
 
-describe('§7 keymap rows (preset maya)', () => {
+describe('§7 keymap rows (preset dcc)', () => {
   it('contains every §7 row exactly once', () => {
     const rows = expected();
     for (const row of rows) {
-      const matches = MAYA_KEYMAP.filter(
+      const matches = DCC_KEYMAP.filter(
         (binding) =>
           sameChord(binding.chord, row.chord) &&
           binding.scope === row.scope &&
@@ -130,14 +130,14 @@ describe('§7 keymap rows (preset maya)', () => {
 
   it('adds no row beyond the §7 table', () => {
     const rows = expected().filter((row) => isM6aRow(row));
-    const added = MAYA_KEYMAP.filter(isM6aRow);
+    const added = DCC_KEYMAP.filter(isM6aRow);
     expect(added.length).toBe(rows.length);
     expect(new Set(added.map((b) => JSON.stringify(b)))).toEqual(new Set(rows.map((b) => JSON.stringify(b))));
   });
 
   it('labels the new chords for the cheat sheet and menus on both platforms', () => {
-    const mac = mayaKeymap('mac');
-    const other = mayaKeymap('other');
+    const mac = dccKeymap('mac');
+    const other = dccKeymap('other');
     expect([other.label(ch('Mod+KeyE')), mac.label(ch('Mod+KeyE'))]).toEqual(['Ctrl+E', '⌘E']);
     expect([other.label(ch('Mod+Shift+KeyE')), mac.label(ch('Mod+Shift+KeyE'))]).toEqual(['Ctrl+Shift+E', '⇧⌘E']);
     expect([other.label(ch('Ctrl+Alt+ArrowRight')), mac.label(ch('Ctrl+Alt+ArrowRight'))]).toEqual([
@@ -181,7 +181,7 @@ describe('scope chain (§5.17)', () => {
   });
 
   it('resolves Model face mode over a pane: deeper scopes shadow, time and shipped viewport keys pass through', () => {
-    const keymap = mayaKeymap();
+    const keymap = dccKeymap();
     const face = modelChain('viewport', 'face');
     expect(resolved(keymap, 'Mod+KeyD', face)).toEqual({ op: 'mesh.duplicateFaces', scope: mvf });
     expect(resolved(keymap, 'Delete', face)).toEqual({ op: 'mesh.delete', scope: mvc });
@@ -210,7 +210,7 @@ describe('scope chain (§5.17)', () => {
   });
 
   it('resolves Model object and edge mode over a pane', () => {
-    const keymap = mayaKeymap();
+    const keymap = dccKeymap();
     const object = modelChain('viewport');
     expect(resolved(keymap, 'Delete', object)).toEqual({ op: 'scene.delete', scope: mv });
     expect(resolved(keymap, 'Mod+KeyA', object)).toEqual({
@@ -234,7 +234,7 @@ describe('scope chain (§5.17)', () => {
   });
 
   it('resolves Model over the Outliner: its own rows, then the shipped Outliner rows, then Model', () => {
-    const keymap = mayaKeymap();
+    const keymap = dccKeymap();
     const outliner = modelChain('outliner', 'face');
     expect(resolved(keymap, 'KeyH', outliner)).toEqual({ op: 'view.hide', args: { target: 'selected' }, scope: mo });
     expect(resolved(keymap, 'Mod+KeyD', outliner)).toEqual({ op: 'scene.duplicate', scope: mo });
@@ -249,7 +249,7 @@ describe('scope chain (§5.17)', () => {
   });
 
   it('resolves Animate exactly as shipped for the chords Model rebinds', () => {
-    const keymap = mayaKeymap();
+    const keymap = dccKeymap();
     const viewport = animateChain('viewport');
     expect(resolved(keymap, 'Mod+KeyE', viewport)).toEqual({ op: 'ui.open', args: { dialog: 'export' }, scope: G });
     expect(resolved(keymap, 'KeyS', viewport)).toEqual({ op: 'key.set', args: { channels: 'all' }, scope: V });
@@ -275,7 +275,7 @@ describe('scope chain (§5.17)', () => {
   });
 
   it('resolves Mod chords on macOS through Cmd and the literal Ctrl rows through Control', () => {
-    const mac = mayaKeymap('mac');
+    const mac = dccKeymap('mac');
     const edge = modelChain('viewport', 'edge');
     expect(resolved(mac, 'Mod+KeyE', edge)?.op).toBe('mesh.extrude');
     expect(mac.resolve(chordInput(ch('Mod+KeyE'), 'other'), edge, 'press')).toBeNull();
@@ -287,7 +287,7 @@ describe('scope chain (§5.17)', () => {
 
 describe('tap/hold contract (§5.17)', () => {
   const noMods = { mod: false, shift: false, alt: false, ctrl: false };
-  const keymap = mayaKeymap();
+  const keymap = dccKeymap();
 
   it('defers Space everywhere with any modifiers, as shipped', () => {
     for (const scopes of [animateChain('graph'), modelChain('viewport', 'face'), ['global']]) {
@@ -317,7 +317,7 @@ describe('tap/hold contract (§5.17)', () => {
 
 describe('auto-repeat', () => {
   it('keeps growing and shrinking while the key is held; other new rows fire once', () => {
-    const keymap = mayaKeymap();
+    const keymap = dccKeymap();
     const face = modelChain('viewport', 'face');
     const repeat = (chord: string) =>
       keymap.resolve({ ...chordInput(ch(chord), 'other'), repeat: true }, face, 'press');
@@ -329,7 +329,7 @@ describe('auto-repeat', () => {
   });
 
   it('answers resolveChord like resolve on the platform input', () => {
-    const keymap = mayaKeymap('mac');
+    const keymap = dccKeymap('mac');
     const face = modelChain('viewport', 'face');
     expect(resolveChord(keymap, ch('Mod+KeyD'), face)).toBe(
       keymap.resolve(chordInput(ch('Mod+KeyD'), 'mac'), face, 'press'),

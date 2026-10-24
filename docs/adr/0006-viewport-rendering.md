@@ -3,7 +3,7 @@
 - Status: Accepted (2026-10-17); revised 2026-10-17 after the design review (rev. 2)
 - Inputs: research [04](../research/04-web-stack.md) §4, [09](../research/09-ui-ux-spec.md) §3, §5, §13.3, §14,
   [07](../research/07-rig-controls-math.md) §4, §5.4, §6, §14.4, [08](../research/08-extensibility-modeling.md) §4.5,
-  §7.4, [01](../research/01-maya-animation-features.md) §3.1, §3.10, [05](../research/05-landscape.md) §3.5.
+  §7.4, [01](../research/01-dcc-animation-features.md) §3.1, §3.10, [05](../research/05-landscape.md) §3.5.
 
 ## Context
 
@@ -30,10 +30,10 @@ navigation of an unlocked shot camera, and evaluation of `VRMC_node_constraint` 
    *view cameras* (persp/top/front/side) are per-pane user state. A pane looking through a locked camera swallows
    navigation and flashes a `LOCKED` badge. **Navigating an unlocked shot camera** writes its `transform` and
    `target` through a preview session committed once per gesture with `undoable: false` (label "Move Shot
-   Camera"; wheel bursts end after 120 ms idle), so `Mod+Z` undoes animation, not framing (Maya keeps camera moves
-   out of the undo queue). Lock, unlock and copy-view-to-shot are undoable operators. New projects get one shot
-   camera auto-framed to the character on first load.
-4. **Navigation**: `camera-controls` 3.1.2 (MIT) per pane, behind a `NavigationProfile`: *Maya* (Alt+LMB tumble,
+   Camera"; wheel bursts end after 120 ms idle), so `Mod+Z` undoes animation, not framing (as in a leading
+   commercial desktop DCC, camera moves stay out of the undo queue). Lock, unlock and copy-view-to-shot are undoable
+   operators. New projects get one shot camera auto-framed to the character on first load.
+4. **Navigation**: `camera-controls` 3.1.2 (MIT) per pane, behind a `NavigationProfile`: *DCC* (Alt+LMB tumble,
    Alt+MMB track, Alt+RMB/wheel dolly, dolly-to-cursor) and *Trackpad* (two-finger scroll tumble, Shift+scroll
    track, pinch = `wheel`+`ctrlKey` dolly; Safari `gesture*` events). The *one-button mac* profile
    (Option+LMB / Option+Cmd+LMB / Option+Ctrl+LMB) is M1-stretch. `F`/`A` frame selection/all with `fitToBox`.
@@ -79,8 +79,8 @@ navigation of an unlocked shot camera, and evaluation of `VRMC_node_constraint` 
 | One `<Canvas>` per pane | Duplicated GPU memory per context, context-loss risk. |
 | GPU ID picking for controls (07) | Async readback and an extra pass; analytic picking is exact for polylines and deterministic in e2e. |
 | Each pane as a dockview panel (09) | Possible in V1; adds layout bookkeeping without MVP value. |
-| Shot-camera moves as undo steps | `Mod+Z` would undo framing instead of animation, unlike Maya. |
-| Gimbal mode in V1 (v0.1) | Object/world rotation edits all three Euler curves at once; Gimbal is how Maya animators keep curves clean (07 D6, 09 §5.9). Cheap given `rotateOrderAxes`. |
+| Shot-camera moves as undo steps | `Mod+Z` would undo framing instead of animation, unlike the desktop DCC. |
+| Gimbal mode in V1 (v0.1) | Object/world rotation edits all three Euler curves at once; Gimbal is how desktop-DCC animators keep curves clean (07 D6, 09 §5.9). Cheap given `rotateOrderAxes`. |
 
 ## Consequences
 

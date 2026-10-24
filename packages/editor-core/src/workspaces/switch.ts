@@ -20,7 +20,7 @@ export const DEFAULT_WORKSPACE_VIEWS: Readonly<
   rig: { layout: 'rig-side', maximizedPane: null },
 };
 
-/** The transform tools (Q W E R): `Y` (last tool, Maya) skips them, so `view.tool` records only the others. */
+/** The transform tools (Q W E R): `Y` (last tool) skips them, so `view.tool` records only the others. */
 export function isTransformTool(tool: ToolId): boolean {
   return tool === 'select' || tool === 'move' || tool === 'rotate' || tool === 'scale';
 }

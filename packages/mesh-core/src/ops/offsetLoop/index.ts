@@ -3,8 +3,8 @@
 // selected edge the chord joins the points on the face's two crossing edges (its edges at the selected edge's ends);
 // an open loop ending at an interior vertex is closed round that vertex through the far faces (a point on each spoke),
 // which leaves end triangles, and `deleteEnds` (default on) removes the end edges between the vertex and the spoke
-// points so the end triangles become quads (Maya `polyDuplicateEdge -deleteEdge`). A face side where the loop turns
-// inside the face (its crossing edge is selected too) gets no chord, with the warning `offsetLoop.corner`
+// points so the end triangles become quads (the desktop DCC's `polyDuplicateEdge -deleteEdge`). A face side where the
+// loop turns inside the face (its crossing edge is selected too) gets no chord, with the warning `offsetLoop.corner`
 // (M6A-B3-10). Chords follow H1; `selection′` = the new edges. Symmetry: the expanded selection.
 import type { ParamValues } from '@ekza-studio/anim-core';
 import { allEdgesHard } from '../../normals/hard';

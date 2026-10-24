@@ -31,7 +31,7 @@
 
 | # | Decision | Why |
 |---|---|---|
-| D1 | **37 task-level tools in 11 groups** (§4), not one tool per operator; a **core profile of 7** loads upfront, the rest are found through tool search. A generic `operator_run` covers the remaining ~100 operators. The bridge's connection tools (note 21: `editor_connect`, `projects_list`, `project_close`) come on top and are not counted. | Anthropic's guidance: "more tools don't always lead to better outcomes", consolidate multi-step workflows into one tool. Community DCC servers land in the same range (Cascadeur: 36 named tools + an opt-in script tool; Maya: 29–30; Blender: 9 + arbitrary Python). |
+| D1 | **37 task-level tools in 11 groups** (§4), not one tool per operator; a **core profile of 7** loads upfront, the rest are found through tool search. A generic `operator_run` covers the remaining ~100 operators. The bridge's connection tools (note 21: `editor_connect`, `projects_list`, `project_close`) come on top and are not counted. | Anthropic's guidance: "more tools don't always lead to better outcomes", consolidate multi-step workflows into one tool. Community DCC servers land in the same range (Cascadeur: 36 named tools + an opt-in script tool; a leading commercial desktop DCC: 29–30; a popular open-source DCC: 9 + arbitrary Python). |
 | D2 | **Units live in field names**: `…Deg`, `…M`, `…Frame(s)`, `…Seconds`, `…Percent`, `…Factor`. Tools speak degrees and metres; every response carries the clip's `fps` and range. | The operators mix units today (`channel.setValues` takes radians, `graph.keys.setFields` display degrees); an LLM must never have to guess. |
 | D3 | **Address things by name**: control template key (`fk.upperArm.L`), display name (`L Upper Arm`) or VRM humanoid bone (`leftUpperArm`); clips and characters by name; body parts by the M2a `BodyPart` ids. IDs are accepted but never required. | Anthropic: resolve opaque IDs to meaningful names. The test API already accepts template keys for controls (MVP-SPEC §4.8). |
 | D4 | **Three posing levels**: raw channel values (Channel Box parity), **goals** (aim a bone in character space, place an IK hand/foot, look at a point), and **recipes** (parametric motions). Reads return bone directions in character space next to Euler values, plus per-control "axis hints". | LLMs are weak at Euler-order arithmetic; they are good at "point the arm down and slightly forward". `rig` already has `solveBoneChannels`, `ikControlForEndWorld`, `matchIkToFk` to implement goals. |
@@ -72,8 +72,8 @@
 |---|---|---|
 | **Cascadeur 2026.2** (Nekki) | a built-in "simple" MCP server "making it possible to connect it to external AI tools – for example, to control the software using a LLM like Claude" (CG Channel) | the animation-tool market already expects MCP |
 | **cascadeur-mcp** (gprethesh, MIT, community) | 36 named tools — scene, rig summary, `get_pose`, `set_pose` (delta rotations in degrees), `set_keys`, `set_interpolation`, `sample_motion` (trajectories, path lengths, maximum step), `mirror`, camera/framing, `capture_viewport` (PNG through MCP), FBX import/export, curated actions — plus `cascadeur_run_script`, **disabled by default** behind `--allow-scripts` | the same size and grouping as our catalogue; mixed units in its reads (quaternions plus Euler radians) are what D2 avoids; script execution is opt-in and dangerous, our escape hatch runs only operators |
-| **MCP for Blender** (formerly blender-mcp; MIT, ~31.6k stars) | 9 tools: `execute_blender_code`, `look` (viewport from a camera, "an auto-framed multi-angle sheet, or an animation strip"), `get_scene_info`, asset search/generation | contact sheets and multi-angle views are the expected "see" primitive; arbitrary code needs a safe mode |
-| **Maya community MCPs** | ~29–30 tools through the command port, plus arbitrary Python | none official; Python execution is the common escape hatch, which our operator-only design avoids |
+| **Open-source-DCC MCP server** (community; MIT, ~31.6k stars) | 9 tools: an arbitrary-Python execution tool, `look` (viewport from a camera, "an auto-framed multi-angle sheet, or an animation strip"), `get_scene_info`, asset search/generation | contact sheets and multi-angle views are the expected "see" primitive; arbitrary code needs a safe mode |
+| **Desktop-DCC community MCPs** | ~29–30 tools through the command port, plus arbitrary Python | none official; Python execution is the common escape hatch, which our operator-only design avoids |
 | **VRMA Lab** (Apache-2.0) | `window.vrmaLab.{inspect, edit, review, validate, exportVrma, undo, redo}` and a deterministic **quad-view review render** (research 05 §2.3) | review renders with fixed framings; read-back validation after export |
 | **Text-to-VRMA** (MIT) | LLM-authored keyframes, 3-candidate comparison, loop closing | LLMs can block simple motions; cleanup is the editor's job |
 
@@ -1086,9 +1086,8 @@ Prior art:
   https://www.cgchannel.com/2026/08/nekki-releases-cascadeur-2026-2-with-animation-layers/
 - cascadeur-mcp (community) and its tool list: https://github.com/gprethesh/cascadeur-mcp ·
   https://github.com/gprethesh/cascadeur-mcp/blob/main/docs/tools.json
-- MCP for Blender (renamed from blender-mcp): https://github.com/ahujasid/mcp-for-blender
-- Maya community MCP servers (examples): https://glama.ai/mcp/servers/@Jeffreytsai1004/maya-mcp ·
-  https://glama.ai/mcp/servers/@bdeda/maya_mcp
+- Community MCP server for the open-source DCC (MIT; add-on socket + stdio server, research 20)
+- Community MCP servers for the desktop DCC (two examples from the Glama MCP directory, research 20)
 - VRMA Lab and Text-to-VRMA: [research 05](05-landscape.md) §2.3
 
 Metrics:

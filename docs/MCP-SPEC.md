@@ -1352,7 +1352,7 @@ Rules (normative, P1):
   `writeKeyAt` at `frame`, whether or not the channel was animated, so pose-to-pose blocking on a new clip keeps
   every pose (a P1 test sets a pose at f0 and another at f10 on a fresh clip and finds keys at both frames). With
   `syncRotation` (default true) every other keyable rotation channel of an edited control's rotation is keyed too, at
-  its evaluated keyed value at `frame` (Maya's `S` keys all three rotation channels, MVP-SPEC §4.11.1 rule 2), so a
+  its evaluated keyed value at `frame` (as `S` keys all three rotation channels, MVP-SPEC §4.11.1 rule 2), so a
   blocking key never drifts on the axes it did not name; `synced` counts those keys. `{mode: 'static'}` changes the
   base value for the whole clip: `staticValue` on channels without keys; a channel with keys is skipped with reason
   `animated`. Locked and non-keyable channels are skipped and reported in every mode. `{mode: 'propose'}` (View
@@ -2614,7 +2614,7 @@ interface PoseResetData { keyed: number; frames: number[] }
 
 Rules: `pose_set {key: 'key'}` (the default) **always writes keys** on every edited channel, so blocking pose after
 pose on a new clip keeps every pose; with `syncRotation` it also keys the control's other rotation axes at their
-evaluated values (the description says so: "keys all rotation axes of a control, like Maya's S"); it warns per
+evaluated values (the description says so: it keys all rotation axes of a control, as `S` does); it warns per
 channel hidden behind a user override (§5.12). `{key: 'static'}` changes the base value for the whole clip on
 channels without keys and skips animated channels (`animated`). `{key: 'pose_only'}` is live-only, needs View, and
 requires `frame` to be the user's current frame of the active clip (`invalid_args` otherwise). `pose_reset` always

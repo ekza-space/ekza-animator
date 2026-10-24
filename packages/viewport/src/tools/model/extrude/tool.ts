@@ -1,5 +1,5 @@
 // The extrude manipulator tool (`VIEWPORT_TOOL.extrude`; M6A-SPEC §5.8, §5.9, §5.10; B12b). While an extrude
-// session is open it draws Maya's polyExtrude manipulator on the cap: every handle drag goes through
+// session is open it draws a desktop DCC's polyExtrude manipulator on the cap: every handle drag goes through
 // `app.extrude.beginAbsorb` (the drag's world-space delta becomes the extrude's `local*` args, previewed from the
 // pre-op mesh and committed with one `edit.adjustLast`), `Shift` held at the start of a handle drag is smart extrude
 // (a new extrude from the drag, `beginSmartExtrude`), `Shift` pressed after the drag started is the fine adjustment

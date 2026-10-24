@@ -18,9 +18,9 @@
 // or kept. Strips have `segments` rows between their sides A (in the edge's first face) and B; rows lie on the chord
 // A → B (`chamfer`) or on the quadratic Bézier A → C′ → B, C′ = M + 2·roundness·(C − M), C the original vertex.
 //
-// Width (Maya fraction semantics): d_x = fraction × ½ × L_x with L_x the shortest edge at x, measured along the slide
-// edges, so fraction 1 makes bevels from both ends of an edge meet; `offsetAsFraction` off → `offset` metres. With
-// `clamp`, a vertex with an edge measured from both of its ends is limited to fraction 0.98 (`bevel.clamped`), and
+// Width (desktop-DCC fraction semantics): d_x = fraction × ½ × L_x with L_x the shortest edge at x, measured along the
+// slide edges, so fraction 1 makes bevels from both ends of an edge meet; `offsetAsFraction` off → `offset` metres.
+// With `clamp`, a vertex with an edge measured from both of its ends is limited to fraction 0.98 (`bevel.clamped`), and
 // when a rebuilt face or a strip would still invert, twist (two new vertices passing each other along an edge, a
 // strip's corner triangle turning over: a bow-tie keeps its Newell normal) or thin out below ε, a rebuilt face or a
 // strip through an in-line vertex would cross itself (a reflex miter past a thin arm), or two new vertices around a

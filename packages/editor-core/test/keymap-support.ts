@@ -5,7 +5,7 @@ import {
   type KeyBinding,
   type KeyScope,
   keyScopeChain,
-  MAYA_KEYMAP,
+  DCC_KEYMAP,
   PANEL,
   resolveChord,
 } from '../src';
@@ -26,9 +26,9 @@ export function ch(text: string): Chord {
   return chord;
 }
 
-export function mayaKeymap(platform: 'mac' | 'other' = 'other'): KernelKeymap {
+export function dccKeymap(platform: 'mac' | 'other' = 'other'): KernelKeymap {
   const keymap = createKeymapManager(platform);
-  keymap.add(MAYA_KEYMAP);
+  keymap.add(DCC_KEYMAP);
   return keymap;
 }
 

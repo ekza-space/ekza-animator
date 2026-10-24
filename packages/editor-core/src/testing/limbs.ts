@@ -23,7 +23,7 @@ import type {
   SkeletonDesc,
 } from '@ekza-studio/rig';
 import { createKernelApp } from '../app/kernel';
-import { MAYA_KEYMAP } from '../keymap/maya';
+import { DCC_KEYMAP } from '../keymap/dcc';
 import type { EditorApp, EditorServices } from '../types';
 import { naiveKernelDeps } from './deps';
 import { createFakeServices } from './services';
@@ -239,7 +239,7 @@ export function fixtureLimbs(def: RigDefinition, skeleton: SkeletonDesc): readon
 
 /**
  * A fake app (the real kernel over the naive kit, like `createFakeEditorApp`) whose rig programs list the limbs of
- * the document's `ik2` solvers (`fixtureLimbs`). No operators are registered; the `maya` keymap is contributed.
+ * the document's `ik2` solvers (`fixtureLimbs`). No operators are registered; the `dcc` keymap is contributed.
  */
 export function createFakeIkEditorApp(opts: {
   readonly snapshot: DocSnapshot;
@@ -268,7 +268,7 @@ export function createFakeIkEditorApp(opts: {
       },
     },
   );
-  app.contribute({ kind: 'keymap', bindings: MAYA_KEYMAP });
+  app.contribute({ kind: 'keymap', bindings: DCC_KEYMAP });
   return app;
 }
 

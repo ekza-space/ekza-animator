@@ -10,7 +10,7 @@ const arrowRows = (rows: ReturnType<typeof shortcutRows>) =>
 
 describe('shortcut sheet: arrow keys (§5.17)', () => {
   it("shows Pick Walk by default and the time operators with prefs.arrowKeys 'frames'", async () => {
-    // The fake app contributes the maya keymap; the built-in operators give the rows their labels.
+    // The fake app contributes the `dcc` keymap; the built-in operators give the rows their labels.
     const { app } = createTestShell({ platform: 'other' });
     registerBuiltinOperators(app);
     // M6A-SPEC §3 rule 9 literal update (§7 arrows in `model.viewport.component`): the control pick-walk rows are

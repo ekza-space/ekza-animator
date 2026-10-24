@@ -1,7 +1,7 @@
 // Numeric entry of the data panels (research 09 §6.4): a text input that shows a live value, accepts expressions
 // while focused, commits on Enter/Tab/blur and reverts on Esc. Invalid input keeps the draft, a red border and a
 // message under the field with the reason. While the user types, the field drops its state colours (`style`), as
-// Maya's edit field does, so the draft stays legible on a keyed (red) or changed (pink) field.
+// a desktop DCC's edit field does, so the draft stays legible on a keyed (red) or changed (pink) field.
 import {
   type CSSProperties,
   type JSX,

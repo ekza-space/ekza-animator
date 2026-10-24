@@ -1,7 +1,7 @@
 // mesh.bevel (M6A-SPEC §5.9, §9 B5 Tests): the count oracles (one cube edge with 1/2/3 segments, all 12 edges, one
-// face in face mode = its four edges), Maya fraction semantics (0.3 on a 1 m cube edge = 0.15 m along the adjacent
-// edges), absolute offsets, the clamp (0.98 when both ends of an edge are bevelled, the clamp property: no inverted
-// faces and no coincident points for any fraction), profiles (chamfer, roundness), hardness (H2 rows, hardened
+// face in face mode = its four edges), desktop-DCC fraction semantics (0.3 on a 1 m cube edge = 0.15 m along the
+// adjacent edges), absolute offsets, the clamp (0.98 when both ends of an edge are bevelled, the clamp property: no
+// inverted faces and no coincident points for any fraction), profiles (chamfer, roundness), hardness (H2 rows, hardened
 // borders, H1 fan spokes, P7-hard), attribute propagation (uv0 lerps and stays continuous, skin weights, paint and
 // materials), refusals, selection′ and the frame. Every run goes through the op harness (P1, P5, P8). The clamp and
 // P1–P4 on concave n-gons (reflex corners) are in concave.test.ts; the clamp at acute and triangle corners, on every
@@ -139,13 +139,13 @@ describe('count oracles (§5.29)', () => {
     runOk(bevel, b, edgeSel(b, edges), { fraction: 0.4 });
     expect(vef(a)).toBe('12/20/10');
     expect(diffStored(a, b)).toBeNull();
-    // selection′: the four strips plus the shrunk top face (Maya).
+    // selection′: the four strips plus the shrunk top face (desktop-DCC convention).
     expect(faceRun.selection.kind).toBe('face');
     expect(faceRun.selection.faces.count()).toBe(5);
   });
 });
 
-describe('width (Maya fraction semantics)', () => {
+describe('width (desktop-DCC fraction semantics)', () => {
   it('fraction 0.3 on a 1 m cube edge puts the new vertices 0.15 m along the adjacent edges', () => {
     const m = cube();
     runOk(bevel, m, edgeSel(m, [topFront(m)]), { fraction: 0.3 });

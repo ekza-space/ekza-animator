@@ -8,7 +8,7 @@
 
 The project is open source and part of the Ekza ecosystem, whose web packages (`ekza-avatar-renderer`, `core`) are
 MIT, as are three.js, R3F, glTF Transform and three-vrm. The closest web neighbours are GPL/AGPL (Reze Studio,
-Pose Studio, Roboticela, Theatre.js studio). Autodesk AnimX, which we port, is Apache-2.0. The design review
+Pose Studio, Roboticela, Theatre.js studio). The AnimX library, which we port, is Apache-2.0. The design review
 checked the pinned dependency tree against the npm registry: `next@16.3.8` depends on `caniuse-lite`
 (CC-BY-4.0) and optionally on `sharp`, whose `@img/sharp-libvips-*` binaries are LGPL-3.0-or-later and load
 in-process; `@tailwindcss/postcss` → `lightningcss` is MPL-2.0. v0.1 also had no CI step that enforced any of
@@ -25,8 +25,8 @@ this, and no notices for the shipped bundle.
 3. **Copy-adapt from MIT sources with attribution headers** (source repository, path, commit, license): the
    `ekza-avatar-renderer` helpers listed in [ARCHITECTURE §13](../../ARCHITECTURE.md#13-ekza-integration).
 4. **Never** copy code from or depend at runtime on GPL, AGPL, SSPL, LGPL-in-process, unlicensed or proprietary
-   sources (including `@theatre/studio`, tldraw SDK, `dockview-enterprise`, Liveblocks server, Blender core,
-   Studio Library). Clean-room re-implementation of *features* is fine.
+   sources (including `@theatre/studio`, tldraw SDK, `dockview-enterprise`, Liveblocks server, the GPL core of a
+   popular open-source DCC, Studio Library). Clean-room re-implementation of *features* is fine.
 5. **Production dependency allow-list**, enforced by `tooling/check-licenses.mjs` in `pnpm ci` and the CI
    workflow over `pnpm licenses list --prod --json`: `MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD,
    BlueOak-1.0.0, CC0-1.0, OFL-1.1 (fonts)`. Anything else must be listed in `tooling/license-exceptions.json`
@@ -41,10 +41,11 @@ this, and no notices for the shipped bundle.
    texts, the Apache-2.0 NOTICE of gltf-validator when the validator worker ships, the AnimX NOTICE, OFL font
    notices); the About dialog links it, next to the sample credits.
 8. Assets: only redistributable fixtures (ADR 0012); `fixtures/LICENSES.md` records source, licence and SHA-256 of
-   every binary, checked by `check:fixtures`. Mixamo or other non-redistributable clips never enter the
-   repository.
-9. `TRADEMARKS.md`: the code is MIT; the "Ekza" name and logo are not licensed; forks must rebrand. Product names
-   of other vendors are used descriptively only ("Maya-style hotkeys"), never in UI branding.
+   every binary, checked by `check:fixtures`. Clips from a web auto-rigging service or other non-redistributable clips
+   never enter the repository.
+9. `TRADEMARKS.md`: the code is MIT; the "Ekza" name and logo are not licensed; forks must rebrand. Third-party
+   product names are not used in branding or UI labels; features are described generically ("industry-standard DCC
+   hotkeys").
 
 ## Alternatives
 

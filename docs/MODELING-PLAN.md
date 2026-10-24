@@ -10,11 +10,13 @@ with a polygon-first sequence: M6a modeling base → M6b characters from own mod
 texturing basics (optional) → M7 AI 3D generation; splines and generators move to M8. Each milestone gets a build
 spec (`docs/M6A-SPEC.md`, …) derived from this plan, as [M2A-SPEC](M2A-SPEC.md) was derived from the roadmap.
 
-- Inputs: research [10](research/10-maya-poly-modeling.md) (Maya tool map), [11](research/11-blender-vs-maya-modeling-ux.md)
-  (Blender vs Maya UX), [12](research/12-lowpoly-workflow.md) (low-poly workflow), [13](research/13-mesh-kernel.md) (mesh
-  kernel), [14](research/14-skinning-own-models.md) (skeleton, skinning, own-model export), [15](research/15-ai-3d-generation.md)
-  (AI generation), [16](research/16-model-workspace-ui.md) (Model workspace UI); earlier [03](research/03-ekza-reuse-audit.md),
-  [06](research/06-collaboration.md), [08](research/08-extensibility-modeling.md), [09](research/09-ui-ux-spec.md).
+- Inputs: research [10](research/10-dcc-poly-modeling.md) (tool map of a leading commercial desktop DCC),
+  [11](research/11-modeling-ux-comparison.md) (its UX against a popular open-source DCC),
+  [12](research/12-lowpoly-workflow.md) (low-poly workflow), [13](research/13-mesh-kernel.md) (mesh kernel),
+  [14](research/14-skinning-own-models.md) (skeleton, skinning, own-model export),
+  [15](research/15-ai-3d-generation.md) (AI generation), [16](research/16-model-workspace-ui.md) (Model workspace UI);
+  earlier [03](research/03-ekza-reuse-audit.md), [06](research/06-collaboration.md),
+  [08](research/08-extensibility-modeling.md), [09](research/09-ui-ux-spec.md).
 - Decisions: [ADR 0014](adr/0014-mesh-kernel.md) mesh kernel, [ADR 0015](adr/0015-mesh-storage-in-the-document.md)
   mesh storage, [ADR 0016](adr/0016-modeling-interaction-paradigm.md) interaction paradigm (all three **Accepted**
   2026-10-19 with the M6a build spec), [ADR 0017](adr/0017-ai-generation-boundary.md) AI generation boundary
@@ -23,7 +25,7 @@ spec (`docs/M6A-SPEC.md`, …) derived from this plan, as [M2A-SPEC](M2A-SPEC.md
   packages; where it refines this plan (flattened extrude args, selection coalescing, B12b dependencies and the
   critical path, kept BIN ranges in the surgeon, …) its §12.2 is binding. [M6B-SPEC](M6B-SPEC.md) v1.1 (2026-10-19,
   revised after its design review; the record is its §12.5) does the same for §5 (Rig & Skin workspace), from
-  research [17](research/17-maya-rigging-basics.md), [18](research/18-constraints-control-shapes.md) and
+  research [17](research/17-dcc-rigging-basics.md), [18](research/18-constraints-control-shapes.md) and
   [19](research/19-rig-workspace-ui.md); its §12.2 is binding.
 - Owner decisions with the defaults chosen: [DECISIONS-OPEN §G](DECISIONS-OPEN.md#g-modeling-iteration-m6am7-defaults-chosen-2026-10-18).
   Queue: [TODO.md](../TODO.md). Sizes are **agent-days** (ROADMAP convention).
@@ -32,12 +34,13 @@ spec (`docs/M6A-SPEC.md`, …) derived from this plan, as [M2A-SPEC](M2A-SPEC.md
 
 ## 0. Summary
 
-**Maya or Blender?** Maya for how the tool *feels* (component modes, right-click marking menus, `Ctrl+E` extrude
-with a live manipulator that W/E/R keep editing, Shift+drag smart extrude, MMB-drag moves, Multi-Cut, Target Weld,
-Slide Edge, `B` soft select, `G` repeat, undoable selection, Maya menu names); Blender for what
-happens *after* a click (adjust the last operation, type numbers into a running tool, live preview with clean cancel,
-symmetry remembered per mesh) and for the **engine underneath** (a BMesh-style kernel with attribute layers and
-destructive operations, no construction history). A Blender keymap comes later as a data pack over the same operators.
+**Desktop DCC or open-source DCC?** The desktop DCC for how the tool *feels* (component modes, right-click marking
+menus, `Ctrl+E` extrude with a live manipulator that W/E/R keep editing, Shift+drag smart extrude, MMB-drag moves,
+Multi-Cut, Target Weld, Slide Edge, `B` soft select, `G` repeat, undoable selection, the desktop DCC's menu names); the
+open-source DCC for what happens *after* a click (adjust the last operation, type numbers into a running tool, live
+preview with clean cancel, symmetry remembered per mesh) and for the **engine underneath** (a BMesh-style kernel with
+attribute layers and destructive operations, no construction history). An alternative keymap preset (open-source-DCC
+style) comes later as a data pack over the same operators.
 Reasons in §1.
 
 **What "turnkey" means**: inside one browser tab, with no other tool and no file conversion — block out a low-poly
@@ -63,59 +66,59 @@ M7 G1 → M7 G2 ‖ M6c → M2b + rest of M2c → V1 → M4a T1 → M3 → M4b �
 
 ---
 
-## 1. Maya or Blender: the recommendation
+## 1. Desktop DCC or open-source DCC: the recommendation
 
 ### 1.1 Answer
 
-Keep **one interaction paradigm, Maya's**, and adopt **Blender's semantics, not Blender's keys** (ADR 0016). The kernel
-copies **Blender's data model** (ADR 0014). This was the coordinator's starting position; research 10, 11, 12, 13, 14
-and 16 each tested it against evidence and kept it (13 adds the refinement "copy Blender's data model, not just its UI
-ideas"; 16 adds the browser-key evidence).
+Keep **one interaction paradigm, the desktop DCC's**, and adopt **the open-source DCC's semantics, not its keys**
+(ADR 0016). The kernel copies **the open-source DCC's data model** (ADR 0014). This was the coordinator's starting
+position; research 10, 11, 12, 13, 14 and 16 each tested it against evidence and kept it (13 adds the refinement "copy
+the open-source DCC's data model, not just its UI ideas"; 16 adds the browser-key evidence).
 
 ### 1.2 Evidence
 
-| Criterion | Maya | Blender | Weight for us |
+| Criterion | Desktop DCC | Open-source DCC | Weight for us |
 |---|---|---|---|
-| Owner muscle memory | the owner models in Maya | — | decisive for a solo owner-artist |
-| Consistency with the shipped Animate side | Q/W/E, Channel Box, RMB marking menus, Alt navigation, `S` = set key, `R` = scale tool, `G` = repeat | `S`/`R`/`G` are modal scale/rotate/grab, RMB cancels, `Tab` = edit mode | one product, one muscle memory; Blender keys would redefine four core keys inside one app (11 §7) |
-| Industry convergence | — | Blender's own *Industry Compatible* keymap (5.2 LTS) is Maya-flavoured for modeling: `1`–`3` modes, `Ctrl+E` extrude, `Ctrl+B` bevel, `B` soft select, double-click loop (10 §0, 11 §2.2) | a Maya-style keymap costs Blender users little |
-| Precise values, changing your mind | In-View Editor / INPUTS on history nodes until deleted | Adjust Last Operation, typed numbers during modal tools | **Blender wins**; we take the semantics (§1.3) |
-| Discoverability | Shift+RMB puts the whole polygon vocabulary one gesture away | spread over edit-mode menus and pies | Maya wins |
-| Half-model symmetry | selection-based symmetry modes, Mirror command | live Mirror modifier with clipping | Blender's live mirror is nicer; M6a stretch (§4.5) |
-| Browser fit | F11 (fullscreen), F12 (DevTools), `Ctrl+Tab` unusable; marking menus are pointer gestures and survive | `Ctrl+R` (reload), `Ctrl+N`, `Ctrl+Tab`, `Alt+E` (Windows menus) unusable; `Tab` collides with focus traversal | both lose keys; Maya's losses are covered by digits `1`/`2`/`3` and the RMB menu (16 §1, §19.2) |
+| Owner muscle memory | the owner models in the desktop DCC | — | decisive for a solo owner-artist |
+| Consistency with the shipped Animate side | Q/W/E, Channel Box, RMB marking menus, Alt navigation, `S` = set key, `R` = scale tool, `G` = repeat | `S`/`R`/`G` are modal scale/rotate/grab, RMB cancels, `Tab` = edit mode | one product, one muscle memory; the open-source DCC's keys would redefine four core keys inside one app (11 §7) |
+| Industry convergence | — | The open-source DCC's own *Industry Compatible* keymap (5.2 LTS) follows the desktop DCC for modeling: `1`–`3` modes, `Ctrl+E` extrude, `Ctrl+B` bevel, `B` soft select, double-click loop (10 §0, 11 §2.2) | The default DCC keymap costs users of the open-source DCC little |
+| Precise values, changing your mind | In-View Editor / INPUTS on history nodes until deleted | Adjust Last Operation, typed numbers during modal tools | **The open-source DCC wins**; we take the semantics (§1.3) |
+| Discoverability | Shift+RMB puts the whole polygon vocabulary one gesture away | spread over edit-mode menus and pies | The desktop DCC wins |
+| Half-model symmetry | selection-based symmetry modes, Mirror command | live Mirror modifier with clipping | The open-source DCC's live mirror is nicer; M6a stretch (§4.5) |
+| Browser fit | F11 (fullscreen), F12 (DevTools), `Ctrl+Tab` unusable; marking menus are pointer gestures and survive | `Ctrl+R` (reload), `Ctrl+N`, `Ctrl+Tab`, `Alt+E` (Windows menus) unusable; `Tab` collides with focus traversal | both lose keys; the desktop DCC's losses are covered by digits `1`/`2`/`3` and the RMB menu (16 §1, §19.2) |
 | Construction history | node per operation, index-fragile, fights deformers ("Delete Non-Deformer History") | none for mesh edits | we skip it (ADR 0014 §8): adjust-last + live primitive parameters cover the useful 80 % (10 §5) |
-| Engine design | history DAG over index-addressed components | BMesh radial-edge with Euler operators, attribute layers, robust with non-manifold input | **Blender's model** (13 §2): imported VRMs (double-sided hair cards, bow-ties) break half-edge kernels |
-| Web precedent | — | — | Blockbench (GPL-3.0, web low-poly modeler with armatures and weight paint) ships Maya, Blender and Cinema 4D keymaps over one action set and implements adjust-last as "undo + re-run" (11 §10): patterns only, no code |
+| Engine design | history DAG over index-addressed components | BMesh radial-edge with Euler operators, attribute layers, robust with non-manifold input | **The open-source DCC's model** (13 §2): imported VRMs (double-sided hair cards, bow-ties) break half-edge kernels |
+| Web precedent | — | — | Blockbench (GPL-3.0, web low-poly modeler with armatures and weight paint) ships keymaps of the desktop DCC, the open-source DCC and Cinema 4D over one action set and implements adjust-last as "undo + re-run" (11 §10): patterns only, no code |
 
 ### 1.3 What we take
 
-- **From Maya** (where things are and which keys do them): object/component selection modes on a selected object (no
-  separate Edit Mode wall); RMB = modes, Shift+RMB = tools (slots provisional until the owner's calibration,
-  Q-MOD-UI-1: S Extrude, W Multi-Cut, SW Delete), Ctrl+RMB = convert, Ctrl+Shift+RMB = selection options;
+- **From the desktop DCC** (where things are and which keys do them): object/component selection modes on a selected
+  object (no separate Edit Mode wall); RMB = modes, Shift+RMB = tools (slots provisional until the owner's
+  calibration, Q-MOD-UI-1: S Extrude, W Multi-Cut, SW Delete), Ctrl+RMB = convert, Ctrl+Shift+RMB = selection options;
   `F8`/`F9`/`F10`; `Ctrl+E` extrude as a **session** whose manipulator and later W/E/R drags on the cap keep editing
-  the same extrude (Maya's `polyExtrudeFace` with its localTranslate/Rotate/Scale), and Shift+drag smart extrude;
-  **MMB-drag anywhere moves the selection** (along the picked handle, or in the view plane) and the Tweak selection
-  style; Maya's loop table (double-click loop; Shift+double-click adjacent = full loop, non-adjacent = partial loop,
-  parallel edge = ring; Ctrl+double-click deselects); `Shift+.`/`Shift+,` grow/shrink; **selection changes are undo
-  steps** in Model (Maya records them by default); hide/show/isolate; `B` soft select (Volume/Surface); `D` pivot,
-  `X`/`V` snap holds; Multi-Cut gestures (Ctrl-click loop, Ctrl+MMB centred loop, RMB completes); Target Weld; Slide
-  Edge; Average Vertices; Delete vs Delete Edge/Vertex; Soften/Harden + Set Normal Angle; reference image planes in
-  the ortho views; Modeling Toolkit panel; Poly Count HUD; `G` repeat, `Y` last tool, `T` brings back the parameters;
-  Maya names in menus.
-- **From Blender** (what happens after an operation): Adjust Last Operation (card + Channel Box INPUTS); typed numbers
-  during any modal drag and right after a keyboard-invoked operation (never while a manipulator merely stays on
-  screen, so `1`–`7` keep their mode and shading meanings); modal tools with live preview and an `Esc` that leaves no
-  history step; symmetry remembered
-  per mesh; `1`/`2`/`3` component modes (Industry Compatible); Smooth-by-Angle as a one-shot operator; face-orientation
-  and statistics overlays; the palette/collapsed-UV colouring trick; later Extrude Manifold, Auto Merge, Select
-  Similar, live Mirror. Blender names (Loop Cut, Knife, Proportional Editing, Mark Sharp, Merge by Distance) are
-  **command-palette aliases**, never menu labels.
+  the same extrude (the desktop DCC's `polyExtrudeFace` with its localTranslate/Rotate/Scale), and Shift+drag smart
+  extrude; **MMB-drag anywhere moves the selection** (along the picked handle, or in the view plane) and the Tweak
+  selection style; the desktop-DCC loop table (double-click loop; Shift+double-click adjacent = full loop,
+  non-adjacent = partial loop, parallel edge = ring; Ctrl+double-click deselects); `Shift+.`/`Shift+,` grow/shrink;
+  **selection changes are undo steps** in Model (the desktop DCC records them by default); hide/show/isolate; `B` soft
+  select (Volume/Surface); `D` pivot, `X`/`V` snap holds; Multi-Cut gestures (Ctrl-click loop, Ctrl+MMB centred loop,
+  RMB completes); Target Weld; Slide Edge; Average Vertices; Delete vs Delete Edge/Vertex; Soften/Harden + Set Normal
+  Angle; reference image planes in the ortho views; Modeling Toolkit panel; Poly Count HUD; `G` repeat, `Y` last tool,
+  `T` brings back the parameters; the desktop DCC's names in menus.
+- **From the open-source DCC** (what happens after an operation): Adjust Last Operation (card + Channel Box INPUTS);
+  typed numbers during any modal drag and right after a keyboard-invoked operation (never while a manipulator merely
+  stays on screen, so `1`–`7` keep their mode and shading meanings); modal tools with live preview and an `Esc` that
+  leaves no history step; symmetry remembered per mesh; `1`/`2`/`3` component modes (Industry Compatible);
+  Smooth-by-Angle as a one-shot operator; face-orientation and statistics overlays; the palette/collapsed-UV colouring
+  trick; later Extrude Manifold, Auto Merge, Select Similar, live Mirror. Names used by other DCCs (Loop Cut, Knife,
+  Proportional Editing, Mark Sharp, Merge by Distance) are **command-palette aliases**, never menu labels.
 - **From neither**: no 3D cursor, no modifier stack UI, no construction history, no hybrid keymap.
 
-### 1.4 For Blender users
+### 1.4 For users of the open-source DCC
 
-A "Coming from Blender" cheat sheet and the palette aliases ship with M6a; the complete `blender` preset (G/R/S modal
-transform with X/Y/Z, `E`, `I`, `K`, `M`, `F`, Alt+click loops with the Blender navigation profile) is a V1+ data pack
+A "Coming from the open-source DCC" cheat sheet and the palette aliases ship with M6a; the complete alternative keymap
+preset (open-source-DCC style: G/R/S modal transform with X/Y/Z, `E`, `I`, `K`, `M`, `F`, Alt+click loops with its own
+navigation profile) is a V1+ data pack
 over the same operator ids (11 §9, 16 §19.5).
 
 ---
@@ -137,11 +140,11 @@ over the same operator ids (11 §9, 16 §19.5).
 
 | Group | Items |
 |---|---|
-| Modes and selection | ✓ object/vertex/edge/face modes (`F8`, `F9`, `F10`, `1`/`2`/`3`, RMB menu), hilite (non-hilited meshes stay **opaque** and unpickable; per-pane "Dim unhilited" option), per-mode selection memory; ✓ click/marquee with Maya modifiers, hover pre-selection, camera-based selection in shaded mode, X-ray select-through; ✓ edge loop, partial loop, ring, face loop, grow/shrink, convert (touching/contained, perimeters), border, shell, with **Maya's loop table** for vertices, edges and faces (§3.5); ✓ **selection changes are undo steps in Model** (consecutive gestures coalesce into one "Select" step; preference, on in Model, off in Animate); ✓ **hide/show/isolate**: Hide Selected `H`, Show All `Shift+H`, Hide Unselected `Alt+H` for components and objects, Isolate Select `Shift+L` per pane; ✓ **Tweak** selection style (drag an unselected component to move it; Move tool option, off by default as in Maya); ◇ multi-component mode, lasso/paint select, Select Similar, component pick-walk [10 §3.1–3.2, 16 §5, §12.3] |
+| Modes and selection | ✓ object/vertex/edge/face modes (`F8`, `F9`, `F10`, `1`/`2`/`3`, RMB menu), hilite (non-hilited meshes stay **opaque** and unpickable; per-pane "Dim unhilited" option), per-mode selection memory; ✓ click/marquee with desktop-DCC modifier keys, hover pre-selection, camera-based selection in shaded mode, X-ray select-through; ✓ edge loop, partial loop, ring, face loop, grow/shrink, convert (touching/contained, perimeters), border, shell, with **the desktop-DCC loop table** for vertices, edges and faces (§3.5); ✓ **selection changes are undo steps in Model** (consecutive gestures coalesce into one "Select" step; preference, on in Model, off in Animate); ✓ **hide/show/isolate**: Hide Selected `H`, Show All `Shift+H`, Hide Unselected `Alt+H` for components and objects, Isolate Select `Shift+L` per pane; ✓ **Tweak** selection style (drag an unselected component to move it; Move tool option, off by default); ◇ multi-component mode, lasso/paint select, Select Similar, component pick-walk [10 §3.1–3.2, 16 §5, §12.3] |
 | Soft selection, symmetry | ✓ soft select Volume + Surface (`B`, `B`+drag radius, smooth falloff, curve presets), weights computed from the symmetry-expanded selection; ✓ symmetry Object/World X/Y/Z with tolerance (**metres**, default 0.001 m, shown in scene units) and Preserve Seam, remembered per mesh; vertex, **edge and face partner maps**; **every base tool mirrors** by the per-tool table of §3.14 (Multi-Cut cut points with `t`/`1−t`, Insert Edge Loop seeds, Target Weld pairs, Slide, Bridge, Merge/Collapse, Bevel, Delete, Paint Colour, soft select; seam rules: a seam-crossing ring inserts one loop, a seam-crossing cut becomes one symmetric cut, welds onto seam vertices collapse both partners); ✓ Symmetrize; ◇ live Mirror (per mesh, non-destructive, baked at export; promoted to base if the §3.14 table overruns, §4.7); topology symmetry → later [10 §3.3, 13 §5.10, 16 §12] |
-| Primitives, templates | ✓ cube, sphere, cylinder, cone, plane, torus with low-poly defaults (sphere 12×8 = 168 tris, cylinder/cone 8 sides, torus 12×6, plane 1×1) and a "Maya defaults" preference; parameters live until the **first component edit of any kind** (a vertex nudge included; object transforms do not freeze them); ✓ templates: prop, handheld (grip gizmo, +Y shaft), humanoid **guides** (proportion guides, budget preset, symmetry Object X) and a humanoid body mesh generator (smooth/segmented, X-symmetric, T-pose, ~400–900 tris; its skeleton template is M6b) [10 §3.4, 12 §11, 16 §16.2] |
+| Primitives, templates | ✓ cube, sphere, cylinder, cone, plane, torus with low-poly defaults (sphere 12×8 = 168 tris, cylinder/cone 8 sides, torus 12×6, plane 1×1) and a desktop-DCC defaults preference (`primitiveDefaults: 'dcc'`); parameters live until the **first component edit of any kind** (a vertex nudge included; object transforms do not freeze them); ✓ templates: prop, handheld (grip gizmo, +Y shaft), humanoid **guides** (proportion guides, budget preset, symmetry Object X) and a humanoid body mesh generator (smooth/segmented, X-symmetric, T-pose, ~400–900 tris; its skeleton template is M6b) [10 §3.4, 12 §11, 16 §16.2] |
 | Transforms, pivots, snapping | ✓ component W/E/R (new viewport Scale tool) with World/Object/**Normal** orientation; ✓ **MMB-drag anywhere** transforms the selection with W/E/R active (along the last-picked handle axis, or in the view plane when the centre was picked) unless a Channel Box or INPUTS field is selected, in which case it stays the virtual slider; ✓ `Ctrl+E` **extrude session** (W/E/R drags on the cap are absorbed into the extrude, §3.4) and Shift+drag smart extrude (one `mesh.extrude` step); ✓ grid (`X`) and vertex (`V`) snap holds, increment `J`; `V` targets any visible, unlocked mesh (align a separate head or hand before Combine); ✓ pivot edit (`D` hold, `Insert`/`Home`), Center Pivot, Pivot to Bottom Center, Bake Pivot; ✓ Freeze / Reset Transformations (required before skinning: glTF ignores a skinned mesh node's transform); ◇ edge snap `C`, interactive primitive placement, Shift+D duplicate with transform [10 §3.5, §4.19] |
-| Topology tools | ✓ **Extrude** faces (together/individual; args `localTranslate`/`localRotate`/`localScale` XYZ, `offset`, `thickness`, `divisions`, local/world; the **primary field is `localTranslateZ`**, distance along the normal) and border edges; ✓ Inset; ✓ **Bevel** edges (fraction/absolute, 1–3 segments, chamfer, clamp, corners of ≥ 3 beveled edges filled with a fan + warning); ✓ **Insert Edge Loop** (relative, equal distance, multiple) and Offset Edge Loop; ✓ **Multi-Cut** (points on edges/vertices, Ctrl-click loop, Ctrl+MMB centred loop, snap step %, RMB/Enter completes, Backspace, Esc) and Connect; ✓ **Slide Edge/Vertex** (along adjacent rails, Maya Slide Edge Tool semantics, percent with numeric input, symmetric); ✓ **Average Vertices** (iterations, strength; borders and the seam pinned); ✓ **Bridge** (equal counts, or two faces; Divisions, Twist, Offset, linear interpolation); ✓ Fill Hole; ✓ Merge (distance), Merge to Center, **Target Weld**, Collapse, Merge by Distance; ✓ Delete (Maya plain) and Delete Edge/Vertex (clean), delete faces; ✓ Spin Edge, Flip Triangle Edge; ◇ Extrude Manifold option, Auto-weld toggle, Multi-Cut points inside faces and slice plane, bridge with unequal counts or curve interpolation, Poke, Chamfer Vertex, Extrude vertices [10 §3.6, §4, 13 §5] |
+| Topology tools | ✓ **Extrude** faces (together/individual; args `localTranslate`/`localRotate`/`localScale` XYZ, `offset`, `thickness`, `divisions`, local/world; the **primary field is `localTranslateZ`**, distance along the normal) and border edges; ✓ Inset; ✓ **Bevel** edges (fraction/absolute, 1–3 segments, chamfer, clamp, corners of ≥ 3 beveled edges filled with a fan + warning); ✓ **Insert Edge Loop** (relative, equal distance, multiple) and Offset Edge Loop; ✓ **Multi-Cut** (points on edges/vertices, Ctrl-click loop, Ctrl+MMB centred loop, snap step %, RMB/Enter completes, Backspace, Esc) and Connect; ✓ **Slide Edge/Vertex** (along adjacent rails, desktop-DCC Slide Edge Tool semantics, percent with numeric input, symmetric); ✓ **Average Vertices** (iterations, strength; borders and the seam pinned); ✓ **Bridge** (equal counts, or two faces; Divisions, Twist, Offset, linear interpolation); ✓ Fill Hole; ✓ Merge (distance), Merge to Center, **Target Weld**, Collapse, Merge by Distance; ✓ Delete (plain, keeps vertices) and Delete Edge/Vertex (clean), delete faces; ✓ Spin Edge, Flip Triangle Edge; ◇ Extrude Manifold option, Auto-weld toggle, Multi-Cut points inside faces and slice plane, bridge with unequal counts or curve interpolation, Poke, Chamfer Vertex, Extrude vertices [10 §3.6, §4, 13 §5] |
 | Mesh-level | ✓ Combine, Separate, Extract, Duplicate, Duplicate Faces as **`MeshSetOp`s** (create/delete records and patch N refs in one transaction, layer and slot remaps, refusals; §3.4); ✓ Mirror (cut geometry, merge border vertices, reversed winding on the copy); ✓ Triangulate, Quadrangulate; ✓ Group / Parent / Unparent (`Ctrl+G`, `P`, `Shift+P`) [10 §3.7, §3.9] |
 | Normals, shading | ✓ per-edge hard flag; new meshes **faceted** (record flag `faceted`), and every op follows one **hard-flag propagation rule** (§3.2) so an all-hard mesh stays all-hard; Soften/Harden, Set Normal Angle (one-shot), Reverse, Conform; ✓ WYSIWYG normals: viewport and exporter derive normals the same way; ✓ triangulation overlay and stored per-face diagonal (Flip on a quad); ✓ shading modes `4`–`7`, wire on shaded, flat, backface culling, normals and face-orientation overlays [12 §5, 16 §10] |
 | Colour, UV | ✓ **per-face palette index** = colour truth; project palettes (swatch records), palette panel, Paint Colour tool, fill shell, select by swatch, replace swatch, eyedropper, palette variants; ✓ export colour outputs: palette PNG with collapsed UVs (default; forced for VRM), `COLOR_0`, one material per colour; ✓ **simple UV**: planar / box (automatic) / cylindrical projections writing `uv0`, UVs propagated by every op; ◇ ramp swatches, decal region; UV editor and unwrap → M6c [12 §4, §6, 13 §5.13] |
@@ -156,7 +159,7 @@ over the same operator ids (11 §9, 16 §19.5).
 |---|---|---|
 | NURBS surfaces, Bézier patches | not low-poly; glTF has no surface primitive | not planned; curves/generators in M8 |
 | Sculpting, dyntopo, multires | "no crazy complexity"; different kernel and UX | not planned |
-| Construction history (Maya node chain) | index-fragile, fights skinning, needs dirty propagation and a fine collaboration model (10 §5, 13 K6) | replaced by adjust-last + live primitives; history only for M8 curve generators |
+| Construction history (desktop-DCC node chain) | index-fragile, fights skinning, needs dirty propagation and a fine collaboration model (10 §5, 13 K6) | replaced by adjust-last + live primitives; history only for M8 curve generators |
 | Booleans | need closed manifolds, add ~205 kB gz WASM (`manifold-3d`), produce n-gons/T-junctions | after M7, lazy worker adapter |
 | Subdivision surfaces, Smooth Mesh Preview, creases | subdivision workflow, not low-poly | later (`Shift+1/2/3` reserved) |
 | UV editor, seams/unwrap, packing, image textures, texture painting | the palette workflow needs no UV layout (12 L2) | M6c (painting: not planned) |
@@ -166,7 +169,7 @@ over the same operator ids (11 §9, 16 §19.5).
 | Skeleton, skinning, weight paint, VRM character writer | separate milestone, partly parallel | M6b |
 | Decimate/Reduce, palette bake from textures, remesh | AI intake tools | M7 (package G-a) |
 | Per-vertex/per-component CRDT, live co-modeling of one mesh | measured too costly and invalid merges (13 §9.6) | per-mesh claims in M3 (ADR 0015) |
-| Blender keymap preset | needs a Blender-user tester and a modal transform operator | V1+ data pack |
+| Alternative keymap preset (open-source-DCC style) | needs a tester fluent in the open-source DCC and a modal transform operator | V1+ data pack |
 | Vertex-face mode, multi-UV-set editing, custom normal editing | niche for low-poly | later |
 
 ---
@@ -208,21 +211,21 @@ editor route and its CI gate (`check:size`, 900,000 B) are unchanged. The route 
 - **Stored** = intrinsic data (positions f32, edge endpoints + flags, corner→vertex, corner→next, face→first corner,
   face material + flags, attribute layers). **Derived** = adjacency (1.8 ms at 50k tris), normals (2.9 ms), triangulation,
   BVH, GPU buffers. Edit links exist only while a mesh is in component mode.
-- **Indices are component IDs** (as in Maya and Blender): append on create, swap-remove on delete; every op returns its
+- **Indices are component IDs** (as in common DCCs): append on create, swap-remove on delete; every op returns its
   remap and the new selection; anything that must survive topology edits uses a **named group layer**.
 - **Every write goes through a write log**; an op's coalesced log is its exact undo patch (`MeshDelta`). Topology code
   is written only with **Euler operators**.
-- **Ops are pure and deterministic**: `(mesh, selection, args) → (delta, selection′, warnings)`, JSON args with Maya
-  parameter names; they **refuse with a reason rather than produce invalid topology**. Determinism gives adjust-last,
-  repeat, goldens and agent/scripting use for free. Each op declares `params: ParamDef[]` (the type lives in
-  anim-core, so mesh-core needs no editor-core import); its JSON schema, defaults and the editor's `OperatorDef.params`
-  are all derived from that one list (§3.4).
+- **Ops are pure and deterministic**: `(mesh, selection, args) → (delta, selection′, warnings)`, JSON args with the
+  desktop DCC's parameter names; they **refuse with a reason rather than produce invalid topology**. Determinism gives
+  adjust-last, repeat, goldens and agent/scripting use for free. Each op declares `params: ParamDef[]` (the type lives
+  in anim-core, so mesh-core needs no editor-core import); its JSON schema, defaults and the editor's
+  `OperatorDef.params` are all derived from that one list (§3.4).
 - **Hard-flag propagation, one rule for every op**: an edge created inside a former face (Multi-Cut, Connect, Insert
   Edge Loop, Triangulate, Fill Hole fans) is hard when every edge of that face was hard; side and strip edges (extrude
   walls, bevel strips, bridge strips, inset rims) are hard when their dihedral angle exceeds the op's
   `smoothingAngle`, whose default is resolved at invoke time to **0° (all hard) on meshes flagged `faceted`** and 30°
-  (Maya) otherwise; mirror seams and welds keep the flags of the edges they merge (hard wins). Property test: an
-  all-hard mesh stays all-hard through every base op (P7).
+  (desktop-DCC convention) otherwise; mirror seams and welds keep the flags of the edges they merge (hard wins).
+  Property test: an all-hard mesh stays all-hard through every base op (P7).
 - **Attribute layers with declared propagation rules** (uv, colour, custom normals, skin joints/weights ≤ 4 normalized,
   morph deltas, groups, palette index): this is the modeling-to-animation bridge — a fix on a skinned VRM keeps its
   weights and expressions.
@@ -351,8 +354,8 @@ there is no `morphTargets` record field to drift from it. Asset-backed meshes ta
 - **Repeat Last (`G`)**: repeatable ops drop their `pointer`-bound args and take their targets from the current
   selection; Insert Edge Loop seeds the ring from the selected edge and keeps divisions and weight; Extrude, Bevel,
   Inset, Bridge, Merge, Delete, Soften/Harden repeat with their values. Ops whose only targets are pointer picks
-  (Multi-Cut, Target Weld, Slide) are not repeatable: `G` re-activates the tool, like `Y` (Maya: `G` after a tool
-  re-enters it). The operator table of the M6a spec states `bound` per argument and `repeatable` per op.
+  (Multi-Cut, Target Weld, Slide) are not repeatable: `G` re-activates the tool, like `Y` (desktop-DCC convention: `G`
+  after a tool re-enters it). The operator table of the M6a spec states `bound` per argument and `repeatable` per op.
 - **`MeshSetOp`** (Combine, Separate, Extract, Duplicate, Duplicate Faces): a second contract next to
   the one-mesh `MeshOp`. Kernel helpers `copySubset(mesh, faces)` and `appendMesh(a, b, xf)` return layer and slot
   remaps; the editor-core runner creates or deletes `MeshRecord`s and patches N refs in **one transaction**, with
@@ -374,20 +377,20 @@ there is no `morphTargets` record field to drift from it. Asset-backed meshes ta
   next field, `Enter` applies through
   `edit.adjustLast`, `Esc` restores; grammar and units of research 09 §6.4. Outside the window `1`–`7` always keep
   their mode and shading meanings and `-`/`=` keep manipulator size. The explicit opener at any time is **`T`**: it
-  opens the Last-op card with its primary field focused (Maya users click into the In-View Editor field the same way).
-  Preference `numericCapture: 'auto' | 'explicit'` (default `auto`; `explicit` = only `T`).
+  opens the Last-op card with its primary field focused (desktop-DCC users click into its In-View Editor field the
+  same way). Preference `numericCapture: 'auto' | 'explicit'` (default `auto`; `explicit` = only `T`).
 - **Adjust-last needs no store contract change**: undo moves the step to redo, the re-run clears redo, so history length
   is unchanged ("Extrude (adjusted)"); ADR 0013's rules hold as written.
 
-#### Extrude session (Maya `polyExtrudeFace` behaviour)
+#### Extrude session (desktop-DCC `polyExtrudeFace` behaviour)
 
-The most common Maya flow is `Ctrl+E`, then the extrude manipulator's own handles **or** `W`/`R` drags on the cap,
+The most common desktop-DCC flow is `Ctrl+E`, then the extrude manipulator's own handles **or** `W`/`R` drags on the cap,
 then Divisions in INPUTS. Without construction history this works through adjust-last:
 
 - `mesh.extrude` args: `localTranslate` XYZ (Z = along the region normal; the **primary field**, what typed digits
   and the manipulator's Z arrow drive), `localRotate` XYZ, `localScale` XYZ, `offset` (inset of the cap, secondary),
-  `thickness` (along per-vertex even-thickness normals, Maya semantics, secondary), `divisions`, `keepFacesTogether`,
-  `space: 'local' | 'world'`, `smoothingAngle`.
+  `thickness` (along per-vertex even-thickness normals, desktop-DCC semantics, secondary), `divisions`,
+  `keepFacesTogether`, `space: 'local' | 'world'`, `smoothingAngle`.
 - `Ctrl+E` runs the extrude with zero offsets and opens an **extrude session**: the extrude manipulator (translate,
   rotate and scale handles in the region frame) is shown and the Last-op card is live. Until the selection changes,
   a non-transform operator runs, the mode or workspace changes, undo/redo or a remote change hits the mesh, every
@@ -409,24 +412,24 @@ then Divisions in INPUTS. Without construction history this works through adjust
 - Session state adds `workspace`, `componentMode`, `hilite`, symmetry per mesh, soft-select settings, constraint,
   selection style, sticky snaps, pivot edit, isolate sets per pane and `lastOp` (16 §22). All U state; snapshots of
   component selections (run-length encoded) ride in `TxMeta.selectionBefore/After`.
-- Topology ops return the new selection (Maya and Blender behaviour); undo restores the snapshot.
-- **Selection changes are undoable in Model** (Maya records selection in its undo queue by default, and Blender
-  records edit-mode selection): `EditorHistory` gains a third, session-only step part, the **selection part**
-  (`{ mesh, mode, before, after }` run-length encoded), next to ADR 0013's document and override parts. Consecutive
-  selection gestures (clicks, marquees, loop picks, grow/shrink, convert) coalesce into one step labelled "Select";
-  hide/show steps are recorded the same way ("Hide"). Nothing enters the document or the CRDT. Preference
+- Topology ops return the new selection (behaviour of common DCCs); undo restores the snapshot.
+- **Selection changes are undoable in Model** (the desktop DCC records selection in its undo queue by default, and the
+  open-source DCC records edit-mode selection): `EditorHistory` gains a third, session-only step part, the **selection
+  part** (`{ mesh, mode, before, after }` run-length encoded), next to ADR 0013's document and override parts.
+  Consecutive selection gestures (clicks, marquees, loop picks, grow/shrink, convert) coalesce into one step labelled
+  "Select"; hide/show steps are recorded the same way ("Hide"). Nothing enters the document or the CRDT. Preference
   `undoSelection` per workspace, default **on in Model, off in Animate** (the shipped animation behaviour). A stray
   click on empty space no longer throws away a hand-built loop selection.
 - **Hidden components** (Hide Selected `H`, Show All `Shift+H`, Hide Unselected `Alt+H`; objects too) are not drawn,
   not pickable, get no soft-selection weight, stop the loop and ring walkers, and are not targets of any op (global
   ops such as Merge by Distance and Conform act on visible elements; edits to visible neighbours may move shared
-  vertices, as in Maya and Blender). Hiding is per-user session state, cleared on file open, never exported.
-  **Isolate Select** (`Shift+L`) is per pane: objects, or the selected faces in face mode. Maya's `Ctrl+H` and
+  vertices, as in common DCCs). Hiding is per-user session state, cleared on file open, never exported.
+  **Isolate Select** (`Shift+L`) is per pane: objects, or the selected faces in face mode. The desktop DCC's `Ctrl+H` and
   `Ctrl+1` stay unbound (browser history and tab switching).
-- **Loop gestures follow Maya's table** for vertices, edges and faces: double-click an edge = its loop; Shift+double-
-  click a component **adjacent** to the selection = the full loop, **non-adjacent** = the partial loop between them;
-  Shift+double-click a parallel edge = the ring; Ctrl+double-click deselects the loop or partial loop
-  ([Maya help](https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-954B5123-F4A6-4E3E-9966-642BBA85D2FE.htm)).
+- **Loop gestures follow the desktop-DCC loop table** for vertices, edges and faces: double-click an edge = its loop;
+  Shift+double-click a component **adjacent** to the selection = the full loop, **non-adjacent** = the partial loop
+  between them; Shift+double-click a parallel edge = the ring; Ctrl+double-click deselects the loop or partial loop
+  (desktop DCC reference: loop selection help, 2017; §13).
 - **Hilite**: meshes not in the hilite set stay **opaque** and are not pickable for components (fitting a helmet on a
   head or eyes in sockets needs them at full opacity); a per-pane "Dim unhilited" display option fades them;
   RMB-on-mesh adds a mesh to the hilite set.
@@ -469,7 +472,7 @@ then Divisions in INPUTS. Without construction history this works through adjust
   everywhere; `Mod+B` Bevel; `K` Multi-Cut; `M` merge menu; `G` repeat; `T` Last-op card with the primary field
   focused; `Y` last tool; `Delete` / `Mod+Delete`; `B`, `D`, `X`, `V`; `H` / `Shift+H` / `Alt+H` hide selected / show
   all / hide unselected; `Shift+L` isolate; `Shift+.`/`Shift+,`; `Ctrl+Alt+←/→` spin edge (menu fallback). Pointer:
-  plain **MMB-drag** with W/E/R active moves/rotates/scales the selection (Maya rule; along the last-picked handle
+  plain **MMB-drag** with W/E/R active moves/rotates/scales the selection (desktop-DCC rule; along the last-picked handle
   axis, or in the view plane), and runs the virtual slider instead when Channel Box channels or an INPUTS field are
   selected (the shipped M2a condition, which today does nothing without selected channels, so the change is additive
   in Animate too). Never bound: `Mod+R`, `Ctrl+N`, `Ctrl+Tab`, `Mod+Shift+I`, `Ctrl+H`, `Ctrl+1`, `Tab` outside modal
@@ -619,9 +622,9 @@ MIT + DCO (ADR 0009). Dependencies checked 2026-10-18 on the npm registry: `earc
 0.9.16 (MIT), `meshoptimizer` 1.3.0 (MIT), `robust-predicates` 3.0.3 (**Unlicense**: outside `ALLOWED_LICENSES`, needs a
 reviewed entry in `tooling/license-exceptions.json`, or our own port of the four predicates), later `manifold-3d`
 3.5.4 (Apache-2.0) and `xatlasjs` 0.2.0 (MIT, stale, no types), `gltf-validator` / `vrm-validator`
-2.0.0-dev.3.10 (Apache-2.0). Blender, LoopTools (GPL-2.0+), Blockbench (GPL-3.0), Pinocchio's library (LGPL) and
-"Blender-matched" ports of unclear provenance are **design references only**; algorithms are implemented from papers
-and our own write-ups, and reviewers reject copied code.
+2.0.0-dev.3.10 (Apache-2.0). The open-source DCC, LoopTools (GPL-2.0+), Blockbench (GPL-3.0), Pinocchio's library
+(LGPL) and ports of unclear provenance that claim to match the open-source DCC are **design references only**;
+algorithms are implemented from papers and our own write-ups, and reviewers reject copied code.
 
 ### 3.14 Symmetry rules per tool
 
@@ -682,7 +685,7 @@ is binding.
 | B0a | `contracts-foundation` | ADRs 0014–0016 accepted; **schema v3** atomic (seven tables incl. `imagePlanes`; `CharacterRecord.source`, `AssetRecord.provenance`, `MeshRecord.data { manifest, rev, base, joints }`, `faceted`; migration; `minWriterVersion`; `referencesOf` for the new tables); **mesh-core public interfaces** (`MeshData`, `EditMesh` traversal, `MeshDelta`, `MeshOp`/`MeshSetOp`, `ComponentSelection`) with a reference `editMeshFrom` for static meshes and a barrel with stub exports; `mesh-view` skeleton; `ParamDef` in anim-core; `BlobStore` interface + memory implementation; **`UndoManager.entries()` + `onEvict`, `EditorHistory` step-drop event and selection parts**; `OperatorDef.params` + `adjustable`/`repeatable` + `bound`, `LastRun`, `edit.adjustLast`/`edit.repeatLast` stubs; session fields, `DisplayFlags`, `MenuItemDef.workspaces`, `ToolDef.workspaces/modes`; licence exception for `robust-predicates`; test-API stubs; eager-route delta ≤ +20 kB gzip (shared with B0b, B9) | `doc/src/{records.ts,snapshot,migrations,undo,store/references.ts}`, `anim-core/src/params`, `editor-core/src/{types.ts,history,operators/args.ts}`, `packages/mesh-*/{package.json,src/index.ts}`, `tooling/` | 3.5 | M2a release |
 | B0b | `keymap-menus` | hierarchical key-scope chain in the DOM adapter, `KeymapManager.preset` widening, scope strings, **all M6a keymap rows** (modes, `Mod+E`/`Mod+Shift+E`, `H`/`Shift+H`/`Alt+H`, `Shift+L`, `T`, `G`, `Y`, …) and **menu registrations** with stub operators; keymap conformance (reserved chords, no conflicts per scope, every binding names a registered operator, **RMB never maps to cancel**); then hands `keymap/**` and the menu files to B9 | `editor-core/src/keymap/**`, menu registration files, `editor/src/input/keyboard.ts` | 2 | B0a |
 | B1 | `mesh-kernel` | 13 K-1: SoA arrays, attribute layers with interp/mirror rules, write log + `MeshDelta`, Euler operators, `validateMesh`, `topologyStats`, revision manifest/chunks with the implicit default tail, **deterministic triangulation** and derived normals (shared by everyone), hard-flag propagation helpers and `smoothingAngle` resolution, six primitives with low-poly defaults, fast-check arbitraries, goldens runner; first benches; replaces the B0a reference stub | `mesh-core/src/{core,layers,log,euler,validate,revision,triangulate,normals,primitives,testing}` | 7 | B0a |
-| B2 | `mesh-select` | 13 K-3: loop/ring/partial loop/face loop walkers with Maya's vertex/edge/face loop table and loop deselect, grow/shrink, convert (touching/contained/perimeter), border, shell; hide bitsets honoured by every walker; soft-selection weights (volume, surface, falloff as an anim-core curve) from the expanded selection; symmetry: **vertex, edge and face partner maps**, edge orientation, pointer-argument mapping (`t`/`1−t`), seam helpers, selection expansion (§3.14) | `mesh-core/src/{select,soft,symmetry}` | 4 | B1 |
+| B2 | `mesh-select` | 13 K-3: loop/ring/partial loop/face loop walkers with the desktop-DCC vertex/edge/face loop table and loop deselect, grow/shrink, convert (touching/contained/perimeter), border, shell; hide bitsets honoured by every walker; soft-selection weights (volume, surface, falloff as an anim-core curve) from the expanded selection; symmetry: **vertex, edge and face partner maps**, edge orientation, pointer-argument mapping (`t`/`1−t`), seam helpers, selection expansion (§3.14) | `mesh-core/src/{select,soft,symmetry}` | 4 | B1 |
 | B3 | `mesh-ops-core` | 13 K-4: **extrude** with the session args (`localTranslate`/`localRotate`/`localScale`, `offset`, `thickness`, `divisions`, local/world; zero-drop only at session end) and border edges, inset, insert edge loop (relative/equal/multiple), offset edge loop, connect, merge/merge to centre/target weld/collapse/merge by distance, delete/delete edge-vertex/delete faces, fill hole, **bridge** (equal counts, two faces; divisions, twist, offset), duplicate/extract faces; per-op hard-flag rule and §3.14 symmetry behaviour for these ops | `mesh-core/src/ops/{extrude,inset,loop,connect,merge,delete,fill,bridge,duplicate}` | 8.5 | B1 |
 | B4 | `mesh-ops-shape` | 13 K-5 + K-6 base: mirror (cut, merge, reversed winding), symmetrize, normals ops (harden/soften/by angle/conform/reverse), triangulate/quadrangulate, spin/flip edge, separate/combine with the **`copySubset`/`appendMesh` remap helpers** of `MeshSetOp`, freeze transforms (bake placement, inverse-transpose normals, winding flip on negative determinant); **Multi-Cut** path (points on edges/vertices, Ctrl loop, snap step, exact n-gon chord tests, seam-crossing clip); **slide edge/vertex** (rails, percent, symmetric); **average vertices** (iterations, strength, borders and seam pinned) | `mesh-core/src/ops/{mirror,normals,triangulate,quad,spin,separate,combine,freeze,cut,slide,average}` | 9.5 | B1 (B2 helpers via READY gates) |
 | B5 | `mesh-bevel-check-uv` | 13 K-7 bounded: edge bevel, fraction/absolute, 1–3 segments, chamfer, clamp overlap, profile, harden borders, fan corners for ≥ 3 beveled edges with > 1 segment (warning), refusals for non-manifold; **Cleanup/Mesh Check diagnostics** and fixes (10 §4.17), shared with B8's lints; UV projections planar/box/cylindrical | `mesh-core/src/ops/bevel`, `mesh-core/src/check`, `mesh-core/src/uv/project` | 8.5 | B1 |
@@ -690,9 +693,9 @@ is binding.
 | B7 | `mesh-runtime-doc` | 13 K-9: meshes/groups/palettes/swatches/imagePlanes table implementations and validation, `BlobStore` (memory; **IndexedDB upgrade with a `blobs` store and per-slot roots**; `.ekzanim` `blobs/`), **derived GC roots, undo byte budget and journal cap**, `MeshRuntime` (op sessions, journal fast path, sync-to-ref fallback, **two-phase commit, `loading` state**, hooks for adjust-last and the extrude session, symmetry-expanded runs), the **`MeshSetOp` runner** (N refs, record creation/deletion in one transaction), selection snapshots; conformance suite extended on memory and `doc-yjs` (mesh-ref undo, compare-before-restore, unknown layers survive, dangling joint fold, morph names single source, `data.base` fork case); bench 50 morph layers × 200 commits; multi-tab autosave recovery e2e with a mesh | `editor-core/src/mesh`, `editor-core/src/services/blobs`, `editor/src/services/{blobs,autosave.ts}`, `io/src/project`, `doc/src/testing/mesh*` | 7 | B0a (B1 via READY gates) |
 | B8 | `mesh-io` | 13 K-2 + 12 §10: make editable (static and skinned layers, morph-aware weld key, report, licence gate), `meshToPrimitives` with derived morph `NORMAL` deltas, author GLB writer for static models, surgeon "replace primitives" (Draco/quantized inputs, extension allowed diffs, `TANGENT` refusal) and **bake marker v2** with the re-bake read-back test, **in-memory container rebuild** feeding `ModelLoader` for edited characters, palette PNG writer and colour outputs A/C/D, handheld profile, new lints (diagnostics from B5), `ekza_model_v1` + provenance lints, lazy glTF-Validator at export, read-back | `io/src/{mesh,export/author,surgeon/{replacePrimitives,bakeIntoModel.ts},png,lints,profiles}` | 10 | B0a (B1, B5 via READY gates) |
 | B9 | `shell-workspaces` | 16 U-0: workspace tabs with status glyphs, per-workspace layouts/menus/status-line group registry, generic `MarkingMenu` (09 §7.4 geometry), command palette with aliases (list UI lazy), viewport Scale tool, shading modes `4`–`7`, overlay layer infrastructure, **overlay slots in `PaneView`/`ViewportPanel`** that B10–B13 register into, `check:size` with the attribution report; owns `keymap/**` and the menu files after B0b | `editor/src/{shell,overlays}`, `editor/src/panels/viewport/{PaneView,ViewportPanel}.tsx`, `viewport/src/{tools/scale,manipulators/scale,layers.ts,manager/shading}` | 5.5 | B0a |
-| B10 | `model-select-ui` | 16 U-1: component modes and hilite (opaque non-hilited meshes), `ComponentSelection` service, picking wiring (click, marquee, Maya loop gesture table), camera-based selection, RMB mode menu and Ctrl+RMB convert menu, **selection undo in Model** (coalesced "Select" steps, preference), **hide/show/isolate**, Poly Count HUD with budget bar, Mesh Check panel + overlay | `editor-core/src/selection/component`, `editor/src/panels/{viewport/hud,meshcheck}`, select operators | 6.5 | B9, B6, B0b (B2 walkers, B5 Mesh Check via READY gates) |
+| B10 | `model-select-ui` | 16 U-1: component modes and hilite (opaque non-hilited meshes), `ComponentSelection` service, picking wiring (click, marquee, desktop-DCC loop gesture table), camera-based selection, RMB mode menu and Ctrl+RMB convert menu, **selection undo in Model** (coalesced "Select" steps, preference), **hide/show/isolate**, Poly Count HUD with budget bar, Mesh Check panel + overlay | `editor-core/src/selection/component`, `editor/src/panels/{viewport/hud,meshcheck}`, select operators | 6.5 | B9, B6, B0b (B2 walkers, B5 Mesh Check via READY gates) |
 | B11 | `model-ops-ui` | 16 U-2: registration of every `mesh.*` operator with `params` (derived through `meshOperator`), Model menus (Mesh, Edit Mesh, Mesh Tools, Mesh Display), Shift+RMB menus, Modeling Toolkit panel and option boxes, **Last-op card + Channel Box INPUTS**, `LastRun` recording and `edit.adjustLast`/`edit.repeatLast` in the dispatcher, `G`/`T`/`Y` semantics, the **numeric capture window** and the `T` opener | `editor-core/src/operators/builtin/{index.ts,edit.ts,mesh,lastop}`, `editor/src/panels/{toolkit,channelbox/inputs,viewport/LastOpCard}` | 5.5 | B9, B7 |
-| B12a | `model-transform-tools` | 16 U-3, transforms: modal tool contract; component W/E/R in World/Object/Normal space; **MMB-drag** (Maya rule) and the Tweak style; snapping `X`/`V`/`J` with targets on other meshes; pivot editing `D`/`Insert`/`Home`, pivot menu; soft select `B`/`B`+drag + ring; symmetry dropdown + plane and transforms under symmetry (seam rules); modal readout chip. **Owner feel check** (30 min in Chrome) when it merges | `viewport/src/tools/model/transform`, `viewport/src/{manipulators/component,snap,pivot}`, `editor/src/panels/viewport/ModalReadout` | 5 | B10, B11 |
+| B12a | `model-transform-tools` | 16 U-3, transforms: modal tool contract; component W/E/R in World/Object/Normal space; **MMB-drag** (desktop-DCC rule) and the Tweak style; snapping `X`/`V`/`J` with targets on other meshes; pivot editing `D`/`Insert`/`Home`, pivot menu; soft select `B`/`B`+drag + ring; symmetry dropdown + plane and transforms under symmetry (seam rules); modal readout chip. **Owner feel check** (30 min in Chrome) when it merges | `viewport/src/tools/model/transform`, `viewport/src/{manipulators/component,snap,pivot}`, `editor/src/panels/viewport/ModalReadout` | 5 | B10, B11 |
 | B12b | `model-topology-tools` | 16 U-3, topology: **extrude session** with the extrude manipulator (W/E/R absorption via READY gate on B12a), inset and bevel handles, Shift+drag smart extrude; Multi-Cut, Insert Edge Loop (with slide), Target Weld and **Slide Edge/Vertex** tools; symmetric pointer arguments (§3.14) | `viewport/src/tools/model/{extrude,multicut,loop,weld,slide}`, `viewport/src/manipulators/extrude` | 5 | B10, B11 (B3/B4 ops via READY gates) |
 | B13 | `model-content` | 16 U-4 + 12 §4: Outliner for meshes and groups (badges, triangles, `prim`/`✎`/`⊘ asset`, Make editable inline with the VRM licence gate, reparent in Model), Palette panel, Paint Colour tool and `palette.*` ops, Model start card, primitive UI, templates (prop, handheld with grip gizmo, humanoid guides and body mesh generator), **reference image planes** (import, per-camera placement, opacity, depth, lock; Attribute panel), Getting started card, Export dialog "Static model" section | `editor/src/panels/{outliner,palette,imageplanes}`, `editor/src/panels/viewport/ModelEmptyState`, `editor-core/src/operators/builtin/{palette,imageplane}`, `mesh-core/src/templates`, `editor/src/dialogs/export/model` | 7.5 | B9, B7, B8 |
 | INT | `integration` | turns READY gates into failures; cross-package E2E-MOD scenarios (01, 15, 16, 30, 31), AS-LP-A/B static parts with the scripted twin, budget bench, README/ROADMAP/REQUIREMENTS (FR-MOD rows), DECISIONS-OPEN record, owner demo script; owns `apps/web/next.config.ts` and the manifests | `apps/web/e2e/m6a-*`, docs | 6 | B1…B13 |
@@ -804,8 +807,8 @@ E2E (Chrome and SwiftShader; mouse and trackpad profiles):
 | E2E-MOD-32 | All-hard: on a faceted cube, run each base topology tool once through the UI; the normals overlay shows no smoothed edge | B11 |
 
 Manual acceptance: **AS-LP-A** (character from a cube against reference images, ≤ 3,000 tris, colour, Mesh Check
-clean, symmetric, every base tool of §8 used) and **AS-LP-B** (sword) of §8, run by a Maya-experienced tester (the
-owner) in Chrome; times recorded, not gating. **Owner feel check** (30 minutes, Chrome) right after B12a merges:
+clean, symmetric, every base tool of §8 used) and **AS-LP-B** (sword) of §8, run by a tester experienced in the desktop
+DCC (the owner) in Chrome; times recorded, not gating. **Owner feel check** (30 minutes, Chrome) right after B12a merges:
 component W/E/R, MMB-drag, snapping, pivot, soft select and symmetry, so comfort problems surface before INT.
 
 ### 4.5 M6a-stretch (`test.fixme` until built; fallbacks named)
@@ -827,7 +830,7 @@ call).
 
 | Risk | Mitigation |
 |---|---|
-| Bevel and knife scope creep (Blender: 8.5k and 4.9k lines) | bounded v1 scopes with refusals; segments ≤ 3; in-face cut points stretch |
+| Bevel and knife scope creep (open-source DCC: 8.5k and 4.9k lines) | bounded v1 scopes with refusals; segments ≤ 3; in-face cut points stretch |
 | Contract ripple through shipped code (operators, selection, keymap scopes, history, schema) | one atomic B0a (B0b for keymap rows); conformance and keymap tests extended there; existing e2e must stay green at every merge |
 | Topology edits silently breaking skin or expressions on imported VRMs | layer propagation rules + P7 tests; morph target removal blocked; E2E-MOD-12 |
 | F-keys and browser chords (`F10`, `Ctrl+B` in Firefox, `Ctrl+Shift+E` Firefox Network Monitor, `Ctrl+Alt+arrows` on some Windows drivers) | digits + RMB menus as the primary path; `preventDefault`; per-release QA matrix (Chromium is the supported target) |
@@ -836,7 +839,7 @@ call).
 | Tool comfort only discovered in the final owner run | B12 split in two packages; owner feel check after B12a; AS-LP-A requires every base tool |
 | Undo memory with many morph layers (Seed-san head: 129 targets) | implicit default tail in chunks; byte budget with eviction toast; journal cap; B7 bench |
 | Eager route growth from shell work (785 kB of 800 kB target) | ≤ +20 kB gzip for B0a/B0b/B9; lazy palette list and Model menus; attribution report in B9 |
-| Marking-menu compass positions not calibrated against Maya | slots provisional; owner check before the spec freezes (Q-MOD-UI-1) |
+| Marking-menu compass positions not calibrated against the desktop DCC | slots provisional; owner check before the spec freezes (Q-MOD-UI-1) |
 | Model chunk size | lazy workspace chunk ≤ 250 kB gz; `check:size` gate on the first-visit route unchanged |
 
 ---
@@ -852,20 +855,20 @@ Build spec: [M6B-SPEC](M6B-SPEC.md) v1.1 (2026-10-19, revised after its design r
 (schema v4), normative behaviours, operator table,
 keymap, UI placement, work packages C0…C11 + INT, E2E-SKIN/E2E-RIG/E2E-CNS scenarios and the turnkey acceptance AS-LP-T;
 where it refines this section, its §12.2 is binding. On the owner's request ("do we have basic rigging tools? let's add
-them too") M6b grew from "characters from own models" into a **full but bounded Rig & Skin workspace** with Maya's
-rigging basics (research [17](research/17-maya-rigging-basics.md)), constraints and control-shape editing moved from M2c
-(research [18](research/18-constraints-control-shapes.md)) and a complete workspace UI
-(research [19](research/19-rig-workspace-ui.md)).
+them too") M6b grew from "characters from own models" into a **full but bounded Rig & Skin workspace** with the
+desktop DCC's rigging basics (research [17](research/17-dcc-rigging-basics.md)), constraints and control-shape editing
+moved from M2c (research [18](research/18-constraints-control-shapes.md)) and a complete workspace UI (research
+[19](research/19-rig-workspace-ui.md)).
 
 ### 5.1 Deliverables
 
 | Group | Items |
 |---|---|
-| Workspace | Rig & Skin tab (Model › Rig & Skin › Animate) with four modes — Object, **Skeleton** `1`, **Skin** `2`, **Shapes** `3` (`F8` toggles); pose view `Bind │ Test │ Clip`; Maya's Rigging menus (Skeleton, Skin, Constrain, Control) and marking menus; Rig Toolkit with a setup checklist (Template → Fit → Bind → Test → Fix weights → Control rig → Animate); Paint Weights panel; Component Editor; **Validation panel** as the export gate (`skel.*`, `skin.*`, `rig.*`, `vrm.*` lints with severities per export profile); selection undo; Animate keying rows shadowed so nothing in Rig & Skin ever keys |
+| Workspace | Rig & Skin tab (Model › Rig & Skin › Animate) with four modes — Object, **Skeleton** `1`, **Skin** `2`, **Shapes** `3` (`F8` toggles); pose view `Bind │ Test │ Clip`; desktop-DCC Rigging menus (Skeleton, Skin, Constrain, Control) and marking menus; Rig Toolkit with a setup checklist (Template → Fit → Bind → Test → Fix weights → Control rig → Animate); Paint Weights panel; Component Editor; **Validation panel** as the export gate (`skel.*`, `skin.*`, `rig.*`, `vrm.*` lints with severities per export profile); selection undo; Animate keying rows shadowed so nothing in Rig & Skin ever keys |
 | Characters from models | a model-sourced character from selected scene meshes (adoption with frozen placements, the live generator ended), `skeletonFromDoc`, the synthesized container (one display/export path, in a lazy `character-runtime` chunk every workspace loads for own-model characters), live skinned display, `rig.autoRig.update` inside every skeleton edit (control IDs from rename-proof joint keys, curves and user shape edits kept; user-authored chains get visible controls); **Attach Prop** (prop joint under the root, rigid bind, `prop.*` control, parent constraint with keyable weights); **sockets** (non-deforming helper joints with a control: back and hip sheathes, aim targets); Import Static Model |
-| Skeleton | VRM humanoid templates Lite 17 / Core 21 / **Standard 33** (mitten hands, default) / Full 52 with 2° rest flexion at elbows and knees, pre-fitted on M6a's generated body; **Quick Rig** (five markers or a One-Click guess, guides, Snap to Projected Center; T- and A-posed meshes); **Joint tool** (projected centre, X symmetry, MMB/`Insert` reposition, `Backspace`, `Enter`/RMB one step, automatic parent); Insert Joint, Split Bone, Add Chain, Duplicate Joints; Remove (splice) and Delete (subtree); Parent/Unparent; rename with mirror rename; Map Humanoid Bone; Set Side; joint roles (deforming bone, non-deforming helper such as the template root, prop); **Orient Joint** (World/Maya/Blender presets, key conversion on bone-aligned controls); **Mirror Joint** (YZ, Orientation/Behavior, update in place); joint display (X-ray, size, side colours, axes, labels); Apply Pose as Rest |
+| Skeleton | VRM humanoid templates Lite 17 / Core 21 / **Standard 33** (mitten hands, default) / Full 52 with 2° rest flexion at elbows and knees, pre-fitted on M6a's generated body; **Quick Rig** (five markers or a One-Click guess, guides, Snap to Projected Center; T- and A-posed meshes); **Joint tool** (projected centre, X symmetry, MMB/`Insert` reposition, `Backspace`, `Enter`/RMB one step, automatic parent); Insert Joint, Split Bone, Add Chain, Duplicate Joints; Remove (splice) and Delete (subtree); Parent/Unparent; rename with mirror rename; Map Humanoid Bone; Set Side; joint roles (deforming bone, non-deforming helper such as the template root, prop); **Orient Joint** (`world`/`xAim`/`yAim` presets, key conversion on bone-aligned controls); **Mirror Joint** (YZ, Orientation/Behavior, update in place); joint display (X-ray, size, side colours, axes, labels); Apply Pose as Rest |
 | Test loop | one rule per state: `W` moves rests (Move Skinned Joints after binding; `D` + drag moves one joint), `E` on a bound joint is a **test pose** (session, never a key; IK limbs bend in FK for the test), also from Skin mode without leaving the brush; Go to Bind Pose (the constraint-free rest); ROM test clip; painting on the posed mesh |
-| Binding | Bind Skin with `auto-lowpoly` (rigid islands + bone heat, default), `closest` (in hierarchy, dropoff), `rigid-islands`, `heat`; joint/point masks; one joint = rigid attach; symmetrize; ≤ 4 influences, always normalized; in a worker; adjustable; **Auto Weights for Selected Joints** (Maya's Add Influence for a new chain on a bound mesh) |
+| Binding | Bind Skin with `auto-lowpoly` (rigid islands + bone heat, default), `closest` (in hierarchy, dropoff), `rigid-islands`, `heat`; joint/point masks; one joint = rigid attach; symmetrize; ≤ 4 influences, always normalized; in a worker; adjustable; **Auto Weights for Selected Joints** (Add Influence for a new chain on a bound mesh) |
 | Weights | normalization with **holds**; **Paint Skin Weights** (Replace/Add/Scale/Smooth, Flood, value/opacity, deterministic stroke rule, surface/volume, X-mirror stroke, sample, pick influence); weight display (greyscale, ramp, influence colours, **numbers overlay**, Lock-Relative); **Component Editor** with a Hold row; assign, rigid islands, Mirror/Copy (weight inpainting)/Smooth/Hammer Skin Weights, copy/paste vertex weights, Prune, Normalize, Remove Unused Influences, Move Weights; missing weights after Model edits filled by inpainting with a review flag |
 | Constraints (FR-RIG-10, from M2c) | parent, point, orient, aim as built-in rig ops on the shipped `ConstraintRecord`; weights and blend as keyable holder attributes; maintain offset (rest-derived, stored, snap; per target, with Update Offset › Match for drops); averaged rotations; five world-up types; compiler fixes (a prop follows an IK hand, cycles disable only the constraint); Update/Clear Offset, Bake to Keys, Mirror, Delete; also in Animate's Rig menu; ◇ space switching |
 | Control shapes (FR-RIG-13, from M2c) | library (+ arrow, double arrow, gear, double circle), colour, size, line width, `W`/`E`/`R` on the shape offset, CV editing into custom shapes, Mirror/Copy/Paste/Reset/Size from Mesh; user edits survive rig updates; never keys |
@@ -874,8 +877,8 @@ rigging basics (research [17](research/17-maya-rigging-basics.md)), constraints 
 | Schema | v4: VRM meta on characters, prop joints, thumbnail assets, test clips, shape edit markers; projects with own-model characters or constraints open read-only in `v0.3.x` |
 
 **Non-goals** (owner): set driven keys, a node editor, rig scripting, blend-shape authoring, muscle systems. Also out:
-skin layers, envelopes (stretch), DQ skinning, > 4 influences, scale/geometry constraints, joint limits, HumanIK, VRM
-0.x export, spring-bone/expression authoring (M6B-SPEC §1.3).
+skin layers, envelopes (stretch), DQ skinning, > 4 influences, scale/geometry constraints, joint limits, a full-body
+IK/retargeting system, VRM 0.x export, spring-bone/expression authoring (M6B-SPEC §1.3).
 
 ### 5.2 Work packages
 
@@ -1000,10 +1003,10 @@ and UniRig (MIT); Hunyuan3D open weights only as an opt-in with a territory gate
 
 ## 8. End-to-end acceptance AS-LP — "Lowpoly Lad and his sword"
 
-Run by a Maya-experienced tester (the owner) in Chrome on a fresh profile with built-ins only; the scripted twin
-**AS-LP-S** replays the same operator sequence headlessly (Node for mesh/rig/skin/export, SwiftShader for viewport
-steps; every tool of Part A in the same order) and asserts golden counts, validator results and file hashes. Times
-are recorded, not gating: character ≤ 90 min, prop ≤ 15 min, rig + skin ≤ 30 min, walk ≤ 30 min.
+Run by a tester experienced in the desktop DCC (the owner) in Chrome on a fresh profile with built-ins only; the
+scripted twin **AS-LP-S** replays the same operator sequence headlessly (Node for mesh/rig/skin/export, SwiftShader
+for viewport steps; every tool of Part A in the same order) and asserts golden counts, validator results and file
+hashes. Times are recorded, not gating: character ≤ 90 min, prop ≤ 15 min, rig + skin ≤ 30 min, walk ≤ 30 min.
 
 | Part | Milestone | Steps | Checks |
 |---|---|---|---|
@@ -1029,7 +1032,7 @@ Release-note caveat (ADR 0010 §6): OMOBA **admits** the humanoid but plays its 
 | 4 | **Turnkey release** (`v0.4.0`) | Closes the loop model → rig → animate → export; T0 (manual upload to Hub) works with no ecosystem change |
 | 5 | **"Publish avatar"** (the T3 slice of M4a) in parallel with M7 G1 | Needs only the `studio-upload` registry scope (the avatar kind exists, unlike `ekza:animation`), ≈ 2 days here plus registry work in its repository; ends the turnkey story inside Ekza |
 | 6 | **M7 G1**, then G2 (with M6c in parallel if wanted) | Generated meshes are only useful once cleanup (M6a) and rig/skin (M6b) exist; contracts are already in place from M6a, so nothing is retrofitted; integrating later also lands on newer provider models (Meshy and Tripo retired modes within months) |
-| 7 | **M2b** (FBX/BVH/Mixamo retarget) and the rest of **M2c** → **V1** release | M2b's humanoid inference (FR-IO-13) also helps M7 with Mixamo-like provider rigs (G2); M2c polish (onion skin, playblast, audio, hotkey editor, IO worker; constraints and control-shape editing moved to M6b) can then include the Model and Rig & Skin workspaces |
+| 7 | **M2b** (FBX/BVH retarget, incl. common auto-rigger skeletons) and the rest of **M2c** → **V1** release | M2b's humanoid inference (FR-IO-13) also helps M7 with provider rigs that use auto-rigger bone names (G2); M2c polish (onion skin, playblast, audio, hotkey editor, IO worker; constraints and control-shape editing moved to M6b) can then include the Model and Rig & Skin workspaces |
 | 8 | **M4a T1** (typed animation assets) | Registry migration and game consumers in other repositories; independent of collaboration |
 | 9 | **M3** collaboration, then **M4b** | No team user exists yet; mesh storage (chunks, claims) must be settled first so the sync transport and `HttpAssetStore` cover mesh blobs once; `doc-yjs` keeps running the conformance suite with the schema v3 tables meanwhile, so the store contract does not drift |
 | 10 | **M5**, then **M8** splines and generators | `mesh-core` is the generator output type, so M8 builds on M6 without a second kernel |
@@ -1040,7 +1043,7 @@ Release-note caveat (ADR 0010 §6): OMOBA **admits** the humanoid but plays its 
 
 | Risk | Milestone | Mitigation |
 |---|---|---|
-| Scope creep from Maya's breadth (~90 matrix rows in research 10) | M6a | BASE/stretch tags; fixed package list; bevel ≤ 3 segments; no in-face cut points in base |
+| Scope creep from the desktop DCC's breadth (~90 matrix rows in research 10) | M6a | BASE/stretch tags; fixed package list; bevel ≤ 3 segments; no in-face cut points in base |
 | Invalid topology or non-deterministic ops (breaks adjust-last, goldens, undo) | M6a | refusal policy, `validateMesh` after every commit in debug builds, P1–P9 property tests, Node vs Chromium hash test |
 | Silent damage to skinned or expression-bearing imports | M6a/M6b | layer propagation rules, stable morph order, licence gate, surgeon tests, E2E-MOD-12 |
 | Contract ripple through shipped M1/M2a code | M6a | atomic B0a; existing e2e stay green at every merge |
@@ -1072,11 +1075,11 @@ Release-note caveat (ADR 0010 §6): OMOBA **admits** the humanoid but plays its 
 | 3 | Adjust-last mechanism | 13: amend-last option in `TxMeta`/`PatchUndoManager`; 16: `EditorHistory.amend`; 11: undo + re-run dispatcher | **Undo + re-run** (`edit.adjustLast`, ADR 0008 dispatcher pattern) | No store or ADR 0013 change; proven in a web stack (Blockbench); history length unchanged |
 | 4 | Key scope naming | 11: one `mesh` scope; 16: hierarchical `model.viewport.component` … | **Hierarchical** (`model.viewport.component` = 11's `mesh`) | `K`, `M`, `T`, `Home` need Model meanings in object mode too |
 | 5 | `F11` for face mode | 11: bind F8–F11; 10, 16: F11 unusable | **F11/F12 never bound in web builds**; `3` and the RMB menu | A browser that delivers F11 still goes fullscreen: one press would do two things |
-| 6 | `Delete` on edges | 10: Maya plain Delete (keeps vertices) + `Ctrl+Delete` clean; 16: Delete dissolves | **Maya behaviour** + stray-vertex lint with a one-click fix; research 16 §6.1, §19.3 and §19.4 are marked superseded (the SW slot runs plain Delete, Delete Edge/Vertex is in the slot's list) | Owner muscle memory; one cube edge under Delete Edge/Vertex changes the shape (cube → prism) |
-| 7 | Live Mirror | 11: modeling v1; 10: NEXT | **M6a-stretch**, promoted to base only under the §3.14 overrun rule | Symmetry mode + Mirror cover the half-model workflow in Maya style once every tool mirrors (§3.14); live mirror adds an evaluated-mesh layer to picking and export |
-| 8 | Smoothing | 11: live built-in modifier; 12: one-shot operator | **One-shot Set Normal Angle + stored hard flags**; no modifier registry in M6a | Blender 4.1 users reported friction re-applying auto-smooth after edits; one fewer concept |
+| 6 | `Delete` on edges | 10: the desktop DCC's plain Delete (keeps vertices) + `Ctrl+Delete` clean; 16: Delete dissolves | **Plain Delete (desktop-DCC behaviour)** + stray-vertex lint with a one-click fix; research 16 §6.1, §19.3 and §19.4 are marked superseded (the SW slot runs plain Delete, Delete Edge/Vertex is in the slot's list) | Owner muscle memory; one cube edge under Delete Edge/Vertex changes the shape (cube → prism) |
+| 7 | Live Mirror | 11: modeling v1; 10: NEXT | **M6a-stretch**, promoted to base only under the §3.14 overrun rule | Symmetry mode + Mirror cover the half-model workflow in desktop-DCC style once every tool mirrors (§3.14); live mirror adds an evaluated-mesh layer to picking and export |
+| 8 | Smoothing | 11: live built-in modifier; 12: one-shot operator | **One-shot Set Normal Angle + stored hard flags**; no modifier registry in M6a | Users of the open-source DCC (4.1) reported friction re-applying auto-smooth after edits; one fewer concept |
 | 9 | Omitting `NORMAL` on faceted meshes | 10: possible; 12: always write | **Always write `NORMAL`** | Some importers render unlit without it; it cannot express mixed hard/soft shading |
-| 10 | Primitive defaults | 10: sphere 12×8, torus 12×6; 16: sphere 8×6 | **Research 10's values** + "Maya defaults" preference | 12×8 reads as round at character scale; both are low poly |
+| 10 | Primitive defaults | 10: sphere 12×8, torus 12×6; 16: sphere 8×6 | **Research 10's values** + desktop-DCC defaults preference | 12×8 reads as round at character scale; both are low poly |
 | 11 | Mitten finger chain | 12: middle finger; 14: index finger | **Middle finger** | Pointing gestures curl the middle finger and extend the index: a mitten then reads as a fist, closer to intent |
 | 12 | Template presets | 12: core 21 (+ mitten 33, full 51); 14: Lite 17, Standard 33, Full 52 | **Lite 17, Core 21, Standard 33 (default), Full 52** | Union of both; Standard (mitten) is the default in both notes |
 | 13 | Command palette | 11: exists (`Mod+K`); code on `dev`: not built | **Build it in B9** | Verified on `dev` 2026-10-18 |
@@ -1087,10 +1090,10 @@ Release-note caveat (ADR 0010 §6): OMOBA **admits** the humanoid but plays its 
 | 18 | Schema changes | 13, 14, 15 each propose one | **One atomic schema v3 in B0a** for M6a and M6b records | The M2a pattern; M6b can start in parallel against fixed records |
 | 19 | Rig for generated humanoids | 15 Q8 open | **Provider rig when available (Tripo `vrm` spec), own Quick Rig + auto-skin otherwise; voxel binding in G2** | Voxel binding (the method for polygon soup) is not in M6b; provider rigs are VRM-named and fast |
 | 20 | Mesh blob granularity | 10 §8: whole-blob revisions are fine at low poly; 13: chunked | **Chunked revisions** | Same code path, but autosave and M3 upload write only changed chunks; worst case equals a whole blob |
-| 21 | Primary field of Extrude | 16 §8.2: Offset (an inset) as the headline value; 10 §4.2: Local Translate Z along the normal | **`localTranslateZ`** primary, Offset and Thickness secondary | Typed `0.5` after `Ctrl+E` must push the cap out, as Maya's Z handle and Blender's `E` do |
+| 21 | Primary field of Extrude | 16 §8.2: Offset (an inset) as the headline value; 10 §4.2: Local Translate Z along the normal | **`localTranslateZ`** primary, Offset and Thickness secondary | Typed `0.5` after `Ctrl+E` must push the cap out, as the desktop DCC's Z handle and the open-source DCC's `E` do |
 | 22 | Numeric capture | 11 §6.4: armed from the run until tool switch, empty click or selection change | **Narrow window** (drag, or keyboard-invoked op until the first pointer move/click/non-numeric key) + `T` opener | With a persistent extrude manipulator the wide window swallowed `1`–`7` |
-| 23 | Selection undo | 09 §6.3: not undoable ("Maya has an option") | **Undoable in Model** (coalesced "Select" steps, session-only), off in Animate | Maya records selection in its undo queue by default; Blender records edit-mode selection |
-| 24 | RMB during a drag | 16 §9, §19.3 and 10 §4.2: Esc or RMB cancels; ADR 0016: RMB never cancels | **RMB never cancels** (ignored during a drag, completes Multi-Cut) | A cancel on RMB would throw away a Multi-Cut a Maya user means to complete |
+| 23 | Selection undo | 09 §6.3: not undoable ("the desktop DCC has an option") | **Undoable in Model** (coalesced "Select" steps, session-only), off in Animate | The desktop DCC records selection in its undo queue by default; the open-source DCC records edit-mode selection |
+| 24 | RMB during a drag | 16 §9, §19.3 and 10 §4.2: Esc or RMB cancels; ADR 0016: RMB never cancels | **RMB never cancels** (ignored during a drag, completes Multi-Cut) | A cancel on RMB would throw away a Multi-Cut a desktop-DCC user means to complete |
 | 25 | Non-hilited meshes | 16 §5.3: drawn at 70 % opacity | **Opaque**, "Dim unhilited" per pane | Fitting work needs neighbours at full opacity; transparency sorting artefacts |
 | 26 | Symmetry tolerance unit | 10 §3.3: 0.001 × bbox diagonal; 16 §12.1: 0.001 m | **Metres, default 0.001 m**, shown in scene units | A unit that does not change when the mesh grows |
 
@@ -1098,7 +1101,7 @@ Release-note caveat (ADR 0010 §6): OMOBA **admits** the humanoid but plays its 
 
 ## 12. Design review (2026-10-19): decisions
 
-The v0.1 plan went through a design review (modeling UX against Maya and Blender, kernel and storage, IO, schedule,
+The v0.1 plan went through a design review (modeling UX against the two reference DCCs, kernel and storage, IO, schedule,
 AI security). Every finding is listed with what was done. **Applied** = as proposed; **Applied (variant)** = the
 problem is fixed another way, with the reason; **Rejected** = not done, with the reason. Nothing was dropped silently.
 
@@ -1107,9 +1110,9 @@ problem is fixed another way, with the reason; **Rejected** = not done, with the
 | R1 | blocker | BlobStore GC from "pinned undo steps" has no eviction API; retention bounded by entries, not bytes; morph layers make whole-layer commits expensive | **Applied** | `UndoManager.entries()`/`onEvict`, `EditorHistory` step-drop event (B0a); GC roots derived from undo/redo entries, records, runtimes and autosave slots; 256 MB undo byte budget + 64 MB journal cap with eviction toast; bench 50 morph layers × 200 commits (B7). Added: implicit default tail in chunks, so appending points does not rewrite every zero morph layer (§3.3, ADR 0015 §2–§3, §6) |
 | R2 | major | `Ctrl+E` then `W`/`R` closes the Last-op card; Divisions cannot change after a move | **Applied** | extrude session with `local*` args, absorbed W/E/R drags, zero-drop at session end, smart extrude as one step; E2E-MOD-17/18 (§3.4, ADR 0016 D7) |
 | R3 | major | numeric capture armed for the whole manipulator lifetime eats `1`–`7` | **Applied (variant)** | narrow window (a) drag, (b) keyboard-invoked op until the first pointer move/click/non-numeric key; the explicit opener is **`T`** (focuses the primary field), not `Tab` or `=`: `Tab` is never bound outside modal tools and `-`/`=` are the shipped manipulator-size keys; E2E-MOD-19 (§3.4, ADR 0016 D8, Q-MOD-UI-8) |
-| R4 | major | symmetry only for selection-driven ops; pointer-arg tools and seam cases unspecified | **Applied** | edge/face partner maps (B2), per-tool table with seam rules (§3.14), P10, E2E-MOD-20/21/22. Live Mirror stays stretch with a measured promotion rule instead of being promoted now: Maya users model characters with Symmetry mode, and the table is bounded |
-| R5 | major | component selection not undoable; research 09's Maya claim inaccurate | **Applied (variant)** | the full fix, not the ring-buffer alternative: `EditorHistory` already interleaves session-only parts (ADR 0013), so a selection part costs little; coalesced "Select" steps, on in Model, off in Animate; research 09 §6.3 corrected; E2E-MOD-26 (§3.5) |
-| R6 | major | Maya's MMB-drag move is missing; research 10 claims it exists | **Applied** | MMB-drag with W/E/R active unless channels/INPUTS are selected (the shipped slider condition), Animate included because today's MMB without channels does nothing; Tweak style promoted to base (Move option, off by default); research 10 §3.1 corrected; E2E-MOD-23 (B12a) |
+| R4 | major | symmetry only for selection-driven ops; pointer-arg tools and seam cases unspecified | **Applied** | edge/face partner maps (B2), per-tool table with seam rules (§3.14), P10, E2E-MOD-20/21/22. Live Mirror stays stretch with a measured promotion rule instead of being promoted now: desktop-DCC users model characters with Symmetry mode, and the table is bounded |
+| R5 | major | component selection not undoable; research 09's claim about the desktop DCC inaccurate | **Applied (variant)** | the full fix, not the ring-buffer alternative: `EditorHistory` already interleaves session-only parts (ADR 0013), so a selection part costs little; coalesced "Select" steps, on in Model, off in Animate; research 09 §6.3 corrected; E2E-MOD-26 (§3.5) |
+| R6 | major | The desktop DCC's MMB-drag move is missing; research 10 claims it exists | **Applied** | MMB-drag with W/E/R active unless channels/INPUTS are selected (the shipped slider condition), Animate included because today's MMB without channels does nothing; Tweak style promoted to base (Move option, off by default); research 10 §3.1 corrected; E2E-MOD-23 (B12a) |
 | R7 | major | Slide Edge/Vertex and Average Vertices missing | **Applied** | `mesh.slide` and `mesh.averageVertices` in B4, slide tool in B12b; E2E-MOD-24 |
 | R8 | major | hide/isolate not scheduled | **Applied** | `H`/`Shift+H`/`Alt+H`, `Shift+L` per pane; hide bitsets in walkers and ops (B2, B10); hiding is session state, not saved; E2E-MOD-25 |
 | R9 | major | reference image planes only stretch | **Applied** | base, B13 (+1.5); `imagePlanes` table in schema v3; AS-LP-A step; E2E-MOD-29 |
@@ -1121,7 +1124,7 @@ problem is fixed another way, with the reason; **Rejected** = not done, with the
 | R15 | minor | research 16 still says Delete dissolves; ADR 0016 calls slots fixed | **Applied** | research 16 §6.1/§19.3/§19.4 marked superseded; ADR 0016 D1 slots provisional until Q-MOD-UI-1 |
 | R16 | minor | documents disagree on RMB cancel | **Applied** | RMB never cancels (ignored during drags, completes Multi-Cut); research 10/16 fixed; keymap conformance assertion in B0b |
 | R17 | minor | non-hilited meshes faded to 70 % | **Applied** | opaque by default, "Dim unhilited" per pane (§3.5) |
-| R18 | minor | loop gestures not Maya's table | **Applied** | Maya table for vertices, edges, faces incl. Ctrl+double-click deselect; E2E-MOD-26 |
+| R18 | minor | loop gestures not the desktop-DCC table | **Applied** | Desktop-DCC table for vertices, edges, faces incl. Ctrl+double-click deselect; E2E-MOD-26 |
 | R19 | minor | primitive tweaks lost when parameters change | **Applied (variant)** | freeze at the first component edit of any kind (the simpler of the two proposals, no index re-mapping); E2E-MOD-27 |
 | R20 | minor | tolerance unit, soft weights near the seam, cross-mesh snap, Bridge parameters | **Applied (variant)** | metres (0.001 m); soft weights from the expanded selection, seam vertices in-plane; Bridge divisions/twist/offset + E2E-MOD-28. Cross-mesh targets apply to **`V`** (and `C` when built), not to `X`: grid snap has no mesh target |
 | R21 | major | surgeon "replace primitives" vs the bake marker; no compaction policy exists | **Applied** | bake marker v2 (replaced primitives' JSON, pre-geometry baseline), dead-range drop as an allowed diff, re-bake read-back E2E-MOD-31; research 13 §10.4 corrected |
@@ -1149,9 +1152,9 @@ problem is fixed another way, with the reason; **Rejected** = not done, with the
 
 ## 13. Sources
 
-Research notes of this iteration (each with its own primary sources: Autodesk Maya 2026/2027 help, Blender 5.2 LTS
-manual, glTF 2.0 and VRM 1.0 specifications, three.js r186, Bevy 0.19.1, provider docs and terms):
-[10](research/10-maya-poly-modeling.md), [11](research/11-blender-vs-maya-modeling-ux.md), [12](research/12-lowpoly-workflow.md),
+Research notes of this iteration (each with its own primary sources: desktop DCC 2026/2027 help, open-source DCC
+5.2 LTS manual, glTF 2.0 and VRM 1.0 specifications, three.js r186, Bevy 0.19.1, provider docs and terms):
+[10](research/10-dcc-poly-modeling.md), [11](research/11-modeling-ux-comparison.md), [12](research/12-lowpoly-workflow.md),
 [13](research/13-mesh-kernel.md), [14](research/14-skinning-own-models.md), [15](research/15-ai-3d-generation.md),
 [16](research/16-model-workspace-ui.md).
 
@@ -1164,17 +1167,15 @@ Re-verified for this plan on 2026-10-18:
   https://developers.tripo3d.com/en/docs/animations-rig.md
 - Meshy `lowpoly` model type deprecated, retiring 2026-10-30; Smart Topology replacement:
   https://docs.meshy.ai/api/changelog , https://docs.meshy.ai/api/asset-retention
-- Design review checks (2026-10-19): Maya Move Tool, "middle drag anywhere on the screen, to move in three axes …
-  with a manipulator handle selected, to move in a single axis" —
-  https://help.autodesk.com/cloudhelp/2022/ENU/Maya-Basics/files/GUID-9BCE8B23-6DA6-4C7F-B897-7E25D6E8A865.htm ;
-  Maya loop selection (Shift+double-click non-adjacent = partial loop, Ctrl+double-click deselects) —
-  https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-954B5123-F4A6-4E3E-9966-642BBA85D2FE.htm ; selection
-  commands fill Maya's undo queue (users ask Autodesk to consolidate them) —
-  https://forums.autodesk.com/t5/maya-ideas/consolidate-undo-steps-for-selection/m-p/13331011 ;
+- Design review checks (2026-10-19): the desktop DCC's Move Tool, "middle drag anywhere on the screen, to move in
+  three axes … with a manipulator handle selected, to move in a single axis" — desktop DCC reference: Move Tool
+  help (2022); the desktop DCC's loop selection (Shift+double-click non-adjacent = partial loop, Ctrl+double-click
+  deselects) — desktop DCC reference: loop selection help (2017); selection commands fill the desktop DCC's undo queue
+  (users ask the vendor to consolidate them) — the vendor's ideas forum, "consolidate undo steps for selection";
   `@pixiv/three-vrm-materials-mtoon` 3.5.5 `_generateOutline` adds two geometry groups and a material array (read in
   the installed package); `PatchUndoManager` evicts with `splice` and exposes no eviction API, `EkzaBakeMarkerV1`
   rolls back by truncation, `apps/web` sends no CSP, the autosave DB has only `slots` and `assets`, and the viewport's
   plain MMB runs the virtual slider only with selected channels (code on `dev`, read-only).
 - Repository state on `dev` (read-only): `Partition` is `'scene' | char:… | clip:…` (`packages/doc/src/records.ts`),
-  `SCHEMA_VERSION = 2`, `Mod+E` opens Export (`packages/editor-core/src/keymap/maya.ts`), one workspace `'animate'`,
+  `SCHEMA_VERSION = 2`, `Mod+E` opens Export (`packages/editor-core/src/keymap/dcc.ts`), one workspace `'animate'`,
   no command palette and no viewport Scale tool yet, `ALLOWED_LICENSES` without Unlicense (`tooling/check-licenses.mjs`).

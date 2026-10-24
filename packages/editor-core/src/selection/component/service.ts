@@ -3,8 +3,9 @@
 // - Per mesh and per kind: a bitset, the pick order and the active component (per-mode memory: switching modes keeps
 //   every kind's set). Reads are copies; hidden members are left out of what `get` returns, so walkers and ops never
 //   see them (the stored picks keep them, so undoing a hide brings the selection back as it was).
-// - Hidden components: faces are the primary hide (component hides convert to faces, as Maya does); `hidden()` adds
-//   every edge whose faces are all hidden and every vertex whose edges are all hidden (mesh-view's rule, M6A-B6-6).
+// - Hidden components: faces are the primary hide (component hides convert to faces, as desktop DCCs do);
+//   `hidden()` adds every edge whose faces are all hidden and every vertex whose edges are all hidden (mesh-view's
+//   rule, M6A-B6-6).
 // - Revisions: the indices belong to the mesh's committed revision (`MeshRuntime.ref`). A `set`/`remap` while an op
 //   is in flight (its result, stored inside its commit before the batch: other sizes than the committed revision's, a
 //   stored form the runtime replaced, or a result already pending) is pending whatever its sizes: the state before it

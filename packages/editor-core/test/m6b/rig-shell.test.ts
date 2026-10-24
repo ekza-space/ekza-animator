@@ -26,7 +26,7 @@ import {
   KEYING_CHORDS,
   keyScopeChain,
   LEFT_RIG_REASON,
-  MAYA_KEYMAP,
+  DCC_KEYMAP,
   MODE_MASKS,
   PANEL,
   RIG_KEYMAP,
@@ -243,7 +243,7 @@ describe('the §7 MVP rows and their conformance', () => {
     );
     const snapshot = (): string[] =>
       chains.flatMap((chain) =>
-        MAYA_KEYMAP.map((row) => JSON.stringify(resolveChord(app.keymap, row.chord, chain) ?? null)),
+        DCC_KEYMAP.map((row) => JSON.stringify(resolveChord(app.keymap, row.chord, chain) ?? null)),
       );
     const before = snapshot();
     await app.rig.load();

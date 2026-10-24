@@ -1,5 +1,5 @@
 // B10 (M6A-SPEC §5.6, §4.4): the Model select runtime on a real viewport — it loads with the first mesh, picks
-// components of the hilited meshes on click (one history step per gesture), applies Maya's modifiers, selects edges
+// components of the hilited meshes on click (one history step per gesture), applies the click modifiers, selects edges
 // by marquee only with both endpoints inside, sends double-clicks to the loop table, selects mesh objects in object
 // mode, pre-highlights the hovered component, answers the operators' pointer probe, frames component selections and
 // pushes face isolate sets to the mesh display.

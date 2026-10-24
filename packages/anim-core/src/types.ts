@@ -14,7 +14,7 @@ export interface ReadonlyXf { readonly t: ReadonlyVec3; readonly q: ReadonlyQuat
 export type Disposer = () => void;
 
 /**
- * Rotate order in DCC (Maya/Blender) semantics: the FIRST letter is applied FIRST.
+ * Rotate order in the common DCC semantics: the FIRST letter is applied FIRST.
  * 'xyz' ⇒ R = Rz·Ry·Rx (column vectors) ≡ three.js Euler order 'ZYX'.
  */
 export type RotateOrder = 'xyz' | 'yzx' | 'zxy' | 'xzy' | 'yxz' | 'zyx';
@@ -105,7 +105,7 @@ export interface ReduceOptions {
 }
 export interface ReduceResult { readonly keys: KeyData[]; readonly removed: number; readonly maxError: number }
 
-/** Graph Editor numeric tangent fields in Maya convention (x in seconds, display units). */
+/** Graph Editor numeric tangent fields in the DCC convention (x in seconds, display units). */
 export interface TangentFields { readonly angleDeg: number; readonly weight: number }
 
 // ---------- geometry (control shapes now, spline modeling later) ----------

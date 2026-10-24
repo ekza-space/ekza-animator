@@ -2,7 +2,7 @@
 // a reload in the same tab offers "Continue where you left off" on ① and returns to the mirrored step once the
 // document is back (Start over discards the slot); `?sample=` and `?step=`; From Studio ("Use these"); the `autorig`
 // keys (Mod+Enter, Alt+1…5, Mod+Z; Studio's Mod+K palette key off, the palette through `⋯`); Simple navigation —
-// a plain drag on empty space orbits the persp pane, Alt (Maya) keeps working, and after a switch to Studio a plain
+// a plain drag on empty space orbits the persp pane, Alt+drag keeps working, and after a switch to Studio a plain
 // drag no longer orbits (the override is gone; the unit tests prove `navProfile` is never written); Open in Studio keeps the page and the history;
 // the wizard panes' pose and preview badges from ③ on (AR-D3-1).
 import { expect, type Page, test } from '@playwright/test';
@@ -166,7 +166,7 @@ test('Simple navigation: a plain drag orbits on ①; after a switch Studio navig
   await drag(page, at, 120);
   const orbited = await call(page, 'cameraOf', 'pane-persp');
   expect(moved(orbited, start)).toBe(true);
-  // Alt + mouse (Maya) keeps working
+  // Alt+drag navigation keeps working
   await drag(page, at, -80, true);
   expect(moved(await call(page, 'cameraOf', 'pane-persp'), orbited)).toBe(true);
 

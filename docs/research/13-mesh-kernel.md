@@ -10,6 +10,8 @@
 > Measurements in this note were taken on 2026-10-18 with Node 25.6.1 on an Apple M4 Pro (single thread, median of
 > 7–15 runs). The architecture's reference machine is a 2020-class laptop (M1 / GTX 1650 class), roughly 2× slower
 > single-threaded; budgets in §8 are stated for the reference machine.
+> Two reference DCCs are named generically: "the desktop DCC" is a leading commercial desktop DCC, "the open-source
+> DCC" is a popular open-source DCC (GPL-2.0+). Ekza is not affiliated with any DCC vendor.
 
 ---
 
@@ -18,27 +20,28 @@
 | # | Decision | Why (evidence) |
 |---|---|---|
 | K1 | **Edit structure = BMesh-style radial-edge** (vertex, edge, corner/loop, face; disk, radial and loop cycles), n-gons, non-manifold edges, wire edges and loose vertices, **stored as struct-of-arrays typed arrays**, not objects. No half-edge. | Half-edge kernels reject what imported GLBs contain (OpenMesh `add_face` drops faces with "complex edge/vertex"); BMesh "trivially represents any non-manifold condition including wire edges" (§2). Objects per element mean GC pressure at 50k tris. |
-| K2 | **One dense index space per domain**; create = append, delete = **swap-remove** (last element moves into the hole). Indices are the component IDs (as in Maya and Blender); every op reports its remap. Anything outside the mesh that must survive topology edits references a **named group** (an attribute layer), never an index. | Maya keeps component lists by index and its history nodes renumber them (Maya SDK); Maya 2022+ added Component Tags (named groups on the geometry) for exactly this. Swap-remove keeps arrays dense and every edit local (O(touched)), which keeps undo patches and blob chunk changes small. |
-| K3 | **Store intrinsic data only**: positions, edge endpoints and flags, corner→vertex and corner→next, face→first corner, material and flags, attribute layers. **Derive** disk/radial links, corner→edge, normals, triangulation, BVH and GPU buffers. | Same split as Blender's `Mesh` (SoA, "top-down" topology arrays, lazily cached normals) vs `BMesh` (edit adjacency). Measured: deriving all adjacency for 50k tris takes 1.8 ms (§8). "Store intent, not derived data" (06 R5). |
-| K4 | **Every write goes through a typed-array write log** (array, index, old, new). An op's coalesced log *is* its undo patch: exact for stored and derived arrays, no per-op inverse code, no adjacency rebuild on undo. Euler operators are the safe topology API on top. | Exact undo/redo in O(changed); the doc undo budget is ≤ 5 ms per gesture (ARCHITECTURE §14). Hand-written inverses per tool are what 08 §1.1 calls Maya's weak point ("hand-written undo per command"). |
-| K5 | **Ops are pure, deterministic functions** of (mesh, selection, args): no randomness, index tie-breaks everywhere. This gives modal numeric input, Blender's **Adjust Last Operation** (revert the log, re-run with new args, amend the same undo step) and reproducible tests. | Blender's redo panel and Maya's history-node inputs both need re-runnable ops; determinism is also what property tests and golden files need. |
+| K2 | **One dense index space per domain**; create = append, delete = **swap-remove** (last element moves into the hole). Indices are the component IDs (as in both reference DCCs); every op reports its remap. Anything outside the mesh that must survive topology edits references a **named group** (an attribute layer), never an index. | The desktop DCC keeps component lists by index and its history nodes renumber them (its SDK docs); its 2022+ releases added Component Tags (named groups on the geometry) for exactly this. Swap-remove keeps arrays dense and every edit local (O(touched)), which keeps undo patches and blob chunk changes small. |
+| K3 | **Store intrinsic data only**: positions, edge endpoints and flags, corner→vertex and corner→next, face→first corner, material and flags, attribute layers. **Derive** disk/radial links, corner→edge, normals, triangulation, BVH and GPU buffers. | Same split as the open-source DCC's `Mesh` (SoA, "top-down" topology arrays, lazily cached normals) vs `BMesh` (edit adjacency). Measured: deriving all adjacency for 50k tris takes 1.8 ms (§8). "Store intent, not derived data" (06 R5). |
+| K4 | **Every write goes through a typed-array write log** (array, index, old, new). An op's coalesced log *is* its undo patch: exact for stored and derived arrays, no per-op inverse code, no adjacency rebuild on undo. Euler operators are the safe topology API on top. | Exact undo/redo in O(changed); the doc undo budget is ≤ 5 ms per gesture (ARCHITECTURE §14). Hand-written inverses per tool are what 08 §1.1 calls the desktop DCC's weak point ("hand-written undo per command"). |
+| K5 | **Ops are pure, deterministic functions** of (mesh, selection, args): no randomness, index tie-breaks everywhere. This gives modal numeric input, the open-source DCC's **Adjust Last Operation** (revert the log, re-run with new args, amend the same undo step) and reproducible tests. | The open-source DCC's redo panel and the desktop DCC's history-node inputs both need re-runnable ops; determinism is also what property tests and golden files need. |
 | K6 | **Destructive modeling + adjust-last-op; no construction history in v1.** Primitive generators keep their creation params until the first edit. | Construction history drags in dirty propagation, per-node undo and collaboration conflicts; low-poly box modeling does not need it (§5.0). |
 | K7 | **The document stores one field per mesh: a revision ref** (`manifest` = SHA-256 of a small manifest listing per-layer **content-addressed chunks**). Undo restores the ref through the existing `PatchUndoManager`; the mesh runtime follows the ref through its write-log journal (fast path) or rebuilds from chunks (fallback). **No per-component records, no per-vertex CRDT.** | Measured on a 50k-tri mesh in Yjs 13.6.33: per-component maps = 1.83 MB and 67 ms to load; a hash-ref record = 132 bytes after 21 revisions; an index-coherent 1,000-vertex edit changes 1–2 position chunks (24–48 KiB) vs a 22 KB per-component CRDT delta (§9.6). CRDT merges cannot keep mesh invariants (a face referencing a concurrently deleted vertex). 06 D8 and 08 trap 10 already say so for keys and vertices. |
 | K8 | **Collaboration on meshes is by exclusive claim** (one editor per mesh at a time; partition `mesh:<id>`), others receive revisions chunk by chunk. | Same pattern as structural clip ops (ADR 0002 §8) and 06 P3 ("polygon meshes as coarse LWW blobs"). |
 | K9 | **Main-thread ops up to 50k tris; workers for heavy jobs** (decimate, auto-atlas, booleans, big imports) with transferable typed arrays. No `SharedArrayBuffer`. | Measured op-path costs are a few ms at 50k (§8); SAB needs cross-origin isolation, which breaks the Ekza Studio iframe embed (ADR 0010). |
 | K10 | **Picking is CPU-first**: `three-mesh-bvh` for ray hits, occlusion and region queries, plus a screen-space grid for vertices/edges; a GPU ID buffer (`readRenderTargetPixelsAsync`, present in three r186) only if measurements demand it. | Follows ARCHITECTURE conflict #10 (analytic, exact, testable, no readback stall). Measured: BVH build 6.3 ms, refit 0.9 ms, 1,000 raycasts 1.0 ms at 50k tris. |
-| K11 | **Libraries**: depend on `earcut` (ISC), `three-mesh-bvh` (MIT), `meshoptimizer` (MIT), `robust-predicates` (Unlicense: needs a licence-gate exception, or port the four predicates). Behind adapters and lazily loaded: `manifold-3d` (Apache-2.0, booleans, later) and `xatlasjs` (MIT, auto-atlas/packing). **Implement** the radial-edge kernel, all modeling ops, LSCM and the overlay renderer ourselves, clean-room. | No maintained JS half-edge/BMesh library with attribute layers and undo exists (§6); Blender (GPL-2.0+) and Blockbench (GPL-3.0) are design references only. |
+| K11 | **Libraries**: depend on `earcut` (ISC), `three-mesh-bvh` (MIT), `meshoptimizer` (MIT), `robust-predicates` (Unlicense: needs a licence-gate exception, or port the four predicates). Behind adapters and lazily loaded: `manifold-3d` (Apache-2.0, booleans, later) and `xatlasjs` (MIT, auto-atlas/packing). **Implement** the radial-edge kernel, all modeling ops, LSCM and the overlay renderer ourselves, clean-room. | No maintained JS half-edge/BMesh library with attribute layers and undo exists (§6); the open-source DCC (GPL-2.0+) and Blockbench (GPL-3.0) are design references only. |
 | K12 | **Imports: "Make editable" is explicit and per mesh.** Exact-position weld (also requiring equal skin data), hard edges recovered from split normals, the file's normals kept as custom normals until touched. **Untouched meshes are never re-encoded** on export. | Keeps the surgeon's byte-preservation promise (ADR 0005); reproduces DCC topology from glTF's split vertices. |
 | K13 | **Animation coexistence**: model in bind pose; skin weights (4 influences), morph deltas, UVs, colours and groups are attribute layers with declared propagation rules that every op applies; morph target **order is stable** (VRM expression binds index it). | glTF/three/Bevy skin with 4 influences per set; "All primitives MUST have the same number of morph targets in the same order" (glTF 2.0). |
 | K14 | **Packages**: `mesh-core` (headless kernel, ops, UV, validators, glTF bridge types), `mesh-wasm` (headless adapters, lazy), `mesh-view` (three.js overlays + picking). `editor-core` gains `MeshRuntime` and `mesh.*` operators; `doc` gains a `meshes` table and the `mesh:` partition; `io` gains the glTF ↔ mesh bridge and a surgeon "replace primitives" step. | Fits the layering of ARCHITECTURE §3 (headless below viewport; three only in view packages). |
 
-**Maya or Blender, from the kernel's side.** The engine should be Blender-shaped (BMesh-style topology, attribute
-layers, destructive ops with a redo panel), because that is the better documented, more robust edit-kernel design and
-because history graphs are expensive in a collaborative web document. The surface can be Maya-shaped (component
-modes, Modeling Toolkit habits, tool manipulators, Maya node parameter names on the op args, the last op's inputs
-shown Maya-style next to the Channel Box): every kernel op exposes JSON args that both a Maya-style tool and a
-Blender-style modal/redo panel drive. This supports the coordinator's position — Maya interaction model, Blender
-ideas where they are better — with one refinement: copy Blender's *data model*, not just its UI ideas.
+**The desktop DCC or the open-source DCC, from the kernel's side.** The engine should be shaped like the
+open-source DCC (BMesh-style topology, attribute layers, destructive ops with a redo panel), because that is the
+better documented, more robust edit-kernel design and because history graphs are expensive in a collaborative web
+document. The surface can be shaped like the desktop DCC (component modes, Modeling Toolkit habits, tool
+manipulators, its node parameter names on the op args, the last op's inputs shown next to the Channel Box as it does
+there): every kernel op exposes JSON args that both a desktop-DCC-style tool and an open-source-DCC-style modal/redo
+panel drive. This supports the coordinator's position — the desktop DCC's interaction model, the open-source DCC's
+ideas where they are better — with one refinement: copy the open-source DCC's *data model*, not just its UI ideas.
 
 ---
 
@@ -47,7 +50,7 @@ ideas where they are better — with one refinement: copy Blender's *data model*
 | Requirement | Source | Consequence |
 |---|---|---|
 | Low-poly box modeling: typical meshes 500–20k triangles; **50k triangles must stay interactive**; up to ~200k works but slower; larger inputs (AI generation, scans) are decimated first | Owner request ("low-poly, no crazy complexity"), AI-generation follow-up | Budgets in §8; decimation and cleanup in §5.17 |
-| n-gons for modeling, quads for loops and rings, triangles for export | Maya and Blender behaviour; glTF has triangles only | Faces of any length ≥ 3, no holes in faces; deterministic triangulation (§5.12) |
+| n-gons for modeling, quads for loops and rings, triangles for export | Behaviour of both reference DCCs; glTF has triangles only | Faces of any length ≥ 3, no holes in faces; deterministic triangulation (§5.12) |
 | Robust with imported GLB/VRM meshes: split vertices, double-sided cards (hair, lashes), duplicate faces, bow-tie vertices, flipped winding, degenerate triangles | VRoid/VRM avatars, game assets, AI meshes | Non-manifold-capable structure (K1); tools degrade instead of failing (§2.4) |
 | One gesture = one undo step; per-user undo; compare-before-restore | ADR 0002, ADR 0013, 06 §9 | Revision-ref field + journal fast path (§9) |
 | Collaboration-ready without CRDT-per-vertex | 06 D8, 08 trap 10 | Claims + chunked blobs (§9.6) |
@@ -62,7 +65,7 @@ ideas where they are better — with one refinement: copy Blender's *data model*
 
 ### 2.1 Candidates
 
-| Criterion | Half-edge (OpenMesh, pmp, CGAL `Surface_mesh`, JS: `three-mesh-halfedge`, `geometry-processing-js`) | **Radial-edge, BMesh-style** (Blender edit mode) | Indexed face-vertex + adjacency caches (Blender `Mesh`, glTF-like) | String-keyed dictionaries (Blockbench) |
+| Criterion | Half-edge (OpenMesh, pmp, CGAL `Surface_mesh`, JS: `three-mesh-halfedge`, `geometry-processing-js`) | **Radial-edge, BMesh-style** (open-source DCC edit mode) | Indexed face-vertex + adjacency caches (open-source DCC `Mesh`, glTF-like) | String-keyed dictionaries (Blockbench) |
 |---|---|---|---|---|
 | n-gons | yes | yes | yes | Blockbench renders 3- and 4-vertex faces only |
 | Non-manifold edge (>2 faces) | **no**: faces rejected | yes (radial cycle of any length) | yes | yes (no adjacency at all) |
@@ -80,10 +83,10 @@ Evidence:
   adjacency in disk, radial and loop cycles, faces of arbitrary length, and it "trivially represents any non-manifold
   condition including wire edges"; "unlike half edge, the disk cycle is completely independent from face data". Edit
   tools are built from Euler operators (`make/kill vert/edge/face`, split edge/make vert, split face/make edge, join,
-  reverse), "each Euler has a logical inverse" ([Blender BMesh docs](https://developer.blender.org/docs/features/objects/mesh/bmesh/)).
-- Blender's non-edit `Mesh` uses "a struct of arrays paradigm": positions, edges (two vertex indices), face offsets,
-  corner→vertex and corner→edge arrays, with normals and loose edges as lazily computed caches; edges are stored
-  because that is "the only way to encode loose edges" ([Blender Mesh docs](https://developer.blender.org/docs/features/objects/mesh/mesh/)).
+  reverse), "each Euler has a logical inverse" (open-source DCC developer docs: BMesh).
+- The open-source DCC's non-edit `Mesh` uses "a struct of arrays paradigm": positions, edges (two vertex indices),
+  face offsets, corner→vertex and corner→edge arrays, with normals and loose edges as lazily computed caches; edges
+  are stored because that is "the only way to encode loose edges" (open-source DCC developer docs: Mesh).
 - OpenMesh's `add_face` returns an invalid handle and prints "complex edge" (winding conflict or duplicate triangle)
   or "complex vertex" (non-boundary vertex) — the face is simply not added
   ([thread 1](https://lists.rwth-aachen.de/archives/list/openmesh@lists.rwth-aachen.de/message/Q3G5VPCTFE5KLE4XAUX2KRKXCZXQUPA6/),
@@ -95,22 +98,20 @@ Evidence:
   ([`mesh.js`](https://github.com/JannisX11/blockbench/blob/master/js/outliner/types/mesh.js)). String keys give
   stable IDs cheaply but make every adjacency query a scan and cost memory at 50k tris; it is a design reference,
   not a model for a 50k-tri kernel.
-- Maya stores component lists "using the vertex index", and "some construction history nodes modify the vertex
-  numbering, for example, polySplit and deleteComponent"
-  ([Maya SDK](https://help.autodesk.com/cloudhelp/2018/ENU/Maya-SDK/files/GUID-907A4BEE-41DD-4287-AB23-732332F048C6.htm));
-  Maya 2022 added **Component Tags**, named groups of components stored on the geometry
-  ([Maya 2026 help](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-CharacterAnimation/files/GUID-4E1FA1F9-674F-414E-A177-4779B349D1CB.htm)).
+- The desktop DCC stores component lists "using the vertex index", and "some construction history nodes modify the
+  vertex numbering, for example, polySplit and deleteComponent" (vendor SDK docs, 2018); its 2022 release added
+  **Component Tags**, named groups of components stored on the geometry (vendor help, 2026).
 
 ### 2.2 Decision
 
 A single SoA mesh whose **stored subset** is the intrinsic data (K3) and whose **edit subset** adds BMesh-style
 links, maintained incrementally by Euler operators. The stored subset is what a revision serializes, renders and
 exports; the edit subset exists only while a mesh is open in component mode and is rebuilt on demand (1.8 ms at
-50k tris). Unlike Blender, there is no conversion that renumbers elements: both subsets share one index space, so a
-selection bitset is valid in both.
+50k tris). Unlike the open-source DCC, there is no conversion that renumbers elements: both subsets share one index
+space, so a selection bitset is valid in both.
 
-Corners are a linked cycle per face (`cornerNext`), not contiguous ranges (Blender's `face_offsets`), so splitting an
-edge inserts a corner in O(1) without relocating the face; export walks the cycles.
+Corners are a linked cycle per face (`cornerNext`), not contiguous ranges (the open-source DCC's `face_offsets`), so
+splitting an edge inserts a corner in O(1) without relocating the face; export walks the cycles.
 
 ### 2.3 Stable IDs vs indices
 
@@ -146,13 +147,13 @@ Imports never fail on topology; the import report lists counts, and Mesh › Cle
 
 ### 3.1 Arrays
 
-Counts: `P` points (vertices), `E` edges, `F` faces, `C` corners (face-vertices, Blender "loops").
+Counts: `P` points (vertices), `E` edges, `F` faces, `C` corners (face-vertices, "loops" in BMesh terms).
 
 | Array | Type | Subset | Meaning |
 |---|---|---|---|
 | `position` | `Float32Array(3P)` | stored | vertex positions, mesh-local metres |
 | `edgeVerts` | `Uint32Array(2E)` | stored | endpoints (unordered) |
-| `edgeFlags` | `Uint8Array(E)` | stored | bit0 hard (Maya hard edge), bit1 UV seam, bit2 crease (reserved for subdivision) |
+| `edgeFlags` | `Uint8Array(E)` | stored | bit0 hard (the desktop DCC's hard edge), bit1 UV seam, bit2 crease (reserved for subdivision) |
 | `cornerVert` | `Uint32Array(C)` | stored | vertex at the start of the corner's edge (face winding order) |
 | `cornerNext` | `Uint32Array(C)` | stored | next corner in the same face (cyclic) |
 | `faceCorner` | `Uint32Array(F)` | stored | first corner of the face |
@@ -182,9 +183,10 @@ to the mesh, never in a revision).
 
 ### 3.3 Precision
 
-Positions are float32 everywhere (Blender does the same; glTF is float32), arithmetic is float64, and every write
-goes through `Math.fround`, so what the user sees, what is saved and what undo restores are bit-identical. Maya's
-double precision is not needed at character and prop scale (float32 resolves 0.1 mm at 1 km).
+Positions are float32 everywhere (the open-source DCC does the same; glTF is float32), arithmetic is float64, and
+every write goes through `Math.fround`, so what the user sees, what is saved and what undo restores are
+bit-identical. The desktop DCC's double precision is not needed at character and prop scale (float32 resolves
+0.1 mm at 1 km).
 
 ### 3.4 Attribute layers
 
@@ -204,7 +206,7 @@ export interface AttrDef {
 
 | Layer | Domain | Interp on split/subdivide | On extrude/duplicate | On merge/collapse | Mirror |
 |---|---|---|---|---|---|
-| `uv0`, `uv1` | corner f32×2 | linear along the split edge, per face side (keeps seams) | copy from the source corner; side faces take the adjacent face's corner UVs | average within each UV island | `flip-u` optional (Maya `flipUVs`) |
+| `uv0`, `uv1` | corner f32×2 | linear along the split edge, per face side (keeps seams) | copy from the source corner; side faces take the adjacent face's corner UVs | average within each UV island | `flip-u` optional (the desktop DCC's `flipUVs`) |
 | `color0` | corner f32×4 (linear) | linear | copy | average | none |
 | `normal.custom` | corner f32×3 | `clear` (touched corners fall back to computed normals) | clear | clear | negate axis |
 | `skin.joints` + `skin.weights` | point u16×4 + f32×4 | `skin`: blend weights of both ends, union of joints, keep the top 4, renormalize | copy | `skin` blend | `swap-side` through the rig's mirror pairs |
@@ -292,16 +294,16 @@ not matter; Node and Chromium (both V8) must produce identical manifests, which 
 ### 5.0 Scope and phasing
 
 Phase A = the box-modeling core; B = completes the turnkey pipeline; Later = after usage data. Sizes are kernel
-implementation estimates (agent-days, tests included); tool UX is not included. Blender line counts (GPL-2.0+, read
-for sizing only, never copied) calibrate the hard ones: `bmesh_bevel.cc` 8,485 lines, `editmesh_knife.cc` 4,936,
+implementation estimates (agent-days, tests included); tool UX is not included. Open-source DCC line counts (GPL-2.0+,
+read for sizing only, never copied) calibrate the hard ones: `bmesh_bevel.cc` 8,485 lines, `editmesh_knife.cc` 4,936,
 `uv_parametrizer.cc` 5,484, `bmo_inset.cc` 1,377, `bmo_subdivide_edgering.cc` 1,240, `bmo_extrude.cc` 869,
-`bmo_bridge.cc` 662 ([blender/blender main](https://github.com/blender/blender/tree/main/source/blender/bmesh)).
+`bmo_bridge.cc` 662 (its `bmesh/` sources on the main branch).
 
-| Tool | Maya reference (node, key params) | Blender ideas to take | Kernel recipe | Needs manifold | Phase | Size |
+| Tool | Desktop DCC reference (node, key params) | Open-source DCC ideas to take | Kernel recipe | Needs manifold | Phase | Size |
 |---|---|---|---|---|---|---|
 | Extrude faces | `polyExtrudeFace`: `keepFacesTogether`, `thickness`, `offset`, `divisions`, `smoothingAngle`, `taper`, `twist` | region vs individual; "extrude along normals" with even thickness | §5.1 | no (non-manifold boundary edges are treated as boundaries) | A | 2 |
 | Extrude edges / vertices | `polyExtrudeEdge`, `polyExtrudeVertex` (spikes) | edge extrude to a strip; vertex extrude to a wire edge | duplicate boundary chain + quads | no | A (edges), Later (vertex) | 1 |
-| Inset (Maya: extrude with offset, thickness 0) | `polyExtrudeFace.offset` | even offset, clamp, depth, region vs individual | §5.2 | region boundary must be manifold | A | 1.5 |
+| Inset (desktop DCC: extrude with offset, thickness 0) | `polyExtrudeFace.offset` | even offset, clamp, depth, region vs individual | §5.2 | region boundary must be manifold | A | 1.5 |
 | Bevel edges / vertices | `polyBevel3`: `fraction`, `offsetAsFraction`, `segments`, `depth`, `chamfer`, `mitering`, `smoothingAngle` | clamp overlap, profile shape, harden normals | §5.3 | yes for v1 patches | A (v1 scope) | 6 |
 | Insert edge loop (multiple) | `polySplitRing`: `weight`, `splitType`, `divisions`, `insertWithEdgeFlow`, `absoluteWeight` | loop slide | §5.4 | ring over quads | A | 1.5 |
 | Offset edge loop | Offset Edge Loop tool | — | two ring splits at distance d either side | ring over quads | A | 0.5 |
@@ -328,19 +330,19 @@ for sizing only, never copied) calibrate the hard ones: `bmesh_bevel.cc` 8,485 l
 
 ### 5.1 Extrude (faces)
 
-- **Region** (`keepFacesTogether: true`, Maya's default for face extrude): boundary edges = edges of selected faces
-  whose radial cycle contains an unselected face *or* has length ≠ 2. Duplicate the vertices on those edges; rewire
-  the selected faces' corners from the originals to the duplicates; interior vertices of the region move with it
-  without duplication. For each boundary edge `(a, b)` create the side quad `(a, b, b′, a′)` oriented so its shared
-  edges run opposite to the neighbours. A region with no boundary (a whole closed shell) only moves.
+- **Region** (`keepFacesTogether: true`, the desktop DCC's default for face extrude): boundary edges = edges of
+  selected faces whose radial cycle contains an unselected face *or* has length ≠ 2. Duplicate the vertices on those
+  edges; rewire the selected faces' corners from the originals to the duplicates; interior vertices of the region
+  move with it without duplication. For each boundary edge `(a, b)` create the side quad `(a, b, b′, a′)` oriented
+  so its shared edges run opposite to the neighbours. A region with no boundary (a whole closed shell) only moves.
 - **Individual** faces: the same per face (each face is its own region).
 - **Direction**: per vertex, the normalized sum of the adjacent selected face normals; **even thickness** scales by
   `1 / max(cos θ, 0.25)` where θ is the largest angle between that direction and the adjacent selected face normals
   (prevents thin corners; the clamp avoids spikes).
   `divisions` inserts `n − 1` rings along the sides; `offset` is an inset (§5.2) applied to the moved cap.
 - **Attributes**: duplicates copy point layers; side-face corners take the corner UVs of the adjacent selected face
-  (stretched, as in Blender), colours copied; new vertical edges hard when the dihedral angle exceeds
-  `smoothingAngle` (Maya default 30°; *v0.2: resolved to 0° on meshes flagged `faceted`, and one hard-flag rule
+  (stretched, as in the open-source DCC), colours copied; new vertical edges hard when the dihedral angle exceeds
+  `smoothingAngle` (desktop DCC default 30°; *v0.2: resolved to 0° on meshes flagged `faceted`, and one hard-flag rule
   covers every op, MODELING-PLAN §3.2*).
 - **Topology check**: closed manifold region extrude has Δχ = 0 (b new vertices, 2b new edges, b new faces).
 
@@ -353,13 +355,12 @@ centroid. Depth moves the inner ring along normals. Same Euler pattern as extrud
 
 ### 5.3 Bevel (v1 scope)
 
-The most complex base tool (Blender's implementation is 8.5k lines), so v1 is deliberately bounded:
+The most complex base tool (the open-source DCC's implementation is 8.5k lines), so v1 is deliberately bounded:
 
-- **Inputs**: edges (vertex bevel later); width as `fraction` of the shortest adjacent edge (Maya's
-  `offsetAsFraction`, default on; "Fractional … prevents inside-out bevels",
-  [Maya Bevel Options](https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-A1C5EC72-AD48-4A7D-8577-1823B3832E14.htm))
-  or absolute; `segments` 1–8; `profile` 0–1 (0.5 = circular-ish, Maya `depth`/Blender shape); `clamp` on by default;
-  harden the bevel's border edges (low-poly look) on by default.
+- **Inputs**: edges (vertex bevel later); width as `fraction` of the shortest adjacent edge (the desktop
+  DCC's `offsetAsFraction`, default on; "Fractional … prevents inside-out bevels", vendor help: Bevel Options)
+  or absolute; `segments` 1–8; `profile` 0–1 (0.5 = circular-ish, desktop DCC `depth` / open-source DCC shape);
+  `clamp` on by default; harden the bevel's border edges (low-poly look) on by default.
 - **Algorithm** (our own write-up, clean-room): (1) per beveled edge and side, the offset line in the adjacent face
   plane at width `w`; (2) per vertex, the **boundary points** where consecutive offset lines meet (intersection inside
   the face; when two beveled edges are collinear, the perpendicular foot); a non-beveled edge between two beveled ones
@@ -377,19 +378,19 @@ The most complex base tool (Blender's implementation is 8.5k lines), so v1 is de
 ### 5.4 Insert edge loop / offset edge loop
 
 - **Ring walk** from a seed edge `e` in quad `f`: the opposite edge of `f`, then into the other face of that edge's
-  radial cycle; stop at a triangle or n-gon (Maya and Blender stop there), a boundary, a non-manifold edge, or when
+  radial cycle; stop at a triangle or n-gon (both reference DCCs stop there), a boundary, a non-manifold edge, or when
   the ring closes. Walk both directions from the seed.
 - **Split**: for each ring edge, parameter `t` measured from the side consistent with the walk (flip when the edge
   orientation reverses); `divisions` = n → `t = i/(n+1)`; `absoluteWeight` → distance from one side clamped to the
   edge length; `splitEdgeMakeVert` then `splitFaceMakeEdge` across each quad.
-- **Edge flow** (Maya `insertWithEdgeFlow`): place new vertices on a cubic Hermite through the ring neighbours'
+- **Edge flow** (desktop DCC `insertWithEdgeFlow`): place new vertices on a cubic Hermite through the ring neighbours'
   positions instead of linearly. Later.
 - **Offset edge loop**: for each edge of a selected loop, split the two adjacent rings at distance `d` from the loop.
 
 ### 5.5 Multi-cut, knife, slice
 
-- **Cut path** = an ordered list of points on edges (edge + t), on vertices, or inside faces (Maya Multi-Cut clicks;
-  Ctrl = insert loop at the cursor; Shift = snap t to 10 % steps).
+- **Cut path** = an ordered list of points on edges (edge + t), on vertices, or inside faces (desktop DCC
+  Multi-Cut clicks; Ctrl = insert loop at the cursor; Shift = snap t to 10 % steps).
 - Consecutive path points in the same face become a chord: split edges, then `splitFaceMakeEdge`; points inside a face
   become a vertex chain that must start and end on that face's boundary. Paths that end inside a face are trimmed to
   the last boundary point (holes in faces are not representable) with feedback.
@@ -406,7 +407,7 @@ Input: two boundary edge loops (open or closed) or two selected face regions (de
 choose the start alignment and direction minimizing the summed squared distances over all cyclic shifts and both
 directions (O(n²), fine at loop sizes < 500); `twist`/`bridgeOffset` shift the alignment; unequal counts are bridged
 by distributing the extra vertices (quads plus a minimal number of triangles). `divisions` creates intermediate rings:
-linear, or along cubic Hermite curves using each loop vertex's outward tangent (Maya `curveType` blend/curve).
+linear, or along cubic Hermite curves using each loop vertex's outward tangent (desktop DCC `curveType` blend/curve).
 
 ### 5.7 Merge, target weld, collapse, merge by distance
 
@@ -414,16 +415,17 @@ linear, or along cubic Hermite curves using each loop vertex's outward tangent (
   the two edges (union of radial cycles); remove consecutive duplicate corners; faces left with < 3 corners are
   killed; edges and vertices left unused are killed. The result may be non-manifold — allowed and reported.
 - **Merge by distance**: integer spatial hash with cell = threshold; union-find over pairs within the threshold
-  (Maya `distance`; `alwaysMergeTwoVertices` merges any two selected vertices); target = the cluster centroid (merge)
-  or the first-picked vertex (target weld; selection order is tracked).
+  (desktop DCC `distance`; `alwaysMergeTwoVertices` merges any two selected vertices); target = the cluster
+  centroid (merge) or the first-picked vertex (target weld; selection order is tracked).
 - **Collapse**: edges → their midpoint; faces → their centroid (all their vertices welded).
 
 ### 5.8 Delete and dissolve
 
 `Delete` faces removes faces and their now-unused edges/vertices. `Dissolve` edges = `joinFaceKillEdge`, then
-valence-2 vertices are dissolved (Maya `cleanVertices`). Dissolve vertex merges its manifold fan into one n-gon
-(boundary vertex: the fan's outer edges form the new boundary). Maya's Delete Edge/Vertex (which dissolves) and
-Blender's Delete-vs-Dissolve map to the same two kernel ops; the keymap preset decides the label.
+valence-2 vertices are dissolved (desktop DCC `cleanVertices`). Dissolve vertex merges its manifold fan into one
+n-gon (boundary vertex: the fan's outer edges form the new boundary). The desktop DCC's Delete Edge/Vertex (which
+dissolves) and the open-source DCC's Delete-vs-Dissolve map to the same two kernel ops; the keymap preset decides the
+label.
 
 ### 5.9 Fill hole and triangulation of fills
 
@@ -443,8 +445,8 @@ A constrained Delaunay library (`@kninnug/constrainautor`) is not needed for v1.
   maps with an edge-orientation bit, needed to mirror pointer arguments such as `{edge, t}`; MODELING-PLAN §3.14*).
   Positional mode (object or world axis):
   reflect each vertex and look up the nearest within tolerance in an integer spatial hash (O(P)). Topological mode
-  (Maya topology symmetry): the user picks a seam edge; a BFS pairs vertices across the seam by walking corresponding
-  corners on both sides; works on posed or asymmetric shapes. The map is recomputed after each topology op
+  (the desktop DCC's topology symmetry): the user picks a seam edge; a BFS pairs vertices across the seam by walking
+  corresponding corners on both sides; works on posed or asymmetric shapes. The map is recomputed after each topology op
   (incrementally for created elements when positions are symmetric).
 - **Symmetry mode**: transforms on a selection are mirrored onto partners; vertices on the plane are constrained to
   it. Topology ops run on the **symmetry-expanded selection** (selection ∪ partners ∪ mirrored faces/edges); since op
@@ -457,11 +459,11 @@ A constrained Delaunay library (`@kninnug/constrainautor`) is not needed for v1.
 - **Face normal**: Newell's method (robust for non-planar n-gons).
 - **Corner normals** (derived): the angle-weighted average of face normals in the *smooth fan* around the vertex — the
   run of faces bounded by hard edges, boundary edges and non-manifold edges (bow-tie fans stay separate). This is the
-  Maya hard/soft-edge model; `edgeFlags.hard` is the stored intent. "Set normal angle" (`polySoftEdge`) sets hard
-  flags by dihedral angle; "Harden/Soften" set them on the selection; "flat look" = all edges hard.
+  desktop DCC's hard/soft-edge model; `edgeFlags.hard` is the stored intent. "Set normal angle" (`polySoftEdge`) sets
+  hard flags by dihedral angle; "Harden/Soften" set them on the selection; "flat look" = all edges hard.
 - **Custom normals** (`normal.custom`): imported files keep their exact normals while untouched; any op that changes
-  a face clears custom normals on its corners (rule `clear`) and the UI says how many were cleared. Maya Lock/Unlock
-  Normals map to keep/clear.
+  a face clears custom normals on its corners (rule `clear`) and the UI says how many were cleared. The desktop DCC's
+  Lock/Unlock Normals map to keep/clear.
 - **Conform** (recalculate outside): BFS over manifold edges flipping faces to agree, then per shell flip all if the
   signed volume is negative (open shells: orient toward the majority of face normals vs the centroid).
 - Measured: face + angle-limited corner normals for 50k tris in 2.9 ms (naive full recompute); edits recompute only the
@@ -470,20 +472,20 @@ A constrained Delaunay library (`@kninnug/constrainautor`) is not needed for v1.
 ### 5.12 Triangulation (render and export)
 
 - Triangles as is; **quads split along the shorter diagonal**, ties to the lower corner index, overridden per face by
-  `faceFlags.flipDiagonal` (Maya Flip Triangle Edge on a quad toggles it). n-gons: `earcut` on the Newell-plane
-  projection (earcut's documented limit: "does not guarantee a correct triangulation on arbitrary input";
-  self-intersecting projections are flagged by Cleanup, and `mesh.triangulate` makes the split explicit).
+  `faceFlags.flipDiagonal` (the desktop DCC's Flip Triangle Edge on a quad toggles it). n-gons: `earcut` on the
+  Newell-plane projection (earcut's documented limit: "does not guarantee a correct triangulation on arbitrary
+  input"; self-intersecting projections are flagged by Cleanup, and `mesh.triangulate` makes the split explicit).
 - The same triangulation is used by the viewport, the BVH and export (WYSIWYG for flat-shaded low-poly, where the
   diagonal is visible). It changes only when a face changes (cached per face), so exports are deterministic.
-- **Quadrangulate** (tris → quads, Maya `polyQuad`): greedy pairing by a score (normal angle < threshold, not across
-  hard edges, UV seams or material borders, best rectangularity), deterministic order. Used after imports, booleans
-  and decimation.
+- **Quadrangulate** (tris → quads, desktop DCC `polyQuad`): greedy pairing by a score (normal angle < threshold, not
+  across hard edges, UV seams or material borders, best rectangularity), deterministic order. Used after imports,
+  booleans and decimation.
 
 ### 5.13 UVs
 
 - **Projections**: planar (axis, camera or best-fit plane; fit to 0–1 keeping aspect), box/automatic (each face to the
-  most aligned of 6 planes, or of N planes for Maya's automatic mapping; charts = connected faces with the same
-  plane), cylindrical and spherical (seam at the angle wrap; split corners at the wrap so no face spans it).
+  most aligned of 6 planes, or of N planes for the desktop DCC's automatic mapping; charts = connected faces with the
+  same plane), cylindrical and spherical (seam at the angle wrap; split corners at the wrap so no face spans it).
 - **Unwrap**: seams (`edgeFlags.seam`) and existing UV discontinuities cut the mesh into charts (flood fill across
   non-seam manifold edges). Per chart, **LSCM** (Lévy et al., "Least Squares Conformal Maps for Automatic Texture
   Atlas Generation", SIGGRAPH 2002, [doi:10.1145/566654.566590](https://doi.org/10.1145/566654.566590)): a sparse
@@ -491,8 +493,8 @@ A constrained Delaunay library (`@kninnug/constrainautor`) is not needed for v1.
   the chart boundary, or user pins), solved by conjugate gradient on the normal equations (charts ≤ 5k vertices
   converge in milliseconds). A chart that is not a disc (handle, non-manifold) is refused with a "needs a seam here"
   hint (the loop of a handle is suggested). Implemented in-house: there is no maintained MIT LSCM in JS
-  (`@triforge/uv-core`, MIT, first published 2026-06 and three releases, advertises "Blender-matched" LSCM/ABF —
-  too young, and "Blender-matched" raises a GPL-provenance question).
+  (`@triforge/uv-core`, MIT, first published 2026-06 and three releases, advertises LSCM/ABF matched to
+  the open-source DCC — too young, and a claimed match to a GPL implementation raises a GPL-provenance question).
 - **Pack**: in-house skyline packer with 0°/90° rotation, margin in texels and texel-density normalization (scale
   charts by √(3D area / UV area)). `xatlas` packing (and full automatic seams + parameterization for generated meshes)
   as an optional adapter in a worker (§6).
@@ -552,7 +554,7 @@ build unless noted.
 | [`three-bvh-csg`](https://github.com/gkjohnson/three-bvh-csg) | 0.0.18 (2026-02) | MIT | 33 kB gz | booleans | No (pre-1.0; manifold-3d is the robust choice) |
 | `trimesh-boolean` | 0.7.6 (2026-10) | MIT | — | booleans on open meshes | No (young; open-mesh booleans are not a low-poly need) |
 | Half-edge libraries: [`three-mesh-halfedge`](https://github.com/LokiResearch/three-mesh-halfedge) 1.0.3 (2022), its fork `@sherifmagdy/three-mesh-halfedge` 2.5.2 (2026), [`three-halfedge-dcel`](https://github.com/erasta/three-halfedge-dcel) 1.1.0 (2025, 8 stars), `@amanyadev/half-edge` 0.1.0 (2025, one release, string IDs, command-object undo), [`geometry-processing-js`](https://github.com/GeometryCollective/geometry-processing-js) (2021, not published officially) | — | MIT | — | — | **Do not depend**: unmaintained or very young; object-per-element (GC); coupled to three; no attribute layers, no write log, mostly manifold-only |
-| Blender BMesh/tools, Blockbench | — | GPL-2.0+ / GPL-3.0 | — | design references | **Clean-room only** (CONTRIBUTING rule) |
+| Open-source DCC BMesh/tools, Blockbench | — | GPL-2.0+ / GPL-3.0 | — | design references | **Clean-room only** (CONTRIBUTING rule) |
 
 ### 6.1 Adapter rule
 
@@ -585,7 +587,7 @@ decoders (CSP-friendly, as today). The `check:size` gate measures the first-visi
 | Face tint / soft-selection ramp | same mesh, `state` attribute (selected, hover, soft weight u8) mixed in the shader | corners | soft weights per frame while dragging | rebuild |
 | Edges | `LineSegments` over `edgeVerts` (1 px); `LineSegments2` (fat lines, addons, instanced) for selected/hover edges only | edges | positions | rebuild |
 | Vertices | `Points` with a small custom shader: constant pixel size, colour by state | points | positions | rebuild |
-| Face dots (optional, Maya face centres) | `Points` at face centroids | faces | centroids of dirty faces | rebuild |
+| Face dots (optional, desktop DCC face centres) | `Points` at face centroids | faces | centroids of dirty faces | rebuild |
 | Normals display (optional) | `LineSegments` | corners/faces | — | — |
 | Symmetry plane, manipulators, cut previews | existing overlay passes | — | — | — |
 
@@ -593,8 +595,8 @@ decoders (CSP-friendly, as today). The `check:size` gate measures the first-visi
   of edges/points with faces). **X-ray**: the surface draws at reduced opacity without depth writes and overlays draw
   in the existing two passes (occluded pass with `GreaterDepth` at reduced alpha, then visible pass) used for controls
   (ARCHITECTURE §8).
-- **Colours** come from the design tokens (theme), never literals; Maya conventions: selected vertices/edges orange,
-  hover highlight (Maya's preselection highlight), soft-selection ramp yellow→red→black.
+- **Colours** come from the design tokens (theme), never literals; desktop-DCC conventions: selected vertices/edges
+  orange, hover highlight (its preselection highlight), soft-selection ramp yellow→red→black.
 - **Skinned meshes** render at bind pose in edit mode (skinning off on the edit surface); the Animate workspace shows
   the deformed character with the latest committed revision (§10).
 - **Idle cost** stays 0 frames: overlays redraw only on `invalidate()` after a change.
@@ -610,8 +612,7 @@ decoders (CSP-friendly, as today). The `check:size` gate measures the first-visi
 | Marquee / lasso | project candidates, rectangle/polygon test (lasso: even-odd with the grid as a prefilter), then occlusion per candidate (or BVH `shapecast` with a frustum for faces) | 10k candidates ≤ 16 ms |
 | Back faces | not pickable unless x-ray or "select back faces" | — |
 
-GPU ID buffer (Blender's edit-mode "select buffer" approach,
-[`draw_select_buffer.cc`](https://github.com/blender/blender/blob/main/source/blender/draw/intern/draw_select_buffer.cc)):
+GPU ID buffer (the open-source DCC's edit-mode "select buffer" approach, `draw_select_buffer.cc`):
 render element IDs into an RGBA8 target restricted by scissor to the cursor region or marquee rectangle and read it
 with `WebGLRenderer.readRenderTargetPixelsAsync` (present in three r186). Kept as a fallback for meshes far above the
 budget; it adds a frame of latency and misses sub-pixel elements.
@@ -687,7 +688,7 @@ export interface MeshRecord {
   readonly skin: { readonly asset: AssetId; readonly skin: number } | null;
   /** Stable morph target order (VRM expression binds index it). Rename = field patch; removal needs an expression remap. */
   readonly morphTargets: readonly string[];
-  /** Creation parameters of a primitive, dropped by the first edit (Maya history-like tweaks without history). */
+  /** Creation parameters of a primitive, dropped by the first edit (desktop-DCC history-like tweaks without history). */
   readonly generator: { readonly kind: string; readonly params: Readonly<Record<string, number | boolean | string>> } | null;
   readonly placement: ReadonlyXf;                        // scene props; character meshes stay under the character root
   readonly order: string;
@@ -835,11 +836,12 @@ counted. Untouched meshes are never re-encoded.
 
 ### 10.3 Morph targets
 
-Deltas are point layers, so base-shape edits keep targets relative (Maya blend-shape behaviour); ops propagate deltas.
-Target order is stable (*v0.2: the manifest's layer order is the only source; `MeshRecord.morphTargets` was removed
-so the two cannot drift under per-field undo*); adding a target appends; removing one requires remapping
-`VRMC_vrm.expressions…morphTargetBinds` / VRM 0.x `blendShapeMaster` binds in the surgeon (refused until that step
-exists). "Edit target" mode (positions written as deltas of the active target) is a later tool.
+Deltas are point layers, so base-shape edits keep targets relative (desktop-DCC blend-shape behaviour); ops
+propagate deltas. Target order is stable (*v0.2: the manifest's layer order is the only source;
+`MeshRecord.morphTargets` was removed so the two cannot drift under per-field undo*); adding a target appends;
+removing one requires remapping `VRMC_vrm.expressions…morphTargetBinds` / VRM 0.x `blendShapeMaster` binds in the
+surgeon (refused until that step exists). "Edit target" mode (positions written as deltas of the active target) is a
+later tool.
 
 ### 10.4 Export
 
@@ -929,7 +931,7 @@ export interface MeshOp<A extends object> {
   readonly id: `mesh.${string}`;                         // 'mesh.extrude', 'mesh.bevel', 'mesh.insertLoop', …
   readonly modes: readonly SelectMode[];
   readonly params: readonly ParamDef[];                  // v0.2: ParamDef from anim-core; one source for the UI params,
-                                                         // the JSON schema and the defaults (Maya parameter names)
+                                                         // the JSON schema and the defaults (desktop-DCC parameter names)
   poll(m: EditMesh, sel: ComponentSelection): true | { readonly reason: string };
   /** Deterministic; writes only through m inside begin/end. */
   run(m: EditMesh, sel: ComponentSelection, args: A, ctx: OpContext): OpResult<A>;
@@ -1032,7 +1034,7 @@ parallel, then K-4…K-7, K-10, K-11.
 | 10 | Custom normals going stale after edits | Rule `clear` on touched corners + a visible count |
 | 11 | earcut on self-intersecting projections | Cleanup flags non-planar/self-intersecting n-gons; explicit triangulate |
 | 12 | Undo memory for giant ops | Adaptive log → snapshot switch; pinned chunk GC; 500-entry cap |
-| 13 | GPL contamination (Blender, Blockbench) or provenance-unclear "Blender-matched" ports | Clean-room rule in CONTRIBUTING; Blender files used for sizing only; reject such dependencies |
+| 13 | GPL contamination (the open-source DCC, Blockbench) or provenance-unclear ports "matched" to a GPL implementation | Clean-room rule in CONTRIBUTING; open-source DCC files used for sizing only; reject such dependencies |
 | 14 | WASM weight and CSP (manifold's npm dependency tree, a stale xatlas wrapper) | Lazy adapters in workers, install-footprint check, own xatlas build if needed |
 | 15 | `Unlicense` outside the licence allow-list | Exception entry or own port of the predicates (K-0) |
 | 16 | Symmetry seams drifting off the plane, partner loss after asymmetric edits | Snap on-plane vertices; report unpaired vertices; topological mode |
@@ -1047,8 +1049,8 @@ parallel, then K-4…K-7, K-10, K-11.
 1. **Partition**: `mesh:<id>` (parallel modeler + animator, per-mesh claims) or meshes inside `char:<id>`?
 2. **Influences**: cap skin influences at 4 (three, Bevy, Ekza runtimes) or allow 8 with a second set in export?
 3. **Quad recovery on import**: run tris→quads automatically on "Make editable", or only on request?
-4. **Construction history**: confirm destructive modeling with adjust-last-op and primitive params (no Maya-style
-   history graph).
+4. **Construction history**: confirm destructive modeling with adjust-last-op and primitive params (no
+   desktop-DCC-style history graph).
 5. **Booleans** in the first modeling milestone, or later (they need closed manifold meshes and add ~200 kB gz WASM)?
 6. **UV packing**: in-house skyline packer only at first, with xatlas as an optional adapter — or depend on xatlas
    from day one?
@@ -1079,22 +1081,18 @@ parallel, then K-4…K-7, K-10, K-11.
 
 ## Sources
 
-- Blender BMesh design: https://developer.blender.org/docs/features/objects/mesh/bmesh/
-- Blender Mesh (SoA) design: https://developer.blender.org/docs/features/objects/mesh/mesh/
-- Blender source, for sizing only (GPL-2.0-or-later): https://github.com/blender/blender/tree/main/source/blender/bmesh ;
-  edit-mode select buffer: https://github.com/blender/blender/blob/main/source/blender/draw/intern/draw_select_buffer.cc
+- Open-source DCC developer docs: BMesh design; Mesh (SoA) design.
+- Open-source DCC source, for sizing only (GPL-2.0-or-later): the `bmesh/` directory on the main branch; edit-mode
+  select buffer `draw/intern/draw_select_buffer.cc`.
 - OpenMesh `add_face` failures: https://lists.rwth-aachen.de/archives/list/openmesh@lists.rwth-aachen.de/message/Q3G5VPCTFE5KLE4XAUX2KRKXCZXQUPA6/ ;
   https://lists.rwth-aachen.de/archives/list/openmesh@lists.rwth-aachen.de/thread/AAI7DZQTLYPUPWKLWLCOENQGXUNW27PM/ ;
   https://graphics.rwth-aachen.de/media/openflipper_static/Daily-Builds/Doc/Free/Developer/PolyConnectivity_8cc_source.html
 - Blockbench mesh model (GPL-3.0): https://github.com/JannisX11/blockbench/blob/master/js/outliner/types/mesh.js ;
   modeling tools: https://github.com/JannisX11/blockbench/tree/master/js/modeling/mesh
-- Maya: SDK "Deformers in the Dependency Graph" (component lists by index, renumbering):
-  https://help.autodesk.com/cloudhelp/2018/ENU/Maya-SDK/files/GUID-907A4BEE-41DD-4287-AB23-732332F048C6.htm ;
-  Component Tags / deformer memberships: https://help.autodesk.com/cloudhelp/2026/ENU/Maya-CharacterAnimation/files/GUID-4E1FA1F9-674F-414E-A177-4779B349D1CB.htm ;
-  node references (2026): https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Nodes/polyExtrudeFace.html ,
-  …/polyBevel3.html , …/polySplitRing.html , …/polyBridgeEdge.html , …/polyMergeVert.html , …/polyMirror.html ,
-  …/polyCloseBorder.html , …/polyDelEdge.html ; Bevel Options (fractional offset):
-  https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-A1C5EC72-AD48-4A7D-8577-1823B3832E14.htm
+- Desktop DCC reference (vendor documentation): SDK "Deformers in the Dependency Graph" (component lists by index,
+  renumbering; 2018); Component Tags / deformer memberships (2026 help); node references (2026): `polyExtrudeFace`,
+  `polyBevel3`, `polySplitRing`, `polyBridgeEdge`, `polyMergeVert`, `polyMirror`, `polyCloseBorder`, `polyDelEdge`;
+  Bevel Options (fractional offset; 2017 help).
 - glTF 2.0 specification (COLOR_n linear, JOINTS_n/WEIGHTS_n sets, morph target order): https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html
 - three.js r186: `WebGLRenderer.readRenderTargetPixelsAsync`: https://github.com/mrdoob/three.js/blob/r186/src/renderers/WebGLRenderer.js ;
   `BufferAttribute.addUpdateRange`: https://github.com/mrdoob/three.js/blob/r186/src/core/BufferAttribute.js ;

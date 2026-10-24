@@ -151,7 +151,7 @@ test('AS-AR-7 (① half): 250k triangles are refused with the decimation hint; 8
   await openAutoRigReady(page);
   await chooseFile(page, 'huge.glb', claimedTriangles(250_000));
   await expect(page.getByTestId('ar-status')).toContainText(
-    'Reduce it to under 200,000 triangles (Blender: Decimate modifier) and try again.',
+    "Reduce it to under 200,000 triangles (your 3D tool's decimate or reduce-polygons command) and try again.",
   );
   await expect(page.getByTestId('ar-status')).toHaveAttribute('role', 'alert');
   expect(await history(page)).toEqual({ undo: [], redo: [] });
@@ -227,7 +227,7 @@ test('an animation or an unsupported file is refused on ① with its hint, nothi
   );
   await chooseFile(page, 'model.fbx', Buffer.from('Kaydara FBX Binary  \0'));
   await expect(page.getByTestId('ar-status')).toHaveText(
-    'Auto-Rig reads GLB and VRM. In Blender: File › Export › glTF 2.0 (.glb).',
+    'Auto-Rig reads GLB and VRM. Export the model from your 3D tool as glTF 2.0 (.glb).',
   );
   // AR-D8-10: a .glb whose bytes are no GLB is called damaged, not an unsupported format
   await chooseFile(page, 'corrupt.glb', Buffer.from([7, 1, 3, 9, 4, 4, 4, 4, 0, 0, 0, 0, 5, 5]));

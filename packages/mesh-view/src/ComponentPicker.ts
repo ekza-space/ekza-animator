@@ -686,8 +686,8 @@ export class ComponentPicker {
 
   /**
    * Components of `kind` inside a pane rectangle (CSS px, any corner order), ascending: vertices and face dots by
-   * their projected point, edges when both projected endpoints are inside (Maya). Faces facing away are left out
-   * unless `backfaces`; camera-based, occluded components too (by this mesh or by `setOccluder`'s meshes).
+   * their projected point, edges when both projected endpoints are inside (desktop-DCC convention). Faces facing away
+   * are left out unless `backfaces`; camera-based, occluded components too (by this mesh or by `setOccluder`'s meshes).
    */
   marquee(
     camera: Camera,

@@ -34,11 +34,11 @@ function spaceTarget(value: unknown): SpaceTarget | null {
   return null;
 }
 
-/** Maya's aim defaults (§5.18.5): aim (1, 0, 0), up (0, 1, 0), world up vector (0, 1, 0). */
-const MAYA_WORLD_UP: WorldUp = { type: 'vector', vector: [0, 1, 0] };
+/** The standard aim-constraint defaults (§5.18.5): aim (1, 0, 0), up (0, 1, 0), world up vector (0, 1, 0). */
+const DEFAULT_WORLD_UP: WorldUp = { type: 'vector', vector: [0, 1, 0] };
 
 function worldUp(value: unknown): WorldUp {
-  if (!isObj(value)) return MAYA_WORLD_UP;
+  if (!isObj(value)) return DEFAULT_WORLD_UP;
   switch (value['type']) {
     case 'scene':
       return { type: 'scene' };
@@ -48,16 +48,16 @@ function worldUp(value: unknown): WorldUp {
       return { type: 'vector', vector: vec3(value['vector'], [0, 1, 0]) };
     case 'object': {
       const target = spaceTarget(value['target']);
-      return target === null ? MAYA_WORLD_UP : { type: 'object', target };
+      return target === null ? DEFAULT_WORLD_UP : { type: 'object', target };
     }
     case 'objectRotation': {
       const target = spaceTarget(value['target']);
       return target === null
-        ? MAYA_WORLD_UP
+        ? DEFAULT_WORLD_UP
         : { type: 'objectRotation', target, vector: vec3(value['vector'], [0, 1, 0]) };
     }
     default:
-      return MAYA_WORLD_UP;
+      return DEFAULT_WORLD_UP;
   }
 }
 
@@ -74,7 +74,7 @@ function weights(value: unknown): ConstraintWeights {
 }
 
 /** Never throws: missing or partial params read as {v:1, key: type, holder: null, weights: static, blend: false, skip:
- *  none, interp: 'average', aim: Maya defaults for aim, else null}; an unknown `v` returns null (the op is disabled
+ *  none, interp: 'average', aim: the standard aim defaults, else null}; an unknown `v` returns null (the op is disabled
  *  with `unsupported-op`). Unknown fields are preserved by writers. C0 working baseline. */
 export function parseConstraintParams(record: ConstraintRecord): ConstraintParams | null {
   const raw: Obj = isObj(record.params) ? record.params : {};

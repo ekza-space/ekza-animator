@@ -744,7 +744,7 @@ function handleMetrics(tx: Tx, curve: CurveRecord): { readonly fps: number; read
   return { fps: clip.fps.num / clip.fps.den, k: unit === 'angle' ? RAD2DEG : 1 };
 }
 
-/** Maya tangent weight: 3·hypot(|dt| seconds, dv display units). */
+/** Tangent weight (the AnimX-compatible tangent model): 3·hypot(|dt| seconds, dv display units). */
 function weightOf(h: Handle, metrics: { readonly fps: number; readonly k: number }): number {
   return 3 * Math.hypot(Math.abs(h.dt) / metrics.fps, h.dv * metrics.k);
 }

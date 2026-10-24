@@ -1,6 +1,6 @@
 // B10 e2e helpers (M6A-SPEC §3 rule 5): pointer and key gestures over Model panes (marking-menu slots, marquees,
 // double-clicks, undo with the pointer over a pane) and a small reading of a mesh's topology through the test API
-// (`meshEdges`, `meshFaces`) with the loop and ring walks Maya's loop table expects on quad grids (research 10 §4.1):
+// (`meshEdges`, `meshFaces`) with the loop and ring walks the DCC loop table expects on quad grids (research 10 §4.1):
 // the scenarios compute what a gesture must select independently of the kernel's walkers.
 import { expect, type Page } from '@playwright/test';
 import { MODEL_PANE, modKey, type ScreenPoint } from './m6a-model';

@@ -1,5 +1,5 @@
 // Time slider (MVP-SPEC §7 WP-6t, §4.11.17; ADR 0007 §7): ruler, key ticks of the target controls, playhead, scrub,
-// playback-range shading and markers, auto-key border, and Maya range editing — Shift+click/drag selects a band with
+// playback-range shading and markers, auto-key border, and range editing — Shift+click/drag selects a band with
 // its keys, dragging the band's middle moves them, dragging an end scales them (one history step per drag), RMB
 // opens the band menu. Everything is in active-clip frames (§4.11.8). Canvas2D, no React.
 // M2a (M2A-SPEC §5.9, §5.11): Mod+drag on the band middle copies its keys, band moves and scales ripple when
@@ -378,7 +378,7 @@ export class TimeSliderController {
         if (gesture.delta === 0) {
           gesture.drag.cancel();
           if (!gesture.moved) {
-            // A click inside the band (no drag): Maya sets the time there and drops the band (acceptance round 2:
+            // A click inside the band (no drag) sets the time there and drops the band (acceptance round 2:
             // it read as a dead click).
             this.selectBand(null);
             this.scrub({ kind: 'scrub', lastFrame: Number.NaN, carry: false }, gesture.origin);
@@ -427,7 +427,7 @@ export class TimeSliderController {
 
   /**
    * RMB menu (§4.11.17) from the 'timeline.context' menu items, in group order (edit, tangent, select, then others).
-   * Without a band the menu acts on the current frame, as in Maya (acceptance round 3): opening it selects the
+   * Without a band the menu acts on the current frame (acceptance round 3): opening it selects the
    * current frame as a 1-frame band (what Shift+click there does), so Delete, Copy and the tangent types act on the
    * keys at the playhead. Items acting on the band's keys appear only while a band exists (no active clip: Paste
    * only); `time.selectBand` gets the current band.

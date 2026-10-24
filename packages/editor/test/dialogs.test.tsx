@@ -277,7 +277,7 @@ describe('shortcuts and preferences', () => {
         { chord: { code: 'Space' }, op: 'view.toggleMaximize', scope: GLOBAL_SCOPE, trigger: 'tap' },
       ],
     });
-    // The preset (MAYA_KEYMAP, once WP-7a/7b land) adds its own rows around these; key names are the keymap's.
+    // The preset (DCC_KEYMAP, once WP-7a/7b land) adds its own rows around these; key names are the keymap's.
     const label = (chord: Parameters<typeof app.keymap.label>[0]): string => app.keymap.label(chord);
     expect(label({ code: 'KeyJ', alt: true })).toContain('⌥');
     expect(shortcutRows(app)).toEqual(
@@ -312,11 +312,11 @@ describe('shortcuts and preferences', () => {
     expect(space.value).toBe('play');
     const nav = body('prefs-nav') as HTMLSelectElement;
     await update(() => {
-      nav.value = 'mayaOneButton';
+      nav.value = 'oneButton';
       nav.dispatchEvent(new Event('change', { bubbles: true }));
     });
-    await waitFor(() => test.app.prefs.getState().navProfile === 'mayaOneButton');
-    expect(nav.value).toBe('mayaOneButton');
+    await waitFor(() => test.app.prefs.getState().navProfile === 'oneButton');
+    expect(nav.value).toBe('oneButton');
     await view.unmount();
   });
 });

@@ -391,7 +391,7 @@ function AnimateOutliner({ app, instanceId }: PanelProps): JSX.Element {
         if (row.expandable && row.expanded) toggle(row);
         else if (row.parent !== null) focusRow(indexByKey.get(row.parent) ?? focusIndex);
         break;
-      // Enter selects. Space is not taken: it stays the global Maya key (maximize the hovered panel, or play).
+      // Enter selects. Space is not taken: it stays a global key (maximize the hovered panel, or play).
       case 'Enter':
         if (row !== undefined) activate(row, event);
         break;

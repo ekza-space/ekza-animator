@@ -1,4 +1,4 @@
-# 09 — UI/UX Specification (Maya-grade animation UI for the web)
+# 09 — UI/UX Specification (professional DCC-grade animation UI for the web)
 
 | | |
 |---|---|
@@ -14,9 +14,9 @@ Reading guide: §1 principles, §2–3 layout, §4 panels, §5 viewport, §6 int
 
 ## 1. Design principles
 
-1. **Maya muscle memory first, browser reality second.** Default hotkeys, navigation, Channel Box colours, time-slider behaviour and Graph Editor semantics follow Maya wherever the browser allows. Every divergence is listed (§7.5) and is rebindable.
+1. **DCC muscle memory first, browser reality second.** Default hotkeys, navigation, Channel Box colours, time-slider behaviour and Graph Editor semantics follow a leading commercial desktop DCC ("the desktop DCC" below) wherever the browser allows. Every divergence is listed (§7.5) and is rebindable.
 2. **Animate controls, not bones.** In the Animate workspace the selection mask defaults to *controls only*. Bones and meshes are visible but not pickable unless the mask is changed.
-3. **The panel under the pointer receives the hotkey** (Maya behaviour). `F` frames whatever the panel under the cursor shows: the viewport frames the selection, the Graph Editor frames the selected keys.
+3. **The panel under the pointer receives the hotkey** (desktop-DCC convention). `F` frames whatever the panel under the cursor shows: the viewport frames the selection, the Graph Editor frames the selected keys.
 4. **No modal dialogs while animating.** Option boxes are non-blocking popovers. Destructive operations are undoable and announced by a toast. Only file import/export and preferences open as dialogs.
 5. **Precision always available.** Every drag has a numeric twin: the Channel Box, the Graph Editor stats fields and the time field. Fields accept relative expressions (`+=5`, `*1.1`, `-=90`).
 6. **Dense but legible.** 12 px UI text, 22 px rows, mid-dark neutral greys. These pass WCAG 2.2 AA contrast (§8.3). They are not near-black: long sessions and mid-tone model readability matter more than brand mood.
@@ -24,9 +24,9 @@ Reading guide: §1 principles, §2–3 layout, §4 panels, §5 viewport, §6 int
 8. **Ready for collaboration without being shaped by it.** Selection, cursor, playhead and camera are per-user state from day one. Collaboration later broadcasts these values; it does not change who owns them (§12, §13).
 9. **Ready for modeling later.** The workspace/pane/tool architecture is generic: a future "Model" workspace adds tools and a component-selection mode without changing the shell (§9.4).
 
-### 1.1 Maya UI → Ekza Animator mapping
+### 1.1 Desktop-DCC UI → Ekza Animator mapping
 
-| Maya element | Ekza decision | Notes |
+| Desktop-DCC element | Ekza decision | Notes |
 |---|---|---|
 | Main menu bar + menu sets (F2–F6) | **Keep a single menu bar**, no menu sets | Workspaces replace menu sets; F-keys are unreliable on Mac laptops |
 | Status Line | **Keep** as a compact *Status line / tool strip* | Tools, manipulator space, snapping, selection mask, key target, auto-key, tween slider |
@@ -42,7 +42,7 @@ Reading guide: §1 principles, §2–3 layout, §4 panels, §5 viewport, §6 int
 | Hotbox (hold Space) | **Simplified**: Space-hold radial for pane type and camera | Full hotbox later |
 | Marking menus | **Keep** (hold key + LMB, RMB in panels) | §7.4 |
 | Graph Editor | **Keep, faithful core** plus a pen tool and a tween slider | §4.7 |
-| Dope Sheet | **Keep** (Maya 2025 added ripple edit and precision mode; ripple edit included) | §4.8 |
+| Dope Sheet | **Keep** (the desktop DCC's 2025 release added ripple edit and precision mode; ripple edit included) | §4.8 |
 | Ghost Editor | **Onion-skin popover** | §5.6 |
 | Time Editor / Trax, Animation Layers | **Later** | The state model leaves room (clips are first-class) |
 | Blue Pencil | **Later** (2D sketch layer per camera) | |
@@ -110,14 +110,14 @@ Vertical budget at 900 px: chrome (28+32+30+28+22) = 140 px; viewports ≈ 456 p
 
 ## 3. Viewport layout presets
 
-Every *pane* is a dock panel of type `viewport | graph | dopesheet | outliner`, so its type can change from its header (`Panel ▾`), like Maya's *Panels › Panel* and Blender's editor-type menu. Presets are named layout JSONs (§9).
+Every *pane* is a dock panel of type `viewport | graph | dopesheet | outliner`, so its type can change from its header (`Panel ▾`), like the desktop DCC's *Panels › Panel* menu and the editor-type menu of a popular open-source DCC. Presets are named layout JSONs (§9).
 
 | # | Preset | Shape | Default use |
 |---|---|---|---|
 | P1 | **Single** | `[persp]` | General work, small screens |
 | P2 | **Split (shot \| free)** | `[shotCam 🔒 \| persp]` vertical split, 50/50 | The owner's main request: left pane = locked camera framing the pose, right = free tumbling |
 | P3 | **Split + Graph** *(Animate default)* | P2 on top, Graph Editor/Dope Sheet tabbed below | Blocking → splining |
-| P4 | **Four view** | `top \| persp` / `front \| side` | Classic Maya, rig checks |
+| P4 | **Four view** | `top \| persp` / `front \| side` | Classic DCC layout, rig checks |
 | P5 | **Graph focus** | small persp (30 %) left + Graph Editor (70 %) right, Dope Sheet tab | Curve polishing |
 | P6 | **Review** | shotCam large + persp thumbnail (25 %, floating), timeline only | Playback review, later shared review |
 
@@ -132,8 +132,8 @@ P1            P2                 P3 (default)        P4               P5        
 
 Rules:
 
-- `Space` *tap* (< 200 ms, no other key) toggles **maximize** for the pane under the pointer (Maya tap-Space). Double-clicking a pane's tab does the same.
-- `Shift+[` / `Shift+]` cycle the presets (Maya `Shift+{` / `Shift+}`).
+- `Space` *tap* (< 200 ms, no other key) toggles **maximize** for the pane under the pointer (desktop-DCC tap-Space). Double-clicking a pane's tab does the same.
+- `Shift+[` / `Shift+]` cycle the presets (the desktop DCC's `Shift+{` / `Shift+}`).
 - Changing preset keeps each pane's camera and display flags when a pane with the same id exists in the new preset.
 - The shot camera is a **scene object** (`shotCam`, saved in the project, visible in the Outliner). A pane only *looks through* it, so locking or unlocking it is per pane and the camera itself is shared.
 
@@ -166,8 +166,8 @@ Left to right, each group separated by a 1 px divider:
 3. **Snap**: `J` hold = temporary snap; click to make sticky. Popover sets steps (rotate 15°, move 0.1 m, scale 0.1).
 4. **Selection mask**: toggles for Controls ◯, Joints ⚬, Meshes ▢, Cameras. Animate default = Controls only.
 5. **Key target**: `Selected` / `Character` (all controls of the active character) / `Keying set ▸` (later).
-6. **Auto-key** toggle (red dot when on; the time slider border turns red too, as in Maya).
-7. **Tween slider** (Phase 1.5): drag −100…+100 % to blend the selected controls between the previous and next key at the current frame. Release sets a key. Modes: Tween / Blend-to-neighbour / Ease / Push-pull. These animator-favourite tools ship in Houdini's animation toolbar and Blender's graph slider; they are not Maya defaults.
+6. **Auto-key** toggle (red dot when on; the time slider border turns red too, a desktop-DCC convention).
+7. **Tween slider** (Phase 1.5): drag −100…+100 % to blend the selected controls between the previous and next key at the current frame. Release sets a key. Modes: Tween / Blend-to-neighbour / Ease / Push-pull. These animator-favourite tools ship in Houdini's animation toolbar and the open-source DCC's graph slider; they are not desktop-DCC defaults.
 8. **Layout preset** picker (P1–P6 thumbnails).
 
 ### 4.3 Outliner (left dock, tab 1) and Clips (tab 2)
@@ -259,7 +259,7 @@ Actions: New, Duplicate (`Mod+D`), Delete, Import…, **From Ekza clip library �
  Constraints:  orient → l_hand (w 1.0)          [Attr ▸]
 ```
 
-**Field state colours** (background fill of the value field; mirrors Maya so the habits carry over; Maya documents locked grey, non-keyable light grey, muted brown, blended green, keyed-on-frame red, keyed-off-frame dark pink, key-altered light pink, expression purple, constrained blue, connected yellow):
+**Field state colours** (background fill of the value field; mirrors the desktop DCC so the habits carry over; its documentation lists locked grey, non-keyable light grey, muted brown, blended green, keyed-on-frame red, keyed-off-frame dark pink, key-altered light pink, expression purple, constrained blue, connected yellow):
 
 | State | Token | Fill / text | Contrast |
 |---|---|---|---|
@@ -284,7 +284,7 @@ A state is never shown by colour alone: a 3 px left bar shape (`▐` solid = on-
 | Click name | Select the channel (highlights its curve in the Graph Editor). Drag down the names to multi-select; Shift / Mod modify |
 | Click value | Edit. `Enter` commits, `Esc` reverts, `Tab` / `Shift+Tab` move to the next field |
 | Typed value | Absolute or relative expression: `+=10`, `-=5`, `*2`, `/2`. With several objects selected, it applies to every selected object's channel |
-| **Virtual slider** | Drag a channel name horizontally (Blender-style, trackpad-friendly) **or** MMB-drag anywhere on the rows (Maya uses Ctrl+MMB; plain MMB is free here). Rate: 0.01 units/px or 0.5°/px; `Shift` ×0.1, `Mod` ×10. Uses Pointer Lock when available (infinite drag) and falls back to pointer capture |
+| **Virtual slider** | Drag a channel name horizontally (as in the open-source DCC, trackpad-friendly) **or** MMB-drag anywhere on the rows (the desktop DCC uses Ctrl+MMB; plain MMB is free here). Rate: 0.01 units/px or 0.5°/px; `Shift` ×0.1, `Mod` ×10. Uses Pointer Lock when available (infinite drag) and falls back to pointer capture |
 | ↑ / ↓ in a field | ±step (`Shift` ×10, `Alt` ×0.1) |
 | Mixed values | Shown as `—` (indeterminate); typing writes all |
 | RMB on channels | **Key selected**, **Breakdown selected**, **Delete keys**, **Mute/Unmute**, **Lock/Unlock**, **Hide**, **Reset to default**, **Copy/Paste values**, Select connection, Break connection (later) |
@@ -330,15 +330,15 @@ Available as the bottom dock tab **and** as a pane type (any pane can become a G
 
 | Group | Controls | Notes |
 |---|---|---|
-| Tools | Select `Q`, Move `W`, Scale `R`, **Pen** `I` | Pen = Maya Insert Keys + Add Keys + Illustrator-style handle pulling (below) |
+| Tools | Select `Q`, Move `W`, Scale `R`, **Pen** `I` | Pen = Insert Keys + Add Keys (desktop-DCC tools) + Illustrator-style handle pulling (below) |
 | Stats fields | Frame, Value, Angle (degrees), Weight (weighted curves only) | Expressions accepted. Multi-selection shows `—` and applies relative input to all |
-| Tangent type | Auto, Spline, Clamped, Linear, Flat, Stepped, Plateau (+ Stepped Next, Fixed in the menu) | Same set as Maya's Tangents menu |
-| Tangent edit | Break `⟂`, Unify `∥`, Weighted `⚖` (curve-level), Lock/Free length (menu) | Unify keeps the new angle (Maya) |
-| View | Normalize `≈` (each curve mapped to −1…1), Stacked `▤` (one lane per curve), Absolute (default) | Maya: Absolute / Stacked / Renormalize |
-| Buffer | Snapshot `◫`, Swap `⇄` (+ menu: Blend to buffer slider, later) | Maya: Buffer Curve Snapshot / Swap Buffer Curve |
+| Tangent type | Auto, Spline, Clamped, Linear, Flat, Stepped, Plateau (+ Stepped Next, Fixed in the menu) | Same set as the desktop DCC's Tangents menu |
+| Tangent edit | Break `⟂`, Unify `∥`, Weighted `⚖` (curve-level), Lock/Free length (menu) | Unify keeps the new angle (desktop-DCC convention) |
+| View | Normalize `≈` (each curve mapped to −1…1), Stacked `▤` (one lane per curve), Absolute (default) | Desktop DCC: Absolute / Stacked / Renormalize |
+| Buffer | Snapshot `◫`, Swap `⇄` (+ menu: Blend to buffer slider, later) | Desktop DCC: Buffer Curve Snapshot / Swap Buffer Curve |
 | Infinity | Pre/Post: Constant, Linear, Cycle, Cycle with offset, Oscillate; "show infinity" toggle | Export bakes within the clip range |
-| Snap | Time snap (on: integer frames), Value snap (off) | Maya defaults |
-| Auto-load | Follow the viewport selection (on) / pin the current channel set (off) | Maya "Auto Load Selected Objects" |
+| Snap | Time snap (on: integer frames), Value snap (off) | Desktop-DCC defaults |
+| Auto-load | Follow the viewport selection (on) / pin the current channel set (off) | Desktop DCC: "Auto Load Selected Objects" |
 
 **Channel list (left, 200 px, resizable)**
 
@@ -358,7 +358,7 @@ normalized mode: v' = 2·(v − min_c)/(max_c − min_c) − 1   (per curve c; f
 - Drawing a segment between keys (t₀,v₀) → (t₁,v₁) with out-slope m₀ and in-slope m₁ (value per frame), Δ = t₁ − t₀:
   `P0=(t₀,v₀)  P1=(t₀+Δ/3, v₀+m₀·Δ/3)  P2=(t₁−Δ/3, v₁−m₁·Δ/3)  P3=(t₁,v₁)` → `ctx.bezierCurveTo`.
   Weighted tangents replace Δ/3 with stored handle lengths w (frames), clamped to 0 ≤ w ≤ Δ so x stays monotonic.
-- **Auto tangent** (UI expectation, maths in the curve doc): Catmull-Rom slope `mₖ = (vₖ₊₁ − vₖ₋₁)/(tₖ₊₁ − tₖ₋₁)`, set to 0 at local extrema and at the first and last keys, then clamped with the Fritsch–Carlson monotone limit so curves never overshoot neighbour values (Maya "Auto Ease"-like).
+- **Auto tangent** (UI expectation, maths in the curve doc): Catmull-Rom slope `mₖ = (vₖ₊₁ − vₖ₋₁)/(tₖ₊₁ − tₖ₋₁)`, set to 0 at local extrema and at the first and last keys, then clamped with the Fritsch–Carlson monotone limit so curves never overshoot neighbour values (similar to the desktop DCC's "Auto Ease").
 - Angle field: `angle = atan(m)` in degrees, with m in display units per frame (degrees per frame for rotations). The convention is documented in the UI tooltip.
 
 **Rendering layers (back to front):** background, outside-range shading, grid + labels, buffer curves (dashed `--curve-buffer`), infinity (dotted), inactive curves (40 % alpha), active curves (1.5 px), selected curve segment (2 px), tangent handles (selected keys only; option "show all"), keys, playhead, marquee, remote cursors (later).
@@ -367,7 +367,7 @@ normalized mode: v' = 2·(v − min_c)/(max_c − min_c) − 1   (per curve c; f
 
 | Element | Unselected | Selected | Size | Hit radius |
 |---|---|---|---|---|
-| Key | `--key-default` square | `--key-selected` (yellow, Maya convention) | 5 px / 7 px | 6 px |
+| Key | `--key-default` square | `--key-selected` (yellow, desktop-DCC convention) | 5 px / 7 px | 6 px |
 | Breakdown key | `--key-breakdown` diamond | yellow diamond | 6 / 8 px | 6 px |
 | Tangent handle | `--tangent` line + 4 px circle | `--tangent-selected` | line fixed 40 px (non-weighted) or true length (weighted) | 5 px |
 | Broken tangent | handle end is a square, tinted `--tangent-broken` | — | — | — |
@@ -382,13 +382,13 @@ Hit-test priority: selected handles → keys → handles → curve segments → 
 | LMB click key / handle | Select (replace). Shift toggle, Mod remove, Mod+Shift add |
 | LMB drag on empty | Marquee select (same modifiers) |
 | LMB drag on a selected key/handle (Move tool) | Move. First 4 px of motion pick the dominant axis when `Shift` is held (constrain to time or value) |
-| **MMB drag anywhere** | Move the current selection (Maya); Shift constrains |
+| **MMB drag anywhere** | Move the current selection (desktop-DCC convention); Shift constrains |
 | `R` + LMB drag | Scale the selection around the press point (pivot drawn as a cross); horizontal = time, vertical = value; Shift constrains |
-| **Pen `I` (hold = spring-loaded, `Shift+I` = sticky)** | Click **on** a curve → insert a key keeping the curve shape (Maya Insert Key). Click **off** the curve → add a key at that frame/value on the active curve (Maya Add Key). **Click-drag** → create a key and pull unified tangents (Illustrator pen). `Alt` while dragging → break and drag only the out-tangent. `Shift` → snap the tangent angle to 0°/±45°. Cursor `pen` / `pen+` (on curve) |
+| **Pen `I` (hold = spring-loaded, `Shift+I` = sticky)** | Click **on** a curve → insert a key keeping the curve shape (the desktop DCC's Insert Key). Click **off** the curve → add a key at that frame/value on the active curve (the desktop DCC's Add Key). **Click-drag** → create a key and pull unified tangents (Illustrator pen). `Alt` while dragging → break and drag only the out-tangent. `Shift` → snap the tangent angle to 0°/±45°. Cursor `pen` / `pen+` (on curve) |
 | Double-click a curve | Select all keys on that curve |
 | `F` / `A` | Frame selection (keys, or whole curves when no keys are selected) / frame all visible curves, with 8 % padding |
 | Wheel | Zoom both axes around the cursor; `Shift`+wheel = value axis only; `Alt`+wheel = time axis only |
-| `Alt+MMB` drag / `Alt+RMB` drag | Pan / zoom (Maya). `Alt+Shift+RMB` = zoom one axis (dominant direction) |
+| `Alt+MMB` drag / `Alt+RMB` drag | Pan / zoom (Alt+drag navigation). `Alt+Shift+RMB` = zoom one axis (dominant direction) |
 | RMB (no Alt) | **Tangent marking menu** (§7.4) on a key or curve; view/select menu on empty space |
 | Drag the playhead in the view | Scrub (same as the time slider) |
 | `1`…`7` | Tangent type: 1 Auto, 2 Spline, 3 Clamped, 4 Linear, 5 Flat, 6 Stepped, 7 Plateau |
@@ -398,7 +398,7 @@ Hit-test priority: selected handles → keys → handles → curve segments → 
 | `Mod+C` / `Mod+V` | Copy keys / paste at the current frame (option: merge / replace / insert) |
 | `Mod+A` | Select all keys on visible curves |
 
-**Curves menu (filters):** Euler filter, Simplify (key reducer with tolerance), Smooth (Gaussian / Butterworth, preview with a strength slider in a non-modal popover), Resample (bake every N frames), Snap keys to frames, Mirror values, Pre/Post infinity ▸. These follow Maya's `filterCurve` family (`euler`, `simplify`, `keyReducer`, `butterworth`, `gaussian`, `peakRemover`, `resample`).
+**Curves menu (filters):** Euler filter, Simplify (key reducer with tolerance), Smooth (Gaussian / Butterworth, preview with a strength slider in a non-modal popover), Resample (bake every N frames), Snap keys to frames, Mirror values, Pre/Post infinity ▸. These follow the desktop DCC's `filterCurve` family (`euler`, `simplify`, `keyReducer`, `butterworth`, `gaussian`, `peakRemover`, `resample`).
 
 ### 4.8 Dope Sheet
 
@@ -414,8 +414,8 @@ Hit-test priority: selected handles → keys → handles → curve segments → 
 └───────────────────┴──────────────────────────────────────────────────────────────────────────┘
 ```
 
-- Rows: Summary (all) › character › control › channel, expandable. Glyphs: key ◆ (`--key-default`), breakdown ◇ (green), selected = yellow. **Hold bars** connect identical consecutive values (Blender pattern, useful for blocking). Stepped segments get a subtle hatch.
-- Interactions: click / marquee / modifiers as in the Graph Editor; drag = move (snaps to frames); `R`-drag = scale (retime) around the press point; **Ripple edit** toggle shifts later keys when moving or scaling (Maya 2025 added ripple to its reworked Dope Sheet); `Delete`; `Mod+C/V`; `1`…`7` set tangent type on the selected keys; `F`/`A` frame.
+- Rows: Summary (all) › character › control › channel, expandable. Glyphs: key ◆ (`--key-default`), breakdown ◇ (green), selected = yellow. **Hold bars** connect identical consecutive values (an open-source-DCC pattern, useful for blocking). Stepped segments get a subtle hatch.
+- Interactions: click / marquee / modifiers as in the Graph Editor; drag = move (snaps to frames); `R`-drag = scale (retime) around the press point; **Ripple edit** toggle shifts later keys when moving or scaling (the desktop DCC's 2025 release added ripple to its reworked Dope Sheet); `Delete`; `Mod+C/V`; `1`…`7` set tangent type on the selected keys; `F`/`A` frame.
 - Option: *Sync visible range* with the time slider (default on when docked in P3).
 
 ### 4.9 Time Slider, Range Slider, playback
@@ -425,16 +425,16 @@ Hit-test priority: selected handles → keys → handles → curve segments → 
 | Element | Behaviour |
 |---|---|
 | Ruler | Labels every N frames so labels are ≥ 40 px apart; minor ticks every frame when ≥ 6 px/frame |
-| Key ticks | Full-height 2 px bars for keys of the **selected controls** (Maya). Option *Show keys: Selected / Active character / All*. Colours: key `--key-tick` (red), breakdown `--key-breakdown` (green), selected range keys white on a blue band (Maya documents red keys, green breakdowns, selected white/blue) |
+| Key ticks | Full-height 2 px bars for keys of the **selected controls** (desktop-DCC convention). Option *Show keys: Selected / Active character / All*. Colours: key `--key-tick` (red), breakdown `--key-breakdown` (green), selected range keys white on a blue band (the desktop DCC's documentation lists red keys, green breakdowns, selected white/blue) |
 | Playhead | 2 px `--playhead` line + frame badge on top |
 | Click / drag | Jump / scrub. Evaluates integer frames (option: sub-frame scrub) |
-| `Shift`+drag | Select a time range (red-tinted band, Maya). Drag the band's middle = move those keys; drag its ends = scale; `Mod`+drag the middle = copy keys |
-| MMB drag | Change the time **without evaluating** (Maya trick to carry a pose: MMB-drag, then `S`) |
-| `Alt+T` | Add a time bookmark for the selected range or the current frame. Bookmarks are coloured tags above the ruler; hover shows the name; `Mod`+drag moves them (Maya) |
+| `Shift`+drag | Select a time range (red-tinted band, desktop-DCC convention). Drag the band's middle = move those keys; drag its ends = scale; `Mod`+drag the middle = copy keys |
+| MMB drag | Change the time **without evaluating** (a desktop-DCC trick to carry a pose: MMB-drag, then `S`) |
+| `Alt+T` | Add a time bookmark for the selected range or the current frame. Bookmarks are coloured tags above the ruler; hover shows the name; `Mod`+drag moves them (desktop-DCC convention) |
 | RMB | Context menu: Cut/Copy/Paste/Delete keys, Snap, Show keys ▸, Bookmarks ▸, Audio ▸ (later) |
 | Auto-key on | 2 px red border around the slider |
 | Current frame field (right) | numeric input, accepts `+10`, `-5` |
-| Audio waveform | Later (centre band, Maya-style) |
+| Audio waveform | Later (centre band, as in the desktop DCC) |
 
 **Range slider + playback row (28 px)**
 
@@ -446,8 +446,8 @@ Hit-test priority: selected handles → keys → handles → curve segments → 
 - **Clip selector**: switches the active clip (per character). Switching keeps the current frame clamped.
 - **fps menu**: 24 / 25 / 30 / 48 / 50 / 60 / custom. Changing fps asks: *Keep timing in seconds (re-time keys)* or *Keep frame numbers*. glTF stores seconds; fps is an authoring grid.
 - **Playback buttons**: go to start (`Alt+Shift+V` / `Home`), previous key (`,`), previous frame (`Alt+,`), play backwards, play (`Alt+V`), next frame (`Alt+.`), next key (`.`), go to end (`End`). Esc stops. While playing, the play button becomes Stop.
-- **Loop** (`↻`, cycles): Once → Loop (continuous, default) → Ping-pong (oscillate). Maya's names are Once / Continuous / Oscillate.
-- **Speed** (`1×▾`): Real-time (default), 0.5×, 2×, custom fps, **Every frame**. Every frame evaluates each frame and never runs faster than real time; this matters on 120 Hz displays, where one frame per rAF would play a 30 fps clip at 4×. Maya offers Play every frame / Real-time / Half / Twice / Other.
+- **Loop** (`↻`, cycles): Once → Loop (continuous, default) → Ping-pong (oscillate). The desktop DCC names them Once / Continuous / Oscillate.
+- **Speed** (`1×▾`): Real-time (default), 0.5×, 2×, custom fps, **Every frame**. Every frame evaluates each frame and never runs faster than real time; this matters on 120 Hz displays, where one frame per rAF would play a 30 fps clip at 4×. The desktop DCC offers Play every frame / Real-time / Half / Twice / Other.
 - **Snap playback to frames** (default on): playback shows integer frames even on high-refresh displays.
 - The help line shows `achieved / target fps` while playing; it turns amber when more than 10 % of frames drop.
 
@@ -459,7 +459,7 @@ Hit-test priority: selected handles → keys → handles → curve segments → 
 
 The browser cannot tell a trackpad from a mouse wheel reliably, so the profile is chosen at first run (§10.1) and lives in Preferences. Profiles change bindings only, never the camera maths.
 
-| Action | **Maya (mouse)** — default on Win/Linux | **Trackpad (macOS)** — default on macOS | **Maya one-button (mac)** — always on as a fallback |
+| Action | **Alt+drag (mouse)** — default on Win/Linux | **Trackpad (macOS)** — default on macOS | **One-button (mac)** — always on as a fallback |
 |---|---|---|---|
 | Tumble (orbit) | `Alt+LMB` drag | two-finger scroll | `Option+LMB` drag |
 | Track (pan) | `Alt+MMB` drag | `Shift` + two-finger scroll | `Option+Cmd+LMB` drag |
@@ -471,17 +471,17 @@ The browser cannot tell a trackpad from a mouse wheel reliably, so the profile i
 
 Implementation notes:
 
-- `camera-controls` 3.1.2 (MIT) is the navigation core. Its `mouseButtons.{left,middle,right,wheel}` take `ACTION.ROTATE | TRUCK | DOLLY | ZOOM | NONE`. The Maya profile swaps these on Alt keydown/keyup (its "mouse drag with modifier keys" pattern), so without Alt the LMB stays free for selection and manipulators. The library also has `setViewport` for single-canvas multi-view, `toJSON()` / `fromJSON()` for bookmarks, `fitToBox` for `F`/`A`, `dollyToCursor` and `smoothTime`.
+- `camera-controls` 3.1.2 (MIT) is the navigation core. Its `mouseButtons.{left,middle,right,wheel}` take `ACTION.ROTATE | TRUCK | DOLLY | ZOOM | NONE`. The Alt+drag profile swaps these on Alt keydown/keyup (its "mouse drag with modifier keys" pattern), so without Alt the LMB stays free for selection and manipulators. The library also has `setViewport` for single-canvas multi-view, `toJSON()` / `fromJSON()` for bookmarks, `fitToBox` for `F`/`A`, `dollyToCursor` and `smoothTime`.
 - **Trackpad pinch** arrives as `wheel` with `ctrlKey: true` in Chromium and Firefox; `preventDefault()` stops page zoom. Safari historically sends non-standard `gesturestart/gesturechange/gestureend` instead, so we handle both. `wheel` gives no gesture start/end phase, so "end of pinch" is a 120 ms idle timeout.
-- Maya's own mac table maps Track to `Option+Cmd+button` and Dolly to `Option+Ctrl+button` for one-button mice. On macOS, `Ctrl+click` raises `contextmenu`; we suppress it inside viewports when `altKey` is held.
+- The desktop DCC's own mac table maps Track to `Option+Cmd+button` and Dolly to `Option+Ctrl+button` for one-button mice. On macOS, `Ctrl+click` raises `contextmenu`; we suppress it inside viewports when `altKey` is held.
 - MMB on Windows starts autoscroll and on Linux pastes the primary selection. Call `preventDefault()` on `pointerdown` (button 1) and `auxclick` inside the editor.
-- Some Linux desktops bind `Alt+drag` to window moving (configurable per desktop; Maya's docs give the same advice). The help line shows a one-time hint linking to the Trackpad profile, which needs no Alt.
+- Some Linux desktops bind `Alt+drag` to window moving (configurable per desktop environment; the desktop DCC's docs give the same advice). The help line shows a one-time hint linking to the Trackpad profile, which needs no Alt.
 
 ### 5.2 Cameras
 
-- Default cameras: `persp` (35 mm, vertical FOV 37.8°), orthographic `top`, `front`, `side`, plus `shotCam` (perspective, framed 3/4 front at chest height, 50 mm). Orthographic views tumble out to persp only when `Alt` is held and "allow ortho tumble" is on (off by default, like Maya).
-- Each pane keeps a **view history**: `[` / `]` undo/redo view changes (Maya), 32 entries, stored per pane.
-- Numpad bonus (Blender habit, no conflicts because `event.code` distinguishes `Numpad1` from `Digit1`): `Numpad1` front, `Numpad3` side, `Numpad7` top, `Numpad5` persp/ortho, `Numpad0` shotCam.
+- Default cameras: `persp` (35 mm, vertical FOV 37.8°), orthographic `top`, `front`, `side`, plus `shotCam` (perspective, framed 3/4 front at chest height, 50 mm). Orthographic views tumble out to persp only when `Alt` is held and "allow ortho tumble" is on (off by default, as in the desktop DCC).
+- Each pane keeps a **view history**: `[` / `]` undo/redo view changes (desktop-DCC convention), 32 entries, stored per pane.
+- Numpad bonus (open-source-DCC habit, no conflicts because `event.code` distinguishes `Numpad1` from `Digit1`): `Numpad1` front, `Numpad3` side, `Numpad7` top, `Numpad5` persp/ortho, `Numpad0` shotCam.
 
 ### 5.3 Locked camera pane
 
@@ -505,21 +505,21 @@ Implementation notes:
 
 | Toggle | Hotkey | Implementation hint |
 |---|---|---|
-| Wireframe / Shaded / Textured / Lit | `4` / `5` / `6` / `7` (Maya) | per-pane `scene.overrideMaterial` for wireframe; lighting rig switch |
+| Wireframe / Shaded / Textured / Lit | `4` / `5` / `6` / `7` (desktop-DCC keys) | per-pane `scene.overrideMaterial` for wireframe; lighting rig switch |
 | Wireframe on shaded | menu | second pass with `overrideMaterial` (wire), depth offset |
 | X-ray mesh | `Alt+X` | mesh material opacity uniform set in `onBeforeRender` per pane |
 | Joints | `Alt+J` | skeleton helper on camera layer 1 |
 | Controls | `Alt+C` | controls on layer 2 (§5.8) |
 | Onion skin (ghosts) | `Alt+G` | layer 3; popover below |
 | Grid | menu | layer 4 |
-| Isolate selection | `Shift+L` (Maya "View Selected") | per-pane layer mask + pane badge |
-| Background | `Alt+B` cycles gradient / dark / mid / light (Maya) | per pane |
+| Isolate selection | `Shift+L` (the desktop DCC's "View Selected") | per-pane layer mask + pane badge |
+| Background | `Alt+B` cycles gradient / dark / mid / light (desktop-DCC convention) | per pane |
 | HUD | menu | DOM overlay |
 | Motion trail | later | layer 5 |
 
 Per-pane flags use **camera layers** (`Object3D.layers`, `camera.layers`), so one shared scene renders differently in each pane without duplicating objects.
 
-**Onion skin popover:** Before `3` / After `3` / Step `2` frames, or *Keys only*. Style: Silhouette (flat unlit tint, default) / Wireframe / Skeleton only (cheapest). Opacity runs 0.45 near to 0.10 far, linearly. Colours `--ghost-past` (warm) and `--ghost-future` (cool). Scope: selected character (default) or all. Poses come from a sampled-pose cache that is invalidated per edited curve range. Maya's Ghost Editor exposes the same essentials: frames before/after, per-direction colour, count.
+**Onion skin popover:** Before `3` / After `3` / Step `2` frames, or *Keys only*. Style: Silhouette (flat unlit tint, default) / Wireframe / Skeleton only (cheapest). Opacity runs 0.45 near to 0.10 far, linearly. Colours `--ghost-past` (warm) and `--ghost-future` (cool). Scope: selected character (default) or all. Poses come from a sampled-pose cache that is invalidated per edited curve range. The desktop DCC's Ghost Editor exposes the same essentials: frames before/after, per-direction colour, count.
 
 ### 5.7 Selection highlighting
 
@@ -528,7 +528,7 @@ Per-pane flags use **camera layers** (`Object3D.layers`, `camera.layers`), so on
 | Default | side colour (L blue / R red / C yellow), 2 px | grey | normal shading |
 | Hover (pre-select) | +1 px width, colour +20 % lightness | light grey | 1 px outline `--sel-hover` |
 | Selected | white `--sel`, 3 px | white | 2 px outline `--sel` |
-| **Lead** (last selected) | `--sel-lead` (light green, Maya convention) | `--sel-lead` | outline `--sel-lead` |
+| **Lead** (last selected) | `--sel-lead` (light green, desktop-DCC convention) | `--sel-lead` | outline `--sel-lead` |
 | Remote user selection (later) | dashed 2 px in the user colour + name chip | — | dashed outline |
 | Locked / not pickable | 50 % alpha, no hover | — | — |
 
@@ -548,8 +548,8 @@ Per-pane flags use **camera layers** (`Object3D.layers`, `camera.layers`), so on
 | Rotate `E` | 3 axis rings, view ring (outer, `--axis-view`), free trackball (inner disc) | Object, World, **Gimbal** (shows the real non-orthogonal Euler axes for the rotate order; the most useful mode for clean curves) |
 | Scale `R` | 3 axis cubes, centre uniform cube | Object |
 
-- Active / hovered axis = `--axis-active` (yellow, Maya convention). During a drag the other handles fade to 30 %.
-- Readout HUD near the cursor: `ΔX 0.120 m`, `RX +15.0°`. `J` hold = snap (rotate 15°, move 0.1, scale 0.1; editable). `+` / `-` = manipulator size (Maya).
+- Active / hovered axis = `--axis-active` (yellow, desktop-DCC convention). During a drag the other handles fade to 30 %.
+- Readout HUD near the cursor: `ΔX 0.120 m`, `RX +15.0°`. `J` hold = snap (rotate 15°, move 0.1, scale 0.1; editable). `+` / `-` = manipulator size (desktop-DCC keys).
 - three's `TransformControls` (examples/jsm) covers translate/rotate/scale in local or world space, but has no Gimbal, Parent space, view ring or trackball. Plan a custom manipulator module that keeps its proven picking approach.
 - One drag = one undo step and one coalesced document command; continuous updates stay transient (§13.4).
 
@@ -559,7 +559,7 @@ Per-pane flags use **camera layers** (`Object3D.layers`, `camera.layers`), so on
 
 ### 6.1 Selection modifiers (all panels)
 
-| Gesture | Win/Linux | macOS | Maya equivalent |
+| Gesture | Win/Linux | macOS | Desktop-DCC equivalent |
 |---|---|---|---|
 | Replace | click | click | click |
 | Toggle | `Shift`+click | `Shift`+click | Shift |
@@ -577,7 +577,7 @@ Per-pane flags use **camera layers** (`Object3D.layers`, `camera.layers`), so on
 
 ### 6.3 Undo granularity
 
-One user gesture = one undo step: a manipulator drag, a marquee move of N keys, a typed value applied to M channels, a tween-slider release. Selection changes are **not** undoable by default in the Animate workspace; camera moves use the per-pane view history instead. With collaboration, undo only reverts **your** operations (§12). *Corrected 2026-10-19 (MODELING-PLAN v0.2 §3.5): Maya records selection changes in its undo queue **by default** (users ask Autodesk to consolidate them: https://forums.autodesk.com/t5/maya-ideas/consolidate-undo-steps-for-selection/m-p/13331011), and Blender records edit-mode selection; the Model workspace therefore makes component selection undoable (coalesced "Select" steps, session-only), with a per-workspace preference.*
+One user gesture = one undo step: a manipulator drag, a marquee move of N keys, a typed value applied to M channels, a tween-slider release. Selection changes are **not** undoable by default in the Animate workspace; camera moves use the per-pane view history instead. With collaboration, undo only reverts **your** operations (§12). *Corrected 2026-10-19 (MODELING-PLAN v0.2 §3.5): the desktop DCC records selection changes in its undo queue **by default** (users have asked the vendor, on its ideas forum, to consolidate them), and the open-source DCC records edit-mode selection; the Model workspace therefore makes component selection undoable (coalesced "Select" steps, session-only), with a per-workspace preference.*
 
 ### 6.4 Numeric entry
 
@@ -586,7 +586,7 @@ All numeric fields share the grammar `[=]?expr | (+=|-=|*=|/=) expr`, where `exp
 ### 6.5 Feedback
 
 - Toasts (bottom-right, above the timeline, 4 s, stack ≤ 3) for completed batch operations with an inline **Undo** button: "Deleted 9 keys at f24 · Undo".
-- The help line shows the current tool's hints and the hovered item's description (Maya help line).
+- The help line shows the current tool's hints and the hovered item's description (as in the desktop DCC's help line).
 - Busy states: import/export progress in a non-blocking bottom-left pill; the UI never freezes for more than 100 ms (heavy work goes to Web Workers; see the architecture doc).
 
 ---
@@ -603,7 +603,7 @@ All numeric fields share the grammar `[=]?expr | (+=|-=|*=|/=) expr`, where `exp
 
 ### 7.2 Default map
 
-Legend: **M** = same as Maya default · **M~** = Maya-inspired, adapted · **E** = Ekza addition. Scope: G global, V viewport, T timeline, GE Graph Editor, DS Dope Sheet, O Outliner, CB Channel Box.
+Legend: **M** = matches the desktop DCC's default · **M~** = modelled on the desktop DCC, adapted · **E** = Ekza addition. Scope: G global, V viewport, T timeline, GE Graph Editor, DS Dope Sheet, O Outliner, CB Channel Box.
 
 **Global / file / edit**
 
@@ -619,10 +619,10 @@ Legend: **M** = same as Maya default · **M~** = Maya-inspired, adapted · **E**
 | Copy / Paste (pose in V, keys in T/GE/DS) | `Ctrl+C` / `Ctrl+V` | `Cmd+C` / `Cmd+V` | context | M |
 | Paste mirrored pose | `Ctrl+Shift+V` | `Cmd+Shift+V` | V | E |
 | Duplicate (clip / keys) | `Ctrl+D` | `Cmd+D` | O, GE, DS | M |
-| Select all (controls / keys) | `Ctrl+A` | `Cmd+A` | context | E (Maya uses Ctrl+A for the Attribute Editor) |
+| Select all (controls / keys) | `Ctrl+A` | `Cmd+A` | context | E (the desktop DCC uses Ctrl+A for the Attribute Editor) |
 | Maximize pane under pointer | `Space` tap | same | G | M |
 | Pane/camera radial | `Space` hold | same | G | M~ (hotbox-lite) |
-| Zen mode (hide side docks) | `Shift+Space` | same | G | M~ (Maya `Ctrl+Space`; that conflicts with the macOS input-source switch) |
+| Zen mode (hide side docks) | `Shift+Space` | same | G | M~ (desktop DCC: `Ctrl+Space`; that conflicts with the macOS input-source switch) |
 | Previous / next layout preset | `Shift+[` / `Shift+]` | same | G | M |
 | Cancel / stop playback / close menu | `Esc` | same | G | M |
 
@@ -637,8 +637,8 @@ Legend: **M** = same as Maya default · **M~** = Maya-inspired, adapted · **E**
 | Frame selected / all (panel) | `F` / `A` | V, GE, DS, O | M |
 | Frame selected / all (every pane) | `Shift+F` / `Shift+A` | G | M |
 | Undo / redo view change | `[` / `]` | V | M |
-| Isolate selection | `Shift+L` | V | M (Maya "View Selected"; Maya 2016+ `Ctrl+1` is browser-reserved) |
-| Hide selected / show selected / hide unselected | `H` / `Shift+H` / `Alt+H` | V, O | M~ (Maya `Ctrl+H`; `Cmd+H` hides the browser on mac) / M / M |
+| Isolate selection | `Shift+L` | V | M (the desktop DCC's "View Selected"; its `Ctrl+1` (2016+) is browser-reserved) |
+| Hide selected / show selected / hide unselected | `H` / `Shift+H` / `Alt+H` | V, O | M~ (desktop DCC: `Ctrl+H`; `Cmd+H` hides the browser on mac) / M / M |
 | Wireframe / shaded / textured / lit | `4` / `5` / `6` / `7` | V | M |
 | X-ray / joints / controls / onion skin | `Alt+X` / `Alt+J` / `Alt+C` / `Alt+G` | V | E |
 | Cycle background | `Alt+B` | V | M |
@@ -663,7 +663,7 @@ Legend: **M** = same as Maya default · **M~** = Maya-inspired, adapted · **E**
 | Next / previous key | `.` / `,` | G | M |
 | Next / previous frame | `Alt+.` / `Alt+,` | G | M |
 | Add time bookmark | `Alt+T` | G | M |
-| *(preference)* Space plays | `Space` | G | E (Blender/AE habit; replaces tap-maximize) |
+| *(preference)* Space plays | `Space` | G | E (open-source-DCC / AE habit; replaces tap-maximize) |
 
 **Graph Editor / Dope Sheet**
 
@@ -675,7 +675,7 @@ Legend: **M** = same as Maya default · **M~** = Maya-inspired, adapted · **E**
 | Break / Unify tangents | `B` / `U` | E |
 | Normalize / Stacked view | `N` / `Shift+N` | E |
 | Pan / zoom view | `Alt+MMB` / `Alt+RMB` (axis zoom `Alt+Shift+RMB`), wheel | M |
-| Tangent marking menu | RMB on key/curve | M~ (Maya `Shift+S` + MMB; MMB is unavailable on trackpads) |
+| Tangent marking menu | RMB on key/curve | M~ (desktop DCC: `Shift+S` + MMB; MMB is unavailable on trackpads) |
 
 **Outliner / Channel Box:** `/` focus filter, `F2` rename (`Enter` on macOS, where F-keys need `fn`), arrow tree navigation, `Tab` field cycling, `↑/↓` value nudge.
 
@@ -694,14 +694,14 @@ Legend: **M** = same as Maya default · **M~** = Maya-inspired, adapted · **E**
 
 ### 7.4 Marking-menu spec
 
-- 8 compass slots on a 90 px radius, pill labels (12 px, `--bg-popover`), 14 px dead centre, an optional linear overflow list under the centre (Maya style), and ▸ sub-menus that open on hover over the outer edge.
-- **Gesture selection:** a flick in a direction, released within 250 ms, triggers the slot **without drawing the menu**. This builds muscle memory, as in Maya. The menu renders only after 120 ms of hold.
+- 8 compass slots on a 90 px radius, pill labels (12 px, `--bg-popover`), 14 px dead centre, an optional linear overflow list under the centre (desktop-DCC style), and ▸ sub-menus that open on hover over the outer edge.
+- **Gesture selection:** a flick in a direction, released within 250 ms, triggers the slot **without drawing the menu**. This builds muscle memory, as in the desktop DCC. The menu renders only after 120 ms of hold.
 - Rendered in a top-level portal (SVG + DOM labels), pointer-captured; `Esc` or releasing in the centre cancels. Slot positions never change between contexts with the same family (all tangent menus share geometry).
 - Accessibility: every marking-menu item is also a menu-bar item and a command-palette entry (§11.4).
 
-### 7.5 Deliberate divergences from Maya defaults
+### 7.5 Deliberate divergences from desktop-DCC defaults
 
-| Maya | Ekza | Why |
+| Desktop DCC | Ekza | Why |
 |---|---|---|
 | `Ctrl+1` isolate select | `Shift+L` | `Mod+1…9` switch browser tabs |
 | `Ctrl+H` hide | `H` | `Cmd+H` hides the browser on macOS; `Ctrl+H` is browser history |
@@ -720,7 +720,7 @@ Legend: **M** = same as Maya default · **M~** = Maya-inspired, adapted · **E**
 | macOS browser | `Cmd+,` (browser settings), `Cmd+L`, `Cmd+R`, `Cmd+Option+I/J` | keep for the browser |
 | Windows / Linux browser | `Alt+←/→` (back/forward), `Alt+Home`, `Alt+D` / `Alt+E` / `Alt+F` (Chrome address bar/menu), `F5`/`Ctrl+R`, `F11`, `F12`, `Ctrl+Shift+I/J/C`, `Alt+F4`, `Alt+Space` (window menu) | browser/OS |
 | Linux Chrome | `Alt+1…8` | tab switching |
-| Firefox Win/Linux | `Alt+F/E/V/S/B/T/H` are menu access keys | We bind `Alt+V/S/B/T/H` (Maya parity), so we `preventDefault` on keydown and verify per release in the QA matrix; Chromium is the primary target |
+| Firefox Win/Linux | `Alt+F/E/V/S/B/T/H` are menu access keys | We bind `Alt+V/S/B/T/H` (desktop-DCC parity), so we `preventDefault` on keydown and verify per release in the QA matrix; Chromium is the primary target |
 | Linux WMs (some) | `Alt`+drag moves windows | Trackpad profile / remap advice (§5.1) |
 | Text editing | `Mod+Z/C/V/X/A` inside inputs | native behaviour wins while an input is focused |
 
@@ -730,7 +730,7 @@ Legend: **M** = same as Maya default · **M~** = Maya-inspired, adapted · **E**
 
 ### 8.1 Direction
 
-Maya-like neutral greys, cleaned up: flat surfaces, hairline borders, one restrained accent. The Ekza brand enters through the **violet accent `#7c5cff`** used in `ekza-arena-web` (`--accent: #7c5cff`, `--accent-strong: #9b82ff`), which marks chrome only: focus, active tab, primary button, selected list rows. **Semantic animation colours (axes, keys, playhead, Channel Box states, rig sides) never use the accent.** Arena's near-black cinema base (`#050506`) is deliberately *not* reused: a pro tool needs mid-dark surfaces so models' mid-tones and thin curves stay readable for hours. `omoba-ui` (Verdant Crown emerald/gold) is a game skin and is not reused, but its *method* is adopted: a `tokens.json` source of truth, a generated CSS file and a contrast-check script.
+Desktop-DCC-style neutral greys, cleaned up: flat surfaces, hairline borders, one restrained accent. The Ekza brand enters through the **violet accent `#7c5cff`** used in `ekza-arena-web` (`--accent: #7c5cff`, `--accent-strong: #9b82ff`), which marks chrome only: focus, active tab, primary button, selected list rows. **Semantic animation colours (axes, keys, playhead, Channel Box states, rig sides) never use the accent.** Arena's near-black cinema base (`#050506`) is deliberately *not* reused: a pro tool needs mid-dark surfaces so models' mid-tones and thin curves stay readable for hours. `omoba-ui` (Verdant Crown emerald/gold) is a game skin and is not reused, but its *method* is adopted: a `tokens.json` source of truth, a generated CSS file and a contrast-check script.
 
 ### 8.2 Colour tokens
 
@@ -746,7 +746,7 @@ Maya-like neutral greys, cleaned up: flat surfaces, hairline borders, one restra
 | `--bg-pressed` | `#3a3d46` | pressed / toggled-on (non-accent) |
 | `--bg-selected` | `#3b3270` | selected list rows (accent-tinted) |
 | `--bg-popover` | `#2c2e34` + shadow | menus, popovers, marking-menu pills |
-| `--viewport-top` / `--viewport-bottom` | `#3e4047` → `#26272b` | default viewport gradient (Maya-like; the silhouette reads against both ends) |
+| `--viewport-top` / `--viewport-bottom` | `#3e4047` → `#26272b` | default viewport gradient (desktop-DCC-like; the silhouette reads against both ends) |
 | `--grid-minor` / `--grid-major` | `#3a3c44` / `#4b4e58` | viewport & graph grid |
 | `--border` | `#3a3c44` | hairlines between regions |
 | `--border-strong` | `#4b4e58` | field outlines on hover, splitters on hover |
@@ -767,18 +767,18 @@ Maya-like neutral greys, cleaned up: flat surfaces, hairline borders, one restra
 | `--axis-x` / `--axis-y` / `--axis-z` | `#ff5f69` / `#5fd36e` / `#4f8dff` | manipulators, gizmo, channel swatches, X/Y/Z curves |
 | `--axis-w` / `--channel-other` | `#3fd1d9` | quaternion W (inspector), custom channels |
 | `--axis-view` | `#c8ccd4` | view ring, screen-plane handle |
-| `--axis-active` | `#ffd84d` | hovered/dragged manipulator axis (Maya yellow) |
+| `--axis-active` | `#ffd84d` | hovered/dragged manipulator axis (desktop-DCC yellow) |
 | `--key-default` | `#c8ccd4` | unselected keys (graph, dope sheet) |
-| `--key-selected` | `#ffd84d` | selected keys (Maya yellow) |
+| `--key-selected` | `#ffd84d` | selected keys (desktop-DCC yellow) |
 | `--key-breakdown` | `#3fcf8e` | breakdown keys and ticks |
-| `--key-tick` | `#e5484d` | time-slider key ticks (Maya red) |
+| `--key-tick` | `#e5484d` | time-slider key ticks (desktop-DCC red) |
 | `--tangent` / `--tangent-selected` / `--tangent-broken` | `#9aa0ab` / `#ff9f43` / `#3fd1d9` | handles |
 | `--curve-buffer` | `#7d828d` dashed | buffer curve |
 | `--playhead` | `#ff8a3d` | playhead in time slider, graph, dope sheet |
 | `--range-outside` | `rgba(0,0,0,0.28)` | outside the playback range |
-| `--range-select` | `rgba(229,72,77,0.22)` + `#e5484d` edges | Shift-drag time range (Maya red band) |
+| `--range-select` | `rgba(229,72,77,0.22)` + `#e5484d` edges | Shift-drag time range (desktop-DCC red band) |
 | `--autokey` | `#e5484d` | auto-key on indicator |
-| `--sel` / `--sel-lead` / `--sel-hover` | `#ffffff` / `#7dff8a` / `#ffe58a` | viewport selection (Maya white + green lead) |
+| `--sel` / `--sel-lead` / `--sel-hover` | `#ffffff` / `#7dff8a` / `#ffe58a` | viewport selection (desktop-DCC white + green lead) |
 | `--rig-left` / `--rig-right` / `--rig-center` / `--rig-ik` | `#4f8dff` / `#ff5f69` / `#ffd84d` / `#ff9f43` | control colours by side |
 | `--ghost-past` / `--ghost-future` | `#ff8a5c` / `#5cc8ff` | onion skin |
 | `--locked-badge` | `#e3b34a` | camera locked badge |
@@ -917,7 +917,7 @@ Tabs in the menu bar: `Animate | Rig | Review | Model`. A workspace = layout pre
 │           [ Open file… ]   [ Try a sample avatar (CC0 VRM) ]           │
 │                 Recent:  hero.vrm · fox.glb · robot.vrm                │
 │                                                                        │
-│   How do you navigate?   (•) Mouse — Maya (Alt + drag)                 │
+│   How do you navigate?   (•) Mouse — Alt + drag (DCC standard)         │
 │                          ( ) Trackpad — two fingers / pinch            │
 │                                                                        │
 │                  ? Shortcuts   ·   Getting started guide               │
@@ -934,7 +934,7 @@ Tabs in the menu bar: `Animate | Rig | Review | Model`. A workspace = layout pre
 | Section | Content |
 |---|---|
 | Summary | file name, format (glTF 2.0 / VRM 0.x / VRM 1.0), size, meshes, bones, morph targets/expressions, embedded clips count |
-| Humanoid | **Detected: VRM humanoid (54/55 bones)**, or for plain GLB a heuristic mapping (Mixamo-style names) with a "Review mapping" link (Rig workspace) |
+| Humanoid | **Detected: VRM humanoid (54/55 bones)**, or for plain GLB a heuristic mapping (common auto-rigger skeleton names) with a "Review mapping" link (Rig workspace) |
 | Scale & axes | units (m; glTF is Y-up, metres), detected height, "Normalize height" off by default |
 | Embedded clips | table: ✓ import, name (editable), duration, fps guess, channels; option *Import as: keep sampled keys / resample to N fps / reduce keys (tolerance)* |
 | Control rig | Auto (humanoid) · None · Custom later |
@@ -1141,7 +1141,7 @@ interface Command<A = void> {
 | `zustand` | 5.0.15 | MIT | stores |
 | `lucide-react` | 1.59.0 | ISC | generic icons |
 | `@fontsource-variable/inter`, `@fontsource-variable/jetbrains-mono` | 5.3.0 | OFL-1.1 | self-hosted fonts |
-| *Not recommended for the main UI* | `leva` 0.10.1 (MIT) | — | its look and density don't match a Maya-grade Channel Box; keep it for dev-only debug panels |
+| *Not recommended for the main UI* | `leva` 0.10.1 (MIT) | — | its look and density don't match a professional DCC-grade Channel Box; keep it for dev-only debug panels |
 | *Custom (≈ 300–500 LOC)* | HotkeyManager | — | needs `event.code`, panel-under-pointer scopes, tap/hold and key+mouse chords, which generic libraries (e.g. `tinykeys` 4.0.1) don't cover |
 
 Reuse from the Ekza codebase: **`ekza-avatar-renderer`** for its CC0 shared clip library (`idle/walk/attack/cast/death`, imported as editable clips) and its VRM test fixture as the sample avatar. Tokens borrow only the accent and the spacing scale from **`ekza-arena-web`**, and only the method from **`omoba-ui`**. **`core`**'s input layer is gameplay-oriented (device-neutral movement), so it is not reused for editor hotkeys.
@@ -1153,15 +1153,15 @@ Reuse from the Ekza codebase: **`ekza-avatar-renderer`** for its CC0 shared clip
 | MVP (must) | Phase 1.5 | Later |
 |---|---|---|
 | Shell: menu bar, status line, help line, dockview with Animate + Rig workspaces, presets P1–P5, layout persistence + reset | Tween slider, Review workspace (P6), popout Graph Editor | Model workspace, Shelf, script console, high-contrast theme |
-| Viewport: single-canvas multi-pane, Maya + Trackpad nav profiles, persp/ortho/shotCam, **lock camera**, bookmarks, view history, SVG nav gizmo, display toggles 4/5/6/7, X-ray, joints, controls, isolate, safe frame | Onion skin (silhouette), background cycle | Motion trails (editable), playblast, Blue Pencil |
+| Viewport: single-canvas multi-pane, Alt+drag and Trackpad nav profiles, persp/ortho/shotCam, **lock camera**, bookmarks, view history, SVG nav gizmo, display toggles 4/5/6/7, X-ray, joints, controls, isolate, safe frame | Onion skin (silhouette), background cycle | Motion trails (editable), playblast, Blue Pencil |
 | Control rig visuals: circle controls with Line2, side colours, occlusion-aware X-ray, screen-space picking | Shape library beyond circle/square/cube | Custom shapes editor |
 | Manipulators W/E/R with Object/World/**Gimbal**, snapping, readouts | Parent space, trackball | — |
 | Outliner (tree, filter, sync) + Clips tab | Selection sets | Ownership chips |
-| Channel Box with Maya state colours, virtual sliders, expressions, key/mute/lock menu; Attributes (Control, Constraint, Clip, Character) | Bone section extras | Expression channel |
+| Channel Box with desktop-DCC state colours, virtual sliders, expressions, key/mute/lock menu; Attributes (Control, Constraint, Clip, Character) | Bone section extras | Expression channel |
 | Graph Editor: channel list, curves, keys/handles, marquee, move/scale, **pen tool**, 7 tangent types, break/unify, normalize, stacked, buffer snapshot/swap, F/A, snapping, stats fields, tangent marking menu | Weighted tangents UI, Simplify/Smooth/Euler filters popovers, infinity editing | Retime tool, blend-to-buffer slider |
 | Dope Sheet: rows, keys, breakdowns, move/scale, ripple, copy/paste | Hold bars | — |
 | Time slider + range slider: ticks, scrub, Shift-range edit, bookmarks, clip selector, fps, loop, speed, auto-key | Audio waveform | Time Editor / layers UI |
-| Hotkeys: §7.2 defaults, event.code, scopes, tap/hold, cheat sheet, marking menus (W/E/Q/Shift+S/RMB/Space) | Hotkey editor UI | Profiles (Blender-ish) |
+| Hotkeys: §7.2 defaults, event.code, scopes, tap/hold, cheat sheet, marking menus (W/E/Q/Shift+S/RMB/Space) | Hotkey editor UI | Profiles (alternative keymap preset, open-source-DCC style) |
 | Onboarding: empty state, sample avatar, nav-profile choice, Getting-started card; Import dialog; Export dialog (bake vs VRMA/GLB, naming, range, fps, validation); licence gate; Ekza upload stub | — | Ekza upload live |
 | Tokens (CSS vars from `tokens.json`), contrast CI check, Inter, Lucide + custom icon set (tangents, tools, display) | Colour-blind palette | Light theme |
 | — | — | Collaboration UI (§12) |
@@ -1170,8 +1170,8 @@ Reuse from the Ekza codebase: **`ekza-avatar-renderer`** for its CC0 shared clip
 
 ## 15. Open questions
 
-1. **Space behaviour default:** keep Maya tap-maximize/hold-radial (current spec) or default to Space = play for web-native users? (Spec: Maya, with a first-run toggle next to the nav-profile choice.)
-2. **Arrow keys:** Maya pick-walk (spec default) or Blender-style frame stepping? Owner preference decides; both exist as a preference.
+1. **Space behaviour default:** keep the desktop-DCC tap-maximize/hold-radial (current spec) or default to Space = play for web-native users? (Spec: tap-maximize, with a first-run toggle next to the nav-profile choice.)
+2. **Arrow keys:** desktop-DCC pick-walk (spec default) or open-source-DCC-style frame stepping? Owner preference decides; both exist as a preference.
 3. **Default shot-camera framing:** fixed 3/4 front at 50 mm, or auto-framed from the character bounds on load (proposed: auto-frame once, then persist)?
 4. **Euler-only authoring:** confirm that rotations are always edited as Euler curves (with rotate order per control) and converted on export; affects Channel Box and Graph Editor UX (the curve doc decides).
 5. **Workspace "Model" tab** visible but disabled from day one (spec) or hidden until it exists?
@@ -1183,27 +1183,27 @@ Reuse from the Ekza codebase: **`ekza-avatar-renderer`** for its CC0 shared clip
 
 ## 16. Sources
 
-Maya (Autodesk documentation):
-- Graph Editor Tangents menu (2025): https://help.autodesk.com/cloudhelp/2025/ENU/Maya-Animation/files/GUID-43A4FE2C-4863-4EA6-B6AE-6D2B6757F6C7.htm
-- Graph Editor toolbar (2025 / 2024): https://help.autodesk.com/cloudhelp/2025/ENU/Maya-Animation/files/GUID-A6061A36-81FF-4F57-A081-C967F749D546.htm · https://help.autodesk.com/cloudhelp/2024/ENU/Maya-Animation/files/GUID-A6061A36-81FF-4F57-A081-C967F749D546.htm
-- Graph Editor Curves menu (2023): https://help.autodesk.com/cloudhelp/2023/ENU/Maya-Animation/files/GUID-619CAE9C-107D-4504-A769-227DDC847153.htm
-- `filterCurve` command: https://help.autodesk.com/cloudhelp/CHS/MayaCRE-Tech-Docs/CommandsPython/filterCurve.html
-- `keyTangent` command: https://help.autodesk.com/cloudhelp/2019/ENU/Maya-Tech-Docs/Commands/keyTangent.html
-- Channel Box (2024): https://help.autodesk.com/cloudhelp/2024/ENU/Maya-Basics/files/GUID-4C954FB2-8B6A-4BBD-9695-DF432616D0D2.htm
-- Time Slider (2024): https://help.autodesk.com/cloudhelp/2024/ENU/Maya-Basics/files/GUID-827ED8CD-C6AA-4495-8B5E-2FC98C8D49EE.htm
-- Playback Controls (2025): https://help.autodesk.com/cloudhelp/2025/ENU/Maya-Basics/files/GUID-277ADCBF-6277-4B32-81E0-AEB6D081153F.htm
-- Time Slider preferences: https://help.autodesk.com/cloudhelp/2017/ENU/Maya/files/GUID-51A80586-9EEA-43A4-AA1F-BF1370C24A64.htm
-- All Maya hotkeys (2014 reference list): https://download.autodesk.com/global/docs/maya2014/en_US/files/PC_Maya_Hotkeys.htm
-- Isolate Select / Panel Show menu (2026): https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Basics/files/GUID-A15B3808-D3C4-482F-98DD-BC7F45E13A36.htm
-- Interface preferences (one/two-button mouse mapping): https://help.autodesk.com/cloudhelp/2016/ENU/Maya/files/GUID-FE5518DA-2177-44C9-8BC9-F0676EFEEDF9.htm
-- Multi-touch trackpad: https://help.autodesk.com/cloudhelp/2016/ENU/Maya/files/GUID-0979C34F-F7E8-4C76-B88A-76C5A2A54D89.htm
-- What's New 2025 (Dope Sheet ripple edit, precision mode): https://help.autodesk.com/cloudhelp/2025/ENU/Maya-WhatsNew/files/GUID-53F9C17C-2982-4D19-8FA0-6A8988403A02.htm
-- Previewing animation / Ghosting (2023): https://help.autodesk.com/cloudhelp/2023/ENU/Maya-Animation/files/GUID-1EC3357B-62DD-424F-9595-277C373D133C.htm
+Desktop DCC (vendor documentation; URLs omitted):
+- Graph Editor Tangents menu (2025)
+- Graph Editor toolbar (2025 / 2024)
+- Graph Editor Curves menu (2023)
+- `filterCurve` command reference
+- `keyTangent` command reference
+- Channel Box (2024)
+- Time Slider (2024)
+- Playback Controls (2025)
+- Time Slider preferences
+- Full hotkey reference list (2014)
+- Isolate Select / Panel Show menu (2026)
+- Interface preferences (one/two-button mouse mapping)
+- Multi-touch trackpad
+- What's New 2025 (Dope Sheet ripple edit, precision mode)
+- Previewing animation / Ghosting (2023)
 
 Other animation tools:
 - Houdini animation toolbar (Tween/Ease sliders): https://sidefx.com/docs/houdini/anim/animationtoolbar.html
-- Blender "blend to ease" slider PR: https://projects.blender.org/blender/blender/pulls/106519
-- Blender trackpad gestures discussion: https://developer.blender.org/T97925
+- Open-source DCC: "blend to ease" graph-slider pull request #106519 (URL omitted)
+- Open-source DCC: trackpad gestures discussion, task T97925 (URL omitted)
 
 Web platform:
 - Keyboard Lock API (fullscreen-only, OS-allowed keys): https://developer.chrome.com/docs/capabilities/web-apis/keyboard-lock

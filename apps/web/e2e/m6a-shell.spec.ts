@@ -404,7 +404,7 @@ test('Mod+K opens the command palette: search with aliases, Enter runs the entry
   await page.keyboard.press('Enter');
   await expect.poll(async () => (await call(page, 'state')).workspace).toBe('model');
   await expect(page.getByTestId('cmdk')).toBeHidden();
-  // Blender-style aliases find operators by their other names ("Search" is the palette's own alias).
+  // Aliases find operators by the names other DCCs use ("Search" is the palette's own alias).
   await run(page, 'ui.commandPalette');
   await page.keyboard.type('f3 search');
   await expect.poll(async () => (await call(page, 'commandPalette'))?.items[0]?.op).toBe('ui.commandPalette');

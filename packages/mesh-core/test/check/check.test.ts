@@ -8,7 +8,7 @@ import {
   BitSet,
   checkMesh,
   editMeshFrom,
-  MAYA_PRIMITIVE_DEFAULTS,
+  DCC_PRIMITIVE_DEFAULTS,
   MESH_OPS,
   type MeshData,
   type MeshOp,
@@ -260,7 +260,7 @@ describe('thresholds', () => {
 describe('clean meshes', () => {
   it('every primitive with both default sets is clean (closed ones also when a closed mesh is expected)', () => {
     for (const kind of ['cube', 'sphere', 'cylinder', 'cone', 'plane', 'torus'] as const) {
-      for (const params of [{}, MAYA_PRIMITIVE_DEFAULTS[kind] as Record<string, number>]) {
+      for (const params of [{}, DCC_PRIMITIVE_DEFAULTS[kind] as Record<string, number>]) {
         const data = primitive(kind, params);
         expect(checkMesh(data), `${kind}`).toEqual([]);
         expect(checkMesh(data, { closedExpected: kind !== 'plane' }), `${kind}`).toEqual([]);

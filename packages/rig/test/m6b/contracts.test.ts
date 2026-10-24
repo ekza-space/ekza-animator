@@ -1,6 +1,7 @@
 // M6B-SPEC §4.3 (C0): the rig contract's working baselines — `parseConstraintParams` (defaults, per-field repair,
-// unknown `v` → null, Maya aim defaults), `withoutConstraints`, the `updateAutoRig` baseline (ids kept, vanished bones
-// soft-deleted, ik limbs as requested) — the Quick Rig v2 marker lists, and every stub failing `not-implemented`.
+// unknown `v` → null, the standard aim defaults), `withoutConstraints`, the `updateAutoRig` baseline (ids kept,
+// vanished bones soft-deleted, ik limbs as requested) — the Quick Rig v2 marker lists, and every stub failing
+// `not-implemented`.
 import type { ConstraintRecord, ControlId } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import {
@@ -45,7 +46,7 @@ function constraint(fields: Partial<ConstraintRecord> = {}): ConstraintRecord {
 }
 
 describe('parseConstraintParams (C0 baseline)', () => {
-  it('reads missing params as the defaults (aim: Maya defaults; others: null)', () => {
+  it('reads missing params as the defaults (aim: the standard aim-constraint defaults; others: null)', () => {
     expect(parseConstraintParams(constraint())).toEqual({
       v: 1,
       key: 'parent',

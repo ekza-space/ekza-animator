@@ -36,7 +36,7 @@ export const centreOf = (rect: { x: number; y: number; w: number; h: number }): 
 
 /**
  * A real pointer drag: press at `from`, move by (dx, dy) in `steps` moves, release. `modifiers` are held for the
- * whole gesture (e.g. Alt for Maya navigation).
+ * whole gesture (e.g. Alt for Alt+drag navigation).
  */
 export async function drag(
   page: Page,

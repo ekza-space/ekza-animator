@@ -151,7 +151,7 @@ export interface KeyboardAdapterDeps {
   /** True while a modal dialog is open: the dialog owns the keyboard. */
   readonly blocked: () => boolean;
   /** Preference `spaceBehaviour`: 'play' turns the Space-tap maximize into play/stop (MVP-SPEC §4.10). */
-  readonly spaceBehaviour: () => 'maya' | 'play';
+  readonly spaceBehaviour: () => 'maximize' | 'play';
   readonly dispatch: (dispatch: KeyDispatch) => void;
   readonly holdMs?: number;
   readonly timers?: TimerApi;

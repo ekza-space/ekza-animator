@@ -27,7 +27,7 @@ export function KeyFields(props: { readonly app: EditorApp; readonly fields: Key
   const { app, fields } = props;
   const none = fields.count === 0;
   const tangent = fields.tangent;
-  const angleTitle = 'Degrees, Maya convention: time in seconds, values in display units';
+  const angleTitle = 'Degrees, DCC convention: time in seconds, values in display units';
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1" data-testid="ge-fields">
       <NumberField

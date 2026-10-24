@@ -276,7 +276,7 @@ test('integration smoke: the production editor without e2e mode', async ({ page 
   await expect(page.getByTestId('firstrun-getting-started')).toContainText('Plant Feet');
   expect(await page.evaluate(() => window.__EKZA_STUDIO_TEST__ === undefined)).toBe(true);
   await shot(page, '20-production-first-run');
-  await page.getByTestId('firstrun-nav-maya').click();
+  await page.getByTestId('firstrun-nav-dcc').click();
   await page.getByTestId('firstrun-done').click();
   await expect(firstRun).toBeHidden();
 

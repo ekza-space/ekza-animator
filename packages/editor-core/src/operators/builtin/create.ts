@@ -1,5 +1,5 @@
 // Primitive creation (M6A-SPEC §5.16, §6.2, §6.3; B7): `mesh.create.<kind>` creates an authored scene mesh at the world
-// origin, centred (Maya), selected, in object mode: `faceted: true`, every edge hard (the kernel's primitives are
+// origin, centred, selected, in object mode: `faceted: true`, every edge hard (the kernel's primitives are
 // faceted), the default palette (created by this first modeling action when missing, B13), live parameters in `generator` (§6.3 with the
 // `prefs.modeling.primitiveDefaults` set), id `derivedId('mesh', 'mesh.create.<kind>', [], seed, 0)` so an adjusted
 // re-run (Last-op card, INPUTS) keeps the id. With exactly one template group as the lead of the object selection the
@@ -9,7 +9,7 @@
 // plane and cylinder; sphere, cone and torus poll-fail until B1's kernel provides them).
 import { coerceArgs, EkzaError, type ParamValues, xfIdentity } from '@ekza-studio/anim-core';
 import { derivedId, type GroupId, type GroupRecord, type MeshRecord } from '@ekza-studio/doc';
-import { MAYA_PRIMITIVE_DEFAULTS, PRIMITIVE_PARAMS } from '@ekza-studio/mesh-core/descriptors';
+import { DCC_PRIMITIVE_DEFAULTS, PRIMITIVE_PARAMS } from '@ekza-studio/mesh-core/descriptors';
 import type { MeshData, PrimitiveKind } from '@ekza-studio/mesh-core';
 import { attachMeshes, type KernelMeshRuntimes, loadMeshKernel, meshKernel } from '../../mesh';
 import { orderAfterSiblings, uniqueMeshName } from '../../mesh/records';
@@ -60,7 +60,7 @@ function kernelBuilds(kind: CreateKind): boolean | null {
 export function primitiveArgs(app: EditorApp, kind: CreateKind, raw: unknown): ParamValues {
   const preferred = app.prefs.getState().modeling.primitiveDefaults;
   const given = typeof raw === 'object' && raw !== null && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
-  const base = preferred === 'maya' ? MAYA_PRIMITIVE_DEFAULTS[kind] : {};
+  const base = preferred === 'dcc' ? DCC_PRIMITIVE_DEFAULTS[kind] : {};
   return coerceArgs(PRIMITIVE_PARAMS[kind], { ...base, ...given }).args;
 }
 

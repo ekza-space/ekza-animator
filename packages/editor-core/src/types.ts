@@ -234,16 +234,16 @@ export interface SessionState {
 export type SessionStore = StoreApi<SessionState>;
 
 // ---------- preferences (P state) ----------
-export type NavProfile = 'maya' | 'trackpad' | 'mayaOneButton';   // mayaOneButton: M1-stretch
+export type NavProfile = 'dcc' | 'trackpad' | 'oneButton';        // dcc: Alt + three-button mouse; oneButton: M1-stretch
 export interface Prefs {
   readonly version: 1;
   readonly firstRunDone: boolean;
-  readonly navProfile: NavProfile;                                // default: 'trackpad' on macOS, else 'maya'
-  readonly spaceBehaviour: 'maya' | 'play';                       // default 'maya' (tap maximize, hold radial)
+  readonly navProfile: NavProfile;                                // default: 'trackpad' on macOS, else 'dcc'
+  readonly spaceBehaviour: 'maximize' | 'play';                   // default 'maximize' (tap maximize, hold radial)
   readonly keymapOverrides: readonly KeyBinding[];
   readonly defaultTangents: { readonly in: TangentType; readonly out: TangentType };   // 'auto'/'auto'
   readonly autoKey: boolean;                                      // default false
-  readonly autoKeyMode: 'keyed-only' | 'all';                     // default 'keyed-only' (Maya)
+  readonly autoKeyMode: 'keyed-only' | 'all';                     // default 'keyed-only'
   readonly graphHandles: 'selected' | 'all';                      // default 'selected'
   readonly moveSpace: 'object' | 'world';                         // default 'world'
   readonly rotateSpace: ManipSpace;                               // default 'object'; remembered per user
@@ -262,7 +262,7 @@ export interface Prefs {
   // M6a (M6A-SPEC §4.6; version stays 1; missing fields take defaults on load)
   readonly lastWorkspace: WorkspaceId;                   // 'animate'
   readonly modeling: {
-    readonly primitiveDefaults: 'low-poly' | 'maya';     // 'low-poly'
+    readonly primitiveDefaults: 'low-poly' | 'dcc';      // 'low-poly'
     readonly numericCapture: 'auto' | 'explicit';        // 'auto'
     readonly undoSelection: Readonly<Record<string, boolean>>;   // { model: true, animate: false }
     readonly undoBudgetMB: number;                       // 256
@@ -286,7 +286,7 @@ export interface Prefs {
     /** Option boxes of rig operators, keyed by operator id; per constraint type for `rig.constraint.create:<type>`
      *  (the user's last choice per type is remembered, §5.19). */
     readonly optionDefaults: Readonly<Record<string, ParamValues>>;
-    readonly orientPreset: 'world' | 'maya' | 'blender';        // Joint tool and Orient Joint default for non-humanoid chains: 'maya'
+    readonly orientPreset: 'world' | 'xAim' | 'yAim';           // Joint tool and Orient Joint default for non-humanoid chains: 'xAim'
     readonly holds: Readonly<Record<string, readonly string[]>>; // '<projectId>/<characterId>' → held joint keys (§5.10)
   };
 }
@@ -391,7 +391,7 @@ export interface OperatorDef<A = void, R = void, P = void> {
   readonly extraArgs?: readonly string[];
   readonly tool?: ToolId;                      // G (non-repeatable) and Y re-activate it
   readonly workspaces?: readonly WorkspaceId[];   // menus and palette list it only there; poll is unaffected
-  readonly aliases?: readonly string[];        // command-palette aliases (Blender names: 'Loop Cut', 'Knife', …)
+  readonly aliases?: readonly string[];        // command-palette aliases (common alternative names: 'Loop Cut', 'Knife', …)
   undoLabel?(args: A): string;
   /** v0.3 integration (WP-7a): consecutive runs with the same key within `ms` merge into one step (§4.11.0 rule 7). */
   coalesce?(args: A): { readonly key: string; readonly ms: number } | null;
@@ -452,7 +452,7 @@ export interface KeyInput {
 }
 export interface KeymapManager {
   readonly platform: 'mac' | 'other';
-  readonly preset: string;                                        // M6a, changed: registered preset id (only 'maya' ships)
+  readonly preset: string;                                        // M6a, changed: registered preset id (only 'dcc' ships)
   bindings(): readonly KeyBinding[];                              // preset + overrides
   /** scopes: most specific first, e.g. ['graph', 'global']. */
   resolve(input: KeyInput, scopes: readonly KeyScope[], trigger: KeyTrigger): KeyBinding | null;
@@ -996,7 +996,7 @@ export interface ExtrudeSessionState {
   /** The session's args undo stack (§5.8): stack[0] = the extrude's first args; `index` = the args now applied. */
   readonly stack: readonly ParamValues[];
   readonly index: number;
-  readonly manipSpace: 'local' | 'world';      // the extrude manipulator's local/world toggle (Maya)
+  readonly manipSpace: 'local' | 'world';      // the extrude manipulator's local/world toggle
 }
 export interface NumericCaptureState {
   readonly armed: 'drag' | 'keyboard-op' | null;
@@ -1243,7 +1243,7 @@ export type RigMode = 'object' | 'skeleton' | 'skin' | 'shape';
 export type PoseView = 'bind' | 'test' | 'clip';
 export type PaintMode = 'paint' | 'select';
 export interface BrushSettings {
-  readonly op: PaintOp;                                        // 'replace' (Maya's default)
+  readonly op: PaintOp;                                        // 'replace' (the usual DCC default)
   readonly value: number;                                      // 1
   readonly opacity: number;                                    // 1
   readonly radiusPx: number;                                   // 40
@@ -1272,7 +1272,7 @@ export interface RigSessionState {
   readonly character: CharacterId | null;                       // the active character of the workspace
   readonly poseView: PoseView;                                  // 'bind' on every entry
   readonly activeInfluence: { readonly mesh: MeshId; readonly joint: string } | null;   // palette key
-  /** Influence locks (Maya Hold) **per joint** (palette key) of a character, applied on every bound mesh of it; per
+  /** Influence locks (Hold weights) **per joint** (palette key) of a character, applied on every bound mesh of it; per
    *  user, never in the document; remembered across reloads in `prefs.rigging.holds` (§5.10). */
   readonly holds: ReadonlyMap<CharacterId, ReadonlySet<string>>;
   readonly paint: { readonly mode: PaintMode; readonly brush: BrushSettings };
@@ -1386,7 +1386,7 @@ export interface IntakeReport {                // §5.2; returned by autorig.int
    *  static. */
   readonly pose: AutoRigPoseClass | null;
 }
-/** Mixamo's clip parameters (§5.5.3); identity = { speed: 1, trim: null, mirror: false, inPlace: false, armSpace: 0 }. */
+/** Clip parameters of a one-click auto-rigging library (§5.5.3); identity = { speed: 1, trim: null, mirror: false, inPlace: false, armSpace: 0 }. */
 export interface ClipParams {
   readonly speed: number;                      // 0.25 … 3
   readonly trim: { readonly start: number; readonly end: number } | null;   // seconds of the source clip

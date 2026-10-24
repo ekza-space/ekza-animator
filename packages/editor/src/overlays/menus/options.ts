@@ -1,5 +1,5 @@
 // The selection options marking menu `model.options` (M6A-SPEC §8.4; B12a data, B9's generic marking menu draws it):
-// Ctrl+Shift+RMB, and `Q`+LMB (Maya's hotbox habit; one `MarkingMenuDef` has one trigger, so the `Q`+LMB copy is
+// Ctrl+Shift+RMB, and `Q`+LMB (the DCC hotbox habit; one `MarkingMenuDef` has one trigger, so the `Q`+LMB copy is
 // `model.options.lmb` with the same items). Slots N Symmetry: Object X · NE Symmetry: Off · E Soft Select ✓ ·
 // SE Camera-based ✓ · S Constraint ▸ (stretch items disabled) · SW Backfaces ✓ · W Selection Style ▸ (Marquee, Tweak;
 // Drag disabled) · NW Symmetry ▸ (World X/Y/Z, Object Y/Z); list Tolerance… · Preserve Seam ✓.
@@ -121,7 +121,7 @@ export const OPTIONS_MENU: MarkingMenuDef = {
   list: OPTIONS_LIST,
 };
 
-/** The `Q`+LMB copy of `model.options` (Maya: `Q`+LMB opens the selection options). */
+/** The `Q`+LMB copy of `model.options` (desktop-DCC habit: `Q`+LMB opens the selection options). */
 export const OPTIONS_MENU_LMB: MarkingMenuDef = {
   ...OPTIONS_MENU,
   id: 'model.options.lmb',

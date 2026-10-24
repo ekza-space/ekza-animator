@@ -5,7 +5,7 @@ feasibility, UX) raised 75 issues, 5 of them blockers. Every issue and what was 
 spec becomes binding when the owner accepts it and [ADR 0023](adr/0023-studio-touch-ui.md) moves to Accepted. The
 contracts in §20.4 freeze when the input spike T1a and work package T2 have both merged. After that, changing a
 contract needs a PR that updates this file first. Defaults and owner questions are recorded in
-[DECISIONS-OPEN §O](DECISIONS-OPEN.md#o-ekza-studio-touch-shell-halo-defaults-chosen-2026-10-24) (`ST-*`).
+[DECISIONS-OPEN §P](DECISIONS-OPEN.md#p-ekza-studio-touch-shell-halo-defaults-chosen-2026-10-24) (`ST-*`).
 
 Owner request (2026-10-24, translated): *"Can we make a lightweight version, say for iPad, while keeping all the
 functionality? Design a universal, modern, even revolutionary UI/UX with very simple and convenient interaction. Keep
@@ -2483,7 +2483,7 @@ and overloaded packages. v0.2 re-plans at about **100 agent-days**.
 | **T9** | Rig and Skin stage | L+ (9) | T6a, T6b, T5a, T5b, T1 | `halo/src/stages/rig/**`, `sheets/{checks,bones,weights}/**`, `recipes/{rigIt,fixBend}.ts`; `viewport/src/tools/rig/paint/{tool,pick}.ts` (pressure, interpolated stamps) and the quick-rig marker tool's touch seams (after T1 merges); `autorig/src/shell/**` (*Back to Studio*, `from=halo` only); e2e ha-10, ha-14, ha-J1, ha-J7 | J1 ≤ 11 with the real defaults; J7 ≤ 7 + strokes; native *Adjust dots*; Halo's J1 operator log equals Auto-Rig's; portrait Rig editing; pressure determinism headless |
 | **T10** | Curves and History | M (5) | T7 | `halo/src/thread/curves/**`, `curve-editor/src/adapters/graph.ts`, `curve-editor/src/focus.ts` (moved, with Pro's one-line re-import), `halo/src/sheets/history/**`; e2e ha-07, ha-J4, ha-J4f, ha-J8 (fake agent session) | J4 ≤ 10 finger-only; Revert this / Undo all on AI groups |
 | **T11** | Share, Home, files | M (6) | T6a, T6b, T0, T5b | `halo/src/{home,intake}/**`, `sheets/share/**`, `recipes/{addAnimations,fixForOmoba,loopIt,wave}.ts`; e2e ha-01, ha-11, ha-J9, ha-J10 | Every destination byte-equal to the Pro / Auto-Rig export (AS-ST-5); the two-step save (mocked share on WebKit; device D11); an export never clears the unsaved dot |
-| **T12** | Integration and release gate | M (5) | all | `halo/int`; DECISIONS-OPEN §O records (ST-B1, ST-INT-*); enforce `size-baseline.json` `routes.app`; `HALO_ENTRY = true` and the Pro title flag on; `FEATURES.md` (v0.6.0 + Halo), `ROADMAP.md`, `docs/agents.md` (iPad note); `docs/evidence/halo/`; the real-device run with its owner | Everything in §22 green, including the device gate |
+| **T12** | Integration and release gate | M (5) | all | `halo/int`; DECISIONS-OPEN §P records (ST-B1, ST-INT-*); enforce `size-baseline.json` `routes.app`; `HALO_ENTRY = true` and the Pro title flag on; `FEATURES.md` (v0.6.0 + Halo), `ROADMAP.md`, `docs/agents.md` (iPad note); `docs/evidence/halo/`; the real-device run with its owner | Everything in §22 green, including the device gate |
 
 **Total ≈ 100 agent-days.**
 
@@ -2544,7 +2544,7 @@ and overloaded packages. v0.2 re-plans at about **100 agent-days**.
 ## 23. Defaults chosen
 
 Every default is recorded with its impact and decide-by milestone in
-[DECISIONS-OPEN §O](DECISIONS-OPEN.md#o-ekza-studio-touch-shell-halo-defaults-chosen-2026-10-24): ST-1…ST-40 and the
+[DECISIONS-OPEN §P](DECISIONS-OPEN.md#p-ekza-studio-touch-shell-halo-defaults-chosen-2026-10-24): ST-1…ST-40 and the
 measurement row ST-B1 (filled in by T1a, T1–T3, T5c and T12). v0.2 changed ST-2, ST-6, ST-8, ST-9, ST-10, ST-13,
 ST-16, ST-17, ST-20, ST-21, ST-22, ST-28 and ST-B1, and added ST-32…ST-40. The owner may override any of them.
 

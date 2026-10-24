@@ -1,5 +1,5 @@
 // Primitives (M6A-SPEC §5.16, §6.3): cube, sphere, cylinder, cone, plane and torus with the §6.3 parameters (missing
-// ones take the low-poly defaults, `MAYA_PRIMITIVE_DEFAULTS` is the other set; values are clamped like every op
+// ones take the low-poly defaults, `DCC_PRIMITIVE_DEFAULTS` is the other set; values are clamped like every op
 // argument). Every primitive is faceted (every edge EDGE_HARD), wound CCW seen from outside (each face is oriented by
 // its Newell normal against the outward direction, so winding never depends on hand-ordered corners), centred at
 // the origin, with `paint` = slot 0 and `uv0` per corner:
@@ -93,7 +93,7 @@ function cube(params: Readonly<Record<string, unknown>>): MeshData {
       outward,
     );
   };
-  // Maya's side order: front (+Z), top (+Y), back (−Z), bottom (−Y), right (+X), left (−X).
+  // The desktop DCC's side order: front (+Z), top (+Y), back (−Z), bottom (−Y), right (+X), left (−X).
   for (let j = 0; j < h; j++)
     for (let i = 0; i < w; i++)
       quad(
@@ -355,7 +355,7 @@ function sphere(params: Readonly<Record<string, unknown>>): MeshData {
   const [n, h] = [num(params, 'subdivisionsAxis'), num(params, 'subdivisionsHeight')];
   const b = new Builder();
   const angle = (k: number): number => (TAU * k) / n;
-  // Rings from the bottom (j = 1) to the top (j = h − 1), then the bottom and top poles (Maya's order).
+  // Rings from the bottom (j = 1) to the top (j = h − 1), then the bottom and top poles (the desktop DCC's order).
   const rings: number[][] = [];
   for (let j = 1; j < h; j++) {
     const phi = (Math.PI * j) / h;

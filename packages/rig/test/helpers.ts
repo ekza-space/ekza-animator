@@ -122,7 +122,7 @@ export interface BoneSpec {
   readonly parent: string | null;
   /** Rest world position (canonical space). */
   readonly t: Vec3;
-  /** Rest world rotation (canonical); default: Blender-like (+Y towards `aim`, else the parent's rotation). */
+  /** Rest world rotation (canonical); default: Y-aim (+Y towards `aim`, else the parent's rotation). */
   readonly q?: Quat;
   readonly aim?: string;
   readonly joint?: boolean;
@@ -318,8 +318,8 @@ function legSpecs(side: SideName, opts: { readonly toes: boolean }): BoneSpec[] 
 
 /**
  * A richer synthetic humanoid: full fingers, a non-humanoid twist joint between each lower arm and hand, eyes, jaw,
- * paired hair joints and a skirt joint (secondary controls), a spring-bone ponytail, Blender-like rest rotations
- * and slightly bent knees. `leftToes: false` drops the left toes (like Polybot).
+ * paired hair joints and a skirt joint (secondary controls), a spring-bone ponytail, Y-aim rest rotations (+Y down the
+ * bone) and slightly bent knees. `leftToes: false` drops the left toes (like Polybot).
  */
 export function richHumanoidSpecs(opts: { readonly leftToes?: boolean } = {}): BoneSpec[] {
   return [

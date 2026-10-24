@@ -81,16 +81,16 @@ test('first run: the choices are saved and the Getting started card states the r
   await expect(dialog).toBeVisible();
   await expect(page.getByTestId('firstrun-getting-started')).toContainText('Legs are IK by default');
   await page.getByTestId('firstrun-nav-trackpad').click();
-  await page.getByTestId('firstrun-nav-maya').click();
+  await page.getByTestId('firstrun-nav-dcc').click();
   await page.getByTestId('firstrun-space-play').click();
-  await page.getByTestId('firstrun-space-maya').click();
+  await page.getByTestId('firstrun-space-maximize').click();
   await page.getByTestId('firstrun-done').click();
   await expect(dialog).toBeHidden();
   const prefs = await page.evaluate(() => {
     const state = (window as DevShellWindow).__EKZA_DEV_SHELL__?.app.prefs.getState() ?? {};
     return { nav: state['navProfile'], space: state['spaceBehaviour'], done: state['firstRunDone'] };
   });
-  expect(prefs).toEqual({ nav: 'maya', space: 'maya', done: true });
+  expect(prefs).toEqual({ nav: 'dcc', space: 'maximize', done: true });
   expect(await page.evaluate(() => window.__EKZA_STUDIO_TEST__?.state().dialog)).toBeNull();
 });
 
@@ -141,7 +141,7 @@ test('hotkeys follow the physical key and the panel under the pointer (E2E-20, s
 
 test('Space tap maximizes the panel under the pointer and restores it', async ({ page }) => {
   await openShell(page);
-  // §4.10 row of MAYA_KEYMAP (contributed by WP-7b's registerBuiltins; the fake app has no preset).
+  // §4.10 row of DCC_KEYMAP (contributed by WP-7b's registerBuiltins; the fake app has no preset).
   await page.evaluate(() => {
     (window as DevShellWindow).__EKZA_DEV_SHELL__?.app.contribute({
       kind: 'keymap',

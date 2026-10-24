@@ -3,18 +3,18 @@
 - Status: Accepted (2026-10-17, design review rev. 2). Extended 2026-10-19 by [ADR 0016](0016-modeling-interaction-paradigm.md)
   D12 (a third, session-only step part for selection and hiding in the Model workspace; `onDrop`/`dropOldest` for
   the mesh undo byte budget; contracts in [M6A-SPEC](../M6A-SPEC.md) §4.6); decisions 1–5 below are unchanged
-- Inputs: research [01](../research/01-maya-animation-features.md) §3.4 (KY-*, CB-02 "changed" state),
+- Inputs: research [01](../research/01-dcc-animation-features.md) §3.4 (KY-*, CB-02 "changed" state),
   [06](../research/06-collaboration.md) §9 (per-user patch undo), [08](../research/08-extensibility-modeling.md) §5.1,
   [09](../research/09-ui-ux-spec.md) §6.3 (undo granularity); ADR 0002; design review (animator lens).
 
 ## Context
 
-Following Maya, a keyed channel edited with auto-key off does not write the document: it becomes a **session
-override** (light pink in the Channel Box) that is discarded on frame change and turned into keys by `S`. v0.1
-made overrides non-undoable. In Maya those edits *are* undoable. With v0.1, an animator who rotates an arm the wrong
-way and presses `Z` would undo the previous document transaction — for example a `Set Key` at another frame — while
-the bad pose stayed on screen: silent data loss in the most common gesture, and a break of "one gesture = one undo
-step".
+As in a leading commercial desktop DCC, a keyed channel edited with auto-key off does not write the document: it
+becomes a **session override** (light pink in the Channel Box) that is discarded on frame change and turned into keys
+by `S`. v0.1 made overrides non-undoable. In the desktop DCC those edits *are* undoable. With v0.1, an animator who
+rotates an arm the wrong way and presses `Z` would undo the previous document transaction — for example a `Set Key` at
+another frame — while the bad pose stayed on screen: silent data loss in the most common gesture, and a break of "one
+gesture = one undo step".
 
 The document undo stack must stay store-level and collaboration-safe (ADR 0002): per user, compare-before-restore,
 covered by the conformance suite. Overrides are U state and must never enter the document (R12).

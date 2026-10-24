@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseGlb } from '../src/glb/parse';
 import { readEmbeddedAvatarHeightScale } from '../src/gltf/ekzaMeta';
 import { detectModelFormat, readVrmLicense } from '../src/gltf/format';
-import { importProvenance } from '../src/gltf/provenance';
+import { importProvenance, NON_REDISTRIBUTABLE_NAME } from '../src/gltf/provenance';
 import { makeGlb } from '../src/testing/glb';
 import { CC_BY_DEED_URL, CC0_DEED_URL, VRM_LICENSE_URL } from '../src/vrm/meta';
 import type { GltfJson } from '../src/types';
@@ -150,13 +150,14 @@ describe('importProvenance', () => {
     ).toBe('unknown');
   });
 
-  it('marks Mixamo material as not redistributable and unknown sources as unknown', () => {
-    expect(importProvenance(vrm, { sourceSha256: null, names: ['mixamo.com'] }).redistributable).toBe('no');
+  it("marks the auto-rigging service's material as not redistributable and unknown sources as unknown", () => {
+    const mark = NON_REDISTRIBUTABLE_NAME.source;
+    expect(importProvenance(vrm, { sourceSha256: null, names: [`${mark}.com`] }).redistributable).toBe('no');
     expect(importProvenance(null, { sourceSha256: null, names: ['Idle'] })).toEqual({
       derivedFrom: [],
       redistributable: 'unknown',
     });
-    expect(importProvenance(null, { sourceSha256: null, names: ['mixamorig:Hips'] }).redistributable).toBe('no');
+    expect(importProvenance(null, { sourceSha256: null, names: [`${mark}rig:Hips`] }).redistributable).toBe('no');
   });
 
   it('passes the known licence of bundled samples', () => {

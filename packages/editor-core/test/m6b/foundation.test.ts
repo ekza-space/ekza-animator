@@ -438,7 +438,7 @@ describe('Rig & Skin defaults (§4.6)', () => {
     expect(app.prefs.getState().rigging).toMatchObject({
       jointSize: 1,
       influenceSort: 'hierarchy',
-      orientPreset: 'maya',
+      orientPreset: 'xAim',
     });
     expect(app.prefs.getState().modeling.undoSelection).toEqual({ model: true, animate: false, rig: true });
   });

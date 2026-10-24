@@ -2,13 +2,13 @@
 
 - Status: Accepted (2026-10-17); revised 2026-10-17 after the design review (rev. 2)
 - Inputs: research [07](../research/07-rig-controls-math.md) D1–D10, §3–§5, §8–§10, §15, §19, §21;
-  [01](../research/01-maya-animation-features.md) §3.11, §5.8; [02](../research/02-formats-gltf-vrm.md) §4.1, §7–§8;
+  [01](../research/01-dcc-animation-features.md) §3.11, §5.8; [02](../research/02-formats-gltf-vrm.md) §4.1, §7–§8;
   [03](../research/03-ekza-reuse-audit.md) §5.2; [05](../research/05-landscape.md) §4; [08](../research/08-extensibility-modeling.md) §3–4, §9;
   [09](../research/09-ui-ux-spec.md) §5.7–5.9.
 
 ## Context
 
-The owner wants Maya-style circle controls around bones, constrained to the bones, and animation through
+The owner wants DCC-style circle controls around bones, constrained to the bones, and animation through
 controls. Exports must target raw glTF nodes (embedded clips) and normalized humanoid space (VRMA). Research 07
 proposes a full rig (FK + IK + foot roll + spaces + constraints) for its MVP; the coordinator's MVP keeps FK only,
 with constraint and IK slots in the kernel. The design review found that FK-only legs make every COG move slide
@@ -83,12 +83,12 @@ bone hierarchies differ.
 |---|---|
 | Keying bones directly (bone mode) | Two evaluation paths; non-portable channels; no zero pose on VRM 1.0 (51/52 bones have non-identity rest rotations in a real fixture). |
 | Bone-aligned humanoid controls | Channels mean different things per avatar; mirroring needs per-bone tables. Optional per-control orientation stays possible later (02 §6.2). |
-| `cog` drives the hips directly (v0.1) | Hip sway and pelvis tilt force counter-animating the spine on every key; the standard Maya COG/hips/torso split costs one control. |
+| `cog` drives the hips directly (v0.1) | Hip sway and pelvis tilt force counter-animating the spine on every key; the standard desktop-DCC COG/hips/torso split costs one control. |
 | `N_b` = FK control local rotation (v0.1 shortcut) | Wrong once `fk.spine` is parented to `cog`, and wrong when a non-humanoid node between humanoid bones (Seed-san's twist and palm nodes) is posed. |
 | Bone-length-only sizing (v0.1) | ~3 cm circles on 1.8 cm finger spacing, torso circles buried in the mesh, thigh circles overlapping the pelvis. |
 | IK legs in M1 (review's preferred option, research 07 §21.1, 05 §4) | About 5 agent-days (IK and pole controls, `ik2` op, IK/FK visibility, import of IK channels from sampled feet, pole annotation) on top of an M1 that already grew in the review; the coordinator scoped IK to V1. The solver math and its tests ship in M1, so M2a adds controls and the op only. Owner may pull it in: DECISIONS-OPEN Q-RIG-5. |
 | three.js `CCDIKSolver`, `TransformControls` driving bones | Index-addressed, mutating, history-dependent (07 §9.5). |
-| A generic Maya-style DG of plugs | Too heavy; typed ops with declared dependencies cover constraints and solvers (08 trap 2). |
+| A generic desktop-DCC-style dependency graph (DG) of plugs | Too heavy; typed ops with declared dependencies cover constraints and solvers (08 trap 2). |
 
 ## Consequences
 

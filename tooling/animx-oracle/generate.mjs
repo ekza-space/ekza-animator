@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Regenerates the AnimX goldens of @ekza-studio/anim-core (MVP-SPEC §6.3, ADR 0003; see README.md):
 //
-//   1. fetches Autodesk AnimX at the pinned commit into tooling/animx-oracle/.cache/animx (or uses --animx <dir>);
+//   1. fetches AnimX at the pinned commit into tooling/animx-oracle/.cache/animx (or uses --animx <dir>);
 //   2. compiles oracle.cpp together with AnimX's animx.cpp (float64 time, no FMA contraction);
 //   3. runs it and writes packages/anim-core/test/goldens/animx-goldens.json, formatted with Biome.
 //

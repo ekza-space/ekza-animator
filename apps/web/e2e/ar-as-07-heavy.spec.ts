@@ -16,7 +16,7 @@ test('AS-AR-7: 250k triangles are refused; 80k warns, rigs, and Cancel mid-bind 
   await openAutoRigReady(page);
   await chooseFile(page, 'cube-lad-262k.glb', subdividedCubeLad(37));
   await expect(page.getByTestId('ar-status')).toContainText(
-    'Reduce it to under 200,000 triangles (Blender: Decimate modifier) and try again.',
+    "Reduce it to under 200,000 triangles (your 3D tool's decimate or reduce-polygons command) and try again.",
     { timeout: 60_000 },
   );
   expect(await history(page)).toEqual({ undo: [], redo: [] });

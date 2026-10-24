@@ -9,6 +9,10 @@
 >
 > Related docs: `03-ekza-reuse-audit.md` (what we can reuse from Ekza repos) and
 > `08-extensibility-modeling.md` (modeling and future-proofing).
+>
+> Naming: "the desktop DCC" is a leading commercial desktop DCC, "the open-source DCC" a popular
+> open-source DCC, "the auto-rigging service" a web auto-rigging service, and "the mocap package" a
+> real-time motion-capture package from the desktop DCC's vendor.
 
 License legend used below:
 
@@ -24,7 +28,7 @@ License legend used below:
 ## 0. TL;DR
 
 1. **The niche is empty.** As of October 2026 no open-source, web-native tool combines (a) a
-   Maya-grade graph editor (weighted tangents, break/unify, flat/linear/stepped, buffer
+   professional DCC-grade graph editor (weighted tangents, break/unify, flat/linear/stepped, buffer
    curves), (b) a control rig with on-model curve controls, (c) VRM/VRMA-first round-trip
    that also writes back into GLB, and (d) real-time multiplayer. Each neighbour covers at
    most two of these.
@@ -52,10 +56,10 @@ License legend used below:
      spacing-only easing, and an MCP server.
    - **Unreal** 5.6: editable motion trails, tween tools with overshoot, a curve editor with
      a lattice tool, and Control Rig shape controls.
-   - **Blender**: about 25 graph-editor slider and cleanup operators.
+   - **The open-source DCC**: about 25 graph-editor slider and cleanup operators.
 
    We copy their *interaction ideas*, never their code.
-5. **The user need with the most demand is *Mixamo/FBX/BVH → VRMA*.** Projects that solve
+5. **The user need with the most demand is *FBX/BVH (incl. auto-rigger clips) → VRMA*.** Projects that solve
    only this get the most stars (Text-to-VRMA ~199 stars, fbx2vrma, bvh2vrma, VRMA Lab).
    An import → clean → export path is a P1 adoption driver, not a nice-to-have.
 6. **Reusable permissive pieces exist:**
@@ -83,7 +87,7 @@ Relevance: ★★★ direct neighbour or competitor · ★★ strong UX referenc
 |---|---|---|---|---|---|---|---|---|
 | Reze Studio | MMD curve editor | Web (WebGPU, Next.js 16) | GPL-3.0 → DESIGN | No (PMX/VMD) | Yes, per-channel Bézier | Engine IK, gizmo only | Roadmap | ★★★ |
 | VRMA Lab | VRMA workbench | Web (React 18, three 0.170) | Apache-2.0 → PORT | VRM 0.x/1.0 + VRMA | No (adjustment clips) | No | No | ★★★ |
-| Pose Studio | UE5 Manny animator | Web PWA, Win, Android | GPL-3.0 → DESIGN | Unreal FBX via Blender | Yes, beside the dopesheet | IK/FK, mirroring, layers | No | ★★★ |
+| Pose Studio | UE5 Manny animator | Web PWA, Win, Android | GPL-3.0 → DESIGN | Unreal FBX via the open-source DCC | Yes, beside the dopesheet | IK/FK, mirroring, layers | No | ★★★ |
 | Roboticela Animator | Keyframe studio | Web + Tauri, R3F | AGPL-3.0 → DESIGN | GLB in/out | No | No | No | ★★ |
 | nanasi vrm-animation-web-editor, vrm-dance, others | Hobby VRMA editors | Web | Mostly unlicensed | VRMA | No | No | No | ★ |
 | Theatre.js | Motion-design sequencer | Web | core Apache-2.0 · studio **AGPL-3.0** | Via `@theatre/r3f` props | Yes, normalized per-segment bezier | No | Private "saaz" sync, unreleased | ★★ |
@@ -100,13 +104,13 @@ Relevance: ★★★ direct neighbour or competitor · ★★ strong UX referenc
 | VRMViewMeister, XR Animator | VRM pose / webcam mocap | Web/desktop | Docs only / unlicensed | VRM, VRMA | No | IK markers | No | ★ |
 | Cascadeur 2026.2 | Physics-assisted animator | Win/Mac/Linux desktop | Proprietary | FBX, DAE, USD; BVH import | Yes | AutoPosing, fulcrums, layers (alpha) | No | ★★★ (UX bar) |
 | Plask | Video mocap + editor | Web | Proprietary SaaS | FBX/GLB/BVH out | Basic | Foot lock | "Collaborate in cloud" | ★★ |
-| Mixamo | Auto-rig + clip library | Web | Proprietary (Adobe) | FBX out | No | No | No | ★★ (import source) |
-| DeepMotion, Rokoko Vision, Move.ai, Uthana, Cartwheel, Autodesk Flow Studio | Mocap / AI motion SaaS | Web/iOS | Proprietary | FBX/GLB/BVH/USD | n/a | n/a | n/a | ★ (import sources) |
-| Blender | DCC | Desktop | GPL → DESIGN; glTF IO add-on Apache-2.0 → PORT | glTF IO, VRM add-on (MIT) | Best-in-class OSS | Rigify, constraints | No | ★★★ (UX reference) |
+| Web auto-rigging service | Auto-rig + clip library | Web | Proprietary | FBX out | No | No | No | ★★ (import source) |
+| DeepMotion, Rokoko Vision, Move.ai, Uthana, Cartwheel, Flow Studio | Mocap / AI motion SaaS | Web/iOS | Proprietary | FBX/GLB/BVH/USD | n/a | n/a | n/a | ★ (import sources) |
+| Open-source DCC | DCC | Desktop | GPL → DESIGN; glTF IO add-on Apache-2.0 → PORT | glTF IO, VRM add-on (MIT) | Best-in-class OSS | Rigify, constraints | No | ★★★ (UX reference) |
 | Godot AnimationPlayer | Engine editor | Desktop | MIT → PORT | glTF import | Bezier tracks (not for 3D bone TRS) | SkeletonIK3D / modifiers | No | ★★ |
 | Unity Animation / Timeline / Animation Rigging | Engine editor | Desktop | Proprietary / Unity Companion License | FBX; glTF via packages | Yes (weighted tangents) | Constraint package | No | ★★ |
 | Unreal Sequencer + Control Rig (5.6) | Engine editor | Desktop | Proprietary EULA | FBX/USD | Yes; lattice, smart snapping | **Yes**; shape library, spaces, physics | Multi-User Editing (Concert) | ★★★ (control-rig UX) |
-| mGear (Maya) | Rigging framework | Maya plug-in | MIT → PORT | n/a | n/a | Anim Picker, control-shape library | No | ★ (picker reference) |
+| mGear (desktop DCC) | Rigging framework | Desktop-DCC plug-in | MIT → PORT | n/a | n/a | Anim Picker, control-shape library | No | ★ (picker reference) |
 
 ---
 
@@ -143,7 +147,7 @@ release, **P2** = later.
     the easing shape.
 - **Bad for character work:**
   - Normalized handles are easing curves, not value-space tangents. They cannot express
-    Maya-style auto/clamped/weighted tangents continuous across keys.
+    desktop-DCC-style auto/clamped/weighted tangents continuous across keys.
   - No skeleton awareness, no IK, no rotation-order or Euler-filter tools.
   - Per-prop tracks do not scale to about 55 humanoid bones × 6–9 channels.
 - **Steal:**
@@ -165,7 +169,7 @@ release, **P2** = later.
   are **no tangent weights**. Vector and quaternion properties appear as per-component
   curves.
 - **Good:**
-  - The tangent operations have exactly the names animators know from Maya.
+  - The tangent operations have exactly the names animators know from the desktop DCC.
   - The interpolation enum is clear: `AnimationKeyInterpolation.STEP`.
 - **Bad:**
   - It is tied to the Inspector and cannot be opened standalone.
@@ -299,7 +303,7 @@ release, **P2** = later.
   - *Agent Mode*: `window.vrmaLab.{inspect, edit, review, validate, exportVrma, undo, redo}`,
     a same-origin `postMessage` JSON bridge, and a deterministic **quad-view review
     render** (full body, upper body, half body, legs/contacts).
-  - *Quick Converter*: Mixamo-style FBX → VRMA, retargeted and baked at 30 fps.
+  - *Quick Converter*: auto-rigger FBX → VRMA, retargeted and baked at 30 fps.
 - **Export validation:** after export the tool **reads the VRMA back**, runs structural and
   semantic tolerance checks, and only then enables download. It never overwrites the
   source.
@@ -322,7 +326,7 @@ release, **P2** = later.
   - **Dopesheet and graph editor side by side.**
   - Animation layers and **live mirroring**.
   - Reset-to-rest per control.
-  - Retarget, and export to Unreal through Blender.
+  - Retarget, and export to Unreal through the open-source DCC.
   - A `UI_RULEBOOK.md`.
 - **Steal:**
   - (P1) Live mirroring, using VRM left/right humanoid pairs.
@@ -378,10 +382,10 @@ release, **P2** = later.
 
 ### 2.3 Desktop DCC and engine references (UX bar; design lessons only)
 
-> Maya itself is analysed in the Maya UX research doc. Below are the *other* references
-> worth stealing from.
+> The desktop DCC itself is analysed in `01-dcc-animation-features.md` and `09-ui-ux-spec.md`.
+> Below are the *other* references worth stealing from.
 
-#### Blender (GPL; design only) — Graph Editor, NLA, Pose Library
+#### Open-source DCC (GPL; design only) — Graph Editor, NLA, Pose Library
 - **Graph Editor operators** (manual, current): Snap, Mirror, Insert, Copy/Paste, Handle
   Type, Interpolation Mode, **Easing Type**, Density, **Decimate**, **Bake**,
   **Clean**, **Blend / Breakdown / Blend to Neighbor / Blend to Default / Ease / Blend
@@ -400,11 +404,11 @@ release, **P2** = later.
   - (P1) Decimate, Clean and Butterworth for mocap cleanup.
   - (P2) Pose library with drag-to-blend.
   - (P0) Layered data model from day 1, even if the UI ships later. This is the lesson of
-    Blender's staged rollout.
-- **PORT exception:** the **glTF-Blender-IO** add-on is **Apache-2.0**. It is the best
-  reference for animation export: sampling, NLA → glTF animations, baking, and
-  `KHR_animation_pointer`. The **VRM Add-on for Blender** is **MIT** and is a reference for
-  VRMA export.
+    the open-source DCC's staged rollout.
+- **PORT exception:** the open-source DCC's **glTF import/export add-on** (Khronos) is
+  **Apache-2.0**. It is the best reference for animation export: sampling, NLA → glTF
+  animations, baking, and `KHR_animation_pointer`. The **VRM add-on** for the open-source DCC
+  is **MIT** and is a reference for VRMA export.
 
 #### Godot AnimationPlayer and Bezier editor (MIT → PORT)
 - **Track types:** value, position3D, rotation3D, scale3D, blend-shape, method,
@@ -484,11 +488,11 @@ release, **P2** = later.
 - **Competes?** Cascadeur is the benchmark for "animator-friendly" but is desktop and
   proprietary. Our pitch is *web + open + VRM + multiplayer*, not "better physics".
 
-#### MotionBuilder and mGear (references)
-- **MotionBuilder** (Autodesk) HumanIK popularised the **character-controls picker** and
-  full-body IK with reach/pin. A VRM humanoid map lets us build a universal picker for
+#### Mocap package and mGear (references)
+- The **mocap package** and its full-body IK system popularised the **character-controls
+  picker** and full-body IK with reach/pin. A VRM humanoid map lets us build a universal picker for
   *every* VRM (P1).
-- **mGear** (MIT) is an open-source Maya rigging framework. A late-2026 update added a
+- **mGear** (MIT) is an open-source rigging framework for the desktop DCC. A late-2026 update added a
   redesigned **Anim Picker** and 3D onion skinning. It is a PORT reference for picker data
   layout and a control-shape library.
 
@@ -496,14 +500,14 @@ release, **P2** = later.
 
 | Service | Status (Oct 2026) | Output | Licence / ToS notes | Role for us |
 |---|---|---|---|---|
-| **Mixamo** (Adobe) | Free with Adobe ID. Maintenance mode with no meaningful updates; outage in June 2025. | FBX | Characters and animations free for commercial use, but **raw files must not be redistributed** as asset packs. | #1 import source. **Never bundle Mixamo files** in the OSS repo or the Ekza registry. |
+| **Web auto-rigging service** | Free with a vendor account. Maintenance mode with no meaningful updates; outage in June 2025. | FBX | Characters and animations free for commercial use, but **raw files must not be redistributed** as asset packs. | #1 import source. **Never bundle its files** in the OSS repo or the Ekza registry. |
 | **Plask** | Web mocap + editor + cloud collaboration. Freemium and MoCap Pro. | FBX, GLB, BVH | SaaS | Import source; partly competes as a web editor. |
 | **DeepMotion** Animate 3D / SayMotion | Web, credit-based (third-party listing: from about $9/month) | FBX, BVH, GLB, MP4; VRM **import** only | SaaS | Import source. |
 | **Rokoko Vision / Studio** | Free Starter (single-cam, limited seconds per month, FBX). Plus about $20–28/month. | FBX (BVH/CSV paid) | SaaS | Import source. |
 | **Move.ai** Move One | iPhone single-cam, from $15/month. Gen 2 (s2) on higher tiers. | FBX, USD, MP4 | SaaS | Import source. |
 | **Uthana** | Text-to-motion API; 3.0 in limited release; diffusion-v2 params (steps, CFG, seed) | FBX, GLB (also via Replicate) | SaaS / API | P2 "generate" adapter. |
 | **Cartwheel** | Text/video-to-motion, 3–8 s clips, up to 240 fps | GLB, FBX | Credits | P2 adapter. |
-| **Autodesk Flow Studio** (ex-Wonder Studio) | Browser AI mocap + VFX; Wonder 3D (March 2026) | Maya/Blender/Unreal scenes, USD | SaaS | Not a target. |
+| **Flow Studio** (ex-Wonder Studio) | Browser AI mocap + VFX; Wonder 3D (March 2026) | Scenes for common DCCs and Unreal, USD | SaaS | Not a target. |
 | **HY-Motion 1.0** (Tencent, December 2025) | Open weights, 1B DiT | SMPL-like motion | **Community licence** with a large-platform (>100M MAU) exclusion | P2 self-hosted generator; check the licence. |
 | **ARDY** (NVIDIA, SIGGRAPH 2026) | Code Apache-2.0; weights under NVIDIA Open Model Agreement | Motion | Mixed | P2 generator. |
 | **MediaPipe Tasks Vision** + **Kalidokit** | `@mediapipe/tasks-vision` 1.1.1 (Apache-2.0); kalidokit (MIT) | Landmarks → VRM rig rotations | Permissive | P2 in-browser webcam mocap layer. |
@@ -519,12 +523,12 @@ reduction → VRMA/GLB*. This is the most-starred capability in the VRM web spac
 ### 3.1 Curve model: value-space tangents, not easing curves (P0)
 - **Two families exist:**
   - (a) **Normalized per-segment easing**: Theatre.js, CSS, MMD VMD, Spline easing.
-  - (b) **Value-space tangents per key**: Maya, Unity, Blender, Babylon, Godot, Unreal.
+  - (b) **Value-space tangents per key**: the desktop DCC, Unity, the open-source DCC, Babylon, Godot, Unreal.
 
   Character animators expect (b): continuous slopes across keys, auto/clamped tangents,
   break/unify, and weighted handles.
 - **Storage:** per channel, `(time, value, inSlope, outSlope, inWeight?, outWeight?, tangentType, broken, weighted)`.
-  Default type is **Clamped Auto** (Unity) or **Auto-Clamped** (Blender) to avoid
+  Default type is **Clamped Auto** (Unity) or **Auto-Clamped** (open-source DCC) to avoid
   overshoot.
 - **glTF CUBICSPLINE is cubic Hermite.** For a segment `k → k+1` with
   `td = t[k+1] − t[k]` and `s = (t − t[k]) / td`:
@@ -547,7 +551,7 @@ reduction → VRMA/GLB*. This is the most-starred capability in the VRM web spac
 
 ### 3.2 Rotations: edit Euler, store and export quaternions (P0)
 - Babylon exposes quaternion components as curves, which is unusable for animators. Godot
-  cannot curve 3D rotation tracks at all. Maya, Blender and Unreal edit Euler channels with
+  cannot curve 3D rotation tracks at all. Both reference DCCs and Unreal edit Euler channels with
   a rotate order and an **Euler filter** to fix 180° flips.
 - **Rule:**
   - The canonical editable data is Euler curves (with rotate order) per *control*.
@@ -556,7 +560,7 @@ reduction → VRMA/GLB*. This is the most-starred capability in the VRM web spac
   - Import from glTF decomposes to Euler with unwrapping, which is an Euler filter.
 
 ### 3.3 Controls are first-class, serializable data (P0)
-- Unreal's shape library, Maya NURBS circles, Cascadeur point controllers and the mGear
+- Unreal's shape library, the desktop DCC's NURBS circles, Cascadeur point controllers and the mGear
   picker all make the control the unit of animation, not the bone.
 - **Model:**
   - `Control { id, name, shapeId ('circle' | 'square' | 'arrow' | 'sphere' …), color, size, offsetMatrix, drivenBone | constraint, channelsLocked, rotateOrder, space }`.
@@ -568,7 +572,7 @@ reduction → VRMA/GLB*. This is the most-starred capability in the VRM web spac
 
 ### 3.4 Layers in the data model from day 1, UI later (P0 data / P1 UI)
 - Cascadeur (alpha), Pose Studio, Reze (per-bone layering), VRMA Lab (adjustment clips),
-  Unity (override + avatar mask) and Blender (layers in data, no UI) all converge on
+  Unity (override + avatar mask) and the open-source DCC (layers in data, no UI) all converge on
   **base + additive/override layers with masks**.
 - Store `Clip → Layer[] → ChannelCurves` from the start, even if the MVP UI shows one
   layer.
@@ -626,7 +630,7 @@ reduction → VRMA/GLB*. This is the most-starred capability in the VRM web spac
   Loro (MIT) is an alternative with movable trees and built-in undo.
 
 ### 3.9 Cleanup and "directing" tools beat raw keying for mocap/AI input (P1)
-- Blender: Decimate, Clean, Butterworth, Smooth.
+- Open-source DCC: Decimate, Clean, Butterworth, Smooth.
 - Reze: Simplify with tolerance.
 - Cascadeur: fulcrum-based foot locking and motion cleaning.
 - Text-to-VRMA: loop closing and contact-protected smoothing.
@@ -636,7 +640,7 @@ reduction → VRMA/GLB*. This is the most-starred capability in the VRM web spac
 ### 3.10 Motion trails, onion skin and tween sliders (P1)
 - Unreal 5.6: editable trails, tween with overshoot.
 - mGear: 3D onion skin.
-- Blender: slider family.
+- Open-source DCC: slider family.
 - three's `AnimationPathHelper` is local-position-only, so we need our own world-space
   trail per control, sampled through the full rig evaluation.
 
@@ -671,7 +675,7 @@ Legend: ✔ yes · ◐ partial · ✖ no · (M) = MVP target · (L) = later.
 ### (a) Differentiation statement
 
 > **Ekza Animator is the open-source, browser-native character animator for glTF and VRM.**
-> It brings a Maya-grade graph editor (value-space tangents with auto/clamped, flat,
+> It brings a professional DCC-grade graph editor (value-space tangents with auto/clamped, flat,
 > linear, stepped, break/unify and weighted handles, plus buffer curves) and an on-model
 > control rig (curve controls constrained to bones, IK/FK) to anyone with a link.
 >
@@ -679,7 +683,7 @@ Legend: ✔ yes · ◐ partial · ✖ no · (M) = MVP target · (L) = later.
 > **baked back into the same GLB** with every other byte preserved, or exported as
 > **VRMA / animation-only GLB**. Every export is validated by read-back.
 >
-> Mocap and AI clips (Mixamo FBX, BVH, VRMA) come in through one retarget-and-cleanup
+> Mocap and AI clips (FBX incl. common auto-rigger skeletons, BVH, VRMA) come in through one retarget-and-cleanup
 > pipeline.
 >
 > The document model is command-based and id-keyed. The same edits drive undo, scripting
@@ -690,7 +694,7 @@ Legend: ✔ yes · ◐ partial · ✖ no · (M) = MVP target · (L) = later.
 > authoring front-end of the Ekza ecosystem. Clips publish as typed assets to Ekza
 > Studio/Registry and play unchanged in Ekza Space (web), OMOBA (Bevy) and Mirror (iOS).
 
-Positioning one-liner: *"Reze Studio's speed, Cascadeur's controls, Maya's curves, for
+Positioning one-liner: *"Reze Studio's speed, Cascadeur's controls, desktop-DCC curves, for
 VRM/glTF, in the browser, MIT/Apache, multiplayer-ready."*
 
 ### (b) Libraries we can depend on safely (checked 2026-10-17)
@@ -704,12 +708,12 @@ VRM/glTF, in the browser, MIT/Apache, multiplayer-ready."*
 | `@react-three/drei` | 10.7.9 | MIT | `<View>` split viewports, `PivotControls`, `Line`, `Html`, `GizmoHelper` | Only import what we use; keep the hot paths outside drei. |
 | `@pixiv/three-vrm` · `@pixiv/three-vrm-animation` · `@pixiv/types-vrmc-vrm-animation-1.0` | 3.5.5 | MIT | VRM 0.x/1.0 load, humanoid normalization, VRMA load (`createVRMAnimationClip`) | No VRMA *exporter*. Write our own; see bvh2vrma below. |
 | `@gltf-transform/core` · `/functions` · `/extensions` | 4.5.1 | MIT | Document-level GLB surgery, `resample`, `dedup`, `prune`, binary I/O | Drops unknown extensions unless registered. No built-in `KHR_animation_pointer` / VRMC extensions. |
-| `camera-controls` | 3.1.2 | MIT | Maya-style tumble/track/dolly mapping, ortho views | — |
+| `camera-controls` | 3.1.2 | MIT | Alt+drag (DCC-standard) tumble/track/dolly mapping, ortho views | — |
 | `three-mesh-bvh` | 0.9.16 | MIT | Fast picking on skinned meshes | — |
 | `zustand` | 5.0.15 | MIT | UI stores with selector subscriptions | Document store stays framework-agnostic. |
 | `mutative` | 2.0.0 (or `immer` 11.1.21) | MIT | Immutable updates with JSON patches for undo | Pick one. |
 | `yjs` · `y-protocols` · `y-indexeddb` · `y-websocket` | 13.6.33 · 1.0.7 · 9.0.12 · 3.1.0 | MIT | Collaborative document, offline cache, transport | `y-indexeddb` is old (2023) but stable. Server can be `@hocuspocus/server` 4.7.1 (MIT) or **`yrs` 0.28** (Rust, MIT) inside a Rust realtime server. |
-| `dockview` / `dockview-react` | 8.6.0 | MIT | Dockable panels (Maya-like workspaces) | **Never** add `dockview-enterprise` (proprietary). Enforce with a license-allowlist CI check. |
+| `dockview` / `dockview-react` | 8.6.0 | MIT | Dockable panels (desktop-DCC-like workspaces) | **Never** add `dockview-enterprise` (proprietary). Enforce with a license-allowlist CI check. |
 | `react-resizable-panels` | 4.14.5 | MIT | Simple split panes (MVP alternative to dockview) | — |
 | `@radix-ui/*`, `cmdk` 1.1.1, `tinykeys` 4.0.1 | — | MIT | Menus, command palette, hotkeys | — |
 | `comlink` 4.4.2 · `idb-keyval` 6.3.0 | — | Apache-2.0 | Worker RPC (bake, retarget, validation off main thread) · local persistence | Keep NOTICE. |
@@ -732,9 +736,9 @@ VRM/glTF, in the browser, MIT/Apache, multiplayer-ready."*
 - Godot `editor/animation/animation_bezier_editor.cpp` (MIT).
 - Babylon.js ACE `curveEditor/` (Apache-2.0).
 - Babylon.js Editor `layout/cinematic/` (Apache-2.0).
-- glTF-Blender-IO animation export (Apache-2.0).
+- The open-source DCC's Khronos glTF import/export add-on, animation export (Apache-2.0).
 - UniVRM VRMA exporter (MIT).
-- VRM Add-on for Blender (MIT).
+- VRM add-on for the open-source DCC (MIT).
 - three.js editor (MIT).
 - VRMA Lab converter and validator (Apache-2.0).
 - mGear Anim Picker (MIT).
@@ -746,7 +750,7 @@ VRM/glTF, in the browser, MIT/Apache, multiplayer-ready."*
   - Pose Studio (GPL-3.0)
   - Roboticela Animator (AGPL-3.0)
   - Mannequin.js (GPL-3.0)
-  - Blender core (GPL)
+  - The open-source DCC's core (GPL)
 - No license: XR Animator / SystemAnimatorOnline (no license = all rights reserved),
   vrm-dance and the other unlicensed hobby repos.
 - Proprietary or restricted:
@@ -755,7 +759,7 @@ VRM/glTF, in the browser, MIT/Apache, multiplayer-ready."*
   - Liveblocks backend (SaaS). `@liveblocks/client` is Apache-2.0, but locks us into
     their service.
   - `dockview-enterprise`.
-- Assets: Mixamo files (no redistribution). AI weights such as ARDY (NVIDIA Open Model
+- Assets: files from the auto-rigging service (no redistribution). AI weights such as ARDY (NVIDIA Open Model
   Agreement) and HY-Motion (community licence with an MAU clause) are fine to *call*, but
   must not be bundled without legal review.
 
@@ -782,13 +786,14 @@ Verdict: **"Ekza Animator" is usable.** Recommended actions:
    "Ekza Motion" or "Ekza Anim". A formal TM search (USPTO/EUIPO/WIPO) was **not**
    performed and is advised before a public launch.
 
-**Names and terms to avoid in the product name, logo or package names** (descriptive
-mention in docs is fine, e.g. "Maya-style tangents"):
+**Names and terms to avoid in the product name, logo or package names** (the docs in this
+repository also describe the reference DCCs and the auto-rigging service without naming them):
 
 | Avoid | Owner / conflict |
 |---|---|
-| Maya, MotionBuilder, HumanIK, Flow Studio | Autodesk trademarks. Do not use Maya icons or UI assets either. |
-| Mixamo, Adobe Animate, Character Animator | Adobe |
+| The names of the desktop DCC, the mocap package and its full-body IK system, Flow Studio | Trademarks of the desktop DCC's vendor. Do not use its icons or UI assets either. |
+| The auto-rigging service's name | Its vendor |
+| Adobe Animate, Character Animator | Adobe |
 | Cascadeur, AutoPosing, AutoPhysics | Nekki |
 | Theatre / Theatre.js | Theatre.js |
 | Spline | Spline Design. Our "spline modeling" feature is fine generically. |
@@ -797,9 +802,9 @@ mention in docs is fine, e.g. "Maya-style tangents"):
 | VRoid, VRoid Hub | pixiv |
 | "VRM" *as the product name* (e.g. "VRM Animator") | The VRM Consortium stewards the format. Say "for VRM" or "VRM-ready" descriptively. No public logo or trademark policy was found, so ask the Consortium before using the VRM logo. |
 | Sequencer, Control Rig (as capitalized product modules) | Epic feature names. Use lowercase generic "control rig" and "sequencer" in docs; name our modules differently, e.g. "Rig Controls" and "Timeline". |
-| Animator (alone), Mecanim | Unity's Animator component; Autodesk Animator (historic) |
-| Character Studio | Autodesk 3ds Max Character Studio (historic) **and** M3-org CharacterStudio |
-| Exo… (Exo Animator, ExoRig) | **ExoTools**, a rigging/animation plug-in company (ExoSwitch for Maya). The founder's spoken "Экзо" must be romanized **Ekza**. |
+| Animator (alone), Mecanim | Unity's Animator component; a historic product of that name from the desktop DCC's vendor |
+| Character Studio | A historic character-animation plug-in of that name for another of the vendor's desktop DCCs **and** M3-org CharacterStudio |
+| Exo… (Exo Animator, ExoRig) | **ExoTools**, a rigging/animation plug-in company (ExoSwitch for the desktop DCC). The founder's spoken "Экзо" must be romanized **Ekza**. |
 | Reze, Triplex, Studio (alone) | Neighbouring OSS projects. "Ekza Studio" is already the Registry UI, so do not reuse it for the animator. |
 | `.eza` file extension | EZ-Animator |
 
@@ -875,10 +880,10 @@ Web humanoid / VRM / MMD tools
 - VRM Posing Desktop: https://store.steampowered.com/app/1895630/VRM_Posing_Desktop · review summary: https://vaporlens.app/app/1895630/vrm_posing_desktop
 - VRMViewMeister docs: https://nishlumi-vrmviewmdoc.readthedocs.io/en/latest/
 - XR Animator: https://github.com/ButzYung/SystemAnimatorOnline
-- three-vrm: https://github.com/pixiv/three-vrm · UniVRM: https://github.com/vrm-c/UniVRM · VRM Add-on for Blender: https://github.com/saturday06/VRM-Addon-for-Blender
+- three-vrm: https://github.com/pixiv/three-vrm · UniVRM: https://github.com/vrm-c/UniVRM · VRM add-on for the open-source DCC (saturday06, MIT; URL omitted)
 
 Desktop and engine references
-- Blender Graph Editor editing operators: https://docs.blender.org/manual/en/latest/editors/graph_editor/fcurves/editing.html · Actions/slots (5.0): https://docs.blender.org/manual/en/5.0/animation/actions.html · glTF-Blender-IO (Apache-2.0): https://github.com/KhronosGroup/glTF-Blender-IO
+- Open-source DCC: Graph Editor editing operators (user manual, current) · Actions/slots (user manual, 5.0) · Khronos glTF import/export add-on (Apache-2.0); URLs omitted
 - Godot animation track types: https://docs.godotengine.org/en/4.2/tutorials/animation/animation_track_types.html · bezier editor source: https://github.com/godotengine/godot/blob/master/editor/animation/animation_bezier_editor.cpp · Bezier on 3D tracks: https://forum.godotengine.org/t/is-there-a-way-to-animate-3d-bones-with-bezier-curves-in-godot-4/5713
 - Unity curves and tangents: https://docs.unity3d.com/Manual/EditingCurves.html
 - Unreal 5.6: https://www.unrealengine.com/news/unreal-engine-5-6-is-now-available · https://www.cgchannel.com/2025/06/unreal-engine-5-6-five-key-features-for-cg-artists/
@@ -886,20 +891,20 @@ Desktop and engine references
 - mGear: https://github.com/mgear-dev/mgear
 
 Mocap / AI
-- Mixamo status 2026: https://app.cinevva.com/guides/free-character-animations-rigging (secondary source, vendor-affiliated)
+- Auto-rigging service status 2026: https://app.cinevva.com/guides/free-character-animations-rigging (secondary source, vendor-affiliated)
 - Plask: https://www.awn.com/news/plask-launches-namesake-cloud-based-motion-capture-tool · https://80.lv/articles/plask-ai-s-freemium-mocap-pro-payment-plans-get-upgraded
 - DeepMotion: https://us.fitgap.com/products/009151/deepmotion (third-party)
 - Rokoko pricing: https://www.rokoko.com/pricing
 - Move.ai: https://www.move.ai/pricing · https://docs.move.ai/knowledge/move-ai-pricing-plans-credits
 - Uthana: https://uthana.com/docs/api/changelog · https://uthana.com/blog/text-to-motion-30-sets-a-new-bar-for-ai-animation
 - Cartwheel: https://www.scenario.com/models/cartwheel-text-to-motion
-- Autodesk Flow Studio: https://www.cgchannel.com/2026/03/autodesk-adds-generative-ai-capabilities-to-flow-studio/
+- Flow Studio generative-AI update: CG Channel, 2026-03 (URL omitted)
 - HY-Motion 1.0: https://arxiv.org/abs/2512.23464v1 · https://cgworld.jp/flashnews/01-202601-HY-Motion.html
 - Kalidokit: https://github.com/yeemachine/kalidokit · MediaPipe: https://github.com/google-ai-edge/mediapipe
 
 Name checks
 - EZ-Animator (`.eza`): https://happycatsoftware.itch.io/ez-animator
-- ExoTools: https://crunchbase.com/organization/exotools · https://lesterbanks.com/tag/maya-constraint/
+- ExoTools: https://crunchbase.com/organization/exotools · Lester Banks tutorial tag page on desktop-DCC constraint tools (URL omitted)
 - npm registry lookups (`ekza-animator`, `@ekza/animator`, scope `@ekza`) and GitHub repository search on 2026-10-17.
 
 Package versions and licenses in section 5(b) come from `npm view <pkg> version license time.modified` on 2026-10-17. GitHub license and activity data comes from the GitHub REST API on the same date.

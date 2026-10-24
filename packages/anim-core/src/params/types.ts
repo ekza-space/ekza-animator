@@ -2,7 +2,7 @@
 // Excluded from formatting in biome.json so it stays diffable against the spec. The functions of §4.1 live in
 // ./index.ts.
 
-/** Scalar kinds. Compound Maya attributes are flattened per component (`localTranslateX/Y/Z`), so every param is a
+/** Scalar kinds. Compound DCC attributes are flattened per component (`localTranslateX/Y/Z`), so every param is a
  *  scalar and can be the primary field; structured pointer/selection data uses kind 'data'. */
 export type ParamKind = 'number' | 'int' | 'distance' | 'angle' | 'fraction' | 'bool' | 'enum' | 'axis' | 'data';
 /** 'fraction': stored 0…1, shown as a fraction ('0.300'); typed '30%' and '0.3' are the same value (§1, §5.10). */
@@ -20,8 +20,8 @@ export type ParamBound = 'selection' | 'pointer' | 'value';
 export type ParamValue = number | boolean | string | null | JsonValue;
 export type JsonValue = null | boolean | number | string | readonly JsonValue[] | { readonly [k: string]: JsonValue };
 export interface ParamDef {
-  readonly name: string;                       // JSON arg name; Maya parameter name where one exists
-  readonly label: string;                      // UI label, Maya wording: 'Local Translate Z', 'Divisions'
+  readonly name: string;                       // JSON arg name; the DCC-standard parameter name where one exists
+  readonly label: string;                      // UI label, DCC-standard wording: 'Local Translate Z', 'Divisions'
   readonly kind: ParamKind;
   readonly bound: ParamBound;
   /** Default; null only with `nullable` ("auto", resolved at invoke time, e.g. smoothingAngle). */

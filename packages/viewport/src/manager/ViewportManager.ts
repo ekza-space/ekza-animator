@@ -1371,7 +1371,7 @@ export class ViewportManager {
     if (provided !== null) return provided;
     const selection = this.app.session.getState().selection.controls;
     if (what === 'selection' && selection.length > 0) {
-      // Like a Maya transform's bounding box, a selected control frames with the visible controls below it: F on a
+      // Like a DCC transform's bounding box, a selected control frames with the visible controls below it: F on a
       // hand shows its fingers (acceptance round 1: the distal fingers ended up off-screen).
       const selected = new Set(selection);
       const below = new Map<ControlId, boolean>();
@@ -1904,7 +1904,7 @@ export class ViewportManager {
     shot.preview.update((tx) => tx.patch('cameras', shot.cameraId, fields));
   }
 
-  /** One commit per gesture, never on the undo stack (Maya keeps camera moves out of undo). */
+  /** One commit per gesture, never on the undo stack (desktop DCCs keep camera moves out of undo too). */
   private finishShotNav(shot: ShotNav, cancelled: boolean): void {
     if (!shot.preview.active) return;
     if (cancelled) shot.preview.cancel();

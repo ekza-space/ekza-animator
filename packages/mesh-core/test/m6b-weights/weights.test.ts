@@ -1,8 +1,8 @@
-// C6 weight kernel (C5 MVP subset; M6B-SPEC §5.10–§5.13, §5.26): the §5.10 contract on single points (Maya's Replace
-// example, holds, the ancestor remainder, unweighted points, the 4-influence cut), the palette append rule, P-S1 over
-// random edit sequences and holds, P-S2 (replay, s_max, incremental = batch for every op with and without mirror,
-// preview = commit), P-S3 (Mirror Skin Weights involution, mirrored strokes, centre joints), P-S6 (compact), the
-// utilities (smooth with expand, prune, normalize), `checkSkin` and `skinDirty`.
+// C6 weight kernel (C5 MVP subset; M6B-SPEC §5.10–§5.13, §5.26): the §5.10 contract on single points (the desktop DCC's
+// Replace example, holds, the ancestor remainder, unweighted points, the 4-influence cut), the palette append rule,
+// P-S1 over random edit sequences and holds, P-S2 (replay, s_max, incremental = batch for every op with and without
+// mirror, preview = commit), P-S3 (Mirror Skin Weights involution, mirrored strokes, centre joints), P-S6 (compact),
+// the utilities (smooth with expand, prune, normalize), `checkSkin` and `skinDirty`.
 import { EkzaError } from '@ekza-studio/anim-core';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
@@ -70,7 +70,7 @@ const tiny = (holds: readonly string[] = []): WeightContext => ({
 const at = (skin: SkinWeights, v: number): Record<string, number> => Object.fromEntries(vectorOf(skin, v));
 
 describe('§5.10 normalization contract on single points', () => {
-  it("Maya's example: Replace, w = 0, value 1, opacity 0.5 → 0.5; the rest shrinks to fit", () => {
+  it("the desktop DCC's example: Replace, w = 0, value 1, opacity 0.5 → 0.5; the rest shrinks to fit", () => {
     const skin = skinOf([[['spine', 1]], [['spine', 1]], [['spine', 1]], [['spine', 1]], [['spine', 1]]], ['spine']);
     const out = editWeights(
       skin,

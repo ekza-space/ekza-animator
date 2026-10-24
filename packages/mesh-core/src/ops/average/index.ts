@@ -1,7 +1,7 @@
-// Kernel op `mesh.averageVertices {iterations, strength}` (M6A-SPEC §5.12; Maya Average Vertices; owner B4). Each of
-// `iterations` Laplacian steps moves every selected (object mode: every visible) vertex toward the average of its edge
-// neighbours by `strength` (Jacobi: a step reads the previous step's positions; float64 throughout, one write per
-// vertex at the end). Pinned: border vertices, non-manifold vertices, loose vertices. Under symmetry (the runtime
+// Kernel op `mesh.averageVertices {iterations, strength}` (M6A-SPEC §5.12; DCC-standard Average Vertices; owner B4).
+// Each of `iterations` Laplacian steps moves every selected (object mode: every visible) vertex toward the average of
+// its edge neighbours by `strength` (Jacobi: a step reads the previous step's positions; float64 throughout, one write
+// per vertex at the end). Pinned: border vertices, non-manifold vertices, loose vertices. Under symmetry (the runtime
 // expands the selection) mirrored pairs are averaged then re-mirrored (each side set to the mean of its value and its
 // partner's mirror image), and seam vertices stay on the plane (pinned with Preserve Seam, else projected onto it) —
 // through the map's mirror in mesh-local space (Object, or World mapped through the placement).

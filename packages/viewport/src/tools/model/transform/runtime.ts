@@ -560,7 +560,7 @@ export class ModelTransformRuntime implements ModelManipulator {
       const was = this.held[name];
       this.held[name] = down;
       if (name === 'pivot' && was !== down) this.vm.refreshManipulatorSoon();
-      // A snap key pressed or released during a drag applies at once (Maya).
+      // A snap key pressed or released during a drag applies at once.
       if (this.drag !== null && this.lastEvent !== null && was !== down) this.drag.update(this.lastEvent);
       return false;
     };
@@ -1321,7 +1321,7 @@ export class ModelTransformRuntime implements ModelManipulator {
     return parts.join('|');
   }
 
-  /** A changed component selection drops the pinned component pivot (Maya resets it with the selection). */
+  /** A changed component selection drops the pinned component pivot (desktop-DCC behaviour). */
   private onSelectionChanged(): void {
     const next = this.signature();
     if (next === this.selectionSignature) return;

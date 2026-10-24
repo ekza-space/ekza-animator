@@ -20,7 +20,7 @@ import { NOT_AVAILABLE_YET } from './stub';
 
 /** Manipulator size limits in CSS px (§4.9 `view.manipulatorSize`). */
 export const MANIPULATOR_SIZE = { min: 40, max: 200 } as const;
-const NAV_PROFILES: readonly NavProfile[] = ['maya', 'trackpad', 'mayaOneButton'];
+const NAV_PROFILES: readonly NavProfile[] = ['dcc', 'trackpad', 'oneButton'];
 const SPACES: readonly ManipSpace[] = ['object', 'world', 'gimbal'];
 
 /** Panels with tools and the `ToolState` field each one writes (M2a: the Dope Sheet). */
@@ -68,7 +68,7 @@ const viewTool = defineOperator({
     const tools = session.tools;
     const key = TOOL_FIELD[args.panel as keyof typeof TOOL_FIELD];
     if (key === undefined) throw new EkzaError('unsupported', `The ${args.panel} panel has no tools`);
-    // M6a (§6.2): in Model the last non-transform viewport tool is what `Y` re-activates (Maya's "last tool").
+    // M6a (§6.2): in Model the last non-transform viewport tool is what `Y` re-activates (the "last tool").
     const model =
       session.workspace === 'model' &&
       key === 'viewport' &&
@@ -128,7 +128,7 @@ const setManipSpace = defineOperator({
 const setNavProfile = defineOperator({
   id: 'view.setNavProfile',
   label: 'Navigation',
-  description: 'Maya (three-button mouse) or trackpad navigation.',
+  description: 'Three-button mouse (Alt + drag), trackpad or one-button navigation.',
   category: 'view',
   scope: GLOBAL_SCOPE,
   poll(_ctx, raw) {

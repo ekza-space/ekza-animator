@@ -66,7 +66,7 @@ Legend: **DEP** = depend on the package as is. **COPY** = copy and adapt into th
 | `src/engine/types.ts:30` `PlayerAnimationState = "idle" \| "walk"` | **REF** (contract) | Space triggers only these two states. `components/character.tsx:542,573` passes only `animState`. |
 | `src/engine/player/*`, `runtime/PhysicsWorldViewport.tsx` (Rapier) | **NO** | Gameplay and physics are irrelevant to an editor. |
 | `src/engine/runtime/WorldViewport.tsx` | **NO** | 36 lines of `KeyboardControls` + `Canvas`. Our multi-viewport layout needs `drei` `<View>` / scissor rendering instead. |
-| `features/world-builder/RoomObjects.tsx` (`TransformControls`, `fixRedTranslateArrowDirection` at `:52` mutates drei's private `_gizmo`) | **NO** | It patches private internals and is tied to R3F 8 / drei 9. Maya-grade manipulators (rotate rings, view-plane handle, trackball, local/world/gimbal modes) need our own gizmo layer. |
+| `features/world-builder/RoomObjects.tsx` (`TransformControls`, `fixRedTranslateArrowDirection` at `:52` mutates drei's private `_gizmo`) | **NO** | It patches private internals and is tied to R3F 8 / drei 9. Professional DCC-grade manipulators (rotate rings, view-plane handle, trackball, local/world/gimbal modes) need our own gizmo layer. |
 | `features/world-builder/useRoomProgram.ts` + `realtime/protocol.ts` (whole `RoomProgramState`, `updatedAt`, server `stale_revision`) | **REF** (anti-pattern for us) | Whole-document last-writer-wins with optimistic revision checks. It is fine for rooms and wrong for two people keying the same timeline (§8). |
 | `assets/avatarAssets.ts` (`ipfs://`, `ar://`, `blob:`, gateways) | **COPY** (optional) | Small URL resolver. Useful if the Animator opens Ekza avatars by IPFS URI. |
 | `features/avatar/purchasedAvatarPolicy.ts:9-10`, `features/profile/studioAvatar.ts:2` | **REF** | Space accepts only `vrm-humanoid-v0` paired with format `vrm0` and `vrm-humanoid-v1` paired with `vrm1`, up to 50 MiB. |
@@ -131,7 +131,7 @@ Rule for the Animator: **one copy of `three` and one copy of three-vrm in the bu
 | Open Source Avatars collections (100Avatars R1–R3, Grifters Squaddies, ToxSam, Halloween Rising, Xmas Chibis, NeonGlitch86) | CC0 | Demo and fixtures allowed. |
 | VIPE Heroes Genesis (in the same dataset) | CC-BY 4.0 | Avoid as a default. If used, it needs attribution UI. |
 | OMOBA-derived motion JSON / project-edited motions | MPL-2.0 project edits on top of CC0 (see `LICENSING.md`) | Do not copy. Re-derive from CC0. |
-| Third-party clips users import (e.g. Mixamo) | Often **not redistributable** as standalone animation files | The Animator must record provenance and warn before an Ekza upload (§9, R7). |
+| Third-party clips users import (e.g. clips from a web auto-rigging service) | Often **not redistributable** as standalone animation files | The Animator must record provenance and warn before an Ekza upload (§9, R7). |
 
 ---
 
@@ -372,7 +372,7 @@ Placement follows the handheld precedent (`asset.extras.ekza_handheld_v1`). The 
 | R4 | Raw versus normalized rig confusion | Double-applied or overwritten poses, mirrored VRM 0.x motion | Medium | Single authoring space (normalized). Explicit bake step. Tests on both the VRM 0.x and VRM 1.0 fixtures, including the "foot swings forward" assertion pattern from `vrm1Retarget.test.ts` |
 | R5 | Lossy round trips (int16 library, sampled glTF) treated as source | Curves degrade with each edit | Medium | The project file is the source of truth. Imports of sampled clips are marked "baked" and offer curve-fitting/key-reduction with an error bound |
 | R6 | Thumb naming and optional-bone gaps between VRM 0.x and 1.0 | Broken fingers, retarget errors | Medium | Canonical VRM 1.0 names, alias table, driven-parent resolution (`resolveDrivenParentBone`) |
-| R7 | Licensing: copying from unlicensed repos (registry, rust-server) or copyleft files (OMOBA MPL/AGPL); users uploading non-redistributable clips (e.g. Mixamo) | Legal exposure for an OSS project and the registry | Medium | COPY only from MIT repos with attribution headers. Ask the owner to license the registry and rust-server. A provenance field per clip, plus a pre-upload warning when the source is unknown or non-redistributable |
+| R7 | Licensing: copying from unlicensed repos (registry, rust-server) or copyleft files (OMOBA MPL/AGPL); users uploading non-redistributable clips (e.g. clips from the auto-rigging service) | Legal exposure for an OSS project and the registry | Medium | COPY only from MIT repos with attribution headers. Ask the owner to license the registry and rust-server. A provenance field per clip, plus a pre-upload warning when the source is unknown or non-redistributable |
 | R8 | `uri` key anywhere in extras | Registry rejects the upload | Low–Medium | A linter rule, plus a schema forbidding the key, case-insensitively |
 | R9 | JSON chunk > 4 MiB (many clips × channels, verbose extras) | OMOBA local validator rejects | Low | Linter limit. Keep extras small. Animation data goes in BIN only |
 | R10 | Untrusted GLB input in the browser (sparse accessors, huge counts) | Tab out-of-memory or freeze | Medium | Pre-parse budgets copied from `handheld_checks.py` limits (1M accessor elements, 64 MiB decoded); parse in a Worker |

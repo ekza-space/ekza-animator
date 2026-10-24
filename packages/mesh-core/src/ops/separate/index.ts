@@ -1,4 +1,4 @@
-// MeshSetOp `mesh.separate` (M6A-SPEC §5.13; Maya Separate; owner B4; runner B7). One output per shell (faces
+// MeshSetOp `mesh.separate` (M6A-SPEC §5.13; DCC-standard Separate; owner B4; runner B7). One output per shell (faces
 // connected through shared vertices), each keeping the input's placement and material slots: the shell with the lowest
 // face index stays in the input record, the others become new records named after the input ("<name> 2", "3"…: the runner numbers them). Loose
 // vertices and wire edges belong to no shell and are dropped (`separate.loose-dropped`). Several inputs separate one

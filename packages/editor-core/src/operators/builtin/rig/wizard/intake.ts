@@ -34,7 +34,7 @@ import { type RigGeometry, rigGeometry } from '../skeleton';
 // messages and thresholds (§5.2, §6.2)
 
 export const ANIMATION_FILE = 'This is an animation. Rig a model first, then add it in step 4.';
-export const UNSUPPORTED_FILE = 'Auto-Rig reads GLB and VRM. In Blender: File › Export › glTF 2.0 (.glb).';
+export const UNSUPPORTED_FILE = 'Auto-Rig reads GLB and VRM. Export the model from your 3D tool as glTF 2.0 (.glb).';
 /** A `.glb` / `.vrm` whose bytes are no GLB (AR-D8-10): damaged, cut short, or another format renamed. */
 export const DAMAGED_FILE =
   'This file could not be read: it may be damaged or incomplete. Export it again as glTF 2.0 (.glb) or VRM.';
@@ -42,7 +42,7 @@ export const DAMAGED_FILE =
 export const MAX_TRIANGLES = 200_000;
 export const tooHeavyMessage = (triangles: number): string =>
   `This model has ${triangles.toLocaleString('en-US')} triangles. Reduce it to under 200,000 triangles ` +
-  '(Blender: Decimate modifier) and try again.';
+  "(your 3D tool's decimate or reduce-polygons command) and try again.";
 export const NO_SCENE_MESHES = 'Choose the scene meshes to check';
 /** §6.2 tiers (all subject meshes). */
 export const WEIGHT_TIERS = { light: 20_000, medium: 60_000, heavy: MAX_TRIANGLES } as const;

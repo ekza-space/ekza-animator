@@ -112,7 +112,7 @@ export default function PaletteView(props: { readonly app: EditorApp }): JSX.Ele
       void run('mesh.paint', { kind: 'face', slot: active.slot }, { panel: PANEL_KIND });
       return;
     }
-    // Object mode: every face of the selected authored meshes (Maya assigns to the whole object), one `mesh.paint`
+    // Object mode: every face of the selected authored meshes (the whole object gets the swatch), one `mesh.paint`
     // run per mesh — its `faces` list is shared by all its targets (M6A-B13-17).
     const meshes = targetMeshIds(state);
     for (const mesh of meshes) {

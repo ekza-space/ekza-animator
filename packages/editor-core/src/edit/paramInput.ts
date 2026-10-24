@@ -117,7 +117,7 @@ const fixed3 = (value: number): string => {
 };
 
 /**
- * Display text of a stored value (§8.6): distances `0.500 m`, fractions as fractions `0.300` (Maya), angles in degrees
+ * Display text of a stored value (§8.6): distances `0.500 m`, fractions as fractions `0.300`, angles in degrees
  * `30.000°`, plain numbers `1.000`, ints `2`, booleans on/off, enum and axis options by label, null "auto".
  * `unit: false` drops the unit suffix (editable field text).
  */

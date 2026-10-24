@@ -48,12 +48,12 @@ Focus is the modeling base (M6a) first. These tracks are fully specified and par
       LICENSE in the package, M-AI-B1-14), the hosted origin question M-AI-INT-9. Then P3–P5, full P9 (phase C).
 - [x] **Layout presets for focused work** (owner request, 2026-10-20; right after M6a, inside its workspace/layout
       system): Animate (default) Alt+1; Blocking — one big viewport + time slider only, Alt+2; Polish — viewport over a
-      large Graph Editor + time slider, Alt+3; Review — viewport full window + playback only, Alt+4; Maya-style
+      large Graph Editor + time slider, Alt+3; Review — viewport full window + playback only, Alt+4; DCC-style
       "hide UI" toggle Ctrl+Space (panels around the viewport); browser fullscreen button + Shift+F; user presets
       saved in prefs. ≈ 0.5 day. Done on `feat/focus-presets`: Windows › Tool Strip / Help Line / Time Slider
       check-box items per workspace, focus mode also on Alt+0 (macOS takes Ctrl+Space for the input source), Windows ›
       Presets with Save Current Layout as… / Rename or Delete; [docs/LAYOUT-PRESETS.md](docs/LAYOUT-PRESETS.md).
-- [x] **Basic shading without UVs** (after M6a): Lambert and Blinn materials (Maya Hypershade-lite), assign to
+- [x] **Basic shading without UVs** (after M6a): Lambert and Blinn materials (Hypershade-lite), assign to
       objects or selected faces, flat/smooth; export Lambert → roughness 1/metallic 0, Blinn → roughness from
       glossiness (+ `KHR_materials_specular`). ≈ 0.5 day. Done on `feat/shading`: every palette swatch is a shader
       (swatches table v2, core schema stays 3 for M6b — [ADR 0019](docs/adr/0019-swatch-shaders.md)); Palette panel
@@ -93,7 +93,7 @@ becomes **Ekza Hub**: create in Studio, publish in Hub. Record: [DECISIONS-OPEN 
 Built in sixteen packages and integrated on `m6a/integration`, merged into `dev` with the full local gate green. Owner
 items (eager allowance, marquee budget miss, bevel limits, feel check, demo script): [DECISIONS-OPEN §I](docs/DECISIONS-OPEN.md#i-m6a-build-deviations-2026-10-20).
 
-3. [ ] Owner reviews the modeling decisions ([DECISIONS-OPEN §G](docs/DECISIONS-OPEN.md#g-modeling-iteration-m6am7-defaults-chosen-2026-10-18)) and the design-review record ([MODELING-PLAN §12](docs/MODELING-PLAN.md#12-design-review-2026-10-19-decisions)); calibrates the RMB/Shift+RMB compass positions on a real Maya (Q-MOD-UI-1; the slots are provisional until then). Defaults stand until overridden.
+3. [ ] Owner reviews the modeling decisions ([DECISIONS-OPEN §G](docs/DECISIONS-OPEN.md#g-modeling-iteration-m6am7-defaults-chosen-2026-10-18)) and the design-review record ([MODELING-PLAN §12](docs/MODELING-PLAN.md#12-design-review-2026-10-19-decisions)); calibrates the RMB/Shift+RMB compass positions against a leading commercial desktop DCC (Q-MOD-UI-1; the slots are provisional until then). Defaults stand until overridden.
 4. [x] Write `docs/M6A-SPEC.md` from [MODELING-PLAN §3–§4](docs/MODELING-PLAN.md#4-m6a--modeling-base): TypeScript contracts (incl. `ParamDef` with `bound`, `MeshSetOp`, `EditorHistory` selection parts, `UndoManager.entries()`/`onEvict`), normative behaviours (extrude session §3.4, per-tool symmetry table §3.14, hard-flag rule §3.2, numeric capture window), the operator table (`repeatable`, `bound` per argument), E2E-MOD-01…32 with owners, the shared-file table (§4.3); ADRs 0014–0016 → Accepted; ARCHITECTURE decision 23 amended (selection undoable in Model, ADR 0016 D12); REQUIREMENTS FR-MOD rows rewritten. **Done 2026-10-19: [M6A-SPEC](docs/M6A-SPEC.md) v1.0** (refinements of the plan in its §12.2).
 5. [x] B0a contracts, schema v3, mesh-core interfaces + reference stub, undo eviction API (3.5) — [M6A-SPEC §9 B0a](docs/M6A-SPEC.md#b0a--contracts-schema-v3-mesh-core-interfaces--stub-undo-eviction-integration-agent-first).
 6. [x] Right after B0a, in parallel: B0b keymap rows + menus (2), **B1 mesh kernel (7)**, B6 mesh-view (6.5), B7 runtime + blobs + undo budget (7), B8 io + marker v2 (10), **B9 shell: workspaces, marking menus, command palette, Scale tool, shading modes (5.5)**. B6, B7 and B8 build on the B0a stub and switch to B1 through READY gates.
@@ -102,23 +102,23 @@ items (eager allowance, marquee budget miss, bevel limits, feel check, demo scri
 9. [x] M6a integration (6) + one fix round (≈ 4): E2E-MOD-01…32, AS-LP-S (parts A and B scripted), budgets ([M6A-SPEC §10–§11](docs/M6A-SPEC.md#10-acceptance-tests-e2e-scenarios-and-as-lp)). **Done 2026-10-20**, merged into `dev`.
 9b. [x] M6a acceptance fix round 1 on `dev` (2026-10-20): display of moved meshes (blocker), Combine origin, W/E/R double-click loops, status-line Symmetry, one-sided Bridge under symmetry, Channel Box lead, Mesh Check dock, template symmetry after a load, Last-op card fields — [DECISIONS-OPEN §J](docs/DECISIONS-OPEN.md#j-m6a-acceptance-fix-round-1-on-dev-2026-10-20).
 9c. [ ] M6a deferred UI items (§J M6A-INT-44…47): Offset Edge Loop as a drag tool; in-app glTF validator for static exports; `F` after Bevel; compact quad HUD.
-9d. [ ] M6a owner decisions from fix round 2 (§K M6A-INT-55, 56): Shift+double-click adds the edge's loop (Maya) or keeps the §5.6 toggle; whole character display at bind pose in Model.
+9d. [ ] M6a owner decisions from fix round 2 (§K M6A-INT-55, 56): Shift+double-click adds the edge's loop (desktop-DCC convention) or keeps the §5.6 toggle; whole character display at bind pose in Model.
 9a. [ ] Owner: AS-LP-A/B by hand, the demo script ([M6A-SPEC §11.3](docs/M6A-SPEC.md#113-owner-demo-script-10-minutes)), the §I review; then tag `v0.3.0` (owner's call).
 
 ## Then — M6b remainder (after the MVP; [M6B-SPEC §9.0b](docs/M6B-SPEC.md#90b-full-m6b-work-packages-reference-post-mvp))
 
-10. [x] Write `docs/M6B-SPEC.md` from [MODELING-PLAN §5](docs/MODELING-PLAN.md#5-m6b--rig--skin-workspace-turnkey), expanded on the owner's request into the full Rig & Skin workspace (joint tools, Orient/Mirror Joint, Quick Rig, Bind Skin, Paint Skin Weights, Component Editor, weight utilities, constraints and control-shape editing from M2c, test poses, Validation, VRM 1.0/GLB writer) from research [17](docs/research/17-maya-rigging-basics.md), [18](docs/research/18-constraints-control-shapes.md), [19](docs/research/19-rig-workspace-ui.md). **Done 2026-10-19: [M6B-SPEC](docs/M6B-SPEC.md) v1.1** after its design review; **v1.2 (2026-10-22) adds the MVP cut (§0)**.
+10. [x] Write `docs/M6B-SPEC.md` from [MODELING-PLAN §5](docs/MODELING-PLAN.md#5-m6b--rig--skin-workspace-turnkey), expanded on the owner's request into the full Rig & Skin workspace (joint tools, Orient/Mirror Joint, Quick Rig, Bind Skin, Paint Skin Weights, Component Editor, weight utilities, constraints and control-shape editing from M2c, test poses, Validation, VRM 1.0/GLB writer) from research [17](docs/research/17-dcc-rigging-basics.md), [18](docs/research/18-constraints-control-shapes.md), [19](docs/research/19-rig-workspace-ui.md). **Done 2026-10-19: [M6B-SPEC](docs/M6B-SPEC.md) v1.1** after its design review; **v1.2 (2026-10-22) adds the MVP cut (§0)**.
 11. [ ] Owner reviews the remaining M6b owner questions ([M6B-SPEC §12.4](docs/M6B-SPEC.md#124-owner-questions-defaults-chosen-the-build-starts-on-them); Q-M6B-1 is superseded by Q-MVP-1) and calibrates the rig marking menus together with Q-MOD-UI-1 before they are built.
 12. [ ] After the MVP: the deferred packages C8a, C8b, C9, C11 and the deferred parts of C2/C3/C5/C6/C7 (Parked list above), then AS-LP-T and the turnkey feel check.
 
 ## Now — Auto-Rig mode (integrated 2026-10-22; owner run and tag open)
 
-A Mixamo-style simple mode next to the full Studio, chosen on opening: upload a model → markers → auto-rig → try
-animations → export an OMOBA/Space VRM, built only from Studio's and M6b's operators (a second shell over the same app
-and document). Spec: [AUTORIG-SPEC](docs/AUTORIG-SPEC.md) v0.3, [ADR 0021](docs/adr/0021-autorig-mode.md) (Proposed
-until the owner accepts the spec). Integration branch `autorig/mvp` (from `dev`), merged into `dev` (`--no-ff`, with
-fix round 1); the full gate is green on `dev` (`pnpm run ci`: 16/16 unit tasks, `/editor` 896,741 B, `/autorig`
-658,181 B, e2e 343 passed / 24 skipped / 0 failed); the `ar-*` worktrees are removed, the branches kept.
+A simple one-click auto-rigging mode next to the full Studio, chosen on opening: upload a model → markers → auto-rig →
+try animations → export an OMOBA/Space VRM, built only from Studio's and M6b's operators (a second shell over the same
+app and document). Spec: [AUTORIG-SPEC](docs/AUTORIG-SPEC.md) v0.3, [ADR 0021](docs/adr/0021-autorig-mode.md)
+(Proposed until the owner accepts the spec). Integration branch `autorig/mvp` (from `dev`), merged into `dev`
+(`--no-ff`, with fix round 1); the full gate is green on `dev` (`pnpm run ci`: 16/16 unit tasks, `/editor` 896,741 B,
+`/autorig` 658,181 B, e2e 343 passed / 24 skipped / 0 failed); the `ar-*` worktrees are removed, the branches kept.
 
 - [x] D0 contracts, route-group-proof size tooling, AR-B1 re-baseline, the layout spike (shared layout kept).
 - [x] A0 the A-pose path in Studio (T-Stance, Apply Pose as Rest, *Straighten to T-Pose*), D1 the studio host and
@@ -142,5 +142,5 @@ fix round 1); the full gate is green on `dev` (`pnpm run ci`: 16/16 unit tasks, 
 16. [ ] "Publish avatar to Ekza" — the T3 slice of M4a (≈ 2 here + the `studio-upload` scope in the registry repository) ([ROADMAP M4a](docs/ROADMAP.md#m4a--ekza-t1t3--1520-agent-days-in-this-repo--ecosystem-work)).
 17. [ ] M7 G1 AI generation (≈ 22): intake ops, gateway (default deny, auth, server-side caps, the app's first CSP), Tripo + Meshy adapters with a mock server, Generate panel with paid-tier attestation ([§7](docs/MODELING-PLAN.md#7-m7--ai-3d-generation)); re-verify provider prices and models first; written provider confirmations (Q-GEN-4) before BYO on a hosted gateway.
 18. [ ] M7 G2 (≈ 14): self-hosted GPU worker, fal/Hunyuan adapters, OBJ import, voxel binding; M6c UV editor + texturing (≈ 18) in parallel if wanted ([§6](docs/MODELING-PLAN.md#6-m6c--uv-editor-and-texturing-basics-optional)).
-19. [ ] M2b adoption (FBX/BVH/Mixamo) and the rest of M2c → **V1** release ([ROADMAP](docs/ROADMAP.md#m2c--breadth-and-polish--v1-release--3040-agent-days)).
+19. [ ] M2b adoption (FBX/BVH, incl. common auto-rigger skeletons) and the rest of M2c → **V1** release ([ROADMAP](docs/ROADMAP.md#m2c--breadth-and-polish--v1-release--3040-agent-days)).
 20. [ ] M4a T1 typed animation assets, then M3 collaboration (incl. mesh-chunk transport, mesh claims and the conflicted-copy flow on `data.base`), M4b, M5, M8 splines ([ROADMAP §Recommended order](docs/ROADMAP.md#recommended-order)).

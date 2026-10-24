@@ -10,6 +10,7 @@ import {
   type ExportArtifact,
   type ExportRequest,
   type GlbContainer,
+  NON_REDISTRIBUTABLE_NAME,
   parseGlb,
   readAnimations,
   skeletonFromGltf,
@@ -383,7 +384,8 @@ describe.skipIf(!SIBLINGS_READY)(`file.export ${BLOCKED}`, { timeout: 120_000 },
     expect(await app.runUntyped('file.export', { kind: 'vrma' })).toMatchObject({ status: 'cancelled' });
   });
 
-  it('imports a Mixamo-named VRMA as non-redistributable, which the Ekza VRMA profile refuses (ADR 0010 §3)', async () => {
+  it('imports a VRMA named by the auto-rigging service as non-redistributable, which the Ekza VRMA profile refuses (ADR 0010 §3)', async () => {
+    const mark = NON_REDISTRIBUTABLE_NAME.source;
     const { app } = realApp();
     const bot = await importFixture(app, 'polybot.vrm');
     const wave = await waveClip(app, bot.character);
@@ -410,19 +412,19 @@ describe.skipIf(!SIBLINGS_READY)(`file.export ${BLOCKED}`, { timeout: 120_000 },
       foreign(() => {}),
     );
     const byClip = await importAs(
-      'mixamo-clip.vrma',
+      'service-clip.vrma',
       foreign((json) => {
         (json['animations'] as { name?: string }[])[0] = {
           ...(json['animations'] as Record<string, unknown>[])[0],
-          name: 'Armature|mixamo.com|Layer0',
+          name: `Armature|${mark}.com|Layer0`,
         };
       }),
     );
     const byNode = await importAs(
-      'mixamo-node.vrma',
+      'service-node.vrma',
       foreign((json) => {
         const nodes = json['nodes'] as { name?: string }[];
-        nodes[0] = { ...nodes[0], name: 'mixamorig:Hips' };
+        nodes[0] = { ...nodes[0], name: `${mark}rig:Hips` };
       }),
     );
     expect(app.store.get('clips', plain)?.provenance.redistributable).toBe('unknown');

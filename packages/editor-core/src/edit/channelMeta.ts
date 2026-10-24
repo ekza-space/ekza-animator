@@ -168,9 +168,9 @@ export function channelDisplayLabel(control: ControlRecord | null | undefined, c
 
 /**
  * `channels` of `control` in the Channel Box's row order, for every panel that lists channels (§5.1 rule 5;
- * acceptance fix round 2, M2A-INT-35): TRS in Maya order, then the control's attributes in `attrs` key order with
- * `@ikFk` after them (where the Channel Box shows the limb's IK/FK row), then attribute channels the control does not
- * define (a curve left by a removed attribute) by id.
+ * acceptance fix round 2, M2A-INT-35): TRS in the usual Channel Box order (tx ty tz, rx ry rz, sx sy sz), then the
+ * control's attributes in `attrs` key order with `@ikFk` after them (where the Channel Box shows the limb's IK/FK
+ * row), then attribute channels the control does not define (a curve left by a removed attribute) by id.
  */
 export function sortChannelsForDisplay(
   control: ControlRecord | null | undefined,

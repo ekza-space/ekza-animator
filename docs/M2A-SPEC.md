@@ -12,8 +12,8 @@ Contract amendments with A0 (2026-10-18): `time.insertTime` takes an optional `a
 Audience: the integration agent (A0 and the final integration), five parallel implementation agents (A1…A5) and
 reviewers. Read [MVP-SPEC.md](MVP-SPEC.md) (v0.3) first: it stays the base contract. This file lists **deltas**;
 where the two disagree for M2a work, this file wins.
-Requirements: [REQUIREMENTS.md](REQUIREMENTS.md); research: R01 (Maya features), R02 §6.4 (export reduction), R07
-(rig math), R09 (UI).
+Requirements: [REQUIREMENTS.md](REQUIREMENTS.md); research: R01 (DCC animation features), R02 §6.4 (export reduction),
+R07 (rig math), R09 (UI).
 
 Normative words: **MUST**, **SHOULD**, **MAY**. "Contract" means a type or signature in §4 or a package's *Public API*
 block in §8. Changing a contract needs a PR that updates this file first. M1 contracts not mentioned here are
@@ -21,7 +21,7 @@ unchanged.
 
 Contents: [1 Scope](#1-scope) · [2 Dependencies and toolchain](#2-dependencies-and-toolchain) ·
 [3 Conventions](#3-conventions-deltas-to-mvp-spec-3) · [4 Contract deltas](#4-contract-deltas) ·
-[5 Normative behaviours](#5-normative-behaviours) · [6 Keymap additions](#6-keymap-additions-preset-maya) ·
+[5 Normative behaviours](#5-normative-behaviours) · [6 Keymap additions](#6-keymap-additions-preset-dcc) ·
 [7 UI placement](#7-ui-placement) · [8 Work packages](#8-work-packages) ·
 [9 Acceptance tests](#9-acceptance-tests-and-e2e-scenarios) · [10 Integration and definition of done](#10-integration-plan-and-m2a-definition-of-done) ·
 [11 Defaults chosen and review decisions](#11-defaults-chosen-owner-may-override)
@@ -821,10 +821,10 @@ implements their effect on the autosave store, A2 reads `pointerLock`).
    `soft`: modes and settings, not pose values) are skipped by `'all'`, `'attributes'`, body-part keying (§5.19), the
    tween `'frame'` target (§5.13) and the pose clipboard **unless they are selected Channel Box channels** (then
    `'all'`, `'attributes'` and `'selected'` key them); they are also keyed by auto-key when they are edited (MVP-SPEC
-   §4.11.2) and by the operators that own them (switch, match, the IK/FK proxy row). Like a Maya rig with a separate
-   switch control, a later `S` on the IK foot therefore never re-keys a stale `ikFk`. A new key on an attribute with
-   `stepped: true` gets `in: 'flat', out: 'step'`; other attributes use `prefs.defaultTangents`. Auto-key rules of
-   MVP-SPEC §4.11.2 apply unchanged.
+   §4.11.2) and by the operators that own them (switch, match, the IK/FK proxy row). Like a rig in a leading
+   commercial desktop DCC with a separate switch control, a later `S` on the IK foot therefore never re-keys a stale
+   `ikFk`. A new key on an attribute with `stepped: true` gets `in: 'flat', out: 'step'`; other attributes use
+   `prefs.defaultTangents`. Auto-key rules of MVP-SPEC §4.11.2 apply unchanged.
 5. **Display**: Channel Box rows after the TRS rows, in `attrs` key order, label `AttrDef.label` or the title-cased
    name; units come from `channelUnit(control, channel)` (§4.5), never from the channel id alone: `unit: 'angle'`
    shows degrees (typed values are degrees, so `30` on `@roll` is 30°), `'distance'` metres, otherwise 3 decimals;
@@ -870,8 +870,8 @@ etc., `type: 'ik2'`, `enabled: true`, `params: Ik2Params`.
 | `heelTwist` | 0 | — | angle | yes | true | no | negate |
 | `toeTwist` | 0 | — | angle | yes | true | no | negate |
 
-`S` on an IK foot therefore adds five attribute curves (`twist`, `roll`, `bank`, `heelTwist`, `toeTwist`; Maya keys
-every keyable attribute too), on an IK hand one (`twist`).
+`S` on an IK foot therefore adds five attribute curves (`twist`, `roll`, `bank`, `heelTwist`, `toeTwist`; the desktop
+DCC keys every keyable attribute too), on an IK hand one (`twist`).
 
 #### 5.2.1 Hinge axis
 
@@ -1002,10 +1002,10 @@ the rest local within **1e-7** (rotations in radians, translations in metres) on
 #### 5.3.1 Foot roll (simple variant, R07 §12)
 
 In the IK control's local frame, rotated into the **foot frame** so that roll turns about the foot's own lateral
-axis and bank about its own forward axis on a toed-out foot (Mixamo-style rigs and many VRMs stand 10–15° toed out;
-character axes would add a bank of `roll·sin(yaw)` to every toe-off). The IK control itself stays world-aligned, so
-the mirror channel rule of §5.8 still holds. With the pivots of §4.3 `FootRollParams`, `Q = R_y(yaw)` and
-`P(p, R) = T(p)·Q·R·Q⁻¹·T(−p)`:
+axis and bank about its own forward axis on a toed-out foot (common auto-rigger skeletons and many VRMs stand 10–15°
+toed out; character axes would add a bank of `roll·sin(yaw)` to every toe-off). The IK control itself stays
+world-aligned, so the mirror channel rule of §5.8 still holds. With the pivots of §4.3 `FootRollParams`,
+`Q = R_y(yaw)` and `P(p, R) = T(p)·Q·R·Q⁻¹·T(−p)`:
 
 ```
 heelRoll = min(roll, 0);   ballRoll = clamp(roll, 0, β);   toeRoll = max(roll − β, 0)
@@ -1211,13 +1211,13 @@ All matching is at the current clip frame of the active clip, evaluated with ove
 - **Insert / remove time** `time.insertTime {at, frames, removeKeys}` on the target controls' curves (selected, all
   when none) is a uniform time warp: every key with `t > at`, breakdowns included, shifts by `frames`, and nothing at
   or before `at` changes (it runs the kernel with `retimeBreakdowns: false`; §5.12 retiming would move a breakdown
-  before the playhead whose right anchor shifted, the opposite of what Maya's Add Inbetween is used for). `at`
-  defaults to the active character's current clip frame `f`.
+  before the playhead whose right anchor shifted, the opposite of what the desktop DCC's Add Inbetween is used for).
+  `at` defaults to the active character's current clip frame `f`.
   `frames < 0`: when a key lies in `(at, at + |frames|]` the operator poll-fails ("A key at frame 11 would be
   deleted: use Delete Time") unless `removeKeys: true`, which deletes those keys. Menu items (Time menu and the
-  time-slider context menu): Insert Frame (`{frames: 1}`, i.e. `at = f`, Maya "Add Inbetween"), Remove Frame
-  (`{frames: −1}`: never deletes a one-frame hold or contact key), Delete Time (`time.deleteTime`: the band `[a, b]`,
-  or `[f, f]` without a band, runs as `{at: a − 1, frames: −(b − a + 1), removeKeys: true}`). One step.
+  time-slider context menu): Insert Frame (`{frames: 1}`, i.e. `at = f`, the desktop DCC's "Add Inbetween"), Remove
+  Frame (`{frames: −1}`: never deletes a one-frame hold or contact key), Delete Time (`time.deleteTime`: the band
+  `[a, b]`, or `[f, f]` without a band, runs as `{at: a − 1, frames: −(b − a + 1), removeKeys: true}`). One step.
 - **Nudge**: `←`/`→` over the time slider (scope T) move the selected keys by ∓1 frame (§6), one step each, with
   ripple when it is on.
 - **Ticks**: breakdown keys draw in `--key-breakdown` (green); a tick with both kinds draws as a key.
@@ -1244,7 +1244,7 @@ All matching is at the current clip frame of the active clip, evaluated with ove
 
   So a child that interpolates through the interval (keys at 0 and 20 while a sibling has keys at 0, 10, 20) breaks
   the hold, and so does a child keyed at `t_i` but not at `t_{i+1}` (it has stopped being keyed, not been held,
-  Maya's rule). Stepped spans of channel rows get a hatch.
+  the desktop DCC's rule). Stepped spans of channel rows get a hatch.
 - **Selection** shares `Selection.keys` with the Graph Editor and the time slider: a glyph click selects every key
   under the row at that time (Shift toggle, Mod remove, Mod+Shift add); a click on empty canvas clears the key
   selection (Graph Editor rule); marquee over rows × time; double-click a row label selects all its keys; a click on
@@ -1260,7 +1260,7 @@ All matching is at the current clip frame of the active clip, evaluated with ove
   shown keys. `Mod+A`, `select.none`, `edit.copy`/`paste`/`delete` act on keys in scope D (A0 adds `dopeSheet` to
   the key-panel sets of `select.ts` and `edit.ts`).
 - **View**: own time axis (`DopeSheetViewState`), ruler strip at the top (click/drag scrubs), playhead, playback and
-  clip range shading; Maya profile: wheel zooms time around the cursor, Shift+wheel scrolls rows, Alt+MMB pans,
+  clip range shading; DCC profile: wheel zooms time around the cursor, Shift+wheel scrolls rows, Alt+MMB pans,
   Alt+RMB zooms time; trackpad profile: two-finger scroll pans (vertical scrolls rows), pinch zooms time. Rows are
   virtualized; the painter draws visible rows only. While its dock tab is inactive the panel draws nothing and its
   probe returns null; the shared selection lives in the kernel, so the Graph Editor tab shows it after a tab switch.
@@ -1305,8 +1305,8 @@ every later pose apart (scaling 0…10 by 2 with `cog` keys at 0/4/10 and arm ke
 Neighbours: for target `'frame'`, `p` = nearest key with `t_p < t` and `n` = nearest key with `t_n > t` on the
 channel's curve. For target `'keys'`, the selected keys of each curve are grouped into **runs** (maximal sequences of
 consecutive selected keys in the curve's key order); every key of a run uses the run's neighbours: `p` = the nearest
-**unselected** key before the run, `n` = the nearest unselected key after it (Maya's Graph Editor tween and blend
-sliders and aTools work on the keys around a selected block, so a block flattens toward a hold or is pushed as a
+**unselected** key before the run, `n` = the nearest unselected key after it (the desktop DCC's Graph Editor tween and
+blend sliders and aTools work on the keys around a selected block, so a block flattens toward a hold or is pushed as a
 whole; an isolated selected key is a run of one, with the same result as before). A channel or run without both
 neighbours is skipped. `v_c` = value at `t` (curve ⊕ overrides for `'frame'`; the key's own value and time for
 `'keys'`), captured when the gesture starts. Amount `a` in slider units: `[−100, 100]`, `[−150, 150]` with overshoot
@@ -1321,8 +1321,8 @@ pushPull:  v_ref = v_p + r·(v_n − v_p);  v = v_c + (a/100)·(v_c − v_ref)  
 toDefault: v = v_c + (a/100)·(d − v_c)                                      (d = channelDefaultOf; a < 0 pushes away)
 ```
 
-`pushPull` relaxes toward the time-weighted in-between (Blender's push/relax), not the plain average, so relaxing a
-key away from the midpoint keeps its spacing; at the midpoint (`r = 0.5`) both are equal.
+`pushPull` relaxes toward the time-weighted in-between (the push/relax tool of a popular open-source DCC), not the
+plain average, so relaxing a key away from the midpoint keeps its spacing; at the midpoint (`r = 0.5`) both are equal.
 
 - **Target**: `'keys'` when `session.tools.tweenTarget` is `'auto'` and keys are selected (`Selection.keys`, shared
   by the Graph Editor, the Dope Sheet and the time slider), else `'frame'`. The Tween bar always shows the resolved
@@ -1477,11 +1477,12 @@ not `visible` (§5.5):
 - **Start**: MMB press on any row, or an LMB drag of ≥ 3 px horizontally that starts on a channel name (an LMB click
   still selects the name). Channels: the Channel Box's selected channels when the pressed row is one of them, else the
   pressed row's channel; applied to every selected control that has the channel.
-- **In the viewport** (R01 CB-03, the Maya habit for roll, bank and twist: select the channel name, then MMB-drag in
-  the viewport while watching the foot): with Channel Box channels selected and `prefs.virtualSlider.viewportMmb`
-  on (default), a plain MMB drag (no Alt) in a pane runs the same gesture on the selected channels, with the same
-  rates, modifiers and single history step. Plain MMB belongs to the active tool in M1 and no viewport tool uses it,
-  so nothing conflicts; Alt+MMB stays navigation. Without selected channels a plain MMB drag does nothing (M1).
+- **In the viewport** (R01 CB-03, the desktop-DCC habit for roll, bank and twist: select the channel name, then
+  MMB-drag in the viewport while watching the foot): with Channel Box channels selected and
+  `prefs.virtualSlider.viewportMmb` on (default), a plain MMB drag (no Alt) in a pane runs the same gesture on the
+  selected channels, with the same rates, modifiers and single history step. Plain MMB belongs to the active tool in
+  M1 and no viewport tool uses it, so nothing conflicts; Alt+MMB stays navigation. Without selected channels a plain
+  MMB drag does nothing (M1).
 - **Rate** per pixel of horizontal motion: rotation channels and `angle` attributes `prefs.virtualSlider.degPerPx`
   (0.5°); translations and `distance` attributes `metresPerPx` (0.01 m); scale `unitsPerPx` (0.01); attributes with
   `min` and `max`: `(max − min)/200`; other attributes `unitsPerPx`. Shift ×0.1, Mod ×10, read at each move (the
@@ -1648,26 +1649,26 @@ arm swing, spine twist) eased in and out at the loop point every cycle. The engi
 
 ---
 
-## 6. Keymap additions (preset `maya`)
+## 6. Keymap additions (preset `dcc`)
 
-Scopes as MVP-SPEC §4.10 plus `D` = Dope Sheet. Maya has no default chord for breakdowns, tweens, buffer curves or
-IK/FK switching; they stay menu/toolbar items except where noted.
+Scopes as MVP-SPEC §4.10 plus `D` = Dope Sheet. The desktop DCC has no default chord for breakdowns, tweens, buffer
+curves or IK/FK switching; they stay menu/toolbar items except where noted.
 
 | Chord | Operator (args) | Scope | Origin |
 |---|---|---|---|
-| `ArrowUp` / `ArrowDown` / `ArrowLeft` / `ArrowRight` | `select.pickWalk {direction: 'up'/'down'/'left'/'right'}` (which itself runs `time.nextKey`/`time.prevKey`/`time.step {−1}`/`time.step {+1}` when `prefs.arrowKeys` is `'frames'`, §5.17) | V, C | Maya pickWalk |
-| `Shift+Arrow…` | `select.pickWalk {…, add: true}` | V, C | Maya |
+| `ArrowUp` / `ArrowDown` / `ArrowLeft` / `ArrowRight` | `select.pickWalk {direction: 'up'/'down'/'left'/'right'}` (which itself runs `time.nextKey`/`time.prevKey`/`time.step {−1}`/`time.step {+1}` when `prefs.arrowKeys` is `'frames'`, §5.17) | V, C | DCC pickWalk |
+| `Shift+Arrow…` | `select.pickWalk {…, add: true}` | V, C | DCC standard |
 | `ArrowLeft` / `ArrowRight` | `graph.keys.move {dFrames: −1 / +1, dValue: 0}` (nudge the selected keys; ripple from the panel in D and T, never in G) | G, D, T | R01 GE-05 |
 | `Alt+KeyS` | `key.set {breakdown: true}` | V, O, C, T, D | R09 §7.2 (E) |
-| `KeyQ` / `KeyW` / `KeyR` | `view.tool {panel: 'dopeSheet', tool: 'select'/'move'/'scale'}` | D | Maya |
-| `KeyR` | `view.tool {panel: 'graph', tool: 'scale'}` | G | Maya |
+| `KeyQ` / `KeyW` / `KeyR` | `view.tool {panel: 'dopeSheet', tool: 'select'/'move'/'scale'}` | D | DCC standard |
+| `KeyR` | `view.tool {panel: 'graph', tool: 'scale'}` | G | DCC standard |
 | `KeyN` / `Shift+KeyN` | `graph.view.setMode {mode: 'toggleNormalized'/'toggleStacked'}` | G | R09 §7.2 (E) |
-| `KeyS` | `key.set {channels: 'all'}` | D | Maya |
+| `KeyS` | `key.set {channels: 'all'}` | D | DCC standard |
 | `Delete`, `Backspace` | `graph.keys.delete` | D | M1 rule |
 | `Mod+KeyC` / `Mod+KeyV` | `graph.keys.copy` / `graph.keys.paste` (inserts when ripple is on, §5.10) | D | M1 rule |
 | `Mod+KeyA` | `select.all` (all keys of the shown rows) | D | M1 rule |
 | `Digit1`…`Digit7` | `graph.tangent.set {type: …}` | D | M1 rule |
-| `KeyF` / `KeyA` | `dopeSheet.frame {what: 'selection'/'all'}` | D | Maya |
+| `KeyF` / `KeyA` | `dopeSheet.frame {what: 'selection'/'all'}` | D | DCC standard |
 
 Not bound (menu or toolbar): `rig.*`, `key.tween` (bindable through `prefs.keymapOverrides`, e.g. a preset
 amount), `key.convert`, `key.setTarget`, `key.toggleRipple`, `pose.mirrorAnimation`, `time.insertTime`,
@@ -2262,12 +2263,12 @@ Each merge: `pnpm run ci` green, with scenarios that depend on unmerged packages
 | M2A-D6 | Fingers and toes under IK | Follow the IK hand/foot (follow rule); toes keep their FK rotation and stay planted under ball roll | A "toe tap" attribute could replace `fk.toes` in IK mode |
 | M2A-D7 | Schema | `SCHEMA_VERSION` 2; `minWriterVersion` 2 only when an `ik2` solver is enabled (M1 apps then open read-only); fresh documents write 1 | Bumping table versions would make every M2a project read-only in M1 |
 | M2A-D8 | Export reduction | Off in the API (M1 bytes), on by default in the Export dialog with R02 §6.4 tolerances | A different default changes exported bytes |
-| M2A-D9 | Ripple scope | Dope Sheet and time slider, one global region per edit over the shown or target controls; the Graph Editor never ripples (Maya) | Per-curve bounds were rejected (§5.11) |
-| M2A-D10 | Breakdown rounding | Retimed breakdowns snap to whole frames inside their anchors when snapping is on; Insert/Remove Frame never retime breakdowns | Sub-frame breakdowns (Maya-exact) by turning snapping off |
+| M2A-D9 | Ripple scope | Dope Sheet and time slider, one global region per edit over the shown or target controls; the Graph Editor never ripples (desktop-DCC convention) | Per-curve bounds were rejected (§5.11) |
+| M2A-D10 | Breakdown rounding | Retimed breakdowns snap to whole frames inside their anchors when snapping is on; Insert/Remove Frame never retime breakdowns | Sub-frame breakdowns (exact desktop-DCC behaviour) by turning snapping off |
 | M2A-D11 | Arrow keys | Pick-walk in viewport and Channel Box; key nudge in Graph Editor, Dope Sheet and time slider; Outliner keeps ARIA arrows (Q-UI-2) | `prefs.arrowKeys: 'frames'` |
 | M2A-D12 | Autosave | On, 2 s debounce, 30 s max interval, one slot per tab, recovery prompt at start | `prefs.autosave` |
 | M2A-D13 | Import to IK fidelity | `ikTolerance` 2° (chain bone world rotation) and 2 mm (mid joint); a limb over it stays FK for the clip with a warning. 2° admits FK-authored bends on legs splayed up to about 5° at 40° of bend (the twist difference grows to about 0.36 × the splay there) and rejects hyperextended or clearly non-hinge knees | A tighter tolerance keeps more limbs FK; a looser one hides twist differences |
-| M2A-D14 | Loop clips | Cycle-aware auto tangents wherever both infinities cycle; curves created by keying in a loop clip default to `cycle` infinities; imports and existing curves unchanged | Constant infinities by default (Maya) would bring the seam hitch back |
+| M2A-D14 | Loop clips | Cycle-aware auto tangents wherever both infinities cycle; curves created by keying in a loop clip default to `cycle` infinities; imports and existing curves unchanged | Constant infinities by default (the desktop-DCC default) would bring the seam hitch back |
 | M2A-D15 | Tween target | `'auto'`: selected keys if any, else the pose at the current frame, always shown in the bar and one click to force the pose | Always the pose (tweenMachine) or always keys |
 
 ### 11.1 Review items not applied (v0.2)
@@ -2285,6 +2286,6 @@ applied above, and so are the minors except the parts below, which are **not** a
 | Key hold (KY-08) and a stepped preview toggle | M2a-stretch (§1.2) | The review itself classed them as stretch; workarounds exist |
 | Ankle/wrist motion trail | M2a-stretch (§1.2), gap named in README (§1.4) | Onion skin and full trails are M2c; the cheap trail only if time remains |
 | A layout preset that docks the Dope Sheet beside the Graph Editor (E2E-M2A-12) | Not done; the scenario switches tabs and asserts through probes (§9) | The shared selection lives in the kernel; both panels need not be visible to test it, and a layout preset is UI scope M2a does not need |
-| A pref that turns the viewport MMB virtual slider off "if it conflicts with a manipulator" | Added as `prefs.virtualSlider.viewportMmb` (default on), not tied to the maya preset | No M1 tool uses plain MMB, so there is no conflict to gate on a preset |
+| A pref that turns the viewport MMB virtual slider off "if it conflicts with a manipulator" | Added as `prefs.virtualSlider.viewportMmb` (default on), not tied to the `dcc` preset | No M1 tool uses plain MMB, so there is no conflict to gate on a preset |
 | Matching IK→FK "using the previous frame's pole" for near-straight frames | Replaced by the continuous blend of the §5.6 match pole rule | A frame-order dependency would make match results depend on evaluation order; the blend is stable and order-free |
 | Import fidelity tolerance "1° or 1 mm" | 2° and 2 mm (M2A-D13) | 1° would keep FK-authored bends on slightly splayed legs FK in our own round trips (twist difference ≈ 0.36 × splay at 40° bend) |

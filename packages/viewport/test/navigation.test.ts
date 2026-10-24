@@ -54,13 +54,13 @@ describe('navigation profiles', () => {
       shiftKey: false,
       ...mods,
     });
-    expect(pointerGesture('maya', chord(0, { altKey: true }))).toBe('tumble');
-    expect(pointerGesture('maya', chord(1, { altKey: true }))).toBe('track');
-    expect(pointerGesture('maya', chord(2, { altKey: true }))).toBe('dolly');
-    expect(pointerGesture('maya', chord(0))).toBeNull();
+    expect(pointerGesture('dcc', chord(0, { altKey: true }))).toBe('tumble');
+    expect(pointerGesture('dcc', chord(1, { altKey: true }))).toBe('track');
+    expect(pointerGesture('dcc', chord(2, { altKey: true }))).toBe('dolly');
+    expect(pointerGesture('dcc', chord(0))).toBeNull();
     expect(pointerGesture('trackpad', chord(0, { altKey: true }))).toBe('tumble');
-    expect(pointerGesture('mayaOneButton', chord(0, { altKey: true, metaKey: true }))).toBe('track');
-    expect(pointerGesture('mayaOneButton', chord(0, { altKey: true, ctrlKey: true }))).toBe('dolly');
+    expect(pointerGesture('oneButton', chord(0, { altKey: true, metaKey: true }))).toBe('track');
+    expect(pointerGesture('oneButton', chord(0, { altKey: true, ctrlKey: true }))).toBe('dolly');
 
     const w = (deltaY: number, mods: Partial<Record<'ctrlKey' | 'metaKey' | 'shiftKey', boolean>> = {}) => ({
       deltaX: 0,
@@ -71,19 +71,19 @@ describe('navigation profiles', () => {
       shiftKey: false,
       ...mods,
     });
-    expect(wheelAction('maya', w(-100), 600)).toEqual({ kind: 'dolly', amount: 0.15 });
+    expect(wheelAction('dcc', w(-100), 600)).toEqual({ kind: 'dolly', amount: 0.15 });
     expect(wheelAction('trackpad', w(120), 600)).toEqual({ kind: 'tumble', dx: -0, dy: -120 });
     expect(wheelAction('trackpad', w(10, { shiftKey: true }), 600)).toEqual({ kind: 'track', dx: -0, dy: -10 });
     expect(wheelAction('trackpad', w(-10, { ctrlKey: true }), 600).kind).toBe('dolly');
-    expect(wheelAction('maya', { ...w(3), deltaMode: 1 }, 600)).toEqual({ kind: 'dolly', amount: -3 * 16 * 0.0015 });
+    expect(wheelAction('dcc', { ...w(3), deltaMode: 1 }, 600)).toEqual({ kind: 'dolly', amount: -3 * 16 * 0.0015 });
   });
 });
 
-describe('view camera navigation (Maya profile)', () => {
+describe('view camera navigation (dcc profile)', () => {
   it('Alt+LMB tumbles around the pivot, Alt+MMB tracks, Alt+RMB dollies; plain LMB does not navigate', async () => {
     rig = await createRig();
     rig.layout('split');
-    rig.app.prefs.setState({ navProfile: 'maya' });
+    rig.app.prefs.setState({ navProfile: 'dcc' });
     rig.frame();
     const start = rig.vm.camera('pane-right');
 

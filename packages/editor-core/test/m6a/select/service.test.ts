@@ -117,7 +117,7 @@ describe('hidden components', () => {
     // f0 = (0,3,4,1): its border edges e0 (0,3), e1 (3,4), e3 (1,0) go; the shared e2 (4,1) stays with f1.
     expect([...hidden.edges.toArray()]).toEqual([0, 1, 3]);
     expect([...hidden.verts.toArray()]).toEqual([0, 3]);
-    // A vertex hide converts to the faces it touches (Maya): vertex 5 touches f1 only.
+    // A vertex hide converts to the faces it touches: vertex 5 touches f1 only.
     const v5 = new BitSet(6);
     v5.add(5);
     internals.hide(plane, 'vertex', v5, 'selected');

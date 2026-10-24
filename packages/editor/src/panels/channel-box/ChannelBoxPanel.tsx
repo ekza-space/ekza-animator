@@ -1,4 +1,4 @@
-// Channel Box (FR-CB-01…06, research 09 §4.5): the lead selection's keyable channels with Maya's state colours,
+// Channel Box (FR-CB-01…06, research 09 §4.5): the lead selection's keyable channels with the DCC state colours,
 // expression entry applied to every selected control through `channel.setValues`, Tab navigation, ↑/↓ nudges,
 // channel-name selection for "Key Selected", the RMB menu (key selected, reset, lock/unlock) and the virtual slider.
 // Values live in a ChannelReadout outside React: playback commits only the rows whose value changed, at most once

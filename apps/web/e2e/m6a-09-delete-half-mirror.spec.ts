@@ -4,7 +4,7 @@ import { createPrimitive, openModel } from './helpers/m6a-model';
 import { call, expectKernelStarted, runOk } from './helpers/test-api';
 
 // E2E-MOD-09 "Delete half, Mirror, Conform, Mesh Check" (M6A-SPEC §10.1, §5.12, §5.13; owner B11): a centre loop,
-// the −X faces deleted with Maya's plain Delete, Mirror from the Mesh menu (defaults: +X kept, cut, merged seam) and
+// the −X faces deleted with plain Delete, Mirror from the Mesh menu (defaults: +X kept, cut, merged seam) and
 // Conform from Mesh Display — a closed, manifold cube that Mesh Check finds nothing wrong with.
 //
 // Gates (§10.1): b3 (Insert Edge Loop, Delete), b4 (Mirror, Conform), b5 (Mesh Check), b10 (face mode and the

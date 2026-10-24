@@ -1,12 +1,12 @@
 # Ekza Studio
 
 **An open-source, browser-based 3D studio for glTF and VRM characters — modeling, rigging and animation with a
-Maya-grade workflow.** Formerly Ekza Animator (renamed 2026-10-19, [DECISIONS-OPEN §H](docs/DECISIONS-OPEN.md#h-naming-ekza-studio-and-ekza-hub-2026-10-19)).
+professional DCC-grade workflow.** Formerly Ekza Animator (renamed 2026-10-19, [DECISIONS-OPEN §H](docs/DECISIONS-OPEN.md#h-naming-ekza-studio-and-ekza-hub-2026-10-19)).
 
 Load a rigged GLB or a VRM 0.x/1.0 avatar, get circle controls on its bones with IK legs, key poses, retime them in
-a Dope Sheet and on the time slider, tween breakdowns, shape the motion in a Graph Editor with Maya's tangent model,
-then bake the clips back into the original file — every original JSON value and every byte of its binary buffer
-preserved — or export VRMA and animation-only GLB. Part of the Ekza ecosystem; usable on its own.
+a Dope Sheet and on the time slider, tween breakdowns, shape the motion in a Graph Editor with a weighted/stepped
+tangent model, then bake the clips back into the original file — every original JSON value and every byte of its
+binary buffer preserved — or export VRMA and animation-only GLB. Part of the Ekza ecosystem; usable on its own.
 
 > **Status: alpha — milestone M2a ("game-clip daily driver") is integrated and merged into `dev`** on top of the
 > accepted M1 alpha. **M6a (the modeling base) is merged into `dev`** (2026-10-20): a Model workspace for low-poly
@@ -53,37 +53,37 @@ Known gaps, said plainly:
 - **An IK limb cannot hold a hyperextended knee or elbow**: the match bends it the other way and says by how much.
 - **An imported limb whose knee or elbow is not a clean hinge stays FK for that clip**, and the import says so.
 
-Also not in M2a: animation layers, facial expressions in VRMA, FBX/BVH/Mixamo import (M2b), and importing an
-animation-only GLB onto a character (VRMA clips import). The M2a-stretch items were not built either (listed in the
-e2e report as `test.fixme`): a ghost display of the inactive IK/FK controls, Dope Sheet rows for un-keyed channels,
-mesh picks that select the IK control (a mesh pick on an IK limb selects the FK control and says "IK limb: pick the IK
-control"), key hold and a stepped preview, ankle and wrist motion trails, and an automatic Simplify after Match Range
-(run Graph › Simplify). Export key reduction stays within tight per-node tolerances and never makes a file larger: it
-shrinks linear blocking 3× and more, but smooth 30 fps splines keep nearly every sample (an owner decision is open on
-the tolerances). Root motion "In place" removes a clip's travel on export and keeps its sway, so planted feet stay
-planted in the file. Chrome and Edge are the supported browsers; Firefox and
-Safari follow in V1. The first alpha (M1, `v0.1.0`) targeted in-place loops, emotes and blocking with FK legs and
-Pose › Plant Feet, which still works for FK legs.
+Also not in M2a: animation layers, facial expressions in VRMA, FBX/BVH import (incl. common auto-rigger skeletons;
+M2b), and importing an animation-only GLB onto a character (VRMA clips import). The M2a-stretch items were not built
+either (listed in the e2e report as `test.fixme`): a ghost display of the inactive IK/FK controls, Dope Sheet rows
+for un-keyed channels, mesh picks that select the IK control (a mesh pick on an IK limb selects the FK control and
+says "IK limb: pick the IK control"), key hold and a stepped preview, ankle and wrist motion trails, and an automatic
+Simplify after Match Range (run Graph › Simplify). Export key reduction stays within tight per-node tolerances and
+never makes a file larger: it shrinks linear blocking 3× and more, but smooth 30 fps splines keep nearly every sample
+(an owner decision is open on the tolerances). Root motion "In place" removes a clip's travel on export and keeps its
+sway, so planted feet stay planted in the file. Chrome and Edge are the supported browsers; Firefox and Safari follow
+in V1. The first alpha (M1, `v0.1.0`) targeted in-place loops, emotes and blocking with FK legs and Pose › Plant
+Feet, which still works for FK legs.
 
 ## What M6a is for
 
-M6a adds a **Model workspace** (the tab next to Animate) for **low-poly box modeling** with Maya's hands: component
-modes on `1`/`2`/`3` (or the RMB marking menu), Maya's loop and ring picks, marking menus on Shift+RMB, **Extrude on
-`⌘E`/`Ctrl+E`** as an adjustable session (drag the cap with W/E/R, change Divisions on the Last-op card, step back one
-drag at a time with undo), Insert Edge Loop, Multi-Cut, Bevel, Bridge, Merge/Target Weld, Slide, Mirror and
-Symmetrize, **symmetry remembered per mesh** (every tool mirrors), soft selection, snapping and pivots, the Modeling
-Toolkit with option boxes, `G` to repeat and `T` to type a value. Colour is a **palette slot per face** (Palette panel,
-Paint Colour), exported as one palette texture, vertex colours or one material per colour. Templates (a prop, a
-handheld item, humanoid guides and a body), reference image planes, a Poly Count HUD with budgets and a Mesh Check
-panel help a model stay game-ready. **Static GLB export** writes the model with Ekza's provenance block and the
-`ekza/omoba-handheld-v1` profile; imported characters can be **made editable** and baked back with their skin
-weights, expressions and MToon looks.
+M6a adds a **Model workspace** (the tab next to Animate) for **low-poly box modeling** with familiar desktop-DCC
+habits: component modes on `1`/`2`/`3` (or the RMB marking menu), edge loop and ring picks, marking menus on
+Shift+RMB, **Extrude on `⌘E`/`Ctrl+E`** as an adjustable session (drag the cap with W/E/R, change Divisions on the
+Last-op card, step back one drag at a time with undo), Insert Edge Loop, Multi-Cut, Bevel, Bridge, Merge/Target Weld,
+Slide, Mirror and Symmetrize, **symmetry remembered per mesh** (every tool mirrors), soft selection, snapping and
+pivots, the Modeling Toolkit with option boxes, `G` to repeat and `T` to type a value. Colour is a **palette slot per
+face** (Palette panel, Paint Colour), exported as one palette texture, vertex colours or one material per colour.
+Templates (a prop, a handheld item, humanoid guides and a body), reference image planes, a Poly Count HUD with
+budgets and a Mesh Check panel help a model stay game-ready. **Static GLB export** writes the model with Ekza's
+provenance block and the `ekza/omoba-handheld-v1` profile; imported characters can be **made editable** and baked
+back with their skin weights, expressions and MToon looks.
 
 Known gaps, said plainly: no subdivision preview, booleans, sculpting, UV editor or texture painting (M6c), rigging
 and skinning your own models is the M6b MVP (see "Rig & Skin" below; constraints and the full joint tools come later), no Live Mirror (Symmetry plus Mesh › Mirror instead), and the
 M6a-stretch items listed in the e2e report as `test.fixme` (Extrude Manifold, Select Similar, lasso, Poke, edge snap,
 ramp swatches, `.gpl` palettes, component pick-walk, selection constraints, unequal Bridge, Multi-Cut across faces,
-Maya's per-component Normal, Retain component spacing).
+per-component Normal, Retain component spacing).
 
 ## Rig & Skin: from cubes to a VRM in minutes
 
@@ -116,7 +116,7 @@ follow after the MVP ([docs/M6B-SPEC.md](docs/M6B-SPEC.md) §0.3).
 
 ## Auto-Rig: from a GLB to an OMOBA-ready VRM in minutes
 
-On opening, Ekza Studio asks what you want to do: the full **Studio**, or **Auto-Rig** — a Mixamo-style five-step
+On opening, Ekza Studio asks what you want to do: the full **Studio**, or **Auto-Rig** — a five-step one-click auto-rig
 wizard built from the same tools (a second shell over the same document and undo history, [ADR 0021](docs/adr/0021-autorig-mode.md)):
 
 1. **Model**: drop a static humanoid GLB (T- or A-posed) or a VRM; the checks (centred, grounded, facing, upright,
@@ -148,9 +148,9 @@ Hide what you do not need, per workspace (details: [docs/LAYOUT-PRESETS.md](docs
 
 | Area | Built (M1 alpha, M2a, M6a, M6b, **Auto-Rig**) | Planned |
 |---|---|---|
-| Open | `.glb`, `.vrm` (VRM 0.x and 1.0), drag-and-drop, bundled samples, `.vrma` as a clip, Draco/meshopt/KTX2 display; embedded clips imported at their own frame rate with key reduction | FBX/BVH/Mixamo with humanoid retarget, `.gltf` multi-file, humanoid mapping for generic rigs (M2b); animation-only GLB onto a character |
+| Open | `.glb`, `.vrm` (VRM 0.x and 1.0), drag-and-drop, bundled samples, `.vrma` as a clip, Draco/meshopt/KTX2 display; embedded clips imported at their own frame rate with key reduction | FBX/BVH (incl. common auto-rigger skeletons) with humanoid retarget, `.gltf` multi-file, humanoid mapping for generic rigs (M2b); animation-only GLB onto a character |
 | Control rig | Auto FK rig with circle controls sized from the mesh, offset groups (zero = rest), side colours, `root`/`cog`/hips controls; 1:1 FK rig for any skinned GLB; Pin/Plant Feet; VRM node constraints in the preview; pose-preserving rotate-order change; **two-bone leg and arm IK with knee/elbow poles, soft IK, twist, IK/FK blend, match and seamless switch, a simple foot roll with pivots from the foot mesh, custom keyable attributes, imports written to IK feet, Add Limb IK for M1 rigs** | Constraints (M2c); space switching and "pole follows foot" (M5); stretch IK |
-| Viewports | One canvas, single / split (locked shot camera + free camera) / quad, Maya, trackpad and one-button navigation, Space-hold camera radial, F/A framing, display toggles, marquee, click-cycling and mesh-click selection, W/E manipulators (object/world/**gimbal**); **IK/FK control visibility, pole lines, MMB virtual slider, pick-walk with the arrows** | Scale manipulator, onion skin, motion trails, camera bookmarks (M2c) |
+| Viewports | One canvas, single / split (locked shot camera + free camera) / quad, Alt+drag (DCC standard), trackpad and one-button navigation, Space-hold camera radial, F/A framing, display toggles, marquee, click-cycling and mesh-click selection, W/E manipulators (object/world/**gimbal**); **IK/FK control visibility, pole lines, MMB virtual slider, pick-walk with the arrows** | Scale manipulator, onion skin, motion trails, camera bookmarks (M2c) |
 | Keying | `S`, `Shift+W/E/R`, key selected channels, auto-key, delete keys, static values, undoable unkeyed tweaks; **breakdown keys (`Alt+S`) with proportional retiming, the tween family (tween, blend to neighbour, ease, push/pull, blend to default) with overshoot in the status line and the curve panels, keying by body part** | Key hold, stepped preview (M2a-stretch) |
 | Time | Time slider with key ticks, scrub, Shift-drag range move/scale/delete/copy/paste, playback range, loop/once/oscillate, real-time or every frame, per-clip fps, shared scene clock for several characters; **Dope Sheet (summary, character, body part, control and channel rows, hold bars), ripple edit, Mod+drag copy, MMB pose carry, insert/remove time, key nudge** | Bookmarks → clips, audio (M2c) |
 | Graph Editor | Canvas2D, exact curves, select keys and handles (click, box, double-click curve), move with axis lock (LMB or MMB), auto/spline/clamped/plateau/linear/flat/stepped, break/unify, weighted with lock/free weight, pen-like handles, shape-preserving insert, numeric fields, pre/post infinity, Euler filter, Simplify; **buffer curves, normalized and stacked views, the Scale tool with a region box, cycle-aware auto tangents on loop clips; 1,000-key drags within 4 ms** | Smoothing filters, quaternion curves (M5) |
@@ -162,7 +162,7 @@ Hide what you do not need, per workspace (details: [docs/LAYOUT-PRESETS.md](docs
 | Ekza | Space-compatible exports, slot vocabulary, provenance, registry-aligned lints, interop warnings | Upload as `ekza:animation` asset, one-click publish, open from Ekza (M4a) |
 | Modeling | **M6a: Model workspace, component modes, the box-modeling tool set with symmetry, soft selection, snapping, the extrude session, Last-op card and Toolkit, palette colour, templates, reference planes, HUD and Mesh Check, static GLB export, Make editable for imported characters**; Lambert/Blinn swatch shaders (v0.3.1); control shapes use the shared spline type | UV editor (M6c), AI generation (M7), splines and generators (M8) |
 | Rig & Skin | **M6b MVP: Quick Rig (guessed markers, front/side axis rule, live VRM skeleton preview), Create Skeleton with an auto control rig, joint fitting with symmetry, Orient and Mirror Joints, one-click Bind Skin in a worker, Paint Skin Weights with mirror strokes and holds, test poses, Validation as the export gate, the CC0 Clip Library with preview and Use Clip, VRM 1.0 export with OMOBA's runtime lints**; **the A-pose path: Quick Rig and Create Skeleton on A-posed meshes, *Straighten to T-Pose* (Apply Pose as Rest) so the exported VRM is a T-pose VRM 1.0** | Constraints and control-shape editing, the Joint tool, the Component Editor, weight transfer and inpainting, rig edits on imported avatars (full M6b) |
-| Auto-Rig mode | **Mode chooser on `/` (remembered), a Mixamo-style five-step wizard at `/autorig` over the same document and undo history: model checks with one-click fixes (T- or A-posed GLB, VRM), guessed markers in front/side views, one-click *Auto-rig* (skeleton + skin + T-pose straighten) with Adjust joints and weight painting, the CC0 clip library with speed/trim/mirror/in-place/arm space, export to OMOBA/Space VRM 1.0, GLB, VRMA or an OMOBA local test kit; *Open in Studio* and back** | *Publish to Hub* (Ekza Hub upload, hidden until the Hub path exists), rig and weight edits on imported avatars, decimation over 200k triangles, an OMOBA-side motion smoke test, `ru`/`zh` strings |
+| Auto-Rig mode | **Mode chooser on `/` (remembered), a five-step one-click auto-rig wizard at `/autorig` over the same document and undo history: model checks with one-click fixes (T- or A-posed GLB, VRM), guessed markers in front/side views, one-click *Auto-rig* (skeleton + skin + T-pose straighten) with Adjust joints and weight painting, the CC0 clip library with speed/trim/mirror/in-place/arm space, export to OMOBA/Space VRM 1.0, GLB, VRMA or an OMOBA local test kit; *Open in Studio* and back** | *Publish to Hub* (Ekza Hub upload, hidden until the Hub path exists), rig and weight edits on imported avatars, decimation over 200k triangles, an OMOBA-side motion smoke test, `ru`/`zh` strings |
 
 Feature catalogue by category, with UI locations and releases: [docs/FEATURES.md](docs/FEATURES.md). Full numbered list: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
 
@@ -243,8 +243,8 @@ docs/                    research, ADRs, requirements, roadmap, MVP spec, glossa
 - [docs/DECISIONS-OPEN.md](docs/DECISIONS-OPEN.md) — owner decisions with the defaults chosen and the design
   review outcomes.
 - [docs/GLOSSARY.md](docs/GLOSSARY.md) — terms (control, offset group, normalized space, surgeon, …).
-- [docs/research/](docs/research/) — the evidence base (Maya features, formats, Ekza reuse, web stack, landscape,
-  collaboration, rig math, extensibility, UI/UX).
+- [docs/research/](docs/research/) — the evidence base (DCC animation features, formats, Ekza reuse, web stack,
+  landscape, collaboration, rig math, extensibility, UI/UX).
 
 ## Contributing
 
@@ -257,14 +257,15 @@ Do not copy code from GPL/AGPL or unlicensed projects; implement features clean-
 
 The code is MIT (see [LICENSE](LICENSE)). Exceptions:
 
-- `packages/anim-core/src/curve/animx/` is a TypeScript port of [Autodesk AnimX](https://github.com/Autodesk/animx)
-  and remains under the Apache License 2.0 with its original notices.
+- `packages/anim-core/src/curve/animx/` is a TypeScript port of the AnimX library (Apache-2.0; attribution in
+  [packages/anim-core/NOTICE](packages/anim-core/NOTICE)) and remains under the Apache License 2.0 with its original
+  notices.
 - Files under `fixtures/` are **not** MIT: each is under the licence recorded in
   [fixtures/LICENSES.md](fixtures/LICENSES.md) (CC0-1.0 or the VRM Public License 1.0 with credit).
 - Third-party notices for the shipped web app are generated at build time and linked from Help → About.
 
-"Ekza" is a name of the Ekza project and is not licensed for use by forks; product names of other vendors (for
-example "Maya-style hotkeys") are used descriptively only.
+"Ekza" is a name of the Ekza project and is not licensed for use by forks. Other product names are trademarks of
+their respective owners; Ekza Studio is not affiliated with or endorsed by them.
 
 ## Credits
 
@@ -275,7 +276,7 @@ example "Maya-style hotkeys") are used descriptively only.
   (`apps/web/public/library/animations/`, converted to VRMA on the VRM humanoid).
 - The GIFs in `docs/media/` show Polybot and were recorded from the e2e build with
   `apps/web/scripts/record-readme-media.mjs`.
-- Curve evaluation based on Autodesk AnimX (Apache-2.0).
+- Curve evaluation based on the AnimX library (Apache-2.0; attribution in `packages/anim-core/NOTICE`).
 - Built on three.js, React Three Fiber, @pixiv/three-vrm, glTF Transform, dockview and camera-controls (MIT), and
   the Khronos glTF-Validator (Apache-2.0).
 

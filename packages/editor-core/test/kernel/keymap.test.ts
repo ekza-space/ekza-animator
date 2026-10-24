@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type KeyBinding, type KeyInput, type KeyScope, MAYA_KEYMAP } from '../../src';
+import { type KeyBinding, type KeyInput, type KeyScope, DCC_KEYMAP } from '../../src';
 import { createKeymapManager } from '../../src/keymap/manager';
 import { createFakeEditorApp } from '../../src/testing';
 
@@ -15,14 +15,14 @@ const key = (code: string, mods: Mods = {}): KeyInput => ({
 });
 const chain = (panel: KeyScope | null): readonly KeyScope[] => (panel === null ? ['global'] : [panel, 'global']);
 
-function mayaKeymap(platform: 'mac' | 'other') {
+function dccKeymap(platform: 'mac' | 'other') {
   const keymap = createKeymapManager(platform);
-  keymap.add(MAYA_KEYMAP);
+  keymap.add(DCC_KEYMAP);
   return keymap;
 }
 
-describe('MAYA_KEYMAP (§4.10)', () => {
-  const other = mayaKeymap('other');
+describe('DCC_KEYMAP (§4.10)', () => {
+  const other = dccKeymap('other');
   const resolve = (input: KeyInput, panel: KeyScope | null, trigger: 'press' | 'tap' | 'hold' = 'press') => {
     const binding = other.resolve(input, chain(panel), trigger);
     return binding === null ? null : { op: binding.op, args: binding.args };
@@ -145,10 +145,10 @@ describe('MAYA_KEYMAP (§4.10)', () => {
   });
 
   it('binds Ctrl+Space only as the focus-mode tap (the OS may take it first; Alt+0 is the alternative)', () => {
-    // Owner request (docs/LAYOUT-PRESETS.md): Maya's "hide UI". macOS and Windows IMEs may switch the input source on
-    // Ctrl+Space before the page sees it, so Alt+0 runs the same operator everywhere.
+    // Owner request (docs/LAYOUT-PRESETS.md): the desktop-DCC "hide UI" key. macOS and Windows IMEs may switch the
+    // input source on Ctrl+Space before the page sees it, so Alt+0 runs the same operator everywhere.
     const scopes = ['viewport', 'graph', 'timeline', 'outliner', 'channelBox', 'clips', 'attributes'];
-    for (const platform of [other, mayaKeymap('mac')]) {
+    for (const platform of [other, dccKeymap('mac')]) {
       for (const scope of scopes) {
         expect(platform.resolve(key('Space', { ctrlKey: true }), [scope, 'global'], 'tap')?.op).toBe(
           'workspace.toggleFocus',
@@ -164,19 +164,19 @@ describe('MAYA_KEYMAP (§4.10)', () => {
 
   it('has no duplicate (chord, scope, trigger) bindings', () => {
     const seen = new Set<string>();
-    for (const binding of MAYA_KEYMAP) {
+    for (const binding of DCC_KEYMAP) {
       const id = JSON.stringify([binding.chord, binding.scope, binding.trigger ?? 'press']);
       expect(seen.has(id)).toBe(false);
       seen.add(id);
     }
-    expect(Object.isFrozen(MAYA_KEYMAP)).toBe(true);
+    expect(Object.isFrozen(DCC_KEYMAP)).toBe(true);
   });
 });
 
 describe('KeymapManager', () => {
   it('maps mod to Cmd on macOS and to Ctrl elsewhere; modifiers must match exactly', () => {
-    const mac = mayaKeymap('mac');
-    const other = mayaKeymap('other');
+    const mac = dccKeymap('mac');
+    const other = dccKeymap('other');
     expect(mac.resolve(key('KeyZ', { metaKey: true }), ['global'], 'press')?.op).toBe('edit.undo');
     expect(mac.resolve(key('KeyZ', { ctrlKey: true }), ['global'], 'press')).toBeNull();
     expect(other.resolve(key('KeyZ', { ctrlKey: true }), ['global'], 'press')?.op).toBe('edit.undo');
@@ -224,7 +224,7 @@ describe('KeymapManager', () => {
   });
 
   it('fires only repeatable operators on auto-repeat', () => {
-    const keymap = mayaKeymap('other');
+    const keymap = dccKeymap('other');
     const repeat = { repeat: true };
     expect(keymap.resolve(key('Period', { altKey: true, ...repeat }), ['global'], 'press')?.op).toBe('time.step');
     expect(keymap.resolve(key('Period', repeat), ['global'], 'press')?.op).toBe('time.nextKey');
@@ -263,7 +263,7 @@ describe('keymap preferences in the app', () => {
     app.prefs.setState({ spaceBehaviour: 'play' });
     expect(app.keymap.resolve(key('Space'), ['viewport', 'global'], 'tap')?.op).toBe('time.togglePlay');
     expect(app.keymap.resolve(key('Space'), ['viewport', 'global'], 'hold')?.op).toBe('view.cameraRadial');
-    app.prefs.setState({ spaceBehaviour: 'maya' });
+    app.prefs.setState({ spaceBehaviour: 'maximize' });
     expect(app.keymap.resolve(key('Space'), ['graph', 'global'], 'tap')?.op).toBe('view.toggleMaximize');
   });
 
