@@ -66,7 +66,7 @@ function OptionsView(props: {
       const base = (target.row.args ?? {}) as Readonly<Record<string, unknown>>;
       props.onRun(formArgs(form, values, base).args);
     } else {
-      props.onRun({ ...((target.row.args ?? {}) as object), ...values });
+      props.onRun({ ...(target.row.args as object | undefined), ...values });
     }
   };
   return (

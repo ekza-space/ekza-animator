@@ -19,7 +19,7 @@ import {
   type RigValidationRow,
 } from '@ekza-studio/editor-core';
 import type { Stage } from '../manifest/types';
-import { type Destination, type DestinationId, destinationOf } from './destinations';
+import { type Destination, destinationOf } from './destinations';
 
 export type ReadinessStage = Stage | 'share';
 
@@ -288,7 +288,7 @@ function glyphOf(rows: number, touched: boolean, ready: boolean, checked: boolea
 }
 
 /** The readiness of the document for a destination (pure; read at human speed). */
-export function readiness(app: EditorApp, destinationId: DestinationId | string = 'exploring'): Readiness {
+export function readiness(app: EditorApp, destinationId: string = 'exploring'): Readiness {
   const destination = destinationOf(destinationId);
   const make = makeRows(app, destination);
   const rig = rigRows(app, destination);

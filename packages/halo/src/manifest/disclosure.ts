@@ -53,7 +53,7 @@ const HANDS: Extra = { handsOn: true };
 /** The `ui.open` entries, one per Halo surface, from the dialog map (§6.7). */
 function dialogEntries(): readonly Disclosure[] {
   const groups = new Map<string, { surface: DialogSurface; dialogs: string[] }>();
-  for (const [dialog, surface] of Object.entries(DIALOG_SURFACES) as [string, DialogSurface][]) {
+  for (const [dialog, surface] of Object.entries(DIALOG_SURFACES)) {
     if ('deferred' in surface) continue;
     const key = JSON.stringify(
       'confirm' in surface

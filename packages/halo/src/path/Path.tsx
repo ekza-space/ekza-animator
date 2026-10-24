@@ -6,7 +6,7 @@
 // tool — `stageSwitch` below lists the operator runs); tapping a ⚠n opens Health scrolled to that stage.
 import type { EditorApp } from '@ekza-studio/editor-core';
 import { Cluster, Segmented, type SegmentedItem } from '@ekza-studio/ui/touch';
-import type { JSX } from 'react';
+import type { JSX, MouseEvent } from 'react';
 import { STAGES, type Stage } from '../manifest/types';
 import { STAGE_WORKSPACE } from './destinations';
 import { GLYPH_MEANING, GLYPH_TEXT, type Readiness, type StageReadiness } from './readiness';
@@ -66,19 +66,23 @@ export function Path({ stage, readiness, onStage, onProblems, className }: PathP
       ),
     };
   });
+  // A tap on the selected stage's tab: its ⚠n opens Health at that stage (the segmented control only reports changes).
+  const onClick = (event: MouseEvent<HTMLDivElement>): void => {
+    const tab = (event.target as Element).closest('[role="tab"]');
+    if (tab === null || tab.getAttribute('aria-selected') !== 'true') return;
+    const index = [...(tab.parentElement?.children ?? [])].indexOf(tab);
+    const tapped = STAGES[index];
+    if (tapped !== undefined && readiness.stages[tapped].glyph === 'warn') onProblems?.(tapped);
+  };
   return (
-    <Cluster className={className ?? 'max-w-full overflow-x-auto p-[3px]'} data-touch-scroll="">
+    <Cluster className={className ?? 'max-w-full overflow-x-auto p-[3px]'} data-touch-scroll="" onClick={onClick}>
       <Segmented<Stage>
         kind="tablist"
         variant="accent"
         label="Stage"
         data-testid="halo-path"
         value={stage}
-        onValueChange={(next) => {
-          const r = readiness.stages[next];
-          if (next === stage && r.glyph === 'warn') onProblems?.(next);
-          else onStage(next);
-        }}
+        onValueChange={onStage}
         items={items}
       />
     </Cluster>

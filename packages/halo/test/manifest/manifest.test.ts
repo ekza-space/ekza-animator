@@ -78,11 +78,11 @@ describe('Disclosure Manifest (§20.5)', () => {
   });
 
   it('gives a plumbing entry only to allow-listed operators, and every allow-listed one that exists has it', () => {
-    for (const [id, value] of Object.entries(DISCLOSURE)) {
-      for (const entry of entriesOf(value)) {
-        if ('plumbing' in entry) expect(PLUMBING_ALLOWLIST[id]).toBeDefined();
-      }
-    }
+    const plumbing = Object.entries(DISCLOSURE)
+      .filter(([, value]) => entriesOf(value).some((entry) => 'plumbing' in entry))
+      .map(([id]) => id);
+    expect(plumbing.length).toBeGreaterThan(3);
+    expect(plumbing.filter((id) => PLUMBING_ALLOWLIST[id] === undefined)).toEqual([]);
   });
 
   it('reports a missing entry, an unknown predicate value and an unresolved petal', () => {
@@ -166,11 +166,12 @@ describe('kernel questions (§6.7, AS-ST-20)', () => {
 
   it('derive one ui.open entry per Halo surface, covering every non-deferred dialog', () => {
     const entries = entriesOf(DISCLOSURE['ui.open'] ?? []);
-    for (const dialog of Object.keys(DIALOG_SURFACES) as UiDialog[]) {
-      const found = entryFor(entries, { dialog });
-      if (DEFERRED_DIALOGS.includes(dialog)) expect(found).toBeNull();
-      else expect(found?.match).toBe('yes');
-    }
+    const dialogs = Object.keys(DIALOG_SURFACES) as UiDialog[];
+    const matches = Object.fromEntries(dialogs.map((dialog) => [dialog, entryFor(entries, { dialog })?.match ?? null]));
+    const expected = Object.fromEntries(
+      dialogs.map((dialog) => [dialog, DEFERRED_DIALOGS.includes(dialog) ? null : 'yes']),
+    );
+    expect(matches).toEqual(expected);
   });
 });
 

@@ -13,6 +13,7 @@ import {
   lazy,
   type ReactNode,
   Suspense,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -104,12 +105,15 @@ export function HaloT6bHarness(): JSX.Element {
   const noun = resolveNoun(app, stage);
   const next = dismissed || sheet !== null ? null : nextChip(app, r);
 
-  const setStage = (to: Stage): void => {
-    void (async () => {
-      for (const step of stageSwitch(app, to)) await host.runFromUi(step.op, step.args);
-      setStageState(to);
-    })();
-  };
+  const setStage = useCallback(
+    (to: Stage): void => {
+      void (async () => {
+        for (const step of stageSwitch(app, to)) await host.runFromUi(step.op, step.args);
+        setStageState(to);
+      })();
+    },
+    [app, host],
+  );
 
   const ctx = useMemo<HaloSheetContext>(
     () => ({
@@ -125,8 +129,7 @@ export function HaloT6bHarness(): JSX.Element {
       run: (op, args) => host.runFromUi(op, args, { panel: 'viewport', paneId: PANE }),
       openPro: () => void host.navigation.go({ to: 'studio', from: 'halo', workspace: STAGE_WORKSPACE[stage] }),
     }),
-    // biome-ignore lint/correctness/useExhaustiveDependencies: setStage reads the latest host and app.
-    [host, stage, noun, destination, wide],
+    [host, stage, noun, destination, wide, setStage],
   );
 
   useEffect(() => {

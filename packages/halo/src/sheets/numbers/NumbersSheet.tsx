@@ -8,15 +8,15 @@ import type { HaloSheetContext, HaloSheetProps } from '../../manifest/sheets';
 import { FieldRow, HaloSheet, NumberControl, SheetGroup, useAppVersion } from '../more/kit';
 import { type NumbersField, type NumbersSection, numbersSections, numbersTitle, type OperatorCall } from './model';
 
-function runCall(ctx: HaloSheetContext, call: OperatorCall & { readonly then?: OperatorCall }): void {
+function runCall(ctx: HaloSheetContext, call: OperatorCall & { readonly after?: OperatorCall }): void {
   void ctx.run(call.op, call.args).then((result) => {
-    if (result.status === 'finished' && call.then !== undefined) void ctx.run(call.then.op, call.then.args);
+    if (result.status === 'finished' && call.after !== undefined) void ctx.run(call.after.op, call.after.args);
   });
 }
 
 function TextField(props: { readonly field: NumbersField; readonly onCommit: (value: string) => void }): JSX.Element {
+  // Keyed by the stored value (see FieldControl): a new value starts a new draft.
   const [draft, setDraft] = useState(String(props.field.value));
-  useEffect(() => setDraft(String(props.field.value)), [props.field.value]);
   return (
     <input
       type="text"
@@ -67,7 +67,9 @@ function FieldControl(props: { readonly ctx: HaloSheetContext; readonly field: N
       />
     );
   }
-  if (field.kind === 'text') return <TextField field={field} onCommit={(value) => runCall(ctx, write(value))} />;
+  if (field.kind === 'text') {
+    return <TextField key={String(field.value)} field={field} onCommit={(value) => runCall(ctx, write(value))} />;
+  }
   return (
     <NumberControl
       label={field.label}

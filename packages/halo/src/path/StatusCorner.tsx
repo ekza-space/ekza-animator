@@ -42,18 +42,13 @@ export function StatusCorner({ readiness, onOpenHealth, className }: StatusCorne
       )}
       {budget === null ? null : (
         <span
-          role="meter"
-          aria-label="Triangle budget"
-          aria-valuemin={0}
-          aria-valuemax={budget.limit}
-          aria-valuenow={budget.tris}
-          aria-valuetext={`${formatCount(budget.tris)} of ${formatCount(budget.limit)} triangles`}
           data-testid="halo-budget-ring"
           className={`inline-flex min-h-(--touch-hit) items-center px-3 text-touch-label ${
             budgetFraction(budget) > 1 ? 'text-danger' : 'text-fg-2'
           }`}
         >
           {formatCount(budget.tris)} / {formatCount(budget.limit)}
+          <span className="sr-only"> triangles</span>
         </span>
       )}
     </Cluster>

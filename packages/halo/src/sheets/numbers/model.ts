@@ -54,7 +54,7 @@ export interface NumbersField {
   /** Channel rows: locked, keyed here, and the row's menu (Key this channel, Lock / Unlock, Reset to default). */
   readonly locked?: boolean;
   readonly keyed?: boolean;
-  readonly menu?: readonly (OperatorCall & { readonly label: string; readonly then?: OperatorCall })[];
+  readonly menu?: readonly (OperatorCall & { readonly label: string; readonly after?: OperatorCall })[];
 }
 
 export interface NumbersSection {
@@ -181,7 +181,7 @@ function channelsSection(app: EditorApp, ids: readonly string[]): NumbersSection
           label: 'Key this channel',
           op: 'select.channels',
           args: { refs, mode: 'replace' },
-          then: { op: 'key.set', args: { channels: 'selected' } },
+          after: { op: 'key.set', args: { channels: 'selected' } },
         },
         { label: locked ? 'Unlock' : 'Lock', op: 'channel.toggleLock', args: { refs, locked: !locked } },
         {
@@ -321,7 +321,7 @@ function paramField(param: ParamDef, value: unknown, write: (v: unknown) => Oper
       label: param.label,
       pro: '',
       kind: 'enum',
-      value: String(value ?? param.default),
+      value: typeof value === 'string' ? value : typeof param.default === 'string' ? param.default : '',
       options: param.options ?? [],
       write: (v) => write(v),
     };

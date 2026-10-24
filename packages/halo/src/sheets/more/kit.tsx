@@ -146,7 +146,7 @@ export function ParamControl(props: {
     return (
       <Segmented<string>
         label={param.label}
-        value={typeof value === 'string' ? value : String(param.default)}
+        value={typeof value === 'string' ? value : typeof param.default === 'string' ? param.default : ''}
         onValueChange={(next) => onChange(next)}
         items={options.map((option) => ({ value: option.value, label: option.label }))}
         data-testid={`halo-param-${param.name}`}

@@ -33,7 +33,8 @@ describe('readiness (§7.2)', () => {
     expect(statusText(omoba)).toBe(`${omoba.total} to fix`);
     expect(omoba.stages.rig.glyph).toBe('warn');
     const prop = readiness(app, 'prop');
-    expect(prop.budget).toMatchObject({ tris: expect.any(Number), limit: 600 });
+    expect(prop.budget?.limit).toBe(600);
+    expect(prop.budget?.tris).toBeGreaterThan(0);
   });
 
   it('counts every row in the total whatever the stage, and suggests animations for a rigged character', async () => {
@@ -42,7 +43,7 @@ describe('readiness (§7.2)', () => {
     const byStage = Object.values(r.stages).reduce((sum, stage) => sum + stage.count, 0);
     const share = r.rows.filter((row) => row.stage === 'share').length;
     expect(r.total).toBe(byStage + share);
-    expect(nextChip(app, readiness(app, 'exploring'))).toMatchObject({ id: expect.any(String) });
+    expect(nextChip(app, readiness(app, 'exploring'))?.id).toBe('share');
     expect(destinationOf('nowhere').id).toBe('exploring');
   }, 60_000);
 });

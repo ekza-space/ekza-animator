@@ -75,7 +75,7 @@ export const DESTINATIONS: readonly Destination[] = [
 /** ST-4: a new session's destination. */
 export const DEFAULT_DESTINATION: DestinationId = 'exploring';
 
-export function destinationOf(id: DestinationId | string | null | undefined): Destination {
+export function destinationOf(id: string | null | undefined): Destination {
   return DESTINATIONS.find((d) => d.id === id) ?? (DESTINATIONS.at(-1) as Destination);
 }
 
