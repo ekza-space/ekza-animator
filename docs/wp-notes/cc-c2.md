@@ -52,10 +52,10 @@ Specs: [CHARACTER-CONTRACT-SPEC](../CHARACTER-CONTRACT-SPEC.md) v0.2 (§4, §5, 
 ## What the next packages need
 
 - **C3 (OMOBA engine + passport)**: the same measurements (CC-C2-3), the thumb renaming (CC-C2-5), the check order and
-  stop points (CC-C2-2), `package.<rule>`-free: the passport reports rule ids; read `ekza_package_v1` and the slot-named
-  animations; run `validate-motion-pack` on `fixtures/contracts/omoba-package/polybot-wildspark.vrm` (copy it into
-  OMOBA's gate) and `tooling/omoba-validate.mjs` on Studio's output; custom clips play at rate 1 from 0 with the
-  manifest's contact.
+  stop points (CC-C2-2) with plain rule ids (Studio's `package.` prefix is only its lint code); read `ekza_package_v1`
+  and the slot-named animations; run `validate-motion-pack` on `fixtures/contracts/omoba-package/polybot-wildspark.vrm`
+  (copy it into OMOBA's gate) and `tooling/omoba-validate.mjs` on Studio's output; custom clips play at rate 1 from 0
+  with the manifest's contact.
 - **C4 (builder + registry)**: `check_package` = the `pack.*` subset of `packageCheck.ts` (same order); the package is
   one VRM 1.0 with `asset.extras.ekza_package_v1` and `ekza_animation_v1` (labels); the dev zip is local only.
 - **C5 (submit)**: `target.exportPackage` already bakes the bytes and `validationReport()` gives the `tool` stage
