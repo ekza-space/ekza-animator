@@ -4,12 +4,12 @@
 |---|---|
 | Status | Research / proposed spec (v0.1) for the modeling iteration |
 | Date | 2026-10-18 |
-| Scope | Workspace tabs; the Model workspace layout; component modes and their hotkeys; RMB, Shift+RMB, Ctrl+RMB and Q marking menus; the Modeling Toolkit panel; tool settings and the Adjust Last Operation card; modal numeric input; viewport overlays (component display, normals, poly count HUD, wireframe on shaded, X-ray, backface culling, flat shading); snapping; pivot editing; symmetry; soft selection; selection constraints; the Outliner for meshes and objects; the face-colour palette; UV editor placement (later); empty states and onboarding; the hand-off to Rig & Skin and Animate; the full modeling keymap; React component tree; D/U/P state classification |
+| Scope | Workspace tabs; the Model workspace layout; component modes and their hotkeys; RMB, Shift+RMB, Ctrl+RMB and Q marking menus; the Modeling Tools panel; tool settings and the Adjust Last Operation card; modal numeric input; viewport overlays (component display, normals, poly count HUD, wireframe on shaded, X-ray, backface culling, flat shading); snapping; pivot editing; symmetry; soft selection; selection constraints; the Outliner for meshes and objects; the face-colour palette; UV editor placement (later); empty states and onboarding; the hand-off to Rig & Skin and Animate; the full modeling keymap; React component tree; D/U/P state classification |
 | Out of scope | Mesh data structure, mesh operator algorithms, auto-skinning maths, export writers and AI generation back ends. Sibling notes of this iteration own them. This note fixes only what the UI needs from them (§22) |
 | Reference DCCs | Two reference products are named generically: **the desktop DCC** (a leading commercial desktop DCC) and **the open-source DCC** (a popular open-source DCC). Ekza is not affiliated with any DCC vendor |
 | Builds on | Research 09 (UI/UX spec). This note extends it and, **for the Model workspace only**, replaces 09 §7.5's "F2–F12 not bound". Also research 08 §9.8, ARCHITECTURE §4.1 (D/U/P) and §10, and the shipped shell in `packages/editor`, `packages/editor-core` and `packages/viewport` (read on `dev`, 2026-10-18). Sibling notes of this iteration: [10](10-dcc-poly-modeling.md) (desktop-DCC tool map), [11](11-modeling-ux-comparison.md) (modeling UX of the two reference DCCs), [12](12-lowpoly-workflow.md) (low-poly workflow, colour rule), [14](14-skinning-own-models.md) (skeleton and skinning); this note follows their decisions and records the two places where it differs (§19, §26) |
 
-Reading guide: §0 decisions; §1 which reference DCC to follow; §2 what the shell has today; §3 workspace tabs; §4 layout; §5–6 component modes and marking menus; §7 Modeling Toolkit; §8 tool settings and Adjust Last Operation; §9 modal input; §10 overlays; §11 snapping and pivots; §12 symmetry, soft selection and constraints; §13 Outliner; §14 palette; §15 UV editor; §16 onboarding; §17 hand-off; §18 menus; §19 keymap; §20 component tree; §21 state; §22 contracts; §23 accessibility; §24 collaboration; §25 build slice and acceptance; §26 open questions; §27 sources.
+Reading guide: §0 decisions; §1 which reference DCC to follow; §2 what the shell has today; §3 workspace tabs; §4 layout; §5–6 component modes and marking menus; §7 Modeling Tools; §8 tool settings and Adjust Last Operation; §9 modal input; §10 overlays; §11 snapping and pivots; §12 symmetry, soft selection and constraints; §13 Outliner; §14 palette; §15 UV editor; §16 onboarding; §17 hand-off; §18 menus; §19 keymap; §20 component tree; §21 state; §22 contracts; §23 accessibility; §24 collaboration; §25 build slice and acceptance; §26 open questions; §27 sources.
 
 ---
 
@@ -17,9 +17,9 @@ Reading guide: §0 decisions; §1 which reference DCC to follow; §2 what the sh
 
 | # | Decision | Why |
 |---|---|---|
-| U1 | **The desktop DCC's interaction model is the base**: component modes on F8–F10, RMB / Shift+RMB / Ctrl+RMB marking menus, `Ctrl+E` extrude, Shift+drag smart extrude, `B` soft select, `D` pivot, `X`/`C`/`V` snapping, a Modeling Toolkit tab next to the Channel Box, and symmetry in the status line. | The owner models in the desktop DCC. The Animate side is already desktop-DCC-first (09 §1), so the whole pipeline keeps one muscle memory. The desktop DCC's mouse-driven marking menus survive the browser; many keyboard chords do not (§1). |
+| U1 | **The desktop DCC's interaction model is the base**: component modes on F8–F10, RMB / Shift+RMB / Ctrl+RMB marking menus, `Ctrl+E` extrude, Shift+drag smart extrude, `B` soft select, `D` pivot, `X`/`C`/`V` snapping, a Modeling Tools panel tab next to the Channels panel, and symmetry in the status line. | The owner models in the desktop DCC. The Animate side is already desktop-DCC-first (09 §1), so the whole pipeline keeps one muscle memory. The desktop DCC's mouse-driven marking menus survive the browser; many keyboard chords do not (§1). |
 | U2 | **Four open-source-DCC ideas on top**: the Adjust Last Operation card, numeric input during any modal drag, symmetry as a persistent mode, and the **Industry Compatible digits `1`/`2`/`3`** for vertex/edge/face. | The open-source DCC's redo panel is the fastest way to tweak parameters without construction history. The digits are the only component-mode keys that work on every laptop: F-keys are media keys on Macs, and no browser lets a page have F11. |
-| U3 | **No mesh construction history.** One live *last operation* keeps editable arguments until the next edit (redo semantics: undo the step and re-run it with the new arguments). They show in the Last-op card and in the Channel Box `INPUTS` section, where desktop-DCC users look. | Mesh state stays one blob per mesh (08 §9.8, 06), and undo stays simple. Desktop-DCC users still find their parameters in the usual place. |
+| U3 | **No mesh construction history.** One live *last operation* keeps editable arguments until the next edit (redo semantics: undo the step and re-run it with the new arguments). They show in the Last-op card and in the Channels panel `INPUTS` section, where desktop-DCC users look. | Mesh state stays one blob per mesh (08 §9.8, 06), and undo stays simple. Desktop-DCC users still find their parameters in the usual place. |
 | U4 | **Workspaces are pipeline steps**: tabs `Model › Rig & Skin › Animate › Review` on the menu bar. Each owns a menu set, status-line groups, a dock layout, a default tool, a key scope and timeline visibility. Switching keeps the document, object selection and time. | Workspaces replace the desktop DCC's menu sets (09 §1.1). The pipeline order makes the turnkey flow visible. |
 | U5 | **The key scope chain becomes hierarchical**: `model.viewport.<mode>` → `model.viewport.component` → `model.viewport` → `viewport` → `model` → `global`. | `Ctrl+E` can extrude in component mode while staying Export everywhere else. `K`, `M` and `Home` get Model meanings only where they apply. `KeymapManager.resolve` already walks string scopes, so only the DOM adapter's chain builder changes. |
 | U6 | **Component selection lives in an imperative `ComponentSelection` service** (bitsets + a version counter), not in zustand. React reads counts only. | Thousands of indices change at pointer rate during marquee and paint selection. 09 §13.3 already bans per-frame React state. |
@@ -40,14 +40,14 @@ Reading guide: §0 decisions; §1 which reference DCC to follow; §2 what the sh
 |---|---|---|---|---|
 | Component modes | F8 toggle, F9 vertex, F10 edge, F11 face, F12 UV; Alt+F9 vertex-face; `<`/`>` shrink/grow (vendor shortcut list) | `1`/`2`/`3` in Edit Mode; Shift adds modes (manual). The open-source DCC's own *Industry Compatible* (desktop-DCC-like) keymap moved to `1`/`2`/`3` vertex/edge/face and `4` object in 2019 "due to popular demand" | Mac F-keys are media keys unless the user changes a system setting. macOS takes F11 for Show Desktop. Browsers keep F11 for fullscreen (even Chromium's fullscreen Keyboard Lock leaves F11 and Esc to the browser; Firefox's tests treat F11 as reserved) and F12 for DevTools | F8/F9/F10 **plus** digits `1`/`2`/`3`, plus the RMB marking menu; F11 and F12 unbound (§19.2) |
 | Tool access | Marking menus: RMB (modes), Shift+RMB (polygon tools: Target Weld, Multi-Cut, Insert Edge Loop, Extrude, Fill Holes…), Ctrl+RMB (convert selection) | Single-letter modal keys (E, I, K, M, F) and Ctrl-chords (`Ctrl+R` loop cut, `Ctrl+B` bevel, `Ctrl+N` recalc normals, `Ctrl+Tab` select-mode pie) | `Ctrl+R` reloads, `Ctrl+N` and `Ctrl+Tab` are reserved, and `Alt+E` opens browser menus on Windows | **Marking menus first**; a few open-source-DCC single letters as Ekza additions where nothing collides (`K`, `M`) |
-| Parameter tweak | Construction history: the `INPUTS` node in the Channel Box and the In-View Editor (`T` brings it back) | Adjust Last Operation panel, bottom-left of the viewport, `F9` popup | — | **Both views of one last-op state** (§8) |
-| Precision | Channel Box, tool settings | Type numbers during G/R/S, `Tab` between axes | — | Numeric typing during any modal drag (§9) |
+| Parameter tweak | Construction history: the `INPUTS` node in the Channels panel and the In-View Editor (`T` brings it back) | Adjust Last Operation panel, bottom-left of the viewport, `F9` popup | — | **Both views of one last-op state** (§8) |
+| Precision | Channels, tool settings | Type numbers during G/R/S, `Tab` between axes | — | Numeric typing during any modal drag (§9) |
 | Symmetry | Status-line dropdown: Object/World X/Y/Z, Topology; Preserve Seam; tolerance | Per-mesh X/Y/Z mirror, topology mirror | — | Desktop-DCC placement and options; the open-source DCC's per-mesh memory (§12) |
 | Stats | Poly Count HUD with scene, selected-object and selected-component columns | Statistics overlay; face orientation overlay | — | Desktop-DCC HUD plus a budget bar; the open-source DCC's face orientation (§10) |
 
 Supporting points:
 
-- **Owner muscle memory and product consistency.** Animate already ships the desktop DCC's Q/W/E, Channel Box, time slider and Graph Editor (09). An open-source-DCC-style Model workspace would make one product with two hands.
+- **Owner muscle memory and product consistency.** Animate already ships the desktop DCC's Q/W/E, Channels, time slider and Graph Editor (09). An open-source-DCC-style Model workspace would make one product with two hands.
 - **Browser fit favours the desktop DCC.** Its heaviest modeling paths are pointer gestures: marking menus and Shift+drag extrude. The open-source DCC's are keyboard chords, and several of them are browser-reserved (above, and 09 §7.6).
 - **The open-source DCC itself validates the hybrid.** Its Industry Compatible keymap is desktop-DCC-style Q/W/E/R with digit component modes, which is exactly the fallback this note needs.
 - **Precedent for workspace tabs in a web low-poly tool.** Blockbench (GPL, web and desktop) switches Edit / Paint / Animate / Display modes with tabs, and its panels change per mode. It is a design reference only, because GPL code cannot enter this MIT project (ADR 0009).
@@ -187,7 +187,7 @@ Vertical budget at 900 px: chrome 28 + 32 + 26 + 22 = 108 px, so the viewport ge
  Mode ┃ ▢ Obj ┃ • Vtx ┃ ╱ Edg ┃ ▰ Face ┃ ⊞ UV ┃          tooltip: "Vertex mode  F9 · 1"   UV: "UV editor arrives later"
 ```
 
-- In the status line it is a `role="radiogroup"` of icon + text buttons. The same control repeats at the top of the Toolkit tab, as the desktop DCC's MTK does.
+- In the status line it is a `role="radiogroup"` of icon + text buttons. The same control repeats at the top of the Toolkit tab, as the desktop DCC's modeling tools panel does.
 - The HUD badge in the pane's top-left (`VERTEX`, `EDGE`, `FACE`) shows the mode where the eyes are.
 
 ### 5.3 Semantics
@@ -253,9 +253,9 @@ N Symmetry: Object X · NE Symmetry: Off · E Soft Select on/off · SE Camera-ba
 
 ---
 
-## 7. Modeling Toolkit panel
+## 7. Modeling Tools panel
 
-The first tab of the right dock in Model, named **Toolkit**. The desktop DCC docks its Modeling Toolkit as a tab next to the Channel Box and Attribute Editor.
+The first tab of the right dock in Model, named **Toolkit**. The desktop DCC docks its Modeling Tools panel as a tab next to the Channels panel and Attribute Editor.
 
 ```
 ┌ Toolkit │ Channels │ Attributes │ Palette ─┐
@@ -309,7 +309,7 @@ Behaviour:
 |---|---|---|---|---|
 | Tool settings | Multi-Cut snap step, soft-select falloff, selection style | Before or while using an interactive tool | Toolkit › Active tool; popover from the status line | P (remembered per user) |
 | Operator defaults | Extrude divisions, Bevel segments for the next run | Before running a one-shot operator | Option box `⋯` | P |
-| **Last operation** | The extrude you just did: offset 0.25 m, 1 division | After running it, until anything else changes | **Last-op card** (pane, bottom-left) and **Channel Box › INPUTS** | U |
+| **Last operation** | The extrude you just did: offset 0.25 m, 1 division | After running it, until anything else changes | **Last-op card** (pane, bottom-left) and **Channels panel › INPUTS** | U |
 
 ### 8.2 Placement
 
@@ -327,7 +327,7 @@ Behaviour:
 └───────────────────────────────────┘
 ```
 
-**Channel Box › INPUTS** shows the same state, where desktop-DCC users click `polyExtrudeFace1`. Here it is one live entry, not a history list:
+**Channels panel › INPUTS** shows the same state, where desktop-DCC users click `polyExtrudeFace1`. Here it is one live entry, not a history list:
 
 ```
  Hero_body
@@ -343,7 +343,7 @@ Behaviour:
    Keep Together     on
 ```
 
-Both views edit one session `lastOp`. MMB-drag in the viewport runs the virtual slider on the selected INPUTS field, the existing Channel Box behaviour (`prefs.virtualSlider.viewportMmb`); with no channel or INPUTS field selected, MMB-drag moves the selection (desktop-DCC convention, MODELING-PLAN v0.2 §3.7). *Corrected (MODELING-PLAN v0.2 §3.4): the extrude's primary field is Local Translate Z (along the normal), not Offset, which insets the cap.*
+Both views edit one session `lastOp`. MMB-drag in the viewport runs the virtual slider on the selected INPUTS field, the existing Channels panel behaviour (`prefs.virtualSlider.viewportMmb`); with no channel or INPUTS field selected, MMB-drag moves the selection (desktop-DCC convention, MODELING-PLAN v0.2 §3.7). *Corrected (MODELING-PLAN v0.2 §3.4): the extrude's primary field is Local Translate Z (along the normal), not Offset, which insets the cap.*
 
 ### 8.3 Lifecycle
 
@@ -358,7 +358,7 @@ Both views edit one session `lastOp`. MMB-drag in the viewport runs the virtual 
 - While a field's virtual slider is dragged, re-runs go through a preview session (ARCHITECTURE: preview then commit) at most once per frame. If a re-run takes more than 50 ms, the card switches to "update on release".
 - `Esc` in a field reverts it. `✕` closes the card and keeps the arguments, so `G` (Repeat Last, as in the desktop DCC) still applies the same operation and arguments to a new selection.
 - Operations without parameters (Delete, Flip) show no card. Primitive creation shows its segment counts, which replaces the desktop DCC's interactive creation options.
-- **Primitive parameters stay live longer** (note 10, TL;DR 3): until the mesh's first ~~topology~~ **component** edit, Attributes › Primitive and Channel Box INPUTS keep the primitive's sizes and segment counts editable, even after transforms, selection changes and other objects' edits. The first component edit of any kind (a vertex nudge included) freezes them, and the Outliner badge changes from `prim` to `✎` (*amended, Q-MOD-UI-17: regenerating after tweaks would lose or misplace them*).
+- **Primitive parameters stay live longer** (note 10, TL;DR 3): until the mesh's first ~~topology~~ **component** edit, Attributes › Primitive and Channels panel INPUTS keep the primitive's sizes and segment counts editable, even after transforms, selection changes and other objects' edits. The first component edit of any kind (a vertex nudge included) freezes them, and the Outliner badge changes from `prim` to `✎` (*amended, Q-MOD-UI-17: regenerating after tweaks would lose or misplace them*).
 - *Superseded (MODELING-PLAN v0.2 §3.4, Q-MOD-K-4): `history.amend` is replaced by undo + re-run (`edit.adjustLast`); after `Ctrl+E` an **extrude session** keeps the card live while the extrude manipulator and `W`/`E`/`R` drags on the cap edit the extrude's local translate/rotate/scale.*
 - A remote change to a target mesh disables the card with "Changed by Anna" (§24).
 
@@ -366,7 +366,7 @@ Both views edit one session `lastOp`. MMB-drag in the viewport runs the virtual 
 
 | | Desktop DCC | Open-source DCC | Ekza |
 |---|---|---|---|
-| Where | In-View Editor in the viewport; Channel Box INPUTS | HUD panel, bottom-left; `F9` popup | Pane card, bottom-left, plus Channel Box INPUTS |
+| Where | In-View Editor in the viewport; Channels panel INPUTS | HUD panel, bottom-left; `F9` popup | Pane card, bottom-left, plus Channels panel INPUTS |
 | How long editable | Until history is deleted (any later time) | Until the next operator | Until the next document edit or selection change |
 | Storage | History nodes in the scene | Undo step re-run | Undo step amended; nothing extra in the document (Blockbench does the same in a web stack with `Undo.amendEdit`, note 11 D3) |
 | Key | `T` (with Show Manipulators) | `F9` | `T` (`F9` is Vertex mode) |
@@ -514,7 +514,7 @@ Status-line group `Snap  [# Grid X] [/ Edge C] [. Vertex V] [~ Incr J]  ⚙`:
 
 ### 12.3 Selection constraints, styles and gestures
 
-- **Constraints** (Toolkit and Q menu): Off · Angle (tolerance °) · Border · Edge Loop (edge mode only) · Edge Ring · Shell. As in the desktop DCC's MTK, they highlight on hover and propagate on click.
+- **Constraints** (Toolkit and Q menu): Off · Angle (tolerance °) · Border · Edge Loop (edge mode only) · Edge Ring · Shell. As in the desktop DCC's modeling tools, they highlight on hover and propagate on click.
 - **Camera-based selection**: Auto. It is on in shaded and off in wireframe/X-ray, as the desktop DCC's default does. Backface selection is a separate toggle.
 - **Styles**: Marquee, Drag (paint over components) and **Tweak** (drag a component to move it directly, the desktop DCC's Tweak/Marquee). Tweak is the biggest speed win for low-poly shaping; it is in the M6a base as a Move tool option, off by default.
 - **Gestures**: click, Shift toggle, Mod remove, Mod+Shift add (09 §6.1); marquee. Double-clicking an edge selects its loop (desktop-DCC convention). *Corrected to the desktop DCC's table (MODELING-PLAN v0.2 §3.5):* Shift+double-click an **adjacent** component selects the full loop, a **non-adjacent** one the partial loop between them (vertices, edges, faces); a parallel edge gives the ring; Ctrl+double-click deselects the loop or partial loop. `>` grows and `<` shrinks. Arrow keys pick-walk to the adjacent component.
@@ -843,10 +843,10 @@ Legend: **M** desktop-DCC default · **M~** desktop-DCC-inspired, adapted · **E
    <ViewportPanel>  <PaneHeader/> <PaneSurface/>
      <PaneHud> <ModeBadges/> <PolyCountHud/> <BindPoseBadge/> <LastOpCard/> <ModalReadout/> <SnapTargetChip/>
      <ModelEmptyState/>
-   <ModelingToolkitPanel> <MtkTargetHeader/> <ComponentModeSwitch compact/> <MtkSelectionSection/>
+   <ToolkitPanel> <MtkTargetHeader/> <ComponentModeSwitch compact/> <MtkSelectionSection/>
      <MtkSymmetrySection/> <MtkSoftSelectionSection/> <MtkComponentsGrid/> <MtkToolsGrid/> <MtkMeshGrid/>
      <ActiveToolSettings/> <HandOffFooter/>
-   <ChannelBoxPanel> … <InputsSection/>          // last-op args (desktop-DCC INPUTS)
+   <ChannelsPanel> … <InputsSection/>          // last-op args (desktop-DCC INPUTS)
    <AttributesPanel> … <MeshSection/> <PivotSection/> <ExportTargetSection/>
    <PalettePanel> <PaletteSelect/> <SwatchGrid/> <ActiveColour/> <ApplyControls/> <ExportColourModeRadio/>
    <MeshCheckPanel/>                             // lint list ⇄ overlay
@@ -967,7 +967,7 @@ export interface LastOpState {
 |---|---|---|
 | U-0 Shell prerequisites | Workspace tabs, per-workspace layouts/menus/status line, hierarchical key scopes, generic `MarkingMenu` (FR-SHELL-09), command palette (FR-SHELL-08), viewport Scale tool, overlay layer infrastructure, display modes `4`–`7` | — (pulled forward from M2c) |
 | U-1 Modes and selection | Component modes, `ComponentSelection`, component overlays, RMB and Ctrl+RMB menus, poly count HUD, Mesh Check panel + overlay | mesh data note |
-| U-2 Operations UI | Toolkit panel, Shift+RMB menus, Last-op card + Channel Box INPUTS + `history.amend`, modal readout and numeric input | mesh operators note |
+| U-2 Operations UI | Toolkit panel, Shift+RMB menus, Last-op card + Channels panel INPUTS + `history.amend`, modal readout and numeric input | mesh operators note |
 | U-3 Precision aids | Snapping, pivot editing, symmetry, soft selection, constraints, selection styles | U-1 |
 | U-4 Content | Outliner for meshes + Make editable (licence gate), Palette panel + Paint Colour, Model start card, templates, Getting started | mesh data, templates |
 | U-5 Hand-off | Pipeline glyphs, Rig & Skin entry, `BIND POSE`, skin out-of-date flow, Export dialog sections | skinning note, export note |
@@ -1016,8 +1016,8 @@ Desktop DCC (vendor help, hotkey references and community forum; URLs omitted):
 - Bevel and the In-View Editor (2017 help)
 - In-View Editor returns with `T` (vendor community forum, modeling board)
 - Multi-Cut hotkeys (`Y`, Ctrl+click loop; 2017 help)
-- Modeling Toolkit selection styles and options (2023 help)
-- Modeling Toolkit selection constraints (2017 help)
+- Modeling Tools selection styles and options (2023 help)
+- Modeling Tools selection constraints (2017 help)
 - Camera-based selection
 - Select Tool (symmetry tolerance, Preserve Seam, falloff modes; 2024 help)
 - Activate symmetry (status line, Ctrl+Shift+RMB / Q+click; 2017 help)

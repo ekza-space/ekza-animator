@@ -4,7 +4,7 @@ import { createPrimitive, MODEL_PANE, openModel, screenOf } from './helpers/m6a-
 import { call, expectKernelStarted, run } from './helpers/test-api';
 
 // E2E-MOD-27 (M6A-SPEC §10.1, §5.16; owner B13, gates b10, b11, b12a): a cylinder's live parameters edited from the
-// Channel Box INPUTS primitive entry (B11) and Attributes › Primitive (B13), then frozen by the first component edit
+// Channels panel INPUTS primitive entry (B11) and Attributes › Primitive (B13), then frozen by the first component edit
 // (a 10 px drag of the Move tool's `ty` handle on vertex 0).
 
 const FROZEN = 'Primitive parameters were frozen by a component edit';
@@ -29,9 +29,9 @@ test('E2E-MOD-27 — primitive parameters and freeze', async ({ page }) => {
   await expectKernelStarted(page);
   const cylinder = await createPrimitive(page, 'cylinder');
 
-  // Channel Box › INPUTS, the primitive entry: 10 around.
+  // Channels panel › INPUTS, the primitive entry: 10 around.
   await page
-    .locator('.dv-tab', { hasText: /^Channel Box$/ })
+    .locator('.dv-tab', { hasText: /^Channels$/ })
     .first()
     .click();
   await expect(page.getByTestId('cb-inputs')).toContainText('cylinder (primitive)');

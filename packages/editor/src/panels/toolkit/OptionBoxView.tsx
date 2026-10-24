@@ -7,7 +7,7 @@ import { type EditorApp, visibleParams } from '@ekza-studio/editor-core';
 import { type JSX, useEffect, useRef } from 'react';
 import { usePrefs } from '../../hooks';
 import { useOptionalShell } from '../../shell/context';
-import { BUTTON, PRIMARY_BUTTON } from '../channel-box/kit/styles';
+import { BUTTON, PRIMARY_BUTTON } from '../channels/kit/styles';
 import { ParamField, ParamSections } from './ParamField';
 
 export interface OptionBoxViewProps {

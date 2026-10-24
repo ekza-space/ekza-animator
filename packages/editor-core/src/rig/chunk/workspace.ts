@@ -5,7 +5,8 @@
 // - The first test-pose write while the view is Bind switches the view to Test (a toast the first time per session).
 // - Leaving forgets every test pose, drops the test-pose parts from the history (`dropTestPoses`, no empty steps
 //   left), cancels channel gestures, closes the Last-op card and puts every character back on `animate`.
-// - In Rig & Skin, channel-edit gestures (manipulators, the Channel Box) write the test pose (`beginTestPoseGesture`).
+// - In Rig & Skin, channel-edit gestures (manipulators, the Channels panel) write the test pose
+// (`beginTestPoseGesture`).
 // - A library preview marks checklist step ⑤.
 import type { Disposer } from '@ekza-studio/anim-core';
 import type { CharacterId, JointId } from '@ekza-studio/doc';

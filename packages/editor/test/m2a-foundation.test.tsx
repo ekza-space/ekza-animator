@@ -448,7 +448,7 @@ describe('layout v1 → v2 migration (§4.8)', () => {
     };
     expect(stored.schemaVersion).toBe(2);
     expect(Object.keys(stored.dockview?.panels ?? {}).sort()).toEqual(
-      ['attributes', 'channelBox', 'clips', 'dopeSheet', 'graph', 'outliner', 'viewport'].sort(),
+      ['attributes', 'channels', 'clips', 'dopeSheet', 'graph', 'outliner', 'viewport'].sort(),
     );
     expect(toasts.store.getState().toasts).toEqual([]);
     await view.unmount();

@@ -1,8 +1,8 @@
-// One operator parameter as a field (M6A-SPEC §8.6; B11), shared by the Last-op card, Channel Box INPUTS and option
+// One operator parameter as a field (M6A-SPEC §8.6; B11), shared by the Last-op card, Channels panel INPUTS and option
 // boxes: numbers take the §5.10 grammar (`parseParamInput`: `30%`, `50cm`, `+=0.1`; fractions shown as fractions);
 // the label is a virtual slider (LMB drag after 3 px or an MMB press; `Shift` ×0.1, `Mod` ×10); booleans are
 // checkboxes; enums and axes are segmented controls. Typed values commit on Enter, Tab or blur; Esc restores the shown
-// value. Enter (once accepted) and Esc give the keyboard back to the editor (the input blurs, as the Channel Box's
+// value. Enter (once accepted) and Esc give the keyboard back to the editor (the input blurs, as the Channels panel's
 // fields do): the hotkeys of the hovered pane (`T`, `G`, `Y`, digits) work again without a click elsewhere.
 import { isNumericParam, type ParamDef, type ParamValue } from '@ekza-studio/anim-core';
 import { type EditorApp, formatParamValue, paramEditText, parseParamInput } from '@ekza-studio/editor-core';
@@ -17,7 +17,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { CHECK, INPUT, INVALID } from '../channel-box/kit/styles';
+import { CHECK, INPUT, INVALID } from '../channels/kit/styles';
 import { LABEL_DRAG_PX, type ParamSlide, startParamSlide } from './slider';
 
 /** What a field's virtual slider drives (the card previews through the mesh runtime; others update on release). */
@@ -38,7 +38,7 @@ export interface ParamFieldProps {
   /** Focuses (and selects) the input whenever this token changes and `focus` is true. */
   readonly focusToken?: number;
   readonly focus?: boolean;
-  /** The label is selected (Channel Box INPUTS: the viewport MMB drag runs this field's slider). */
+  /** The label is selected (Channels panel INPUTS: the viewport MMB drag runs this field's slider). */
   readonly nameSelected?: boolean;
   readonly onName?: () => void;
   readonly onMessage?: (text: string) => void;

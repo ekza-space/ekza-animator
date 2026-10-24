@@ -12,7 +12,7 @@
 //   each target mesh with M = P′⁻¹·P (P the placement, P′ the placement with the frozen parts reset), so the world
 //   stays where it was; the pivot moves by M, the frozen parts of the placement become identity and child objects
 //   are compensated (M·C). Groups apply to their descendant meshes. Skinned meshes refuse (`freeze.skinned`).
-// - `scene.object.transform {ids, placements}`: object W/E/R, MMB and Channel Box commits in Model, labelled by the
+// - `scene.object.transform {ids, placements}`: object W/E/R, MMB and Channels panel commits in Model, labelled by the
 //   dominant change ("Move", "Rotate", "Scale").
 // The bounds and the matrices are the lazy half (`pivotImpl.ts`, loaded by `prepare`, §5.27).
 import type { ParamDef, ReadonlyVec3, ReadonlyXf, Vec3, Xf } from '@ekza-studio/anim-core';

@@ -1,7 +1,7 @@
 // Limb IK fixtures of the shared test kit (M2A-SPEC §5.2, A2): IK control, pole and `ik2` solver records shaped like
 // the rig's `limbIkRecords` output, added to a document with a humanoid FK rig, and a fake app whose rig programs
 // list `RigProgram.limbs` built from those records. The naive rig program evaluates no `ik2` op (the rig's math):
-// these fixtures test the editor side — visibility, keying, Channel Box rows, key policies, pick-walk, pole lines —
+// these fixtures test the editor side — visibility, keying, Channels panel rows, key policies, pick-walk, pole lines —
 // in Node and in browser-mode panel tests. Browser-safe (no Node APIs).
 import {
   type AttrDef,

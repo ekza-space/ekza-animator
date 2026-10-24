@@ -1,15 +1,16 @@
-// Renamed preference and argument ids (DECISIONS-OPEN TM-1): values written by earlier builds still load, as their
-// current ids, and are never written back. The old spellings live only in `src/prefs/legacy.ts`; these tests read
-// them from its table.
+// Renamed preference, argument, panel-kind and key-scope ids (DECISIONS-OPEN TM-1, TM-4): values written by earlier
+// builds still load, as their current ids, and are never written back. The old spellings live only in
+// `src/prefs/legacy.ts`; these tests read them from its table.
 import type { JointId, SkeletonId } from '@ekza-studio/doc';
 import { DEFAULT_FLEXION } from '@ekza-studio/rig';
 import { describe, expect, it } from 'vitest';
-import { defaultPrefs, type Prefs, type PrefsStorage } from '../../src';
+import { defaultPrefs, type KeyBinding, PANEL, type Prefs, type PrefsStorage, RIG_SCOPE } from '../../src';
 import {
   LEGACY_ARGS,
   LEGACY_IDS,
   migrateLegacyArgs,
   migrateLegacyId,
+  migrateLegacyPanelId,
   migrateLegacyPrefs,
 } from '../../src/prefs/legacy';
 import { loadPrefs, PREFS_STORAGE_KEY, sanitizePrefs, savePrefs } from '../../src/prefs/persist';
@@ -32,8 +33,10 @@ const entries = (table: Readonly<Record<string, string>>): [string, string][] =>
 describe('legacy id table', () => {
   it('names every renamed field and maps each old id to a current, valid id', () => {
     expect(Object.keys(LEGACY_IDS).sort()).toEqual([
+      'keyScope',
       'navProfile',
       'orientPreset',
+      'panelKind',
       'primitiveDefaults',
       'spaceBehaviour',
     ]);
@@ -41,6 +44,10 @@ describe('legacy id table', () => {
     expect(Object.values(LEGACY_IDS.spaceBehaviour)).toEqual(['maximize']);
     expect(Object.values(LEGACY_IDS.primitiveDefaults)).toEqual(['dcc']);
     expect(Object.values(LEGACY_IDS.orientPreset).sort()).toEqual(['xAim', 'yAim']);
+    expect(Object.values(LEGACY_IDS.panelKind)).toEqual([PANEL.channels]);
+    expect(Object.values(LEGACY_IDS.keyScope).sort()).toEqual([PANEL.channels, RIG_SCOPE.channels].sort());
+    // A renamed panel kind is also a renamed key scope (a panel's key scope is its kind).
+    for (const [old, now] of entries(LEGACY_IDS.panelKind)) expect(migrateLegacyId('keyScope', old)).toBe(now);
     // No old id is also a current id (a mapping must never be the identity).
     for (const table of Object.values(LEGACY_IDS)) {
       for (const [old, now] of entries(table)) expect(old).not.toBe(now);
@@ -58,6 +65,18 @@ describe('legacy id table', () => {
     expect(migrateLegacyId('navProfile', 3)).toBe(3);
     expect(migrateLegacyPrefs('garbage')).toBe('garbage');
     expect(migrateLegacyPrefs(null)).toBeNull();
+  });
+
+  it('maps a dock panel id named after an old kind, alone or with an instance suffix', () => {
+    for (const [old, now] of entries(LEGACY_IDS.panelKind)) {
+      expect(migrateLegacyPanelId(old)).toBe(now);
+      expect(migrateLegacyPanelId(`${old}#7`)).toBe(`${now}#7`);
+      expect(migrateLegacyPanelId(`${old}s`)).toBe(`${old}s`);
+      expect(migrateLegacyPanelId(`x${old}`)).toBe(`x${old}`);
+    }
+    for (const id of [PANEL.channels, `${PANEL.channels}#2`, 'viewport', '#3', '', 'toString']) {
+      expect(migrateLegacyPanelId(id)).toBe(id);
+    }
   });
 });
 
@@ -126,6 +145,48 @@ describe('stored preferences with renamed ids', () => {
       for (const [oldId] of entries(table)) expect(written).not.toContain(`"${oldId}"`);
     }
     expect(loadPrefs(storage, defaultPrefs('mac'))).toEqual(loaded);
+  });
+
+  it('maps the scope and the arguments of saved key bindings, keeping bindings with current ids as they are', () => {
+    const [[oldPanel, panel]] = entries(LEGACY_IDS.panelKind) as [[string, string]];
+    const oldRig = Object.keys(LEGACY_IDS.keyScope).find((scope) => scope.startsWith('rig.')) ?? '';
+    const current: KeyBinding = { chord: { code: 'KeyK' }, op: 'key.set', scope: 'viewport' };
+    const old = [
+      { chord: { code: 'KeyJ', shift: true }, op: 'workspace.showPanel', args: { panel: oldPanel }, scope: 'global' },
+      { chord: { code: 'KeyS' }, op: 'key.set', args: { channels: 'all' }, scope: oldPanel },
+      { chord: { code: 'KeyS', alt: true }, op: 'rig.animateOnly', scope: oldRig, trigger: 'press' },
+      current,
+    ];
+    const migrated = migrateLegacyPrefs({ ...defaults, keymapOverrides: old }) as Prefs;
+    expect(migrated.keymapOverrides).toEqual([
+      { ...old[0], args: { panel } },
+      { ...old[1], scope: panel },
+      { ...old[2], scope: migrateLegacyId('keyScope', oldRig) },
+      current,
+    ]);
+    expect(migrated.keymapOverrides[3]).toBe(current);
+    expect(sanitizePrefs({ ...defaults, keymapOverrides: old }, defaults).keymapOverrides).toEqual(
+      migrated.keymapOverrides,
+    );
+
+    const storage = memoryStorage({ [PREFS_STORAGE_KEY]: JSON.stringify({ ...defaults, keymapOverrides: old }) });
+    savePrefs(storage, loadPrefs(storage, defaults));
+    const written = storage.data.get(PREFS_STORAGE_KEY) ?? '';
+    for (const oldId of [...Object.keys(LEGACY_IDS.panelKind), ...Object.keys(LEGACY_IDS.keyScope)]) {
+      expect(written).not.toContain(`"${oldId}"`);
+    }
+  });
+
+  it('a saved key binding with an old scope fires in the renamed panel', async () => {
+    const [[oldPanel, panel]] = entries(LEGACY_IDS.panelKind) as [[string, string]];
+    const app = opsApp();
+    const binding = { chord: { code: 'KeyJ', shift: true }, op: 'key.set', scope: oldPanel };
+    app.prefs.setState({
+      keymapOverrides: sanitizePrefs({ ...defaults, keymapOverrides: [binding] }, defaults).keymapOverrides,
+    });
+    const input = { code: 'KeyJ', shiftKey: true, ctrlKey: false, metaKey: false, altKey: false, repeat: false };
+    expect(app.keymap.resolve(input, [panel], 'press')).toMatchObject({ op: 'key.set', scope: panel });
+    expect(app.keymap.resolve(input, [oldPanel], 'press')).toBeNull();
   });
 
   it('a missing or invalid renamed field still takes its default', () => {

@@ -38,7 +38,7 @@ Contents: [1 Scope](#1-scope) · [2 Dependencies and toolchain](#2-dependencies-
 | 2 | **Time slider extras** | Mod+drag copies a band's keys, **ripple** for band moves and scales, **MMB-drag carries the pose** to another frame, insert and remove time, breakdown ticks in green, keyboard nudge of selected keys | FR-TIME-07 (V1 part), FR-TIME-10 |
 | 3 | **Dope Sheet** | Dockable panel with Summary › Character › Body part › Control › Channel rows, key and breakdown glyphs, hold bars, select/move/scale/nudge/delete/copy/paste (paste inserts under ripple), ripple, shared key selection with the Graph Editor and the time slider | FR-DS-01, FR-DS-02 |
 | 4 | **Posing tools** | Tween slider family (tween, blend to neighbour, ease, push/pull, blend to default) with overshoot, on the current pose or on runs of selected keys, in the status line and the curve panels; breakdown keys with proportional retiming; mirror animation with a half-cycle offset; **cycle-aware auto tangents on loop clips** | FR-KEY-08, FR-KEY-09, FR-POSE-05, FR-GE-17 |
-| 5 | **Graph Editor and productivity** | Buffer curves (snapshot, swap); normalized and stacked views; scale tool with a region box; export-side error-bounded key reduction of sampled tracks; pick-walk; Channel Box virtual slider (also MMB in the viewport); keying by body part; autosave to IndexedDB with crash recovery | FR-GE-18, FR-GE-19, FR-GE-20, FR-EXP-12, FR-OUT-05, FR-CB-05, FR-KEY-10, FR-PROJ-05 |
+| 5 | **Graph Editor and productivity** | Buffer curves (snapshot, swap); normalized and stacked views; scale tool with a region box; export-side error-bounded key reduction of sampled tracks; pick-walk; Channels panel virtual slider (also MMB in the viewport); keying by body part; autosave to IndexedDB with crash recovery | FR-GE-18, FR-GE-19, FR-GE-20, FR-EXP-12, FR-OUT-05, FR-CB-05, FR-KEY-10, FR-PROJ-05 |
 | 6 | **M1 budget misses** | M-1 drag 1,000 keys ≤ 4 ms; M-2 editor route JS ≤ 900 kB gzip with real headroom (initial route ≤ 800,000 B) through lazy loading and a CI size gate; M-3 anim-core 2,200 curves ≤ 0.3 ms | NFR-01, NFR-14 |
 
 ### 1.2 M2a-stretch (implement only if time remains; tests `test.fixme` until done)
@@ -156,7 +156,7 @@ export interface AttrDef {
   readonly keyable: boolean;
   /** M2a: new keys on this attribute get in 'flat', out 'step' (MVP: stored, unused). */
   readonly stepped?: boolean;
-  /** M2a: Channel Box and Graph Editor label; default: the name title-cased ('heelTwist' → 'Heel Twist'). */
+  /** M2a: Channels panel and Graph Editor label; default: the name title-cased ('heelTwist' → 'Heel Twist'). */
   readonly label?: string;
   /** M2a: stored radians or metres, shown in degrees or metres; absent = a plain number (3 decimals). */
   readonly unit?: 'angle' | 'distance';
@@ -165,7 +165,7 @@ export interface AttrDef {
   /**
    * M2a: false = a mode or setting, keyed and reset only when named explicitly (§5.1 rule 4): `S` with 'all' or
    * 'attributes', body-part keying, the tween 'frame' target, the pose clipboard and `pose.resetToRest` skip it unless
-   * it is a selected Channel Box channel. Default true.
+   * it is a channel selected in the Channels panel. Default true.
    */
   readonly keyAll?: boolean;
 }
@@ -560,7 +560,7 @@ export function channelDefaultOf(control: ControlRecord | null, channel: Channel
 `edit/numeric.ts` (*changed*, additive, A0): `toDisplayValue(channel, value, unit?: ChannelUnit)`,
 `fromDisplayValue(channel, display, unit?)` and `formatChannelValue(channel, value, unit?)`: a given `unit` wins
 (`'angle'` = degrees), absent = the M1 rule (degrees for rotations). Every caller that knows the control passes
-`channelUnit(control, channel)`: the Channel Box, Graph Editor fields and value axis, `moveKeys`/`setFields` value
+`channelUnit(control, channel)`: the Channels panel, Graph Editor fields and value axis, `moveKeys`/`setFields` value
 deltas, the virtual slider, tween and numeric typing. The same optional `unit` is added to the curve-editor's
 `channelDisplayScale(channel, unit?)` and to rig `channelDefaultValue(channel, def?: AttrDef)`.
 
@@ -648,8 +648,8 @@ export interface OperatorMap {
 ### 4.6 viewport
 
 No type change. `SceneSync`, picking, marquee and the HUD read `controlVisibility` (§5.5); the control renderer gains
-the pole annotation line and per-control alpha (§5.5); a plain MMB drag in a pane starts the Channel Box virtual
-slider when Channel Box channels are selected (§5.18; plain MMB belongs to the active tool in M1 and no tool uses
+the pole annotation line and per-control alpha (§5.5); a plain MMB drag in a pane starts the Channels panel virtual
+slider when Channels panel channels are selected (§5.18; plain MMB belongs to the active tool in M1 and no tool uses
 it).
 
 ### 4.7 curve-editor — Dope Sheet, Graph Editor views
@@ -758,7 +758,7 @@ implements their effect on the autosave store, A2 reads `pointerLock`).
 
 | Element | `data-testid` | Owner |
 |---|---|---|
-| Channel Box attribute rows, IK/FK row and switch | `cb-field-@<attr>`, `cb-name-@<attr>` (e.g. `cb-field-@roll`), `cb-ikfk-row`, `cb-ikfk-field`, `cb-ikfk-switch` | A2 |
+| Channels panel attribute rows, IK/FK row and switch | `cb-field-@<attr>`, `cb-name-@<attr>` (e.g. `cb-field-@roll`), `cb-ikfk-row`, `cb-ikfk-field`, `cb-ikfk-switch` | A2 |
 | Attributes limb section | `attr-limb-<limb>`, `attr-limb-mode-ik-<limb>`, `attr-limb-mode-fk-<limb>`, `attr-limb-match-ik-<limb>`, `attr-limb-match-fk-<limb>`, `attr-limb-key-mode`, `attr-add-limb-ik`, foot fields `attr-limb-foot-<limb>-<heelBack or ballFront or toeFront or innerWidth or outerWidth or breakAngle>` | A2 |
 | Status line key target | `status-keytarget-<selected or bodyPart or character>` | A0 (shell) |
 | Dope Sheet | `ds-canvas`, `ds-row-<rowId>`, `ds-show`, `ds-ripple`, `ds-tool-<id>`, `ds-frame-all` | A3 |
@@ -808,7 +808,7 @@ implements their effect on the autosave store, A2 reads `pointerLock`).
 
 1. A control's `attrs` define its custom channels; the channel id is `'@' + name`. Curves, keys, static values,
    overrides, the clipboards and undo treat them like TRS channels. Attributes cannot be locked in M2a
-   (`ControlRecord.locked` covers TRS only): `channel.toggleLock` skips attribute channels and the Channel Box menu
+   (`ControlRecord.locked` covers TRS only): `channel.toggleLock` skips attribute channels and the Channels panel menu
    disables Lock on attribute rows; a Graph Editor curve lock (`CurveRecord.locked`) works as for any curve.
 2. **Slots**: `RigProgram.attrSlots` lists every attribute of every control ordered by (control id, attribute name),
    code-unit order, independent of the schedule; `ChannelBuffer.attrs[slot]` holds the value. `resetChannels` writes
@@ -819,19 +819,19 @@ implements their effect on the autosave store, A2 reads `pointerLock`).
 4. **Keying**: `key.set {channels: 'all'}` keys keyable TRS channels and keyable attributes; `'attributes'` keys
    attributes only; `'translate'`/`'rotate'`/`'scale'` never key attributes. **`keyAll: false` attributes** (`ikFk`,
    `soft`: modes and settings, not pose values) are skipped by `'all'`, `'attributes'`, body-part keying (§5.19), the
-   tween `'frame'` target (§5.13) and the pose clipboard **unless they are selected Channel Box channels** (then
+   tween `'frame'` target (§5.13) and the pose clipboard **unless they are channels selected in the Channels panel** (then
    `'all'`, `'attributes'` and `'selected'` key them); they are also keyed by auto-key when they are edited (MVP-SPEC
    §4.11.2) and by the operators that own them (switch, match, the IK/FK proxy row). Like a rig in a leading
    commercial desktop DCC with a separate switch control, a later `S` on the IK foot therefore never re-keys a stale
    `ikFk`. A new key on an attribute with `stepped: true` gets `in: 'flat', out: 'step'`; other attributes use
    `prefs.defaultTangents`. Auto-key rules of MVP-SPEC §4.11.2 apply unchanged.
-5. **Display**: Channel Box rows after the TRS rows, in `attrs` key order, label `AttrDef.label` or the title-cased
+5. **Display**: Channels panel rows after the TRS rows, in `attrs` key order, label `AttrDef.label` or the title-cased
    name; units come from `channelUnit(control, channel)` (§4.5), never from the channel id alone: `unit: 'angle'`
    shows degrees (typed values are degrees, so `30` on `@roll` is 30°), `'distance'` metres, otherwise 3 decimals;
    `bool` shows 0/1; `enum` shows `enumLabels`. The Graph Editor channel list shows attribute curves after TRS with
-   the `other` colour; its value axis, numeric fields and value drags use the same units. The Channel Box hides the
+   the `other` colour; its value axis, numeric fields and value drags use the same units. The Channels panel hides the
    raw `@ikFk` row of an IK control: the IK/FK proxy row (§5.6) shows and edits that channel instead. The Graph
-   Editor and the Dope Sheet name and order channels like the Channel Box (`channelDisplayLabel`,
+   Editor and the Dope Sheet name and order channels like the Channels panel (`channelDisplayLabel`,
    `sortChannelsForDisplay`): TRS, attributes in `attrs` order, `@ikFk` ('IK/FK') after them (fix round 2,
    M2A-INT-35).
 6. **Defaults**: wherever M1 uses a channel's default (key-less curves, `toDefault` tweens, `pose.resetToRest`,
@@ -1060,8 +1060,8 @@ A0 lands rule 1 as a working baseline (M1 code paths, e.g. `controls()`, call it
 2. For a limb control with `w = evaluation.ikFk(character, limb)` at the current frame: the limb's `fkControls` are
    `hidden` when `w ≥ 0.999`; its `ikControls` are `hidden` when `w ≤ 0.001`; with `prefs.ikFkVisibility: 'ghost'`
    (stretch) they are `ghost` instead (25 % alpha, not pickable). `fk.toes` and finger controls follow rule 1 only.
-3. A selected control that rule 2 hides is drawn `ghost` (25 % alpha, never pickable) and stays selected; the Channel
-   Box keeps showing it.
+3. A selected control that rule 2 hides is drawn `ghost` (25 % alpha, never pickable) and stays selected; the Channels
+   panel keeps showing it.
 4. Pole annotation: when a pole control is visible, the viewport draws a dashed line (token `--rig-pole-line`, new in
    `packages/ui/css/tokens.css`, added by A0; 1 px, 60 % alpha) from the mid bone's world position to the pole
    control's world position, in both control passes.
@@ -1138,10 +1138,10 @@ All matching is at the current clip frame of the active clip, evaluated with ove
   more than 1 mm ("L Leg: matched at 3 key times only; between them the foot moves up to 26 mm (frame 5) and the
   knee 35 mm (frame 15) from the FK motion. Rig › IK/FK › Match Range L Leg to IK (Every Frame) keeps it"); the
   menu's Every Frame item passes `step: 'frames'` (fix round 1, M2A-INT-28).
-- **UI**: the Channel Box shows an `IK/FK` proxy row (`cb-ikfk-row`) for any selected control of a limb (FK chain,
+- **UI**: the Channels panel shows an `IK/FK` proxy row (`cb-ikfk-row`) for any selected control of a limb (FK chain,
   IK control, pole), editing `<ikControl>/@ikFk` (the IK control's own raw `@ikFk` row is hidden, §5.1 rule 5); its
   button `cb-ikfk-switch` runs the switch towards the other mode with `match: true`. Selecting the proxy row's name
-  makes `@ikFk` a selected Channel Box channel, so `S` keys it explicitly (§5.1 rule 4). The Attributes panel has a
+  makes `@ikFk` a channel selected in the Channels panel, so `S` keys it explicitly (§5.1 rule 4). The Attributes panel has a
   Limb section (`attr-limb-<limb>`): IK/FK segmented buttons (switch with match), "Match FK to IK", "Match IK to
   FK", the key-mode select (writes `prefs.ikFkSwitchKey`), for legs the foot fields of §5.2.3, and
   `attr-add-limb-ik` when the humanoid rig has no `ik2` solver. Menu Rig › IK/FK: Switch, Match, Match Range to FK,
@@ -1328,8 +1328,8 @@ plain average, so relaxing a key away from the midpoint keeps its spacing; at th
   by the Graph Editor, the Dope Sheet and the time slider), else `'frame'`. The Tween bar always shows the resolved
   target (`tween-target-<panel>`: "Pose @ f21" or "12 keys") and clicking it toggles `tweenTarget` between
   `'auto'` and `'frame'`, so leftover selected keys never switch the mode silently. Target `'frame'`: the key-target
-  controls' keyable channels (or the Channel Box's selected channels) that have a curve with ≥ 1 key, without
-  `keyAll: false` attributes unless they are selected Channel Box channels; a key is set or patched at the current
+  controls' keyable channels (or the Channels panel's selected channels) that have a curve with ≥ 1 key, without
+  `keyAll: false` attributes unless they are channels selected in the Channels panel; a key is set or patched at the current
   frame; new keys are breakdowns unless `breakdown: false`. Target `'keys'`: each selected key's value changes in
   place.
 - Rotations tween per Euler curve. Values of attributes are clamped to their range.
@@ -1465,20 +1465,20 @@ not `visible` (§5.5):
   otherwise the control stays.
 - Every selected control walks; duplicates collapse; the lead's result stays the lead. `add: true` adds the results
   to the selection instead of replacing it. Not a history step (selection rule of M1).
-- Bound to the arrow keys in the viewport and Channel Box scopes (§6). The keymap has no pref-conditional bindings,
+- Bound to the arrow keys in the viewport and Channels panel scopes (§6). The keymap has no pref-conditional bindings,
   so the arrows always run `select.pickWalk`, and `select.pickWalk` itself dispatches on `prefs.arrowKeys`: with
   `'pickWalk'` it walks; with `'frames'` it runs `time.step {−1/+1}` for ←/→ and `time.nextKey`/`time.prevKey` for
   ↑/↓ (and ignores `add`). The shortcut sheet shows the label of the active behaviour. The Outliner keeps its ARIA
-  tree keys (acceptance round 2/3 rule), and a focused Channel Box text field keeps its ↑/↓ value nudge (FR-CB-03):
+  tree keys (acceptance round 2/3 rule), and a focused Channels panel text field keeps its ↑/↓ value nudge (FR-CB-03):
   keys typed into a focused text field never reach the keymap (M1 input-adapter rule).
 
-### 5.18 Channel Box virtual slider (A2, FR-CB-05)
+### 5.18 Channels panel virtual slider (A2, FR-CB-05)
 
 - **Start**: MMB press on any row, or an LMB drag of ≥ 3 px horizontally that starts on a channel name (an LMB click
-  still selects the name). Channels: the Channel Box's selected channels when the pressed row is one of them, else the
+  still selects the name). Channels: the Channels panel's selected channels when the pressed row is one of them, else the
   pressed row's channel; applied to every selected control that has the channel.
 - **In the viewport** (R01 CB-03, the desktop-DCC habit for roll, bank and twist: select the channel name, then
-  MMB-drag in the viewport while watching the foot): with Channel Box channels selected and
+  MMB-drag in the viewport while watching the foot): with channels selected in the Channels panel and
   `prefs.virtualSlider.viewportMmb` on (default), a plain MMB drag (no Alt) in a pane runs the same gesture on the
   selected channels, with the same rates, modifiers and single history step. Plain MMB belongs to the active tool in
   M1 and no viewport tool uses it, so nothing conflicts; Alt+MMB stays navigation. Without selected channels a plain
@@ -1588,7 +1588,7 @@ the store mechanisms (2, 3) alone reach about 3.9 ms. The frame needs its own me
   A5 may set it to the attributed reachable value with the reason recorded (contract PR to this file), but never
   above 850,000 B (≥ 50 kB headroom under the budget). **Set at integration to 850,000 B for M2a**: A5's branch
   measured 785,248 B, the merged route 843,270 B (A1…A4 add ≈ 58 kB of eager code: IK rig, IK, tween, mirror and
-  ripple operators, Dope Sheet contributions, Channel Box attribute rows, the Tween bar); attribution and the next
+  ripple operators, Dope Sheet contributions, Channels panel attribute rows, the Tween bar); attribution and the next
   cuts in `docs/wp-notes/m2a-integration.md` (M2A-INT-4). **CI gate** `pnpm --filter web check:size` fails above
   900,000 B and prints every lazy chunk group with its size.
 - **One measurement**: `check:size` derives the initial script set from the same definition as the bench (the
@@ -1682,7 +1682,7 @@ amount), `key.convert`, `key.setTarget`, `key.toggleRipple`, `pose.mirrorAnimati
 ┌ Menu: File Edit Select Key Pose Rig Time Graph View Window Help ───────────────────────────────────────────┐
 │ Status: [Q][W][E] │ space │ mask │ Key: [Sel│Part│Char] │ Tween ◀━●━▶ Pose@f21 │ Auto-key │ Layout     │
 ├──────────┬───────────────────────────────────────────────────────────────────────┬─────────────────────┤
-│ Outliner │                       Viewport panel (panes)                          │ Channel Box         │
+│ Outliner │                       Viewport panel (panes)                          │ Channels            │
 │ | Clips  │   IK foot (footprint), pole diamonds + dashed knee lines              │  TRS rows           │
 │          │   FK leg circles hidden while the leg is IK                           │  attribute rows     │
 │          │                                                                        │  IK/FK row  [⇄]     │
@@ -1700,7 +1700,7 @@ amount), `key.convert`, `key.setTarget`, `key.toggleRipple`, `pose.mirrorAnimati
   (Select/Move/Scale), Show (Selected/Character), Ripple, Snap, Frame, Tween bar.
 - **Graph Editor toolbar**: + Scale tool, View (Absolute/Normalized/Stacked), Buffer (Snapshot/Swap), Convert
   (Breakdown/Key) in "More ▾", Tween bar.
-- **Channel Box**: attribute rows (no raw `@ikFk` row) and the IK/FK proxy row with the switch button; virtual
+- **Channels**: attribute rows (no raw `@ikFk` row) and the IK/FK proxy row with the switch button; virtual
   slider on rows and, with channels selected, MMB in the viewport.
 - **Attributes**: Limb section for the lead control's limb (mode, match, key mode, and for legs the foot fields:
   heel back, ball front, toe front, inner and outer width in cm, break angle in degrees); "Add Limb IK" on IK-less
@@ -1904,7 +1904,7 @@ export function computeInfluenceKeyTimes(program: RigProgram, sampler: ClipSampl
 - **Dirs**: `packages/editor-core/src/edit/{channels.ts,channelMeta.ts,numeric.ts,virtualSlider.ts}` (after A0),
   `editor-core/src/operators/builtin/{ik.ts,key.ts,pose.ts,select.ts,rig.ts}`, `editor-core/src/workflows/
   {importModel.ts,importAnimation.ts,pose.ts,targets.ts,bodyParts.ts,ik.ts,visibility.ts}`; `packages/viewport/**`
-  (except the M-1 render skip, §8.1); `packages/editor/src/panels/{channel-box,attributes,outliner,viewport}/**`;
+  (except the M-1 render skip, §8.1); `packages/editor/src/panels/{channels,attributes,outliner,viewport}/**`;
   e2e `m2a-01…07`, `m2a-18`, `m2a-19`, `m2a-25`; `docs/wp-notes/m2a-a2.md`.
 - **Responsibilities**: `controlVisibility` rules 2–5 on A0's baseline (§5.5), used by viewport, Outliner, targets
   and the test API; viewport pole lines, alpha, footprint and diamond shapes, hidden-control picking rules;
@@ -1913,7 +1913,7 @@ export function computeInfluenceKeyTimes(program: RigProgram, sampler: ClipSampl
   `pose.resetToRest` attribute rule; IK operators (§4.9) incl. `rig.setFootParams`, their warnings (§5.6) and their
   menus' poll reasons; import workflow passing `prefs.autoRigIk`, `ik: 'auto'` and the import result's limb
   warnings; Plant Feet IK path; the one-time "FK limbs only" toast (§5.7); `select.pickWalk` with the
-  `prefs.arrowKeys` dispatch (§5.17); Channel Box attribute rows (no raw `@ikFk` row), IK/FK proxy row and switch
+  `prefs.arrowKeys` dispatch (§5.17); Channels panel attribute rows (no raw `@ikFk` row), IK/FK proxy row and switch
   button, virtual slider on rows and through viewport MMB with the Pointer Lock rules (§5.18); Attributes Limb
   section with the foot fields.
 - **Public API**: the operators; no new package exports beyond §4 (the §4.5 functions it extends were landed by A0).
@@ -1921,7 +1921,7 @@ export function computeInfluenceKeyTimes(program: RigProgram, sampler: ClipSampl
   pose continuity, the hyperextension warning and `rig.setFootParams` (footprint rewritten, undo exact); `keyAll`
   rules (`S` on an IK foot keys five attributes and no `@ikFk`; with the proxy row's name selected `S` keys
   `@ikFk`; `pose.resetToRest` leaves `ikFk` and `soft`); pick-walk order and the `'frames'` dispatch; visibility rule
-  with `ikFk` 0, 0.5, 1; browser tests: Channel Box attribute display units, proxy row writes the owner's curve,
+  with `ikFk` 0, 0.5, 1; browser tests: Channels panel attribute display units, proxy row writes the owner's curve,
   virtual slider rate and one history step on a row and through viewport MMB, `pointerlockchange` during a gesture
   cancels it, a rejected `requestPointerLock()` falls back to capture (mocked lock); viewport hidden controls are not
   pickable and not marquee-selected; M1 E2E-01…27 unchanged.
@@ -2113,8 +2113,8 @@ means the M1 `seed.ts` helpers (`loadSample`). Angles in steps are degrees; tole
 | E2E-M2A-20 | Autosave and recovery (FR-PROJ-05) | `/editor?e2e=1&ns=r1`; `seedWaveClip`; `flushAutosave()`; `page.reload()` (same URL); click `recovery-recover-<slot>`; then `/editor?e2e=1&ns=r2&storage=blocked` | after reload `recovery-dialog` lists one slot; after Recover: `counts()` and `curves()` deep-equal the pre-reload ones, `state().dialog` null, dirty; blocked storage: no dialog, one info toast, `autosave().enabled` false, seeding still works |
 | E2E-M2A-21 | Export key reduction (FR-EXP-12) | seed Seed-san; clip `wave` (E2E-16 keys); Export dialog: VRMA, `export-reduce` checked; confirm; then the same export unchecked | 0 validator errors for both; reduced file total samples ≤ the unreduced (§5.16 gate, M2A-A5-3; ≥ 3× on linear blocking: E2E-M2A-21b); sampling both files' tracks in Node at every integer frame differs by ≤ the per-node tolerances (§5.16) |
 | E2E-M2A-22 | Lazy loading | fresh production-like e2e page: record script responses until `ready` and the empty state; then click `sample-polybot` | no `three-vrm`/GLTFLoader chunk before the click; the sample loads and `controls()` is non-empty; (size gate runs separately in CI) |
-| E2E-M2A-23 | **Acceptance: walk cycle with leg IK** | seed Polybot; `clip.new {name: 'walk'}`; `clip.setSettings {range: 0…24, loop: true, slot: 'walk', rootMotion: 'in-place'}`; select `ik.leg.L` by clicking it in the viewport; with Channel Box typing and `S` key it at 0 (tz 0.15, ty 0), 12 (tz −0.15, ty 0), 18 (tz 0, ty 0.06), 24 (tz 0.15, ty 0); Shift-drag a time-slider band over 0…12 and press `4` (linear tangents on the keys at 0 and 12); select `cog` (Outliner row) and key ty −0.05/−0.02/−0.05/−0.02/−0.05 and tx 0/0.02/0/−0.02/0 at 0/6/12/18/24 (Channel Box typing and `S`); select `ik.leg.L` (Outliner row); Pose › Mirror Animation › Left → Right (half cycle); select `cog`; in the Dope Sheet (`workspace.showPanel {panel: 'dopeSheet'}`) Shift-select the `cog` row glyphs at 6 and 18 and drag them to 5 and 17; click an empty area of the Dope Sheet canvas (clears the key selection); select `ik.leg.L`, click `cb-name-ty`; frame 21; status-line Tween bar: check `tweenTarget('status')` and drag `screenOfTween('status', 0)` to `screenOfTween('status', 50)`; export VRMA with `export-reduce` checked | left foot during 0…12 and right foot during 12…24: world x and y vary ≤ 1e-6 m and z changes linearly (second differences ≤ 1e-6 m) — the planted foot slides only with the treadmill; the `ik.leg.R` keys are the half-cycle mirror (E2E-M2A-15 rule) and `ik.leg.L`'s curves are unchanged by the mirror; the tween target reads "Pose @ f21" before the drag; `ik.leg.L` ty at 21 = 0.015 (breakdown) and no other curve gained a key at 21; `curves()` of every new curve has `pre` and `post` `cycle` (§5.23) and `curveSlope(cog tx, 24, 'left')` = `curveSlope(cog tx, 0, 'right')` (1e-9, C¹ at the seam); pose at 24 equals pose at 0 (1e-6); the history labels contain no `Plant Feet` (an undo walk back to the clip setup, then redo); the VRMA has 0 validator errors, no more samples than an unreduced export and stays within its §5.16 per-node tolerances |
-| E2E-M2A-24 | **Acceptance: attack clip with planted feet** | seed Seed-san; `clip.new {name: 'attack'}`; `clip.setSettings {range: 0…20, slot: 'attack', contact: 12}`; key `ik.leg.L` at 0 with tz 0.2 and `ik.leg.R` at 0 with tz −0.1 (Channel Box typing, `S`); key `cog` at 0 (ready stance: ty −0.05), 12 (ty −0.08, tz 0.12, ry 25) and 20 (ready stance); key `fk.upperArm.R` and `fk.lowerArm.R` rotations at 0/8/12/20 (windup at 8, strike at 12); in the Dope Sheet drag the arm keys at 8 to 9; export VRMA and bake into the model | both foot bone worlds identical at every integer frame 0…20 (1e-6) while the hips move; `contactSeconds` = 12/30 in `ekza_animation_v1`; VRMA 0 validator errors, bake no new validator errors; the history labels contain no `Plant Feet` |
+| E2E-M2A-23 | **Acceptance: walk cycle with leg IK** | seed Polybot; `clip.new {name: 'walk'}`; `clip.setSettings {range: 0…24, loop: true, slot: 'walk', rootMotion: 'in-place'}`; select `ik.leg.L` by clicking it in the viewport; with Channels panel typing and `S` key it at 0 (tz 0.15, ty 0), 12 (tz −0.15, ty 0), 18 (tz 0, ty 0.06), 24 (tz 0.15, ty 0); Shift-drag a time-slider band over 0…12 and press `4` (linear tangents on the keys at 0 and 12); select `cog` (Outliner row) and key ty −0.05/−0.02/−0.05/−0.02/−0.05 and tx 0/0.02/0/−0.02/0 at 0/6/12/18/24 (Channels panel typing and `S`); select `ik.leg.L` (Outliner row); Pose › Mirror Animation › Left → Right (half cycle); select `cog`; in the Dope Sheet (`workspace.showPanel {panel: 'dopeSheet'}`) Shift-select the `cog` row glyphs at 6 and 18 and drag them to 5 and 17; click an empty area of the Dope Sheet canvas (clears the key selection); select `ik.leg.L`, click `cb-name-ty`; frame 21; status-line Tween bar: check `tweenTarget('status')` and drag `screenOfTween('status', 0)` to `screenOfTween('status', 50)`; export VRMA with `export-reduce` checked | left foot during 0…12 and right foot during 12…24: world x and y vary ≤ 1e-6 m and z changes linearly (second differences ≤ 1e-6 m) — the planted foot slides only with the treadmill; the `ik.leg.R` keys are the half-cycle mirror (E2E-M2A-15 rule) and `ik.leg.L`'s curves are unchanged by the mirror; the tween target reads "Pose @ f21" before the drag; `ik.leg.L` ty at 21 = 0.015 (breakdown) and no other curve gained a key at 21; `curves()` of every new curve has `pre` and `post` `cycle` (§5.23) and `curveSlope(cog tx, 24, 'left')` = `curveSlope(cog tx, 0, 'right')` (1e-9, C¹ at the seam); pose at 24 equals pose at 0 (1e-6); the history labels contain no `Plant Feet` (an undo walk back to the clip setup, then redo); the VRMA has 0 validator errors, no more samples than an unreduced export and stays within its §5.16 per-node tolerances |
+| E2E-M2A-24 | **Acceptance: attack clip with planted feet** | seed Seed-san; `clip.new {name: 'attack'}`; `clip.setSettings {range: 0…20, slot: 'attack', contact: 12}`; key `ik.leg.L` at 0 with tz 0.2 and `ik.leg.R` at 0 with tz −0.1 (Channels panel typing, `S`); key `cog` at 0 (ready stance: ty −0.05), 12 (ty −0.08, tz 0.12, ry 25) and 20 (ready stance); key `fk.upperArm.R` and `fk.lowerArm.R` rotations at 0/8/12/20 (windup at 8, strike at 12); in the Dope Sheet drag the arm keys at 8 to 9; export VRMA and bake into the model | both foot bone worlds identical at every integer frame 0…20 (1e-6) while the hips move; `contactSeconds` = 12/30 in `ekza_animation_v1`; VRMA 0 validator errors, bake no new validator errors; the history labels contain no `Plant Feet` |
 | E2E-M2A-25 | Upgrade an M1 rig | `prefs.set {patch: {autoRigIk: {legs: false, arms: false}}}`; seed Polybot; key `fk.upperLeg.L` rx 0/30 at 0/10; record leg worlds at 0, 5, 10; `prefs.set` back to defaults; click `attr-add-limb-ik` (select `fk.upperLeg.L` first); `Mod+Z`; `Shift+Z` | before: `limbs()` empty and a "FK limbs only" toast once; after Add: four limbs with `ikFk` 0, worlds at 0/5/10 unchanged (1e-9), FK controls visible; undo removes the limbs (`counts().controls` and `solvers` back), redo restores |
 
 E2E-M2A-23, -24 (amended at integration, 2026-10-18, fixture geometry; M2A-INT-1…3): Polybot's legs are 0.32 m long
@@ -2198,7 +2198,7 @@ Each merge: `pnpm run ci` green, with scenarios that depend on unmerged packages
    keeps its ratio.
 7. In the Graph Editor: snapshot the buffer, edit, swap back; normalized and stacked views; scale keys with `R`.
 8. MMB-drag the time slider to carry a pose and press `S`; Shift-drag a band and Mod-drag it to copy.
-9. Pick-walk with the arrows; key a hand by body part; scrub a channel with MMB in the Channel Box.
+9. Pick-walk with the arrows; key a hand by body part; scrub a channel with MMB in the Channels panel.
 10. Export VRMA with key reduction (size shown); reload the page with unsaved work and recover it.
 
 ### 10.4 Integration record
@@ -2213,7 +2213,7 @@ Each merge: `pnpm run ci` green, with scenarios that depend on unmerged packages
   API reaches.
 - **Hand-offs** (M2A-A4-12, resolved in fix round 1): the value scale above; the Graph Editor's key fields,
   `graph.keys.setFields` and the handle metrics in the channel's unit (§5.1 rule 5: an angle attribute such as `@roll`
-  reads and takes degrees like the Channel Box and the curve axis); the Dope Sheet's Tween bar mount (A3, done); the
+  reads and takes degrees like the Channels panel and the curve axis); the Dope Sheet's Tween bar mount (A3, done); the
   time slider's per-batch tick set (value-only batches and breakdown flags handled, M2A-A4-16 and M2A-INT-6; batches
   that move keys in time still rebuild it, part of M-4). The §1.2 mesh-pick fallback hint was built (M2A-INT-18).
 - **Acceptance**: E2E-M2A-23 (walk) and -24 (attack) in `apps/web/e2e/m2a-23-24-acceptance.spec.ts`, authored with
@@ -2245,7 +2245,7 @@ Each merge: `pnpm run ci` green, with scenarios that depend on unmerged packages
 - **Acceptance fix round 2** (2026-10-19, on `dev`, M2A-INT-34, -35): the final acceptance passed with one major
   defect (a Space-maximized or Single-layout pane filled ~40 % of the Viewport panel; present since M1) and one minor
   one (the Graph Editor and the Dope Sheet named attribute channels by raw id, alphabetically); both fixed with
-  regression tests. Amended here: §5.1 rule 5 (channel names and order shared with the Channel Box).
+  regression tests. Amended here: §5.1 rule 5 (channel names and order shared with the Channels panel).
 - Open for the release: the owner's review of §F (FR-EXP-12's "3–10×" criterion among them, M2A-A5-3/INT-3), the
   owner's run of the demo script; `v0.2.0` is the owner's call.
 
@@ -2265,7 +2265,7 @@ Each merge: `pnpm run ci` green, with scenarios that depend on unmerged packages
 | M2A-D8 | Export reduction | Off in the API (M1 bytes), on by default in the Export dialog with R02 §6.4 tolerances | A different default changes exported bytes |
 | M2A-D9 | Ripple scope | Dope Sheet and time slider, one global region per edit over the shown or target controls; the Graph Editor never ripples (desktop-DCC convention) | Per-curve bounds were rejected (§5.11) |
 | M2A-D10 | Breakdown rounding | Retimed breakdowns snap to whole frames inside their anchors when snapping is on; Insert/Remove Frame never retime breakdowns | Sub-frame breakdowns (exact desktop-DCC behaviour) by turning snapping off |
-| M2A-D11 | Arrow keys | Pick-walk in viewport and Channel Box; key nudge in Graph Editor, Dope Sheet and time slider; Outliner keeps ARIA arrows (Q-UI-2) | `prefs.arrowKeys: 'frames'` |
+| M2A-D11 | Arrow keys | Pick-walk in viewport and Channels panel; key nudge in Graph Editor, Dope Sheet and time slider; Outliner keeps ARIA arrows (Q-UI-2) | `prefs.arrowKeys: 'frames'` |
 | M2A-D12 | Autosave | On, 2 s debounce, 30 s max interval, one slot per tab, recovery prompt at start | `prefs.autosave` |
 | M2A-D13 | Import to IK fidelity | `ikTolerance` 2° (chain bone world rotation) and 2 mm (mid joint); a limb over it stays FK for the clip with a warning. 2° admits FK-authored bends on legs splayed up to about 5° at 40° of bend (the twist difference grows to about 0.36 × the splay there) and rejects hyperextended or clearly non-hinge knees | A tighter tolerance keeps more limbs FK; a looser one hides twist differences |
 | M2A-D14 | Loop clips | Cycle-aware auto tangents wherever both infinities cycle; curves created by keying in a loop clip default to `cycle` infinities; imports and existing curves unchanged | Constant infinities by default (the desktop-DCC default) would bring the seam hitch back |

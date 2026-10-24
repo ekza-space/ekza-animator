@@ -5,7 +5,13 @@
 import type { Disposer } from '@ekza-studio/anim-core';
 import type { PrefsStorage, ViewportLayout } from '@ekza-studio/editor-core';
 import type { SerializedDockview } from 'dockview-react';
-import { type ChromeVisibility, isSerializedDockview, type PresetDock, parseChrome } from './layout';
+import {
+  type ChromeVisibility,
+  isSerializedDockview,
+  migrateLegacyLayout,
+  type PresetDock,
+  parseChrome,
+} from './layout';
 
 export type BuiltinPresetId = 'animate' | 'blocking' | 'polish' | 'review';
 
@@ -102,7 +108,7 @@ function parsePreset(value: unknown): UserPreset | null {
   return {
     id: record.id,
     name: (record.name as string).trim(),
-    dockview: record.dockview,
+    dockview: migrateLegacyLayout(record.dockview),
     chrome: parseChrome(record.chrome) ?? {},
     viewportLayout: record.viewportLayout as ViewportLayout,
     maximizedPane: typeof record.maximizedPane === 'string' ? record.maximizedPane : null,

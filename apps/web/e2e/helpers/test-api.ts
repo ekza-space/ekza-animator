@@ -52,7 +52,7 @@ const PANEL_OWNERS: Readonly<Record<string, string>> = {
   timeline: 'WP-6t',
   outliner: 'WP-9',
   clips: 'WP-9',
-  channelBox: 'WP-9',
+  channels: 'WP-9',
   attributes: 'WP-9',
 };
 

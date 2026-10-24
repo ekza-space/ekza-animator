@@ -141,14 +141,15 @@ function editable(control: ControlRecord, channel: ChannelId): boolean {
   return attrDefOf(control, channel)?.keyable === true;
 }
 
-/** Channels the 'frame' target tweens on a control without a Channel Box channel selection (§5.13). */
+/** Channels the 'frame' target tweens on a control without a channel selection in the Channels panel (§5.13). */
 function poseChannels(control: ControlRecord): readonly ChannelId[] {
   const channels: ChannelId[] = (['tx', 'ty', 'tz', 'rx', 'ry', 'rz', 'sx', 'sy', 'sz'] as const).filter((channel) =>
     editable(control, channel),
   );
   const attrs = typeof control.attrs === 'object' && control.attrs !== null ? control.attrs : {};
   for (const [name, def] of Object.entries(attrs)) {
-    // keyAll: false attributes (modes and settings, §5.1 rule 4) only when they are selected Channel Box channels.
+    // keyAll: false attributes (modes and settings, §5.1 rule 4) only when they are channels selected in the Channels
+    // panel.
     if (typeof def !== 'object' || def === null || def.keyable !== true || def.keyAll === false) continue;
     channels.push(`@${name}` as ChannelId);
   }
@@ -413,7 +414,7 @@ function frameLabel(frame: Frame | null): string {
 
 /**
  * The tween target (§5.13): `'keys'` when `session.tools.tweenTarget` is `'auto'` and keys are selected, else the
- * pose at the active character's current clip frame (key-target controls, or the Channel Box's selected channels).
+ * pose at the active character's current clip frame (key-target controls, or the Channels panel's selected channels).
  * `force` overrides the session's choice (the `key.tween` argument).
  */
 export function resolveTweenTarget(app: EditorApp, force?: 'frame' | 'keys'): ResolvedTweenTarget {

@@ -27,7 +27,7 @@ record types) that the contracts did not have.
    Operators compose by calling the **edit kernel** (`applyChannelEdits`, `beginChannelEditGesture`, `moveKeys`,
    `scaleKeys`, `setKeyHandle`, `setTangentTypes`, `insertKeyOnCurve`, `deleteKeys`, `ensureCurve`) and
    workflow functions, never by running other operators inside a transaction. Tools and panels use the same kernel,
-   so a manipulator drag, a Graph Editor drag and a typed Channel Box value obey identical keying rules.
+   so a manipulator drag, a Graph Editor drag and a typed Channels panel value obey identical keying rules.
 2. **Typed arguments**: `operators/args.ts` defines `OperatorMap { '<id>': { args; result } }` as a contract;
    `app.run(id, args?)` is type-checked against it; `app.runUntyped` serves keymaps, menus, plugins and the test
    API. Extensions add entries by declaration merging. IDs are `<area>.<object>.<verb>`.
@@ -54,7 +54,7 @@ record types) that the contracts did not have.
    | importers (`ImporterDef`) | `EditorApp` | `.glb/.vrm` model, `.vrma`, `.ekzanim(.json)` |
    | exporters (`ExporterDef`) | `EditorApp` | `bake-into-model`, `animation-glb`, `vrma` |
    | export profiles (`ExportProfileDef`, data) | `EditorApp` | Ekza Tier-0 profiles and generic local profiles (ADR 0010) |
-   | panels (`PanelDef`) | `@ekza-studio/editor` | viewport, graph, timeline, outliner, clips, channel box, attributes |
+   | panels (`PanelDef`) | `@ekza-studio/editor` | viewport, graph, timeline, outliner, clips, channels, attributes |
    | control shapes | `@ekza-studio/anim-core` | circle, halfCircle, square, cube, sphere, diamond, arrow4, star, cross, lollipop |
    | rig op kinds | `@ekza-studio/rig` | none in M1 (constraint/solver slots); `ik2` in V1 |
    | document tables (`TableDef`) | `@ekza-studio/doc` | the 12 built-in tables, with per-table versions |

@@ -31,7 +31,7 @@ export function FieldMessage(props: FieldMessageProps): JSX.Element | null {
       const below = field.bottom + GAP;
       const top =
         below + size.height <= window.innerHeight - MARGIN ? below : Math.max(MARGIN, field.top - size.height - GAP);
-      // Right-aligned fields (Channel Box values) keep the message under their right edge.
+      // Right-aligned fields (Channels panel values) keep the message under their right edge.
       const preferred = field.left + size.width <= window.innerWidth - MARGIN ? field.left : field.right - size.width;
       const left = Math.max(MARGIN, Math.min(preferred, window.innerWidth - size.width - MARGIN));
       setPosition((previous) =>

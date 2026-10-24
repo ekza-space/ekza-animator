@@ -1,7 +1,7 @@
 // M2A-SPEC §10.3 owner demo script, run once in sequence on one page (integration, M2A-INT-15). The scenarios
 // E2E-M2A-01…23 cover every step on a fresh page each; this walkthrough plays the ten steps one after the other on
 // Polybot, through the input a user would use, and checks what each step should show — including that the panels
-// agree with each other (the Graph Editor shows an angle attribute in the Channel Box's degrees). It keeps the state
+// agree with each other (the Graph Editor shows an angle attribute in the Channels panel's degrees). It keeps the state
 // between steps; where a step would leave the walk broken for the next one, it undoes its edit, as a presenter would.
 import { readFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
@@ -42,8 +42,8 @@ async function dragArrow(page: Page, axis: 'tx' | 'ty' | 'tz', dx: number, dy: n
   await dragTo(page, arrow, { x: arrow.x + dx, y: arrow.y + dy }, 10);
 }
 
-/** Keys the selected control at `frame` by Channel Box typing and `S` over the viewport (E2E-M2A-23's method). */
-async function keyWithChannelBox(
+/** Keys the selected control at `frame` by Channels panel typing and `S` over the viewport (E2E-M2A-23's method). */
+async function keyWithChannelsPanel(
   page: Page,
   control: string,
   frame: number,
@@ -123,8 +123,9 @@ test('M2a owner demo script (§10.3), the ten steps in sequence', async ({ page 
     );
     expectWorldClose(poled.leftFoot as World, lifted.leftFoot as World, 1e-6, 'the pole leaves the foot');
 
-    // Roll typed in degrees; keyed, the Graph Editor shows the key in the Channel Box's degrees (§5.1 rule 5). The IK
-    // foot is picked in the Outliner: in the viewport the selected pole's move manipulator wins the click (§4.11.16).
+    // Roll typed in degrees; keyed, the Graph Editor shows the key in the Channels panel's degrees (§5.1 rule 5). The
+    // IK foot is picked in the Outliner: in the viewport the selected pole's move manipulator wins the click
+    // (§4.11.16).
     await clickOutlinerRow(page, id('ik.leg.L'));
     await expectSelected(page, [id('ik.leg.L')]);
     await typeCb(page, 'cb-field-@roll', '20');
@@ -163,7 +164,7 @@ test('M2a owner demo script (§10.3), the ten steps in sequence', async ({ page 
     await expect.poll(() => undoLabel(page)).toBe('Switch L Arm to IK');
     sameWorlds(await boneWorlds(page, character, ['leftHand']), hand, ['leftHand'], 'hand after the arm switch');
     await clickOutlinerRow(page, id('cog'));
-    await runOk(page, 'workspace.showPanel', { panel: 'channelBox' });
+    await runOk(page, 'workspace.showPanel', { panel: 'channels' });
     await typeCb(page, 'cb-field-ty', '-=0.02');
     sameWorlds(await boneWorlds(page, character, ['leftHand']), hand, ['leftHand'], 'hand after lowering cog');
   });
@@ -180,7 +181,7 @@ test('M2a owner demo script (§10.3), the ten steps in sequence', async ({ page 
       [18, '0', '0.06'],
       [24, '0.15', '0'],
     ] as const) {
-      await keyWithChannelBox(page, id('ik.leg.L'), frame, { tz, ty });
+      await keyWithChannelsPanel(page, id('ik.leg.L'), frame, { tz, ty });
     }
     await page.keyboard.down('Shift');
     await drag(page, await sliderPoint(page, 0), await sliderPoint(page, 12));
@@ -195,7 +196,7 @@ test('M2a owner demo script (§10.3), the ten steps in sequence', async ({ page 
       [18, '-0.02', '-0.02'],
       [24, '-0.05', '0'],
     ] as const) {
-      await keyWithChannelBox(page, id('cog'), frame, { ty, tx });
+      await keyWithChannelsPanel(page, id('cog'), frame, { ty, tx });
     }
     await clickOutlinerRow(page, id('ik.leg.L'));
     await expectSelected(page, [id('ik.leg.L')]);
@@ -362,7 +363,7 @@ test('M2a owner demo script (§10.3), the ten steps in sequence', async ({ page 
     expect(ty.find((key) => key.t === 21)?.v).toBe(ty.find((key) => key.t === 15)?.v);
   });
 
-  await test.step('9. Pick-walk with the arrows; key a hand by body part; MMB scrub in the Channel Box', async () => {
+  await test.step('9. Pick-walk with the arrows; key a hand by body part; MMB scrub in the Channels panel', async () => {
     await clickOutlinerRow(page, id('fk.lowerArm.L'));
     await expectSelected(page, [id('fk.lowerArm.L')]);
     await hoverPane(page);

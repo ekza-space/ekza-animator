@@ -795,7 +795,7 @@ export const MODEL_OPERATOR_MANIFEST: ModelOperatorManifest = {
       scope: 'model',
       flags: { undo: true },
       workspaces: ['model'],
-      aliases: ['Lambert', 'Blinn', 'Hypershade', 'New Material', 'Assign Material'],
+      aliases: ['Lambert', 'Blinn', 'Shader Editor', 'New Material', 'Assign Material'],
     },
     {
       id: 'imagePlane.import',

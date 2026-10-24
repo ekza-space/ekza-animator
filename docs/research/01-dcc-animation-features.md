@@ -32,7 +32,7 @@
    retargeting across Ekza avatars almost free. Two-bone IK with a pole vector, plus IK/FK switching,
    comes in V1.
 5. **MVP = make and export a looping humanoid clip.** Contents: a two-pane viewport (locked shot
-   camera plus free perspective), outliner, channel box, time and range sliders, `S` /
+   camera plus free perspective), outliner, channels panel, time and range sliders, `S` /
    `Shift+W/E/R` keying, auto-key, a Graph Editor with tangent types and pen-like handle editing
    (including weighted tangents), infinity cycles with cycle-aware auto tangents, copy/paste of
    keys and poses, undo, and bake to GLB (embedded) / animation-only GLB / VRMA.
@@ -67,7 +67,7 @@
 
 | Tool | Best-in-class at | Borrow | Do not copy |
 |---|---|---|---|
-| **Desktop DCC** (2025–2027 releases) | Graph Editor and tangent model, Channel Box, time/range slider, hotkeys and marking menus, control-rig conventions (NURBS circles, offset groups, constraints, IK handles, pole vectors), animation layers, Ghosting Editor, editable motion trails, Time Slider bookmarks. Dope Sheet rework with ripple edit in 2025 | Interaction model, curve math, hotkey preset, rig conventions, colour conventions | Dependency-graph-as-UI, character sets, Trax, MEL-era menu sprawl, independent-Euler-only rotations |
+| **Desktop DCC** (2025–2027 releases) | Graph Editor and tangent model, Channels, time/range slider, hotkeys and marking menus, control-rig conventions (NURBS circles, offset groups, constraints, IK handles, pole vectors), animation layers, Ghosting Editor, editable motion trails, Time Slider bookmarks. Dope Sheet rework with ripple edit in 2025 | Interaction model, curve math, hotkey preset, rig conventions, colour conventions | Dependency-graph-as-UI, character sets, Trax, MEL-era menu sprawl, independent-Euler-only rotations |
 | **Open-source DCC** (4.4+/5.x) | Handle editing UX (drag any handle, `V` handle-type menu), Auto-Clamped handles and *Continuous Acceleration* smoothing, cycle-aware keying (auto handles that understand loops), non-destructive F-curve modifiers, easing presets, pose library as assets with drag-blending, slotted actions (one action animates several data-blocks, 4.4) | Cycle-aware tangents, handle UX details, pose-asset concept, multi-target clips | Mode-heavy UI and its non-standard hotkeys as the default |
 | **Mocap package** | Full-body IK manipulation with **pinning** (translate/rotate) of effectors; keying modes Full Body / Body Part / Selection; real-time mocap; Story (non-linear) | Keying modes, effector pinning for the future full-body IK | Monolithic UI |
 | **Cascadeur** (2025.x) | AutoPosing (pose the whole body from a few points), AutoPhysics (physically correct version of keyframe animation), ballistic trajectories, AI Inbetweening (2025.1+, up to 120 frames in 2025.2) | Ideas for LATER (assisted posing, physics check, centre-of-mass display) | Closed, physics-first workflow as the default |
@@ -86,7 +86,7 @@ Columns: **What** = what the feature does (the desktop DCC unless noted) · **Wh
 | ID | Feature | What | Why | P | Sc | Web notes |
 |---|---|---|---|---|---|---|
 | VP-01 | Panel layouts | Single pane, two panes side-by-side or stacked, three/four panes, saved layouts (e.g. "Persp/Graph") via *Panels > Layouts / Saved Layouts* | Seeing the shot camera and a working camera at once is the core blocking workflow | MVP: single, 2-pane side-by-side, Persp/Graph stacked. V1: 4-view, user-saved layouts | P | One R3F `<Canvas>` + drei `<View>` per pane (scissor rendering, shared scene and GPU resources). Docking via a layout library (e.g. dockview, MIT, JSON save/restore) |
-| VP-02 | Space-tap maximise | Tapping **Space** toggles the pane under the cursor between maximised and multi-pane. Holding Space opens the hotbox | Fast focus without losing the layout | MVP | U | Distinguish tap from hold (<200 ms). Holding Space opens the command palette (MN-11) |
+| VP-02 | Space-tap maximise | Tapping **Space** toggles the pane under the cursor between maximised and multi-pane. Holding Space opens a full-screen quick menu | Fast focus without losing the layout | MVP | U | Distinguish tap from hold (<200 ms). Holding Space opens the command palette (MN-11) |
 | VP-03 | Look through selected camera / per-pane camera | *Panels > Look Through Selected*. Any pane can show any camera | The owner's split screen: "one camera fixed, the other free" | MVP | D (cameras), U (pane→camera binding) | Scene cameras are document objects. The per-pane binding is user state |
 | VP-04 | Camera lock | Lock a camera's transform so tumbling cannot move it | Prevents accidentally ruining the shot framing | MVP | D | A flag on the camera object. The navigation controller ignores locked cameras |
 | VP-05 | Alt+drag navigation | `Alt+LMB` tumble, `Alt+MMB` track, `Alt+RMB` dolly, `F` frame selected, `A` frame all, `Shift+F`/`Shift+A` in all views | Muscle memory | MVP. V1: alternative presets (open-source-DCC MMB, trackpad) | P | Custom controller (not OrbitControls defaults). `pointerdown` with `preventDefault` on MMB stops browser autoscroll. Suppress `contextmenu` on the canvas |
@@ -116,11 +116,11 @@ Columns: **What** = what the feature does (the desktop DCC unless noted) · **Wh
 | TS-11 | Cached playback | The desktop DCC caches evaluated frames and shows the cache state on the slider | Needed for heavy rigs in the desktop DCC | LATER | – | Our rigs are light. Revisit only if spring bones or full-body IK need it |
 | TS-12 | Annotations (Blue Pencil, desktop DCC 2023+) | Per-frame 2D drawings over the viewport, shown as blue blocks on the slider | Directors' notes and arcs sketched over the shot | V2 | D | SVG/Canvas overlay keyed by frame and camera |
 
-### 3.3 Channel Box, Attribute Editor, Outliner
+### 3.3 Channels panel, Attribute Editor, Outliner
 
 | ID | Feature | What | Why | P | Sc | Web notes |
 |---|---|---|---|---|---|---|
-| CB-01 | Channel Box | Lists keyable channels of the selection (`translateX..scaleZ` plus custom: IK/FK, space, expression weights). Editing a field applies to **all selected** objects | The fastest precise edit and key surface in the desktop DCC | MVP | D | Virtualised list. Channel ids follow the desktop-DCC convention (`tx ty tz rx ry rz sx sy sz` + custom) |
+| CB-01 | Channels | Lists keyable channels of the selection (`translateX..scaleZ` plus custom: IK/FK, space, expression weights). Editing a field applies to **all selected** objects | The fastest precise edit and key surface in the desktop DCC | MVP | D | Virtualised list. Channel ids follow the desktop-DCC convention (`tx ty tz rx ry rz sx sy sz` + custom) |
 | CB-02 | Channel colour coding | Keyed on this frame = red, keyed elsewhere = dark pink, changed but not keyed = light pink, locked = grey, non-keyable = light grey, muted = brown, blended = green, constrained = blue, connected = yellow, expression = purple | Shows "is this keyed? will my change be lost?" without opening the Graph Editor | MVP: keyed / keyed-elsewhere / changed / locked. V1: muted, constrained/IK-driven, layer-overridden | U (derived) | Derived from curves at the current time. "Changed" = evaluated ≠ held value |
 | CB-03 | Virtual slider | Select channel names, then **MMB-drag in the viewport** to scrub the value (modifiers change the speed) | Precise, tactile, hands stay on the mouse | V1 | D | Pointer-lock API for unbounded dragging |
 | CB-04 | Channel context menu | Key selected, breakdown selected, mute, lock, reset to default, break connections, select in Graph Editor | Fine-grained keying ("key only rotateY") | MVP: key selected, reset. V1: rest | D | Commands |
@@ -136,7 +136,7 @@ Columns: **What** = what the feature does (the desktop DCC unless noted) · **Wh
 |---|---|---|---|---|---|---|
 | KY-01 | Set Key `S` | Keys the keyable channels of selected objects at the current time | The fundamental action | MVP | D | One command. The undo entry is the key set. A preference chooses "all keyable" or "only changed" |
 | KY-02 | `Shift+W` / `Shift+E` / `Shift+R` | Key only translate / rotate / scale | Avoid polluting curves with unneeded keys | MVP | D | Same command with a channel mask |
-| KY-03 | Key selected channels | Key only the channels selected in the Channel Box | Surgical keys | MVP | D | – |
+| KY-03 | Key selected channels | Key only the channels selected in the Channels panel | Surgical keys | MVP | D | – |
 | KY-04 | Auto Key | When on, editing a value keys it. The desktop DCC keys only attributes that **already have** at least one key (`autoKeyframe`) | Fast posing in the layout and polish passes | MVP (desktop-DCC rule, plus a preference "auto key un-keyed channels too") | P (toggle), D (keys) | A visible red time-slider border while on (desktop-DCC convention) |
 | KY-05 | Breakdown keys | Keys that keep a **proportional time position** between the surrounding keys when those move. Green ticks/points | Pose-to-pose retiming keeps in-betweens in proportion | V1 | D | `key.breakdown = true`. When neighbour keys move, recompute `t = t_prev + r·(t_next − t_prev)` with stored ratio `r` |
 | KY-06 | Delete / cut / copy / paste keys | Clipboard of keys with paste modes (insert, replace, merge, at current time) | Reusing timing and holds | MVP: copy/paste/delete at current time and selection. V1: paste options | D, U (clipboard) | Clipboard JSON with relative times. Also write to the system clipboard so keys can be pasted between browser tabs |
@@ -234,8 +234,8 @@ Columns: **What** = what the feature does (the desktop DCC unless noted) · **Wh
 | MN-06 | Undo / redo | `Z` / `Ctrl+Z` undo, `Shift+Z` / `Ctrl+Y` redo, `G` repeat last | Safety | MVP | D | Command stack. One drag = one entry. With collaboration, per-user undo (only your own commands) |
 | MN-07 | Hotkey presets and editor | Default DCC keymap (§4). Hotkey editor. Alternative keymap preset (open-source-DCC style) | Adoption by animators coming from common DCCs | MVP: `dcc` preset. V1: editor. V2: alternative preset (open-source-DCC style) | P | `KeyboardEvent.code` based. Panel-scoped bindings (hover focus, desktop-DCC convention) |
 | MN-08 | Marking menus | Hold a key + drag to a radial menu: `W`/`E`+LMB (axis modes), `Shift+S`+LMB/MMB (keys/tangents, §4) | Gesture memory, very fast | V1 | P | Radial menu with flick-select (direction, not distance) |
-| MN-09 | Hotbox | Space-hold full menu at the cursor | Fullscreen work without menus | LATER (use command palette instead) | – | – |
-| MN-10 | Command palette | Searchable commands with their hotkeys (web-native hotbox) | Discoverability for new users | V1 | P | `Ctrl/Cmd+K`, plus Space-hold |
+| MN-09 | Quick Menu | Space-hold full menu at the cursor | Fullscreen work without menus | LATER (use command palette instead) | – | – |
+| MN-10 | Command palette | Searchable commands with their hotkeys (web-native quick menu) | Discoverability for new users | V1 | P | `Ctrl/Cmd+K`, plus Space-hold |
 | MN-11 | Control picking priority | Clicks hit controls before meshes and bones. Hover highlight. Cycle through overlapping controls | The control rig must feel solid | MVP | U | Raycast the control layer first. GPU picking fallback for thin circles (line raycast threshold in screen px) |
 | MN-12 | Pivot editing `D`/`Insert` | Move the pivot of a control | Rigging feature | V2 | D | Only in a "rig edit" mode |
 
@@ -285,7 +285,7 @@ Columns: **What** = what the feature does (the desktop DCC unless noted) · **Wh
 - **Character sets and Trax.** The character itself is the scope (PP-02). Non-linear clips come in V2 (NL-03).
 - **MEL/Python.** A TypeScript plugin/command API comes LATER (it reuses COL-01 commands).
 - **Cached playback / Evaluation Manager.** Not needed at our scale (one or a few humanoids). Profile first.
-- **Hotbox.** The command palette replaces it (MN-10).
+- **Quick Menu.** The command palette replaces it (MN-10).
 
 ---
 
@@ -331,13 +331,13 @@ re-verify against a current official table.
 | Frame selected / all in all views | `Shift+F` / `Shift+A` | same | V1 |
 | Box zoom † | `Ctrl+Alt`+LMB drag | same | V1 |
 | Toggle single/multi pane (tap) | `Space` | same | MVP |
-| Hotbox (hold) | `Space` | command palette | V1 |
+| Quick Menu (hold) | `Space` | command palette | V1 |
 | Full-screen panels | `Ctrl+Space` | same | V1 |
 | Undo / redo view change | `[` / `]` | same | V1 |
 | Wireframe / shaded / textured | `4` / `5` / `6` | same | V1 |
 | Hide selection / show / hide unselected | `Ctrl+H` / `Shift+H` / `Alt+H` | same | V1 |
 | Pick-walk parent / child / siblings | `↑` / `↓` / `←` `→` | same | V1 |
-| Switch Attribute Editor / Channel Box | `Ctrl+A` | same | V1 |
+| Switch Attribute Editor / Channels panel | `Ctrl+A` | same | V1 |
 
 ### 4.3 Edit
 
@@ -729,7 +729,7 @@ Soft-IK (easing d near full extension) prevents "knee pop" and comes in V2.
 
 ```
 ┌───────────────────────────── menu · mode tabs (Animate / Rig*) · command palette ─────────────────────────────┐
-│ Outliner  │  VIEW A: shot cam (locked)        │  VIEW B: persp (free tumble)         │ Channel Box            │
+│ Outliner  │  VIEW A: shot cam (locked)        │  VIEW B: persp (free tumble)         │ Channels               │
 │ (controls │  HUD: cam · frame · fps           │  gizmo: W/E/R, object/world          │ tx ty tz rx ry rz …    │
 │  / bones) ├───────────────────────────────────┴──────────────────────────────────────┤ (keyed colours)        │
 │           │  Graph Editor  [Dope Sheet: V1]                                          │ Properties (rot order, │
@@ -796,8 +796,8 @@ MVP acceptance scenario (end-to-end):
 - Playback Controls (2025)
 - "All Hotkeys" table (2014)
 - Animation Operations hotkeys (2016)
-- Channel Box (2024)
-- Channel Box colour legend (2017)
+- Channels panel (2024)
+- Channels panel colour legend (2017)
 - Panel menu: Panels (2026)
 - Rotate Tool (2025)
 - Breakdowns (2017)

@@ -5,7 +5,7 @@
 //
 // M6a (B12a, M6A-SPEC §5.15): one ToolDef per id branches on the workspace and the component mode inside. In Model the
 // presses go to the transform runtime first (`./model/transform`: component and object transforms, Tweak, snapping,
-// pivots, the soft-select radius), then select. The MMB rule works in both workspaces: with no Channel Box channel
+// pivots, the soft-select radius), then select. The MMB rule works in both workspaces: with no Channels panel channel
 // selected (the viewport starts that virtual slider itself) an MMB drag transforms the selection along the
 // last-picked handle (`session.model.tweakHandle`, set by a LMB press on a handle, cleared on a tool switch), else in
 // the view plane / about the view axis / uniformly — in Animate on the selected controls through the same channel-edit
@@ -48,7 +48,7 @@ const DRAG_THRESHOLD_PX = 2;
 /** The select runtime's double-click distance (`DOUBLE_CLICK_PX`, in the lazy Model chunk). */
 const DOUBLE_CLICK_PX = 4;
 
-/** Channel names for the locked-handle hint (the Channel Box labels). */
+/** Channel names for the locked-handle hint (the Channels panel labels). */
 const CHANNEL_LABEL: Readonly<Record<AxisHandle, string>> = {
   tx: 'Translate X',
   ty: 'Translate Y',
@@ -80,7 +80,7 @@ export function mmbHandleFor(tool: TransformToolId, last: ManipHandle | null): M
 
 /** The hint shown when a drag starts on a handle whose channel is locked. */
 function lockedHandleHint(channel: AxisHandle): string {
-  return `${CHANNEL_LABEL[channel]} is locked. Unlock it in the Channel Box to drag this handle.`;
+  return `${CHANNEL_LABEL[channel]} is locked. Unlock it in the Channels panel to drag this handle.`;
 }
 
 /** A press on a locked axis handle: swallowed until release; the hint shows once the pointer really moves. */

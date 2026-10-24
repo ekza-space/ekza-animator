@@ -17,7 +17,7 @@ describe('shortcut sheet: arrow keys (§5.17)', () => {
     // `Pick Walk (…)`; Model's component pick-walk rows are 'Pick Walk Components (…)'.
     const controlWalk = (label: string): boolean => label.startsWith('Pick Walk (');
     const walk = shortcutRows(app).filter((row) => controlWalk(row.label));
-    // ↑ ↓ ← → and their Shift forms, in the viewport and Channel Box scopes.
+    // ↑ ↓ ← → and their Shift forms, in the viewport and Channels panel scopes.
     expect(walk.map((row) => row.label).sort()).toEqual(
       [
         ...['up', 'down', 'left', 'right'].map((direction) => `Pick Walk (${direction})`),
@@ -27,7 +27,7 @@ describe('shortcut sheet: arrow keys (§5.17)', () => {
         .sort(),
     );
     expect(walk.every((row) => row.available)).toBe(true);
-    expect(new Set(walk.map((row) => row.scope))).toEqual(new Set(['viewport', 'channelBox']));
+    expect(new Set(walk.map((row) => row.scope))).toEqual(new Set(['viewport', 'channels']));
 
     const before = arrowRows(shortcutRows(app));
     await app.run('prefs.set', { patch: { arrowKeys: 'frames' } });
@@ -37,7 +37,7 @@ describe('shortcut sheet: arrow keys (§5.17)', () => {
       rows
         .filter((row) => row.scope === scope && before.some((line) => line.startsWith(`${scope} ${row.keys}:`)))
         .map((row) => row.label);
-    for (const scope of ['viewport', 'channelBox']) {
+    for (const scope of ['viewport', 'channels']) {
       expect(new Set(labels(scope))).toEqual(
         new Set(['Next Key', 'Previous Key', 'Step Frames (-1)', 'Step Frames (1)']),
       );

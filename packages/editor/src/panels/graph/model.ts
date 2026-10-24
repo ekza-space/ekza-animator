@@ -60,7 +60,7 @@ const sameRef = (node: ChannelTreeNode, ref: ChannelRef): boolean =>
   node.control === ref.control && node.channel === ref.channel;
 
 /**
- * Curves to draw: the channels selected in the list (or in the Channel Box) when any of them is listed, else every
+ * Curves to draw: the channels selected in the list (or in the Channels panel) when any of them is listed, else every
  * listed channel with a curve; channels whose eye is off are left out.
  */
 export function visibleCurves(

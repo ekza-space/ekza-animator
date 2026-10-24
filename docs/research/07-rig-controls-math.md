@@ -287,7 +287,7 @@ The VRM T-pose has straight limbs, so the hinge cannot be inferred from the rest
 | Pickwalk | Arrow keys move along the control hierarchy (up = parent, down = first child, left/right = mirror pair or sibling), as the desktop DCC's `pickWalk` does. |
 | Selection sets | `RigDoc.selectionSets`, e.g. "left arm", "all fingers", "body". Shown in a quick picker panel. |
 | Visibility | Bones are **hidden by default** (no `SkeletonHelper`). Toggles: show joints (debug), show FK/IK/both, show by group (body / fingers / face / secondary), isolate selection. With a rig present, bones are never pickable. |
-| Channel box | Shows the selected controls' keyable channels and custom attributes. Locked or non-keyable channels are hidden. Editing several controls at once is relative per control. |
+| Channels panel | Shows the selected controls' keyable channels and custom attributes. Locked or non-keyable channels are hidden. Editing several controls at once is relative per control. |
 
 ---
 

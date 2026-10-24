@@ -40,7 +40,7 @@ export function canRun(app: EditorApp, panel: PanelKind, id: string, args?: unkn
 }
 
 /**
- * Replaces the Channel Box / Graph channel highlight (`Selection.channels`, per-user U state, not undoable).
+ * Replaces the Channels panel / Graph channel highlight (`Selection.channels`, per-user U state, not undoable).
  * The catalog has no `select.channels` operator yet (contract request R-1 in docs/wp-notes/wp-9.md), so the panel
  * writes the session directly, as selection-only state allows.
  */

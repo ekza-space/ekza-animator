@@ -1,5 +1,5 @@
 {
-  "hash": "8c27ef1b483befc44b72fce0d4032f401b3e282cc5c9600f226b6bc7ae851ab6",
+  "hash": "dc98feca1a6dd6613175fb8b3e89c26a9187b8892cf089dbc98a8571aeba3c74",
   "tools": [
     {
       "access": "pairing",
@@ -2481,7 +2481,7 @@
         "openWorldHint": false,
         "readOnlyHint": true
       },
-      "description": "Read the pose at frames or sampled over a range, as Channel Box values (in pose_set’s shape) or as bone positions and orientations in character space. channels (default): per control rotateDeg, translateM, scaleFactor and attrs as {x, y, z} with its rotateOrder — change values and pass the item to pose_set as it is. world: per bone positionM, direction (unit vector along the bone) and orientDeg {pitchDeg (tip up +), yawDeg (toward the character’s left +), rollDeg} relative to rest, in character space (+Y up, +Z forward, +X the character’s left). frames ≤ 8, or rangeFrames with stepFrames (≤ 64 samples); default: the user’s frame of this clip, else its first frame. Default targets: the controls rig_describe lists concisely (name finger, secondary or mode-hidden controls to read them). It reads the keyed animation; withUserOverrides: true reads what the user sees (their unkeyed edits at their current frame).",
+      "description": "Read the pose at frames or sampled over a range, as Channels panel values (in pose_set’s shape) or as bone positions and orientations in character space. channels (default): per control rotateDeg, translateM, scaleFactor and attrs as {x, y, z} with its rotateOrder — change values and pass the item to pose_set as it is. world: per bone positionM, direction (unit vector along the bone) and orientDeg {pitchDeg (tip up +), yawDeg (toward the character’s left +), rollDeg} relative to rest, in character space (+Y up, +Z forward, +X the character’s left). frames ≤ 8, or rangeFrames with stepFrames (≤ 64 samples); default: the user’s frame of this clip, else its first frame. Default targets: the controls rig_describe lists concisely (name finger, secondary or mode-hidden controls to read them). It reads the keyed animation; withUserOverrides: true reads what the user sees (their unkeyed edits at their current frame).",
       "group": "pose",
       "hosts": [
         "live",
@@ -2552,7 +2552,7 @@
           },
           "space": {
             "default": "channels",
-            "description": "channels: Channel Box values; world: bone positions and orientations in character space.",
+            "description": "channels: Channels panel values; world: bone positions and orientations in character space.",
             "enum": [
               "channels",
               "world",
@@ -2898,7 +2898,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Set Channel Box values (degrees, metres) of one or more controls at one clip frame and key them (pose-to-pose blocking). set: [{control, rotateDeg {x,y,z}, translateM, scaleFactor, attrs}] in pose_read's shape (≤ 100 controls); rotations are the control's Channel Box rotations in its rotate order, zero = rest. key: key (default) always keys every edited channel, and syncRotation (default true) keys all rotation axes of a control, as the S key (Set Key) does; static sets clip-wide values on channels without keys; pose_only proposes an unkeyed pose at the user's current frame (needs the View grant). mode relative adds to the keyed values. Prefer pose_aim and pose_ik_target for limbs.",
+      "description": "Set Channels panel values (degrees, metres) of one or more controls at one clip frame and key them (pose-to-pose blocking). set: [{control, rotateDeg {x,y,z}, translateM, scaleFactor, attrs}] in pose_read's shape (≤ 100 controls); rotations are the control's Channels panel rotations in its rotate order, zero = rest. key: key (default) always keys every edited channel, and syncRotation (default true) keys all rotation axes of a control, as the S key (Set Key) does; static sets clip-wide values on channels without keys; pose_only proposes an unkeyed pose at the user's current frame (needs the View grant). mode relative adds to the keyed values. Prefer pose_aim and pose_ik_target for limbs.",
       "group": "pose",
       "hosts": [
         "live",
@@ -11208,5 +11208,5 @@
       "title": "Add a library clip"
     }
   ],
-  "toolset": "1.0.0-mvp.2"
+  "toolset": "1.0.0-mvp.3"
 }

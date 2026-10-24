@@ -231,7 +231,7 @@ const selectNone = defineOperator({
         selection: { ...state.selection, keys: new Map() },
         ...(panel === PANEL.timeline ? { time: { ...state.time, band: null } } : {}),
       });
-    } else if (panel === PANEL.channelBox) {
+    } else if (panel === PANEL.channels) {
       app.session.setState({ selection: { ...state.selection, channels: [] } });
     } else {
       selectControlsGesture(app, [], 'replace');
@@ -281,7 +281,7 @@ const selectKeys = defineOperator({
 const selectChannels = defineOperator({
   id: 'select.channels',
   label: 'Select Channels',
-  description: 'Select channels in the Channel Box and the Graph Editor channel list.',
+  description: 'Select channels in the Channels panel and the Graph Editor channel list.',
   category: 'select',
   scope: GLOBAL_SCOPE,
   flags: { internal: true },

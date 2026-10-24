@@ -1,6 +1,6 @@
 // Evaluation service (ARCHITECTURE §5, MVP-SPEC §4.11.8): compiled-curve cache, per-character clip samplers, scene →
 // clip time per character, once-per-tick pose evaluation into each runtime's buffers, and channel values/states for
-// the Channel Box. Channel values and states read the store directly (preview overlay included), so they are
+// the Channels panel. Channel values and states read the store directly (preview overlay included), so they are
 // correct between ticks and for characters without a runtime.
 import { type CompiledAnimCurve, type Disposer, EkzaError, type Frame } from '@ekza-studio/anim-core';
 import {

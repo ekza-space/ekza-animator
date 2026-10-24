@@ -14,8 +14,8 @@ import { call, expectKernelStarted } from './helpers/test-api';
 
 // E2E-MOD-19 "Numeric capture window" (M6A-SPEC §10.1, §5.10, §5.7; owner B11). The capture window is armed during a
 // drag and right after a keyboard-invoked operation; digits outside it keep their meanings (`4` shading, `3` mode);
-// a mode switch with the same hilite keeps the card live (the Channel Box INPUTS stay with the object); `T` focuses the
-// primary field; the typed value re-runs on the restored face selection with the recorded targets.
+// a mode switch with the same hilite keeps the card live (the Channels panel INPUTS stay with the object); `T` focuses
+// the primary field; the typed value re-runs on the restored face selection with the recorded targets.
 //
 // Gates (§10.1): b3 (Extrude), b10 (face mode, component picks), b12b (the extrude manipulator's `tz` handle).
 // The B11 check below runs today: the same window with a primitive (`G` from the keyboard repeats `mesh.create.cube`

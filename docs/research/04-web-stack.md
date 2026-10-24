@@ -205,7 +205,7 @@ rAF tick (EditorScheduler)
 
 1. No `setState` or zustand `set` per frame. Time, playhead, hover and drag previews live in **transient stores** (plain objects plus `subscribe`). Consumers update the DOM or canvas imperatively (`ref.current.style.transform`, canvas redraw).
 2. Document-driven 3D objects (bones, control shapes, constraint helpers) are created and updated by an imperative `SceneSync` that subscribes to doc change sets. There is no React component per bone. R3F composes the app-level scene (canvas, lights, grid, camera rigs, helper toggles).
-3. React subscribes only through narrow selectors (`useStore(store, selector, shallow)`) for panels that change at human speed: channel box values *on gesture end*, outliner, attribute editor.
+3. React subscribes only through narrow selectors (`useStore(store, selector, shallow)`) for panels that change at human speed: Channels panel values *on gesture end*, outliner, attribute editor.
 4. Large lists (outliner, Dope Sheet rows, channel lists) use `@tanstack/react-virtual@3.14.13`.
 5. Handlers are stable (`useCallback` or a module-level controller). Panels never re-render because the clock ticked.
 
@@ -274,7 +274,7 @@ Selection priority: manipulator > control > joint > mesh. Alt-click (desktop-DCC
 - **Batching:** one `Path2D` per (curve color × state) for lines, one `Path2D` for all unselected key squares, and one for selected keys. That is about 3 `fill`/`stroke` calls per curve instead of one per key. Each curve's base color follows the desktop DCC (X red, Y green, Z blue, others white or yellow).
 - **hi-DPI:** backing store = CSS size × DPR via `ResizeObserver` (`devicePixelContentBoxSize` where available; **Safari does not implement it**, so fall back to `contentRect × devicePixelRatio`), `ctx.setTransform(dpr, 0, 0, dpr, 0, 0)`, and 1 px lines at `x + 0.5`.
 - **Hit-testing order:** tangent handle > key > curve segment > empty (marquee). Key hits use binary search in `[t − tol, t + tol]` and then a value check. Curve hits use distance to the sampled polyline of the segment under the cursor. The marquee is a range query per visible curve.
-- **Interaction state machine** (one per editor): idle → hover → press → (drag-keys | drag-tangent | marquee | pan | zoom) → commit or cancel (Esc restores). Every drag runs inside a document **gesture** (§6.3), so one undo step covers the whole drag. Pointer capture is required. Pointer Lock is used for infinite "virtual slider" drags (the desktop DCC's middle-mouse drag in the channel box).
+- **Interaction state machine** (one per editor): idle → hover → press → (drag-keys | drag-tangent | marquee | pan | zoom) → commit or cancel (Esc restores). Every drag runs inside a document **gesture** (§6.3), so one undo step covers the whole drag. Pointer capture is required. Pointer Lock is used for infinite "virtual slider" drags (the desktop DCC's middle-mouse drag in its channels panel).
 - **Shared code:** Dope Sheet and time slider reuse the transform, culling, batching and hit-testing modules. A key tick in the time slider and a Dope Sheet cell are just different glyph painters.
 
 ---
@@ -371,7 +371,7 @@ type Op =
 
 **Decision: dockview 8.** The MIT edition includes everything we need: dockable grid, floating groups, popouts, edge groups, maximize, save/restore, theming, keyboard navigation. Enterprise-only features (layout history, multi-row tabs, smart guides, keyboard docking) are not needed. Mitigate the open-core risk with a `WorkspaceHost` adapter (panel registry + serialized layout) so FlexLayout can replace it. `allotment` is fine *inside* a panel for fixed splits (for example the Graph Editor's outliner | curves).
 
-Panel set for M1: Viewport (N instances), Outliner, Channel Box, Attribute Editor, Graph Editor, Dope Sheet, Time Slider + Range Slider, Clip/Trax list, Script/Console (later). Presets ("Animation", "Rigging", "Graph-heavy") ship as JSON layouts. Viewports use `renderer: 'always'` so the canvas registration survives tab switches.
+Panel set for M1: Viewport (N instances), Outliner, Channels, Attribute Editor, Graph Editor, Dope Sheet, Time Slider + Range Slider, Clip/Trax list, Script/Console (later). Presets ("Animation", "Rigging", "Graph-heavy") ship as JSON layouts. Viewports use `renderer: 'always'` so the canvas registration survives tab switches.
 
 ---
 
@@ -379,7 +379,7 @@ Panel set for M1: Viewport (N instances), Outliner, Channel Box, Attribute Edito
 
 - **Tailwind CSS 4.3.3** (`@tailwindcss/postcss` in Next, `@tailwindcss/vite` in the playground). Tokens live in CSS (`@theme`: colors, 4 px spacing grid, radii, font sizes 11/12/13 px). Pro density: 22–24 px rows, 11–12 px UI text, a tabular-number monospace face for numeric fields. Dark theme first. All colors are CSS variables, so panels, the 2D canvases and 3D overlays read **the same tokens** (canvas painters read computed variables once per theme change).
 - **shadcn/ui components copied into `packages/ui`** (we own the code) on **Radix primitives** (`radix-ui@1.6.7`, unified package; 1.8.x next). Radix's Menubar, ContextMenu, DropdownMenu, Popover, Tooltip, Dialog, Slider and Toggle Group cover a DCC shell. Base UI (`@base-ui/react@1.8.0`, MUI team) is an equivalent alternative that shadcn also supports. The choice is cheap to revisit because the components are ours.
-- **CSS Modules** are allowed for bespoke widgets (channel-box virtual sliders, timeline chrome) where utility classes get noisy.
+- **CSS Modules** are allowed for bespoke widgets (Channels-panel virtual sliders, timeline chrome) where utility classes get noisy.
 - **Icons:** `lucide-react@1.50.0` (ISC) for generic actions, plus our own `ui/icons` SVG set for animation glyphs that lucide lacks: tangent types (auto, spline, clamped, linear, flat, stepped, plateau), break/unify, weighted, key/breakdown, infinity modes.
 - **Keymap:** our own context-aware keymap (focused panel > global), the `dcc` preset first. Browser constraints: some chords cannot be intercepted (`Ctrl/Cmd+W/T/N` in Chrome). Alt+drag conflicts with window managers on some Linux desktops, so offer an alternative navigation preset (e.g. middle-mouse based). Suppress the context menu (for marking menus later) and Windows middle-click autoscroll. The Keyboard Lock API works only in fullscreen. A desktop wrapper (Tauri) is a later option for full shortcut capture.
 

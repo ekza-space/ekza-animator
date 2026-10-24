@@ -51,7 +51,7 @@ Contents: [1 Scope](#1-scope) · [2 Dependencies and toolchain](#2-dependencies-
 | 8 | **Normals and shading** | Per-edge hard flag, faceted new meshes, Soften/Harden, Set Normal Angle (one-shot), Reverse, Conform, WYSIWYG normals and triangulation, overlays (wire on shaded, flat, cull, normals, face orientation, triangulation) | FR-MOD-22 |
 | 9 | **Colour and UV** | Per-face palette slot as colour truth, project palettes, Palette panel, Paint Colour tool, fill shell, select by swatch, replace swatch, eyedropper, palette variants; export outputs palette PNG (default) / `COLOR_0` / one material per colour; planar, box and cylindrical UV projections | FR-MOD-23, -24 |
 | 10 | **Content** | Primitives with low-poly defaults and live parameters until the first component edit; templates prop, handheld (grip), humanoid guides, humanoid body mesh generator; reference image planes per ortho camera; Outliner for meshes and groups; Model start card and Getting started card | FR-MOD-12, -25 |
-| 11 | **Workflow** | Modeling Toolkit panel with option boxes; RMB, Shift+RMB, Ctrl+RMB and Ctrl+Shift+RMB marking menus; **Adjust Last Operation** (Last-op card + Channel Box INPUTS, `T`); **Repeat Last** (`G`), last tool (`Y`); numeric capture in the narrow window; Poly Count HUD with budget bar; Mesh Check panel and overlay | FR-MOD-26, -27 |
+| 11 | **Workflow** | Modeling Tools panel with option boxes; RMB, Shift+RMB, Ctrl+RMB and Ctrl+Shift+RMB marking menus; **Adjust Last Operation** (Last-op card + Channels panel INPUTS, `T`); **Repeat Last** (`G`), last tool (`Y`); numeric capture in the narrow window; Poly Count HUD with budget bar; Mesh Check panel and overlay | FR-MOD-26, -27 |
 | 12 | **IO** | Make editable (licence-gated, morph-aware weld, layers kept); `meshToPrimitives` with derived morph `NORMAL` deltas; surgeon "replace primitives" with bake marker v2; in-memory container rebuild for edited characters through `ModelLoader`; author GLB writer for static models; palette PNG writer; `ekza/omoba-handheld-v1` profile; `mesh.*`/`ekza.*` lints; `ekza_model_v1` provenance block; lazy glTF-Validator at export | FR-MOD-29, -30 |
 
 ### 1.2 M6a-stretch (implement only if time remains; tests `test.fixme` until done)
@@ -194,7 +194,7 @@ of §5.27 (B9 writes it).
    `…:model`); the menu-bar menu list (Model menus appear only in the Model workspace).
 10. **The Animate workspace stays byte-for-byte the shipped experience** unless this spec names a change. Named
     changes: `Mod+Shift+E` opens Export everywhere; `R` selects the new viewport Scale tool; `4`–`7` switch the pane's
-    shading; plain MMB-drag with W/E/R active and no Channel Box channel selected moves/rotates/scales the selected
+    shading; plain MMB-drag with W/E/R active and no channel selected in the Channels panel moves/rotates/scales the selected
     controls (it did nothing before, §5.15); the workspace tabs in the menu bar. E2E-00…27 and E2E-M2A-01…25 MUST stay
     green at every merge.
 
@@ -218,7 +218,7 @@ which M6a never writes), and `KeymapManager.isTapHoldKey` gains parameters (§5.
 ### 4.1 anim-core — parameter descriptions and hashing
 
 New module `packages/anim-core/src/params/index.ts` (exported from the package root). One `ParamDef` list describes an
-operation's arguments for the kernel (JSON args, defaults, validation), the editor (Last-op card, Channel Box
+operation's arguments for the kernel (JSON args, defaults, validation), the editor (Last-op card, Channels panel
 INPUTS, option boxes, command-palette prompts, numeric capture) and, later, scripting and agent schemas
 (ADR 0016 D6, plan R34).
 
@@ -2465,7 +2465,7 @@ soft select; E2E-MOD-20/21/22 are rewritten for Live Mirror in the same decision
   (selection-bound, 'data'); soft and symmetry come from the recorded context.
 - **Scale tool** (B9, `R`, all workspaces): in object mode it scales mesh objects (placement scale) and, in Animate,
   controls with keyable scale; axis handles `sx`/`sy`/`sz` and the centre handle `suniform`.
-- **MMB-drag** (desktop-DCC rule, Q-MOD-UI-14), with W, E or R active in a viewport pane: if Channel Box channels or an
+- **MMB-drag** (desktop-DCC rule, Q-MOD-UI-14), with W, E or R active in a viewport pane: if channels in the Channels panel or an
   INPUTS field are selected, MMB-drag runs the virtual slider (the shipped M2a behaviour); otherwise it transforms the
   selection — along/about/along the **last-picked handle axis** (`session.model.tweakHandle`, set by a LMB press on a
   handle, cleared on tool switch), or in the view plane through the pivot / about the view axis / uniformly when the
@@ -2509,7 +2509,7 @@ soft select; E2E-MOD-20/21/22 are rewritten for Live Mirror in the same decision
   (AS-LP-A).
 - Winding CCW seen from outside; UVs generated per primitive (cube: per-face 0–1; sphere/cylinder/cone: cylindrical
   with the seam on −Z, split corners at the wrap; plane: 0–1; torus: two angles); `paint` = slot 0 everywhere.
-- **Live parameters** (Q-MOD-UI-17): while `generator` is non-null, Attributes › Primitive, the Channel Box
+- **Live parameters** (Q-MOD-UI-17): while `generator` is non-null, Attributes › Primitive, the Channels panel
   **INPUTS primitive entry** (§8.6) and `mesh.primitive.set {mesh, params}` regenerate the whole mesh (one step,
   `rev + 1`; selection cleared). The **first component edit of any kind** — any commit through
   `commitOp`/`commitSetOp` of a kernel op (§5.5 rule 9), `mesh.transformComponents`, `mesh.paint` and Freeze included —
@@ -2597,7 +2597,7 @@ soft select; E2E-MOD-20/21/22 are rewritten for Live Mirror in the same decision
 - **Command palette** (`Mod+K`, FR-SHELL-08): fuzzy search over every registered operator visible in the current
   workspace (labels, ids, `aliases`), with key labels and poll reasons; Enter runs it (`source: 'palette'`);
   operators with `params` prompt for the primary field inline (Tab for others). The list UI is a lazy chunk.
-- **Modeling Toolkit** (B11): §8.5. Option boxes (`⋯`) edit `prefs.modeling.optionDefaults[op]` (P), the defaults of
+- **Modeling Tools** (B11): §8.5. Option boxes (`⋯`) edit `prefs.modeling.optionDefaults[op]` (P), the defaults of
   the next run.
 
 ### 5.19 Colour model and palette export (B13 data and ops; B8 writers)
@@ -3081,7 +3081,7 @@ documents them in the cheat sheet and the conformance test reserves them in `mv`
 increment snap (holds; the sticky toggles are status-line buttons); `D` pivot edit while held; `B`+LMB drag soft radius
 (relative), `B`+MMB drag (from zero); `I` eyedropper (Paint Colour); `Shift` **held at drag start** = smart extrude
 (§5.8); **drag speed** (one rule everywhere, the shipped M2a virtual-slider rule): `Shift` pressed during a drag = fine
-×0.1, `Mod` = coarse ×10 — viewport manipulator drags, the Channel Box, INPUTS and Last-op card virtual sliders alike;
+×0.1, `Mod` = coarse ×10 — viewport manipulator drags, the Channels panel, INPUTS and Last-op card virtual sliders alike;
 Multi-Cut: `Ctrl`-click loop, `Ctrl`+MMB centred loop, `Shift` snap step, `Backspace` remove point, `Enter`/RMB
 complete; `PageUp`/`PageDown` step counts of the active tool; `Enter` (Paint Colour) applies the active swatch.
 `Backspace`, `Enter`, `NumpadEnter`, `PageUp`, `PageDown` and `Escape` are reserved for a tool that is placing or
@@ -3184,7 +3184,7 @@ The S/W/SW slots are the same family in every component menu (S Extrude, W Multi
 plain Delete). Owners: `model.modes` and `model.convert` B10; `model.tools.*`, `model.primitives` and `model.merge` B11;
 `model.options` B12a; the generic component B9.
 
-### 8.5 Modeling Toolkit panel (right dock, first tab; B11)
+### 8.5 Modeling Tools panel (right dock, first tab; B11)
 
 Sections, top to bottom (collapse state in P): **header** (target meshes · hilite count · triangles) · **mode
 switcher** (radiogroup Obj/Vtx/Edg/Face; UV disabled) · **Selection** (Style Marquee/Tweak, Camera-based, Backfaces,
@@ -3198,7 +3198,7 @@ disabled with "arrives in v0.4"). Buttons run operators (`source: 'toolkit'`); d
 `⋯` opens the option box (`OptionBoxPopover`) generated from `params` (defaults for the next run, P). Narrow (≤ 260
 px): icon-only, two columns. Empty state: "Select a mesh, or create one" + primitive buttons.
 
-### 8.6 Last-op card and Channel Box INPUTS (B11)
+### 8.6 Last-op card and Channels panel INPUTS (B11)
 
 - **Card**: bottom-left of the pane where `lastRun` ran, 8 px above the axis triad; collapsed pill
   (`⟲ Extrude · 0.500 m ▸`) that expands on click or `T`; fields generated from `params` (hidden and `data` params
@@ -3207,7 +3207,7 @@ px): icon-only, two columns. Empty state: "Select a mesh, or create one" + primi
   the shipped M2a rule, the same everywhere, §7); bool → checkbox; enum/axis → segmented control;
   `Reset ⟲` restores defaults; `✕` closes the card but keeps `lastRun` for `G`. Operations without params show no
   card. A closed card shows its reason in a tooltip of the pill for 3 s, then disappears.
-- **Channel Box › INPUTS**: under the selected mesh object's Translate/Rotate/Scale rows (B11 adds object TRS rows for
+- **Channels panel › INPUTS**: under the selected mesh object's Translate/Rotate/Scale rows (B11 adds object TRS rows for
   meshes and groups, editing `placement` through `scene.object.transform`) and SHAPES, up to two entries:
   - the **primitive entry** while the mesh's `generator` is non-null ("cylinder (primitive)", the desktop DCC's
     `polyCylinder1`): the §6.3 fields of its kind, persistent across selection changes, driving `mesh.primitive.set`
@@ -3271,7 +3271,7 @@ glyph and overlay line draws a 1 px `--comp-halo` outline; the tokens CI contras
 | Toolkit | `mtk-panel`, `mtk-mode-<mode>`, `mtk-btn-<operatorId>`, `mtk-opt-<operatorId>`, `mtk-sym-mode`, `mtk-sym-tol`, `mtk-soft-on`, `mtk-soft-radius` | B11 |
 | Option box | `optbox-<operatorId>`, `optbox-field-<param>`, `optbox-apply` | B11 |
 | Last-op card | `lastop-card-<paneId>`, `lastop-title`, `lastop-field-<param>`, `lastop-name-<param>`, `lastop-reset`, `lastop-close` | B11 |
-| Channel Box INPUTS | `cb-inputs`, `cb-inputs-field-<param>`, `cb-inputs-name-<param>` (last-op entry), `cb-prim-field-<param>`, `cb-prim-name-<param>` (primitive entry) | B11 |
+| Channels panel INPUTS | `cb-inputs`, `cb-inputs-field-<param>`, `cb-inputs-name-<param>` (last-op entry), `cb-prim-field-<param>`, `cb-prim-name-<param>` (primitive entry) | B11 |
 | Modal readout | `modal-readout` | B12a |
 | Outliner (Model) | `outliner-row-<id>`, `outliner-badge-<id>`, `outliner-make-editable-<meshId>` (the derived id the record will get, §5.21) | B13 |
 | Palette | `palette-panel`, `palette-select`, `palette-swatch-<slot>`, `palette-hex`, `palette-apply`, `palette-pick`, `palette-add`, `palette-output-<palette-texture or vertex-colour or material-per-colour>` | B13 |
@@ -3370,7 +3370,7 @@ package's **Dirs** below; where two globs could overlap, the narrower one in thi
 | `viewport/src/manipulators/{ManipulatorKit.ts,drag.ts,scale/**}` | — | B9 | B12a owns `manipulators/component/**`, B12b `manipulators/extrude/**` |
 | `editor/src/panels/viewport/{PaneView,ViewportPanel,PaneMenu}.tsx` | — | B9 (overlay slots) | B10 HUD, B11 Last-op card, B12a readout, B13 empty state and getting started register into slots |
 | `viewport/src/tools/{transformTool.ts,virtualSliderDrag.ts,selectTool.ts,host.ts}` | — | B12a (`transformTool`, `virtualSliderDrag`: MMB rule), B10 (`selectTool` component picking), `host.ts` B9 | — |
-| `editor/src/panels/channel-box/**` | — | B11 (INPUTS entries and mesh object rows) | — |
+| `editor/src/panels/channels/**` | — | B11 (INPUTS entries and mesh object rows) | — |
 | `editor/src/panels/outliner/**`, `editor/src/panels/attributes/**`, `editor/src/dialogs/{ExportDialog.tsx,FirstRunDialog.tsx}` | the nullable-asset narrowing in `AttributesPanel.tsx` | B13 | — |
 | `editor/src/test-api/{index.ts,createTestApi.ts,types.ts}` | types, the spread of the owner files, kernel-level functions over stubs | **closed** after B0a | each owner fills only `editor/src/test-api/m6a/<package-slug>.ts` (§4.8 group comments) |
 | `apps/web/e2e/helpers/m6a-model.ts` | enter Model, create primitives, screen points of components | closed after B0a | content helpers (`buildSword`) live in `helpers/m6a-model-content.ts` (B13) |
@@ -3699,7 +3699,7 @@ package's **Dirs** below; where two globs could overlap, the narrower one in thi
 
 - **Dirs**: `editor-core/src/operators/builtin/{index.ts,edit.ts,mesh/**,lastop.ts}`, `editor-core/src/operators/
   {runner.ts,registry.ts}`, `editor-core/src/edit/{capture.ts,paramInput.ts}`, `editor-core/src/app/factories/
-  capture.ts`, `editor/src/panels/{toolkit/**,channel-box/**}`, `editor/src/panels/viewport/LastOpCard.tsx`,
+  capture.ts`, `editor/src/panels/{toolkit/**,channels/**}`, `editor/src/panels/viewport/LastOpCard.tsx`,
   `editor/src/overlays/menus/{tools.ts,primitives.ts,merge.ts,optionBox.tsx}`, `editor/src/test-api/m6a/
   model-ops-ui.ts`, `apps/web/e2e/m6a-{07,09,19,32}-*.spec.ts`, `docs/wp-notes/m6a-model-ops-ui.md`.
 - **Responsibilities**: research 16 U-2: registration of every `mesh.*` operator of §6.1 through `meshOperator` /
@@ -3709,7 +3709,7 @@ package's **Dirs** below; where two globs could overlap, the narrower one in thi
   `tool.last`, `view.lastOpCard` (with the extrude reopen), the `edit.undo`/`edit.redo` session hook (§5.7, §5.8); the
   **numeric capture window** (§5.10: apply on Enter/Tab only, discard on disarm, Enter without entry) through the
   keyboard hook and `parseParamInput` (fractions); Shift+RMB tool menus, primitives and merge menus (§8.4); the Modeling
-  Toolkit with option boxes (§8.5); the Last-op card and Channel Box INPUTS (last-op and primitive entries) plus mesh
+  Tools panel with option boxes (§8.5); the Last-op card and Channels panel INPUTS (last-op and primitive entries) plus mesh
   object TRS rows (§8.6).
 - **Tests**: LastRun lifecycle (each closing event of §5.7, the mode-switch exception, paramless repeatable ops
   recorded); adjust-last keeps history length and is bit-identical to a fresh run with the same args; **adjust after
@@ -3856,7 +3856,7 @@ into failures.
 | E2E-MOD-24 | Slide Edge and Average | `run('mesh.create.cylinder', {subdivisionsHeight:3})`; `2`; double-click a middle-ring edge (loop); Slide Edge tool; drag until `lastOp().args.percent` ≈ 0.3, then `T` `0.3` `Enter`; then a plane 4 × 4 subdivisions, `1`, select all, Edit Mesh › Average Vertices; then the same with symmetry Object X on a mirrored plane | slide: every loop vertex lies on its rail segment (1e-9) and within 1e-4 m of the pre-slide surface; average: border vertices bit-equal, interior vertices moved; with symmetry: seam vertices keep x = 0 exactly | B12b | b12a |
 | E2E-MOD-25 | Hide, marquee, isolate | humanoid body; `3`; `select.components` the arm faces (centroid `abs(x) > 0.4`); `H`; marquee over the whole body in `pane-front`; select one torso face; `Mod+E`, `0.05`, `Enter`; `Shift+H`; then `2` and two marquees in `pane-front`, one containing exactly one endpoint of a known torso edge `e`, one containing both; `F8`; layout quad; a cube beside the body; select the cube; `Shift+L` in `pane-persp` | after `H`: `model().hidden` has the arm faces; the marquee selects no hidden face; the extrude leaves hidden faces' vertices bit-equal and hidden; `Shift+H` clears `hidden`; the one-endpoint marquee does not select `e`, the two-endpoint one does; `paneObjects('pane-persp')` = [cube] while the other panes list both | B10 | b3, b11, b13 |
 | E2E-MOD-26 | Selection undo and the loop table | `run('mesh.create.torus')`; `2`; double-click an edge (loop); click empty space; one undo; three `Shift`+clicks on edges in quick succession (< 1 s); one undo; then the loop table: select an edge, `Shift`+double-click an adjacent edge on its loop, then (fresh) a non-adjacent edge on its loop, then a parallel edge (same ring), then `Mod`+double-click; repeat the full/partial rows in vertex and face mode; finally `ws` Animate with Polybot: click two controls, one undo | the undo after the empty click restores the loop (edge indices deep-equal); the three `Shift`+clicks are **three** "Select" steps: one undo removes only the third; adjacent → full loop, non-adjacent → partial loop (the shorter arc), parallel → full ring, `Mod`+double-click → the run removed (vertex and face modes analogous); in Animate the undo does not restore a control selection (`history().undo` gained no "Select") | B10 | b2, b7 |
-| E2E-MOD-27 | Primitive parameters and freeze | `run('mesh.create.cylinder')`; Channel Box INPUTS primitive entry `cb-prim-field-subdivisionsAxis` = `10`; Attributes `attr-prim-subdivisionsHeight` = `2`; `1`; click `screenOfVertex(cyl, 0, 'pane-persp')`; `W`; drag the `ty` handle 10 px | after the INPUTS edit: 20/30/12, badge `prim`, the same mesh id, the entry titled "cylinder (primitive)"; after the attribute: 30/50/22; after the drag: badge `edit`, `generator` null, no `attr-prim-*` and no `cb-prim-*` element, `mesh.primitive.set` poll fails with "Primitive parameters were frozen by a component edit" | B13 | b10, b11, b12a |
+| E2E-MOD-27 | Primitive parameters and freeze | `run('mesh.create.cylinder')`; Channels panel INPUTS primitive entry `cb-prim-field-subdivisionsAxis` = `10`; Attributes `attr-prim-subdivisionsHeight` = `2`; `1`; click `screenOfVertex(cyl, 0, 'pane-persp')`; `W`; drag the `ty` handle 10 px | after the INPUTS edit: 20/30/12, badge `prim`, the same mesh id, the entry titled "cylinder (primitive)"; after the attribute: 30/50/22; after the drag: badge `edit`, `generator` null, no `attr-prim-*` and no `cb-prim-*` element, `mesh.primitive.set` poll fails with "Primitive parameters were frozen by a component edit" | B13 | b10, b11, b12a |
 | E2E-MOD-28 | Combine, snap, Bridge | two `run('mesh.create.cylinder')` (8 sides): A with its top cap deleted, B with its bottom cap deleted (`3`, select the cap, `Delete`); select B (object mode); `W`; hold `V` and drag the manipulator centre onto `screenOfVertex(A, <a vertex of A's open loop>, 'pane-persp')`; release; `cb-field-ty` `+=1`; select both; Mesh › Combine; `2`; `select.mesh.border`; Edit Mesh › Bridge; card Divisions `2`, Twist `0`, then Twist `1`, Offset `0`; one undo | after the snap B's placement translation equals that vertex's world position (1e-6); combined 32/48/18; bridged 48/88/42, closed (`boundaryLoops` 0), manifold; the strip edges with Twist 1 differ from those with Twist 0 by one step of the loop order; history grew by one step for the bridge and its adjustments; one undo → 32/48/18 | B12b | b12a |
 | E2E-MOD-29 | Reference image planes | Create › Reference Image › Front with `fixtures/images/reference-front.png`, Side with `…-side.png`; `attr-plane-offset`, `-size` = 1.8, `-opacity` = 0.4, `-locked`; a cube in front of the side plane; click the cube through the plane in `pane-side`; `file.save` → reopen; export static GLB | the click selects the cube (planes are not picked); the saved archive lists both images under the manifest key `images` (`images/<sha256>.png`) and none under `assets`; `imagePlanes()` deep-equal after reopening; the exported GLB has no image except the palette and no node for the planes | B13 | b10 |
 | E2E-MOD-30 | Seed-san face edit keeps MToon and expressions | load Seed-san; `ws` Model; make the face mesh editable (Outliner `outliner-make-editable-<id>`); `2`; insert a loop on a cheek ring edge; `workspace.set {workspace:'animate'}`; wait for the display rebuild; `setExpression(seed-san, 'blink', 1)`; play 10 frames with spring bones on | outline pixels (the MToon outline colour) in a head region before and after the edit differ by < 10 % in count; with blink 1 the eyelid region pixels differ from blink 0; a spring-bone joint's world position changes over the played frames; rebuild time recorded (≤ 300 ms report) | INT | — |
@@ -4019,9 +4019,9 @@ orientation is enough or the desktop DCC's per-component Normal moves into core 
 | S26 | Reference images as plain assets in `.ekzanim` | stored under the manifest key `images` (`images/<sha256>.<ext>`), not `assets` | the M2a reader rejects any `assets` entry that is not glb/vrm/vrma; with `images` it opens the project read-only as §4.2 promises |
 | S27 | ADR 0015 §3 `BlobStore.persist` to IndexedDB | no persistence on `BlobStore`; the autosave store is the single owner of the IndexedDB `blobs` store and receives the chunk closure | one GC owner per store; the browser store never parses manifests |
 | S28 | `mesh.freezeTransforms` as a kernel MeshOp "that also patches placement" | an editor operator over the kernel op `mesh.applyTransform`; `palette.replaceSwatch` over `mesh.paint.remap` | a MeshOp writes only the EditMesh; record patches need the operator's transaction |
-| S29 | One modifier rule per surface (v1.0: card "Ctrl slower, Shift faster", viewport "Shift ×0.1") | one rule everywhere: the shipped M2a virtual-slider rule, `Shift` ×0.1, `Mod` ×10; `Shift` at drag start = smart extrude | the shipped Channel Box already uses Shift fine / Mod coarse and Animate must not change (rule 10) |
+| S29 | One modifier rule per surface (v1.0: card "Ctrl slower, Shift faster", viewport "Shift ×0.1") | one rule everywhere: the shipped M2a virtual-slider rule, `Shift` ×0.1, `Mod` ×10; `Shift` at drag start = smart extrude | the shipped Channels panel already uses Shift fine / Mod coarse and Animate must not change (rule 10) |
 | S30 | Trackpad users: MMB features unspecified; ADR 0016 D1 loop-table deselect on `Ctrl`+double-click | the MMB stand-in (`Alt+Shift`+LMB in Model panes, trackpad and one-button profiles); `contextmenu` never counts as RMB; the loop-table deselect is `Mod`+double-click (Multi-Cut's loop stays literal `Ctrl`) | the owner works on macOS where the default profile is trackpad and Ctrl-click fires `contextmenu` |
-| S31 | Research 16 §8: primitive parameters in Channel Box INPUTS (dropped in v1.0) | restored: a persistent primitive entry while `generator` is non-null | Desktop-DCC modelers change `polyCube1` subdivisions in INPUTS |
+| S31 | Research 16 §8: primitive parameters in Channels panel INPUTS (dropped in v1.0) | restored: a persistent primitive entry while `generator` is non-null | Desktop-DCC modelers change `polyCube1` subdivisions in INPUTS |
 
 ### 12.3 Design review round 1 (v1.0 → v1.1)
 
@@ -4066,7 +4066,7 @@ majors and 29 minors; duplicates are merged below. Every item was applied unless
 | Minor | `T` could not bring the manipulator back | `T` reopens a live extrude session |
 | Minor | `Mod+E` still Export in Model object mode | `model` scope (S17); DECISIONS-OPEN Q-MOD-UI-3 annotated |
 | Minor | Animate rows leaking into Model | `model.animateOnly` shadows; `Mod+A` rows; time keys deliberately kept (harmless navigation) |
-| Minor | Shift meant slower and faster | **applied differently**: one rule, the shipped M2a `Shift` ×0.1 / `Mod` ×10, not the desktop DCC's `Ctrl` fine / `Shift` coarse, because changing the shipped Channel Box would break rule 10 (S29) |
+| Minor | Shift meant slower and faster | **applied differently**: one rule, the shipped M2a `Shift` ×0.1 / `Mod` ×10, not the desktop DCC's `Ctrl` fine / `Shift` coarse, because changing the shipped Channels panel would break rule 10 (S29) |
 | Minor | percent display and parsing | kind renamed `fraction`, shown as fractions, `parseParamInput` wrapper |
 | Minor | Multi-Cut across non-adjacent faces | stretch with the hint "Click on each face the cut crosses" |
 | Minor | face-mode bevel poll-failed | core: bevels the faces' edges (S23) |

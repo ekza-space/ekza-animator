@@ -20,7 +20,7 @@ export interface BrowserServicesOptions {
   readonly storageNamespace?: string;
   /** Every storage access throws (private mode, blocked site data; the NFR-12 e2e switch `storage=blocked`). */
   readonly storageBlocked?: boolean;
-  /** false: the Channel Box virtual slider uses pointer capture instead of Pointer Lock (§5.18; read by A2). */
+  /** false: the Channels panel virtual slider uses pointer capture instead of Pointer Lock (§5.18; read by A2). */
   readonly pointerLock?: boolean;
   /** M6a (M6A-SPEC §9.1): the mesh blob store; absent = the browser's (memory) store, null = editor-core's default. */
   readonly blobs?: BlobStore | null;

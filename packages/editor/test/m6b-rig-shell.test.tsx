@@ -288,7 +288,7 @@ describe('layouts (§8.2)', () => {
     expect(RIG_SLOTS.filter((slot) => slot.slot === 'right').map((slot) => slot.kind)).toEqual([
       PANEL.rigToolkit,
       PANEL.paintWeights,
-      PANEL.channelBox,
+      PANEL.channels,
       PANEL.attributes,
     ]);
     expect(RIG_SLOTS.filter((slot) => slot.slot === 'bottom').map((slot) => slot.kind)).toEqual([PANEL.validation]);
@@ -427,17 +427,17 @@ describe('the dock tabs per mode (§5.24, §8.2)', () => {
     // The user picks Attributes in Skeleton mode, then leaves it.
     visible = [PANEL.viewport, PANEL.attributes, PANEL.validation];
     await run(test.app, 'rig.mode', { mode: 'object' });
-    expect(shown.slice(-2)).toEqual([PANEL.validation, PANEL.channelBox]);
+    expect(shown.slice(-2)).toEqual([PANEL.validation, PANEL.channels]);
     expect(test.app.session.getState().rig.tabMemory.skeleton).toEqual({
       right: PANEL.attributes,
       bottom: PANEL.validation,
     });
-    visible = [PANEL.channelBox, PANEL.validation];
+    visible = [PANEL.channels, PANEL.validation];
     await run(test.app, 'rig.mode', { mode: 'skeleton' });
     expect(shown.slice(-2)).toEqual([PANEL.validation, PANEL.attributes]);
     // Object mode kept its default (the user did not change it).
     expect(test.app.session.getState().rig.tabMemory.object).toEqual({
-      right: PANEL.channelBox,
+      right: PANEL.channels,
       bottom: PANEL.validation,
     });
   });
@@ -447,9 +447,9 @@ describe('the dock tabs per mode (§5.24, §8.2)', () => {
     const before = test.app.session.getState().rig.tabMemory;
     rememberTabs(test.app, 'skin', [PANEL.viewport]);
     expect(test.app.session.getState().rig.tabMemory).toBe(before);
-    rememberTabs(test.app, 'skin', [PANEL.channelBox]);
+    rememberTabs(test.app, 'skin', [PANEL.channels]);
     expect(test.app.session.getState().rig.tabMemory.skin).toEqual({
-      right: PANEL.channelBox,
+      right: PANEL.channels,
       // C6: Skin mode keeps Validation below while the Component Editor is deferred (literal update, §3 rule 9).
       bottom: PANEL.validation,
     });

@@ -417,7 +417,7 @@ They are created and removed together with the constraint, in the same transacti
 Labels are title-cased: `space` becomes "Space" and `parent.hand` becomes "Parent: Hand".
 
 - **`keyAll: false`** for all three (M2A §5.1 rule 4). They are modes and settings, like `ikFk`: a later `S` on the
-  pose must not re-key a stale weight. They are keyed when they are selected Channel Box channels, by auto-key when
+  pose must not re-key a stale weight. They are keyed when they are channels selected in the Channels panel, by auto-key when
   edited, and by their own operators (space switch, bake).
 - **Mirroring** copies the value to the same-named attribute on the counterpart holder. `rig.constraint.mirror`
   keeps `key` and the target keys, so the names line up (§7).
@@ -650,7 +650,7 @@ bone prop.R                driven by prop.R (edge constraint → bone)
   curves, static values, overrides, the Graph Editor (`other` colour), the Dope Sheet, the clipboards, undo and
   auto-key (M2A §5.1). Weights are per clip, as every curve is; the record's `targets[k].weight` is the rig-level
   default.
-- **Channel Box.**
+- **Channels panel.**
   - Rows appear under "Custom" with their labels.
   - The control's header shows a constraint chip ("⛓ space: Hand") using `--cb-constrained` (research 09 §4.5).
     The chip has a tooltip and opens Attributes › Constraint.
@@ -768,7 +768,7 @@ Research 07 §11's discrete spaces are built as a constraint:
 
   - In `attrs` mode the switch keys one-hot weights.
   - A switch to the current space poll-fails ("ik.arm.L is in Chest space already").
-- **UI.** A "Space" enum row in the Channel Box. Choosing a value runs the switch with match. Typing a raw index
+- **UI.** A "Space" enum row in the Channels panel. Choosing a value runs the switch with match. Typing a raw index
   writes the attribute without matching, as the desktop DCC's enum attributes do. There is also an Attributes › Space
   section with the key-mode select.
 - The Graph Editor draws vertical markers at `@space` keys. The Euler filter treats the segments between them
@@ -958,7 +958,7 @@ No new default hotkeys apart from the CV-mode keys reused from M6a.
 |---|---|
 | Attributes › Constraint (one section per constraint on the lead control; research 09 §4.6) | type, targets with weight sliders (static or animated: a key toggle per row), offset mode with Update/Clear, skip axes (t: x y z, r: x y z), interp, aim axes and world up, blend, enabled, Bake…, Delete |
 | Attributes › Control Shape | §11.5 |
-| Channel Box | weight, blend and space rows under Custom; constraint chip on the header (§7) |
+| Channels | weight, blend and space rows under Custom; constraint chip on the header (§7) |
 | Outliner (Rig & Skin) | constraints listed under the driven control with a chain glyph, like the desktop DCC's constraint nodes; RMB: Select Targets, Bake, Delete |
 | Viewport | constraint lines (§7); CV points in CV mode |
 | Validation list (C6) | constraint warnings (`cycle`, `duplicate-binding`, `dangling-ref`, `unsupported-op`) with a "Select" action |
@@ -1012,7 +1012,7 @@ Proposed for MODELING-PLAN §5.2, as package **C8 `constraints-shapes`**:
 | Part | Scope | Size (agent-days) | Starts after |
 |---|---|---|---|
 | C8a | rig: four ops, `parseConstraintParams`, R3–R10, bake core, mirror mapping, unit gates | 4.5 | C0 (only the rig package; it can start at once) |
-| C8b | editor-core operators (§12), Attributes › Constraint, Channel Box rows and chip, Outliner entries, viewport lines | 3 | C8a, C6 |
+| C8b | editor-core operators (§12), Attributes › Constraint, Channels panel rows and chip, Outliner entries, viewport lines | 3 | C8a, C6 |
 | C8c | shape library additions, `rig.shape.*`, CV mode (reusing B10/B12a component selection and transform tools), mirror/copy/paste/reset, `edited` + `autoRig.update` preservation | 3 | B10, B12a, C4 |
 | C8d (stretch) | `rig.space.add` / `switch`, default space sets, Graph Editor markers | 1.5 | C8a, C8b |
 

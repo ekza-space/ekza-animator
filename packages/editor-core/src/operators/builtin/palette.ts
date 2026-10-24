@@ -445,7 +445,7 @@ const assignMaterial = defineOperator({
   description: 'Creates a Lambert or Blinn swatch and assigns it to the selected faces or objects.',
   ...META,
   flags: { undo: true },
-  aliases: ['Lambert', 'Blinn', 'Hypershade', 'New Material', 'Assign Material'],
+  aliases: ['Lambert', 'Blinn', 'Shader Editor', 'New Material', 'Assign Material'],
   extraArgs: ['shader', 'meshes', 'srgb', 'name'],
   poll({ app }, args): PollResult {
     if (!isRecord(args)) return fail("expects { shader: 'lambert' | 'blinn' }");

@@ -11,10 +11,10 @@ import { type EditorApp, PANEL, paintRefusal, parseHex, type SessionState, toHex
 import { type JSX, type KeyboardEvent, type MouseEvent, useCallback, useId, useMemo, useState } from 'react';
 import { useDocQuery, usePrefs, useRunOperator, useSession } from '../../hooks';
 import { shortcutFor } from '../../shell/menus';
-import { type MenuEntry, useContextMenu } from '../channel-box/kit/menu';
-import { Popover } from '../channel-box/kit/popover';
+import { type MenuEntry, useContextMenu } from '../channels/kit/menu';
+import { Popover } from '../channels/kit/popover';
 import { useMeshRuntimesVersion } from './hooks';
-import { BUTTON, CHECK, EMPTY_STATE, INPUT, INVALID, MUTED_TEXT, PANEL_ROOT, SELECT } from '../channel-box/kit/styles';
+import { BUTTON, CHECK, EMPTY_STATE, INPUT, INVALID, MUTED_TEXT, PANEL_ROOT, SELECT } from '../channels/kit/styles';
 import {
   contrastOn,
   leadMeshId,

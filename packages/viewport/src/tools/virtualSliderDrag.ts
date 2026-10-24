@@ -1,4 +1,4 @@
-// The DOM side of the Channel Box virtual slider (M2A-SPEC §5.18, A2), shared by the Channel Box rows and the
+// The DOM side of the Channels panel virtual slider (M2A-SPEC §5.18, A2), shared by the Channels panel rows and the
 // viewport's plain MMB drag: Pointer Lock when available (no edge stop), else pointer capture; both integrate
 // `PointerEvent.movementX` (never clientX differences), so the values are identical in both modes.
 //
@@ -25,7 +25,7 @@ export interface VirtualSliderDragOptions {
   /** Called once when the gesture ends (committed or cancelled). */
   readonly onEnd?: (committed: boolean) => void;
   /**
-   * Motion already made before the slider started (the Channel Box's LMB drag starts after 3 px; the `movementX`
+   * Motion already made before the slider started (the Channels panel's LMB drag starts after 3 px; the `movementX`
    * integrated since the press, never a clientX distance): applied as the first increment, with the press's
    * modifiers.
    */
@@ -39,7 +39,7 @@ export interface VirtualSliderDragOptions {
 }
 
 /**
- * Starts a virtual slider drag from a pointer press on `element` (a Channel Box row or a viewport pane). Returns
+ * Starts a virtual slider drag from a pointer press on `element` (a Channels panel row or a viewport pane). Returns
  * null when no channel of `refs` can be edited (nothing starts).
  */
 export function startVirtualSliderDrag(

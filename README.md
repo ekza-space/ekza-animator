@@ -72,7 +72,7 @@ habits: component modes on `1`/`2`/`3` (or the RMB marking menu), edge loop and 
 Shift+RMB, **Extrude on `⌘E`/`Ctrl+E`** as an adjustable session (drag the cap with W/E/R, change Divisions on the
 Last-op card, step back one drag at a time with undo), Insert Edge Loop, Multi-Cut, Bevel, Bridge, Merge/Target Weld,
 Slide, Mirror and Symmetrize, **symmetry remembered per mesh** (every tool mirrors), soft selection, snapping and
-pivots, the Modeling Toolkit with option boxes, `G` to repeat and `T` to type a value. Colour is a **palette slot per
+pivots, the Modeling Tools panel with option boxes, `G` to repeat and `T` to type a value. Colour is a **palette slot per
 face** (Palette panel, Paint Colour), exported as one palette texture, vertex colours or one material per colour.
 Templates (a prop, a handheld item, humanoid guides and a body), reference image planes, a Poly Count HUD with
 budgets and a Mesh Check panel help a model stay game-ready. **Static GLB export** writes the model with Ekza's

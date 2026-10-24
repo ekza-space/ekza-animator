@@ -2,7 +2,7 @@
 // of Rig & Skin. Collapsed until opened, so entering the workspace loads neither the library UI nor the clip-library
 // chunk; opening it loads both (the body as its own lazy chunk, shared with the Animate panel).
 import { type JSX, lazy, Suspense, useState } from 'react';
-import { BUTTON, MUTED_TEXT } from '../../../channel-box/kit/styles';
+import { BUTTON, MUTED_TEXT } from '../../../channels/kit/styles';
 import type { RigToolkitSectionProps } from '../types';
 
 const ClipCardList = lazy(() =>

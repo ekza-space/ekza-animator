@@ -10,7 +10,7 @@
 ## Context
 
 As in a leading commercial desktop DCC, a keyed channel edited with auto-key off does not write the document: it
-becomes a **session override** (light pink in the Channel Box) that is discarded on frame change and turned into keys
+becomes a **session override** (light pink in the Channels panel) that is discarded on frame change and turned into keys
 by `S`. v0.1 made overrides non-undoable. In the desktop DCC those edits *are* undoable. With v0.1, an animator who
 rotates an arm the wrong way and presses `Z` would undo the previous document transaction — for example a `Set Key` at
 another frame — while the bad pose stayed on screen: silent data loss in the most common gesture, and a break of "one

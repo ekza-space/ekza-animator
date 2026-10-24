@@ -1,8 +1,8 @@
 // The selection options marking menu `model.options` (M6A-SPEC §8.4; B12a data, B9's generic marking menu draws it):
-// Ctrl+Shift+RMB, and `Q`+LMB (the DCC hotbox habit; one `MarkingMenuDef` has one trigger, so the `Q`+LMB copy is
-// `model.options.lmb` with the same items). Slots N Symmetry: Object X · NE Symmetry: Off · E Soft Select ✓ ·
-// SE Camera-based ✓ · S Constraint ▸ (stretch items disabled) · SW Backfaces ✓ · W Selection Style ▸ (Marquee, Tweak;
-// Drag disabled) · NW Symmetry ▸ (World X/Y/Z, Object Y/Z); list Tolerance… · Preserve Seam ✓.
+// Ctrl+Shift+RMB, and `Q`+LMB (the DCC hold-key marking-menu habit; one `MarkingMenuDef` has one trigger, so the
+// `Q`+LMB copy is `model.options.lmb` with the same items). Slots N Symmetry: Object X · NE Symmetry: Off · E Soft
+// Select ✓ · SE Camera-based ✓ · S Constraint ▸ (stretch items disabled) · SW Backfaces ✓ · W Selection Style ▸
+// (Marquee, Tweak; Drag disabled) · NW Symmetry ▸ (World X/Y/Z, Object Y/Z); list Tolerance… · Preserve Seam ✓.
 //
 // Also the transform tools' space menus (§7 "Pointer gestures": `W`/`E`+LMB; Move and Rotate gain Component, §5.15):
 // `model.space.move` (World, Object, Component) and `model.space.rotate` (World, Object, Gimbal, Component). Positions
@@ -99,7 +99,7 @@ const OPTIONS_SLOTS: MarkingMenuDef['slots'] = {
 };
 
 const OPTIONS_LIST: readonly MarkingMenuItem[] = [
-  // The tolerance is typed in the Modeling Toolkit's Symmetry section (B11, `mtk-sym-tol`).
+  // The tolerance is typed in the Modeling Tools panel's Symmetry section (B11, `mtk-sym-tol`).
   { label: 'Tolerance…', op: 'workspace.showPanel', args: { panel: 'toolkit' } },
   {
     label: 'Preserve Seam',

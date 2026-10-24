@@ -11,7 +11,7 @@
 
 The owner asked whether modeling should follow a leading commercial desktop DCC (his own tool; "the desktop DCC"
 below) or a popular open-source DCC ("the open-source DCC"). The Animate side already ships the desktop DCC's model:
-Q/W/E, Channel Box, Alt navigation, RMB marking menus, `S` = set key, `R` = scale tool, the `dcc` keymap preset on
+Q/W/E, Channels, Alt navigation, RMB marking menus, `S` = set key, `R` = scale tool, the `dcc` keymap preset on
 `KeyboardEvent.code` with panel scopes (ADR 0008 §5). The open-source DCC is faster for precise low-poly work (Adjust
 Last Operation, typed numbers during modal tools) and its own *Industry Compatible* keymap (5.2 LTS) follows the
 desktop DCC for modeling (`1`–`3` modes, `Ctrl+E` extrude, `Ctrl+B` bevel, `B` soft select, double-click loop).
@@ -28,10 +28,10 @@ ADR 0014 rejects.
    Extrude, W Multi-Cut, SW Delete (the desktop DCC's plain Delete; Delete Edge/Vertex in the slot's list), N the
    mode's main topology tool — Ctrl+RMB = convert selection, Ctrl+Shift+RMB and `Q`+LMB = selection options (symmetry,
    soft select, constraints); W/E/R manipulators with a Normal space for components; **MMB-drag anywhere transforms
-   the selection** with W/E/R active (along the last-picked handle axis, or in the view plane; the Channel Box virtual
+   the selection** with W/E/R active (along the last-picked handle axis, or in the view plane; the Channels panel virtual
    slider when channels or an INPUTS field are selected); Tweak selection style; Shift+drag smart extrude; the desktop
    DCC's loop table (double-click loop; Shift+double-click adjacent = full loop, non-adjacent = partial loop, parallel
-   edge = ring; Ctrl+double-click deselects); hide/show/isolate; Modeling Toolkit panel; Poly Count HUD; desktop-DCC
+   edge = ring; Ctrl+double-click deselects); hide/show/isolate; Modeling Tools panel; Poly Count HUD; desktop-DCC
    names in every menu (Multi-Cut, Insert Edge Loop, Target Weld, Slide Edge, Average Vertices, Soft Select, Harden
    Edge, Merge to Center).
 2. **Open-source-DCC semantics, not its keys**: Adjust Last Operation; typed numbers during any modal interaction;
@@ -72,7 +72,7 @@ ADR 0014 rejects.
    tool, like `Y`. File, view, UI and selection operators are not repeatable. Operators that create or delete mesh
    records are `MeshSetOp`s (ADR 0014 D7); adjust-last over them requires an unchanged record set.
 7. **Last-operation surfaces**: a pane card at the bottom-left (collapsed pill, expands on click or `T`; MMB virtual
-   slider on rows, Ctrl slower / Shift faster) and the same fields under **INPUTS** in the Channel Box, where
+   slider on rows, Ctrl slower / Shift faster) and the same fields under **INPUTS** in the Channels panel, where
    desktop-DCC users look. Only the last operation is adjustable; any other document edit, selection or mode change,
    undo/redo, workspace switch or remote change to the target closes it with the reason — except the **extrude
    session**: after `Ctrl+E` (or a smart extrude) the extrude manipulator stays up and every drag on it, and every
