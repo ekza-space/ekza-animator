@@ -4,7 +4,8 @@
 // smoothing and roughened by hash noise like a reconstruction; one image texture on a fragmented atlas (one chart per
 // template face, so every chart border is a UV seam, as in a generator's atlas) with banded clothes, skin, hair and
 // eyes plus texel noise; the frame of a generator's default export: facing +X (Tripo's `export_orientation`), about
-// one unit tall, centred on its bounds; vertices split along the seams (one glTF primitive, uint32 indices).
+// one unit tall, centred on its bounds; vertices split along the seams (one glTF primitive, uint32 indices). The atlas
+// has a generator's background: black outside the charts, with 2 texels of chart colour dilated around each chart.
 import { encodePngRgb } from '../png/encode';
 import { humanoidBody, triangulate } from '../mesh/kernel';
 import { GltfBuilder } from './glb';
@@ -17,6 +18,11 @@ export interface AiLikeModelOptions {
   readonly forward?: '+x' | '+z';
   /** Height in file units. */
   readonly height?: number;
+  /** The atlas background outside the charts (a generator's: black or transparent); null fills every cell with the
+   *  chart's colours (no gutter). Default black. */
+  readonly gutter?: readonly [number, number, number] | null;
+  /** Texels of chart colour dilated into the gutter around each chart (a packer's padding). Default 2. */
+  readonly padding?: number;
 }
 
 /** Template triangles of `humanoidBody({style: 'smooth'})` (the triangle count is 494 × subdivisions²). */
@@ -30,6 +36,18 @@ function hash01(a: number, b: number, c = 0): number {
 }
 
 type RGB = readonly [number, number, number];
+
+/** Every colour the albedo paints (sRGB), before the ±5 % texel noise: what the texture's chart interiors hold. */
+export const AI_LIKE_ALBEDOS: readonly RGB[] = [
+  [52, 36, 26],
+  [18, 18, 22],
+  [226, 182, 150],
+  [62, 42, 30],
+  [44, 66, 140],
+  [30, 30, 30],
+  [236, 236, 230],
+  [188, 52, 46],
+];
 
 /** The model's "albedo" at a point of the 1.7 m template (+Y up, facing +Z). */
 function albedo(x: number, y: number, z: number): RGB {
@@ -239,13 +257,51 @@ export function makeAiLikeGlb(opts: AiLikeModelOptions = {}): Uint8Array {
     return [fr.cx + pad + s * (cell - 2 * pad), fr.cy + pad + t * (cell - 2 * pad)];
   };
 
-  // ---- the texture: each texel takes the albedo of the template point its chart maps it back to ----
+  // ---- the texture: each texel takes the albedo of the template point its chart maps it back to; texels outside
+  // their cell's chart polygon are the gutter, except within `padding` texels of the chart (a packer's dilation) ----
+  const gutter = opts.gutter === undefined ? ([0, 0, 0] as const) : opts.gutter;
+  const padding = Math.max(0, opts.padding ?? 2);
+  // Each chart's polygon in UV space (its template face's corners).
+  const polygons = Array.from({ length: F }, (_, f) => {
+    const out: [number, number][] = [];
+    let c = base.faceCorner[f] as number;
+    const first = c;
+    do {
+      const p = cornerPoint(c);
+      out.push(uvOf(f, bp[3 * p] as number, bp[3 * p + 1] as number, bp[3 * p + 2] as number));
+      c = base.cornerNext[c] as number;
+    } while (c !== first);
+    return out;
+  });
+  /** Distance (UV units) from (u, v) to a polygon's boundary, negative inside (even-odd rule). */
+  const signedDistance = (polygon: readonly (readonly [number, number])[], u: number, v: number): number => {
+    let inside = false;
+    let best = Infinity;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const [ax, ay] = polygon[i] as readonly [number, number];
+      const [bx, by] = polygon[j] as readonly [number, number];
+      if (ay > v !== by > v && u < ((bx - ax) * (v - ay)) / (by - ay) + ax) inside = !inside;
+      const dx = bx - ax;
+      const dy = by - ay;
+      const len2 = dx * dx + dy * dy;
+      const k = len2 > 0 ? Math.max(0, Math.min(1, ((u - ax) * dx + (v - ay) * dy) / len2)) : 0;
+      best = Math.min(best, Math.hypot(u - (ax + k * dx), v - (ay + k * dy)));
+    }
+    return inside ? -best : best;
+  };
   const rgb = new Uint8Array(3 * textureSize * textureSize);
   for (let y = 0; y < textureSize; y++) {
     for (let x = 0; x < textureSize; x++) {
       const u = (x + 0.5) / textureSize;
       const v = (y + 0.5) / textureSize;
       const f = Math.min(F - 1, Math.floor(v / cell) * grid + Math.min(grid - 1, Math.floor(u / cell)));
+      const o = 3 * (y * textureSize + x);
+      if (gutter !== null && signedDistance(polygons[f] as [number, number][], u, v) * textureSize > padding) {
+        rgb[o] = gutter[0];
+        rgb[o + 1] = gutter[1];
+        rgb[o + 2] = gutter[2];
+        continue;
+      }
       const fr = frames[f] as (typeof frames)[number];
       const s = Math.min(1, Math.max(0, (u - fr.cx - pad) / (cell - 2 * pad))) * fr.span + fr.s0;
       const t = Math.min(1, Math.max(0, (v - fr.cy - pad) / (cell - 2 * pad))) * fr.span + fr.t0;
@@ -254,7 +310,6 @@ export function makeAiLikeGlb(opts: AiLikeModelOptions = {}): Uint8Array {
       const pz = fr.o[2]! + s * fr.u[2]! + t * fr.v[2]!;
       const colour = albedo(px, py, pz);
       const noise = 1 + (hash01(x, y, 3) - 0.5) * 0.1;
-      const o = 3 * (y * textureSize + x);
       for (let k = 0; k < 3; k++) rgb[o + k] = Math.max(0, Math.min(255, Math.round((colour[k] as number) * noise)));
     }
   }
