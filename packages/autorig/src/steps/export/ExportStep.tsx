@@ -633,7 +633,7 @@ function Panel(props: { readonly ctx: WizardContext }): JSX.Element {
       )}
       {vrm ? (
         <p className="text-fg-2" data-testid="ar-export-omoba-note">
-          {m.omobaNote}
+          {target === 'omoba-hero' ? m.heroNote : m.omobaNote}
         </p>
       ) : null}
       {target === 'ekza-vrm' && !publishToHub() ? (

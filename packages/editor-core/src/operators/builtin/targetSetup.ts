@@ -39,7 +39,8 @@ import type { ApplyContext, EditorApp, OperatorAgentPolicy, OperatorContext, Pol
 import { GLOBAL_SCOPE } from '../../types';
 import { blockingLints } from '../../workflows/export';
 import { runExportCharacter } from '../../workflows/exportCharacter';
-import { sanitizeClipName, uniqueName } from '../../workflows/names';
+import { readableClipName } from '../../workflows/ekzaClipRestore';
+import { uniqueName } from '../../workflows/names';
 import { pinnedModel } from '../../workflows/target/contracts';
 import { CONTACT_MARKER, scaleClipMarkers, setClipMarker } from '../../workflows/target/markers';
 import { packagePlan } from '../../workflows/target/package';
@@ -86,18 +87,6 @@ function boundSlot(
   }
   if (spec.animation === null) return `${spec.label} takes an object, not a clip`;
   return { target, model, spec, anim: spec.animation };
-}
-
-/** A slot label as a clip name: "Shockline (W) — release" → "Shockline W - release" (`[A-Za-z0-9 _.-]`). */
-export function slotClipName(label: string): string {
-  return sanitizeClipName(
-    label
-      .replace(/[()[\]]/g, '')
-      .replace(/[–—]/g, '-')
-      .replace(/[^A-Za-z0-9 _.-]+/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim(),
-  );
 }
 
 /** The clip frame of a marker's target time (seconds after the start), never past its limit. */
@@ -252,7 +241,7 @@ const slotCreate = defineOperator<'target.slot.create', CreatePrepared>({
     const bound = boundSlot(app, args.character, args.slot);
     if (typeof bound === 'string') throw new EkzaError('unsupported', bound);
     const taken = tx.query.clipsOfCharacter(args.character).map((clip) => clip.name);
-    const name = uniqueName(slotClipName(bound.spec.label), taken);
+    const name = uniqueName(readableClipName(bound.spec.label), taken);
     let id: ClipId;
     if (prepared.inner === null) {
       const frames = blankFrames(bound.anim, BLANK_FPS);

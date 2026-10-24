@@ -97,6 +97,8 @@ export const exportStep = {
   ruleCrossLimb: 'Each part follows one limb',
   ruleRigMode: 'Rig mode',
   // notes
+  // C2: the hero package's note (the target's own copy; CC-20 keeps the VRM note until OMOBA plays custom clips)
+  heroNote: 'The package carries your slot animations and the slot map; empty slots use OMOBA’s own animations.',
   omobaNote: 'OMOBA plays its own motion library on your VRM; your clips play in Space.',
   hubNote: 'Upload this file to Ekza Hub to use it in OMOBA online.',
   kitNote: 'Runtime compatibility is not approval: the kit is for testing in a local OMOBA build.',

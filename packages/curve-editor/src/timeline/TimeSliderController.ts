@@ -159,9 +159,17 @@ export class TimeSliderController {
   private readonly disposers: Disposer[] = [];
   private layer: TimeSliderLayer | null = null;
 
-  constructor(opts: { readonly app: EditorApp; readonly canvas: HTMLCanvasElement }) {
+  /** Told the active clip each time the view is laid out (a lazy layer's loader watches it). */
+  private readonly onView: ((clip: TimelineContext['clip'] | undefined) => void) | undefined;
+
+  constructor(opts: {
+    readonly app: EditorApp;
+    readonly canvas: HTMLCanvasElement;
+    readonly onView?: (clip: TimelineContext['clip'] | undefined) => void;
+  }) {
     this.app = opts.app;
     this.canvas = opts.canvas;
+    this.onView = opts.onView;
     this.ctx2d = context2d(opts.canvas);
     this.base = opts.canvas.ownerDocument.createElement('canvas');
     this.baseCtx = context2d(this.base);
@@ -536,6 +544,7 @@ export class TimeSliderController {
     if (this.view === null) {
       const ctx = activeTimelineContext(this.app);
       this.view = { ctx, layout: sliderLayout(this.cssWidth, this.cssHeight, sliderRange(this.app, ctx)) };
+      this.onView?.(ctx?.clip);
     }
     return this.view;
   }

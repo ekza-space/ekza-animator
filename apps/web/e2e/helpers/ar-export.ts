@@ -78,7 +78,10 @@ export async function thumbnailRendered(page: Page): Promise<void> {
 }
 
 /** Chooses a target in the radio group (the kit opens *For developers* first). */
-export async function chooseTarget(page: Page, target: 'ekza-vrm' | 'glb' | 'vrma' | 'omoba-kit'): Promise<void> {
+export async function chooseTarget(
+  page: Page,
+  target: 'ekza-vrm' | 'omoba-hero' | 'glb' | 'vrma' | 'omoba-kit',
+): Promise<void> {
   if (target === 'omoba-kit' && (await page.getByTestId('ar-export-target-omoba-kit').count()) === 0) {
     await page.getByTestId('ar-export-developers').click();
   }

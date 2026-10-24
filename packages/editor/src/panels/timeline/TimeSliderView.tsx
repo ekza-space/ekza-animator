@@ -97,7 +97,19 @@ export function TimeSliderView(props: { readonly app: EditorApp }): JSX.Element 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (canvas === null) return undefined;
-    const slider = new TimeSliderController({ app, canvas });
+    // CHARACTER-CONTRACT-SPEC §8.8 (C2): the contract's marks load with the first clip that holds a contract slot.
+    let marks: (() => void) | null = null;
+    const slider: TimeSliderController = new TimeSliderController({
+      app,
+      canvas,
+      onView: (clip) => {
+        if (marks !== null || !isTargetSlotId(clip?.slot)) return;
+        marks = () => {};
+        void import('./contractLayer').then((m) => {
+          if (sliderRef.current === slider) marks = m.attachContractLayer(app, slider, canvas);
+        });
+      },
+    });
     sliderRef.current = slider;
     const detach = attachTimeSlider(app, slider, canvas);
 
@@ -126,22 +138,7 @@ export function TimeSliderView(props: { readonly app: EditorApp }): JSX.Element 
     };
     showValue();
     const unsubscribe = subscribeToFrame(app, showValue);
-    // CHARACTER-CONTRACT-SPEC §8.8 (C2): the contract's marks load with the first clip that holds a contract slot.
-    let marks: (() => void) | null = null;
-    const wantMarks = (): void => {
-      const state = app.session.getState();
-      const id = state.activeCharacter === null ? undefined : state.activeClip[state.activeCharacter];
-      if (marks !== null || id === undefined || !isTargetSlotId(app.store.get('clips', id)?.slot)) return;
-      marks = () => {};
-      void import('./contractLayer').then((m) => {
-        if (sliderRef.current === slider) marks = m.attachContractLayer(app, slider, canvas);
-      });
-    };
-    wantMarks();
-    const offMarks = [app.session.subscribe(wantMarks), app.store.subscribe(wantMarks)];
-
     return () => {
-      for (const off of offMarks) off();
       marks?.();
       unsubscribe();
       removeAfterEffect();

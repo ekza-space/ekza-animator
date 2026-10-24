@@ -46,7 +46,6 @@ export function ClipSettingsForm(props: ClipSettingsFormProps): JSX.Element {
   const id = useId();
   // CHARACTER-CONTRACT-SPEC §8.4 (C2): a contract slot's loop, root motion and slot come from the contract.
   const locked = clip.slot?.includes('.') === true;
-  const fromContract = locked ? <span className={MUTED_TEXT}>from contract</span> : null;
 
   const set = <K extends keyof ClipSettingsDraft>(key: K, value: ClipSettingsDraft[K]): void =>
     setEdited({ ...draft, [key]: value });
@@ -177,7 +176,6 @@ export function ClipSettingsForm(props: ClipSettingsFormProps): JSX.Element {
           data-testid="clip-settings-loop"
           onChange={(event) => set('loop', event.currentTarget.checked)}
         />
-        {fromContract}
       </Row>
 
       <Row label="Root motion" htmlFor={`${id}-root-motion`}>
@@ -196,7 +194,6 @@ export function ClipSettingsForm(props: ClipSettingsFormProps): JSX.Element {
             </option>
           ))}
         </select>
-        {fromContract}
       </Row>
 
       <Row label="Ekza slot" htmlFor={`${id}-slot`}>

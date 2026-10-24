@@ -180,6 +180,18 @@ describe('C2 headless: rig → bind → fill two slots → package → read back
     ]);
     expect(JSON.parse(new TextDecoder().decode(files['slot-map.json']))).toEqual(manifest);
 
+    // the metadata round-trip (§8.14): a VRMA of the zip comes back with its slot, contact and root motion
+    await run(app, 'target.slot.clear', { character, slot: 'skill.wild_zap.release' });
+    const back = await run<{ clips: ClipId[] }>(app, 'file.importAnimation', {
+      name: 'skill.wild_zap.release.vrma',
+      bytes: files['animations/skill.wild_zap.release.vrma'],
+      character,
+    });
+    const restored = app.store.get('clips', back.clips[0] as ClipId);
+    const original = app.store.get('clips', zap.clip);
+    expect(restored).toMatchObject({ slot: 'skill.wild_zap.release', rootMotion: 'in-place', loop: false });
+    expect(restored?.contact).toBe(original?.contact);
+
     mkdirSync(OUT, { recursive: true });
     writeFileSync(new URL('polybot-wildspark.vrm', OUT), bytes);
     writeFileSync(new URL(zip?.fileName ?? 'dev.zip', OUT), zip?.bytes ?? new Uint8Array(0));

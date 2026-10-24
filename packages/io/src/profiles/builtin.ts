@@ -7,6 +7,15 @@ import { PROFILE_OMOBA_HANDHELD } from './handheld';
 
 const MiB = 1_048_576;
 
+/** The rules of the VRM 1.0 deliverables (Space and OMOBA, the OMOBA package): OMOBA's runtime rules are errors. */
+const VRM_PROFILE_RULES: ExportProfileDef['rules'] = [
+  ...profileRules(true),
+  ...VRM_RULE_IDS.map((id) => ({
+    id,
+    severity: id === 'vrm.thumbnail-square' ? ('warning' as const) : ('error' as const),
+  })),
+];
+
 /** Kind wildcard for profiles that apply to every exporter. */
 export const ANY_EXPORT_KIND = '*';
 
@@ -23,13 +32,7 @@ export const BUILTIN_EXPORT_PROFILES: readonly ExportProfileDef[] = [
     maxBytes: 50 * MiB,
     jsonMaxBytes: 4 * MiB,
     ekza: true,
-    rules: [
-      ...profileRules(true),
-      ...VRM_RULE_IDS.map((id) => ({
-        id,
-        severity: id === 'vrm.thumbnail-square' ? ('warning' as const) : ('error' as const),
-      })),
-    ],
+    rules: VRM_PROFILE_RULES,
   },
   // CHARACTER-CONTRACT-SPEC §8.10 (C2): the OMOBA hero package — the VRM 1.0 of a model character bound to an OMOBA
   // target with its custom slot clips (each animation named by its primary slot) and `asset.extras.ekza_package_v1`;
@@ -43,13 +46,7 @@ export const BUILTIN_EXPORT_PROFILES: readonly ExportProfileDef[] = [
     maxBytes: 50 * MiB,
     jsonMaxBytes: 4 * MiB,
     ekza: true,
-    rules: [
-      ...profileRules(true),
-      ...VRM_RULE_IDS.map((id) => ({
-        id,
-        severity: id === 'vrm.thumbnail-square' ? ('warning' as const) : ('error' as const),
-      })),
-    ],
+    rules: VRM_PROFILE_RULES,
   },
   // CHARACTER-CONTRACT-SPEC P-5 (C-pre): the five clips mirror OMOBA's v1 passport (`humanoid-glb-v1`, the clips its
   // hosted builder appends), not what the game plays: every hero moves with Run, and skills pick their own library
