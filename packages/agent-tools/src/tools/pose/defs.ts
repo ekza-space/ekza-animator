@@ -146,7 +146,7 @@ export const poseSet = defineTool({
     '(pose-to-pose blocking). set: [{control, rotateDeg {x,y,z}, translateM, scaleFactor, attrs}] in ' +
     "pose_read's shape (≤ 100 controls); rotations are the control's Channel Box rotations in its rotate " +
     'order, zero = rest. key: key (default) always keys every edited channel, and syncRotation (default ' +
-    "true) keys all rotation axes of a control, like Maya's S; static sets clip-wide values on channels " +
+    'true) keys all rotation axes of a control, as the S key (Set Key) does; static sets clip-wide values on channels ' +
     "without keys; pose_only proposes an unkeyed pose at the user's current frame (needs the View " +
     'grant). mode relative adds to the keyed values. Prefer pose_aim and pose_ik_target for limbs.',
   group: 'pose',
@@ -168,7 +168,7 @@ export const poseSet = defineTool({
     syncRotation: z
       .boolean()
       .default(true)
-      .describe('Also key the other rotation axes of each control, like Maya’s S.'),
+      .describe('Also key the other rotation axes of each control, as the S key (Set Key) does.'),
     tangent: tangentName.optional(),
     extendRange: optionalExtendRange,
   }),

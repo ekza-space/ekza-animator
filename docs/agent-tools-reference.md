@@ -1,6 +1,6 @@
 # Ekza Studio agent tools — reference
 
-Generated from `packages/agent-tools/tools.manifest.json` (toolset `1.0.0-mvp.1`, 37 tools) by `pnpm --filter @ekza-studio/agent-tools docs`. Do not edit by hand.
+Generated from `packages/agent-tools/tools.manifest.json` (toolset `1.0.0-mvp.2`, 37 tools) by `pnpm --filter @ekza-studio/agent-tools docs`. Do not edit by hand.
 Setup and pairing: [agents.md](agents.md). Full contracts: [MCP-SPEC §6](MCP-SPEC.md#6-tool-catalogue-normative).
 
 Access: `read` needs the Read grant (always on), `edit` the Edit grant, `files` the Files grant, `view` the View

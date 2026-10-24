@@ -29,7 +29,7 @@ const CARDS = [
     glyph: '▦',
     title: 'Studio',
     tagline: 'The full 3D package',
-    body: 'Model, rig & skin, animate with the Graph Editor, export glTF, VRM and VRMA. Maya-style keys and docked panels.',
+    body: 'Model, rig & skin, animate with the Graph Editor, export glTF, VRM and VRMA. Industry-standard DCC hotkeys and docked panels.',
     action: 'Open Studio',
     note: 'Best on a desktop',
   },
