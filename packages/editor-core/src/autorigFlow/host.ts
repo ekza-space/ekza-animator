@@ -8,14 +8,7 @@
 // a download: the wizard's `ctx.run` toasts its failure), `quiet` is the flow's bookkeeping (a workspace switch, Quick
 // Rig, the bind of ③, a preview: no toast). Headless both are `app.runUntyped`. The operator log (`./log`) wraps both.
 import type { MeshId } from '@ekza-studio/doc';
-import type {
-  AutoRigPoseClass,
-  AutoRigSubject,
-  EditorApp,
-  IntakeReport,
-  OperatorResult,
-  WorkspaceId,
-} from '../types';
+import type { AutoRigPoseClass, AutoRigSubject, EditorApp, IntakeReport, OperatorResult, WorkspaceId } from '../types';
 
 /** One operator run through a funnel. */
 export type AutoRigFlowRun = (op: string, args?: unknown) => Promise<OperatorResult<unknown>>;

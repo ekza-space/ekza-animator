@@ -2,7 +2,7 @@
 // order of `./checks` and the fix itself: one `autorig.fix` (one undo step), measured on the ticked parts and applied
 // to the whole model (an unticked part follows, `with`), then the report again.
 import type { MeshId } from '@ekza-studio/doc';
-import type { AutoRigFix, EditorApp, IntakeReport } from '../types';
+import type { AutoRigFix, IntakeReport } from '../types';
 import { firstFix, transformsUniform } from './checks';
 import { type AutoRigFlowHost, enterRigWorkspace, runMessage } from './host';
 import { reinspectSubject } from './intake';

@@ -3,7 +3,9 @@
 // wizard's steps call — through a recording host: ① the sample and every first fix, ② Quick Rig with the One-Click
 // guess, ③ Auto-rig and the Walk motion test, ④ Walk from the starter pack, ⑤ the first-entry thumbnail and author,
 // the licence, the Ekza VRM download. Each log is compared with its recorded reference (`logs/<model>.json`): the
-// operator sequence Halo's J1 must equal (T9). `UPDATE_AUTORIG_LOGS=1` writes the references again.
+// operator sequence Halo's J1 must equal (T9), and the one the wizard's own step functions issue
+// (`autorig/test/steps/flowLog.test.ts`). `UPDATE_AUTORIG_LOGS=1` writes the references again (then `biome format
+// --write` them).
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -11,7 +13,6 @@ import {
   type AutoRigSampleId,
   autoRigFlowHost,
   type EditorApp,
-  formatLogEntry,
   recordAutoRigFlow,
   runAutoRigJourney,
 } from '../../src';
@@ -103,7 +104,7 @@ describe('Auto-Rig ①–⑤ headless through autorigFlow (AS-ST-5, AS-ST-15)', 
       'VRM Meta',
     ]);
     const recorded: Recorded = { model: 'cube-lad', log: run.log, history: run.history };
-    expect(recorded, run.log.map(formatLogEntry).join('\n')).toEqual(reference('cube-lad', recorded));
+    expect(recorded).toEqual(reference('cube-lad', recorded));
     const rig = run.log.find((entry) => entry.op === 'autorig.rig');
     expect(rig?.args).toEqual({ rigidParts: false, straighten: false });
   });
@@ -117,7 +118,7 @@ describe('Auto-Rig ①–⑤ headless through autorigFlow (AS-ST-5, AS-ST-15)', 
     expect(run.outside).toEqual([]);
     expect(run.history).toContain('Straighten to T-Pose');
     const recorded: Recorded = { model: 'polybot-apose', log: run.log, history: run.history };
-    expect(recorded, run.log.map(formatLogEntry).join('\n')).toEqual(reference('polybot-apose', recorded));
+    expect(recorded).toEqual(reference('polybot-apose', recorded));
     const rig = run.log.find((entry) => entry.op === 'autorig.rig');
     expect(rig?.args).toMatchObject({ straighten: true });
     expect(rig?.document).toEqual(['skel.quickRig.commit', 'skin.bind', 'skel.pose.applyAsRest']);

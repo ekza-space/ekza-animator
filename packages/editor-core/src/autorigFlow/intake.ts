@@ -128,7 +128,10 @@ export async function intakeModel(
 }
 
 /** `autorig.intake`'s arguments for a file. */
-export const intakeFileArgs = (name: string, bytes: Uint8Array): { readonly bytes: Uint8Array; readonly name: string } => ({
+export const intakeFileArgs = (
+  name: string,
+  bytes: Uint8Array,
+): { readonly bytes: Uint8Array; readonly name: string } => ({
   bytes,
   name,
 });

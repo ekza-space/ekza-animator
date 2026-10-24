@@ -17,17 +17,13 @@
         "sample": "polybot-apose"
       },
       "status": "finished",
-      "document": [
-        "mesh.importStatic"
-      ]
+      "document": ["mesh.importStatic"]
     },
     {
       "op": "select.objects",
       "via": "quiet",
       "args": {
-        "ids": [
-          "msh#1"
-        ],
+        "ids": ["msh#1"],
         "mode": "replace"
       },
       "status": "finished",
@@ -37,9 +33,7 @@
       "op": "skel.quickRig.start",
       "via": "quiet",
       "args": {
-        "meshes": [
-          "msh#1"
-        ]
+        "meshes": ["msh#1"]
       },
       "status": "finished",
       "document": []
@@ -52,11 +46,7 @@
         "straighten": true
       },
       "status": "finished",
-      "document": [
-        "skel.quickRig.commit",
-        "skin.bind",
-        "skel.pose.applyAsRest"
-      ]
+      "document": ["skel.quickRig.commit", "skin.bind", "skel.pose.applyAsRest"]
     },
     {
       "op": "library.preview",
@@ -90,9 +80,7 @@
         }
       },
       "status": "finished",
-      "document": [
-        "library.useClip"
-      ]
+      "document": ["library.useClip"]
     },
     {
       "op": "char.renderThumbnail",
@@ -101,9 +89,7 @@
         "character": "chr#1"
       },
       "status": "finished",
-      "document": [
-        "char.renderThumbnail"
-      ]
+      "document": ["char.renderThumbnail"]
     },
     {
       "op": "char.setVrmMeta",
@@ -111,15 +97,11 @@
       "args": {
         "character": "chr#1",
         "patch": {
-          "authors": [
-            "Tester"
-          ]
+          "authors": ["Tester"]
         }
       },
       "status": "finished",
-      "document": [
-        "char.setVrmMeta"
-      ]
+      "document": ["char.setVrmMeta"]
     },
     {
       "op": "char.setVrmMeta",
@@ -131,9 +113,7 @@
         }
       },
       "status": "finished",
-      "document": [
-        "char.setVrmMeta"
-      ]
+      "document": ["char.setVrmMeta"]
     },
     {
       "op": "autorig.export",

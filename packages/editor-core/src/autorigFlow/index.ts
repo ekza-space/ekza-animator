@@ -123,5 +123,11 @@ export {
   prepareExport,
   recommendedTarget,
 } from './export';
-export { type AutoRigFlowLog, type AutoRigFlowLogEntry, comparableArgs, formatLogEntry, recordAutoRigFlow } from './log';
+export {
+  type AutoRigFlowLog,
+  type AutoRigFlowLogEntry,
+  comparableArgs,
+  formatLogEntry,
+  recordAutoRigFlow,
+} from './log';
 export { type AutoRigJourneyInput, type AutoRigJourneyResult, runAutoRigJourney } from './journey';

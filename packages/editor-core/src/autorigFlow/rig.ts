@@ -87,7 +87,10 @@ export function rigidPartsOn(app: EditorApp, state: Pick<AutoRigFlowState, 'rigi
  * Binds the separate parts that reach two limbs again: rigidly to their best joint, a limb part over its own limb's
  * joints (one Bind Skin per mask, `rigidPartBinds`). False when one did not finish.
  */
-export async function bindPartsRigidly(host: Pick<AutoRigFlowHost, 'app' | 'quiet'>, character: CharacterId): Promise<boolean> {
+export async function bindPartsRigidly(
+  host: Pick<AutoRigFlowHost, 'app' | 'quiet'>,
+  character: CharacterId,
+): Promise<boolean> {
   for (const group of rigidPartBinds(host.app, character)) {
     const result = await host.quiet('skin.bind', {
       meshes: group.meshes,
