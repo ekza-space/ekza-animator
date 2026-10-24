@@ -394,7 +394,9 @@ export interface CharacterExportRequest {
   readonly fileName: string;
   readonly format: 'vrm' | 'glb';
   readonly profile: string | null;                           // 'ekza/space-avatar-v1' | 'ekza/omoba-humanoid-v1' | 'local/generic' | null
-  readonly clips: readonly ClipId[] | 'slots';               // 'slots' = every clip with an Ekza slot name
+  // 'slots' = every clip with an Ekza slot name; 'target' (CHARACTER-CONTRACT-SPEC §8.10, C2) = the custom clips of the
+  // character's contract target, each named by its primary slot, with the `ekza_package_v1` slot map
+  readonly clips: readonly ClipId[] | 'slots' | 'target';
   readonly includeProps: boolean | null;                     // null = the profile's default (§5.22)
   readonly material: 'unlit' | 'lit' | null;                 // null = each mesh's own
   readonly thumbnail: 'stored' | 'none';                     // vrm: 'stored' (required by the profile lints)

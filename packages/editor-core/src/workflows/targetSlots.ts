@@ -26,8 +26,8 @@ export interface TargetHooks {
     slot: string,
     opts?: { readonly moving?: boolean },
   ): string | null;
-  /** The Validation rows of a character's target (area `animation`). */
-  rows(app: Pick<EditorApp, 'store'>, character: CharacterId): RigValidationRow[];
+  /** The Validation rows of a character's target (area `animation`); strict for the OMOBA package profile (C2). */
+  rows(app: Pick<EditorApp, 'store'>, character: CharacterId, profile?: string | null): RigValidationRow[];
 }
 
 let hooks: TargetHooks | null = null;
