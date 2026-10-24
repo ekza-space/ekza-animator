@@ -106,6 +106,13 @@ export interface EkzaClipMetaV1 {
   readonly tags: readonly string[];
   readonly derivedFrom: readonly DerivedFrom[];
   readonly redistributable: Redistributable;
+  /**
+   * The clip's display label (CHARACTER-CONTRACT-SPEC §8.14, ADR 0010 rev. 3): written only when set (a package clip,
+   * whose animation is named by its slot), so files without one keep their bytes (the M1 goldens).
+   */
+  readonly label?: string | null;
+  /** Named marker times other than the contact (seconds from the clip's start); written only when not empty. */
+  readonly markers?: Readonly<Record<string, number>>;
 }
 export interface EkzaAnimationV1 {
   readonly schema: 1;

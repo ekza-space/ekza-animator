@@ -31,6 +31,26 @@ export const BUILTIN_EXPORT_PROFILES: readonly ExportProfileDef[] = [
       })),
     ],
   },
+  // CHARACTER-CONTRACT-SPEC §8.10 (C2): the OMOBA hero package — the VRM 1.0 of a model character bound to an OMOBA
+  // target with its custom slot clips (each animation named by its primary slot) and `asset.extras.ekza_package_v1`;
+  // the VRM rules are errors, and the contract's rules run on the document and on the written bytes (`contract.*`).
+  {
+    id: 'ekza/omoba-humanoid-v2',
+    label: 'OMOBA character (VRM 1.0 with your animations)',
+    platform: 'desktop',
+    profile: 'humanoid-glb-v2',
+    kind: 'bake-into-model',
+    maxBytes: 50 * MiB,
+    jsonMaxBytes: 4 * MiB,
+    ekza: true,
+    rules: [
+      ...profileRules(true),
+      ...VRM_RULE_IDS.map((id) => ({
+        id,
+        severity: id === 'vrm.thumbnail-square' ? ('warning' as const) : ('error' as const),
+      })),
+    ],
+  },
   // CHARACTER-CONTRACT-SPEC P-5 (C-pre): the five clips mirror OMOBA's v1 passport (`humanoid-glb-v1`, the clips its
   // hosted builder appends), not what the game plays: every hero moves with Run, and skills pick their own library
   // motions. The profile stays for asset-sourced characters; a character made for an OMOBA hero binds a target (the
