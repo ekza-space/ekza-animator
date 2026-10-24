@@ -25,7 +25,7 @@ rows ST-T5A-1…12. Studio Pro, Repeat Last / Adjust Last and the agent toolset 
 | `pose.lookAt` | Look At | `pose.goals {aims}` | bone = head (neck 0.4 / head 0.6), weight 1, keep twist | `Look At` |
 | `pose.reach` | Reach | `pose.goals {ik}`, or `pose.setAt {propose}` | `key` = effective auto key (Halo's Rec override); without it the solved limb becomes unkeyed edits | `Reach (L Leg)` |
 | `clip.loop` | Make Loop | `clip.makeLoop` | active clip, match ends, cycle offset | `Make Loop "walk"` |
-| `key.scaleValues` | Scale Key Values | `key.adjust {factor, pivot}` | targets = selected keys → channels → animated channels of selected controls; range = band, else the selected keys' frames | `Scale Values ×2` |
+| `key.scaleValues` | Scale Key Values | `key.adjust {factor, pivot}` | targets = selected keys → channels → animated channels of selected controls; range = the selected keys' frames, else the band | `Scale Values ×2` |
 | `key.offsetValues` | Offset Key Values | `key.adjust {offset}` | as above; offsets per channel kind in stored units | `Offset Values` |
 | `key.offsetInLoop` | Offset in Loop | `key.retime {offset, wrap}` | as above (whole curves); the clip must loop | `Offset in Loop (+5 frames)` |
 | `imagePlane.replace` | Replace Image | `imagePlane.delete` + `imagePlane.import` + `imagePlane.set` | keeps name, view, offset, size, opacity, depth, visibility; locked planes refused | `Replace Image` |

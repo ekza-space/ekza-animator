@@ -22,7 +22,7 @@ export interface UiKeyScopeArgs {
   /** Explicit channels (default: the selected keys' channels, else the selected channels, else the animated channels
    *  of the selected controls). */
   readonly targets?: readonly ChannelTarget[];
-  /** Only keys inside this frame range (default: the time band, else the selected keys' frames, else every key). */
+  /** Only keys inside this frame range (default: the selected keys' frames, else the time band, else every key). */
   readonly range?: { readonly start: Frame; readonly end: Frame };
 }
 
