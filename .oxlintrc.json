@@ -2212,6 +2212,7 @@
                   "!@playwright/test",
                   "!@ekza-studio/editor",
                   "!@ekza-studio/io",
+                  "!@ekza-studio/io/testing",
                   "!@ekza-studio/doc",
                   "!ekza-studio-mcp",
                   "!@ekza-studio/agent-evals",
@@ -2222,7 +2223,7 @@
                   "!vrm-validator",
                   "!node:*"
                 ],
-                "message": "apps/web e2e specs may import only: @playwright/test, @ekza-studio/editor, @ekza-studio/io, @ekza-studio/doc, ekza-studio-mcp, @ekza-studio/agent-evals, @modelcontextprotocol/client, gltf-validator, node:* (ARCHITECTURE \u00a73)."
+                "message": "apps/web e2e specs may import only: @playwright/test, @ekza-studio/editor, @ekza-studio/io, @ekza-studio/io/testing (the M7 AI-like model), @ekza-studio/doc, ekza-studio-mcp, @ekza-studio/agent-evals, @modelcontextprotocol/client, gltf-validator, node:* (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-studio/[^/]+/[^/]+/",

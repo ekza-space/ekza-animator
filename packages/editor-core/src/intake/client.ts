@@ -1,9 +1,10 @@
 // The intake worker client (MODELING-PLAN §7.2 G-a; the skin worker's pattern, M6B-SPEC §5.9): a job runs in the host's
 // intake worker (`editor/src/workers/intake.worker.ts`, installed on `app.meshes` by `editor/src/services/
 // intakeWorker.ts`) when there is one, else on this thread through the lazy mesh-wasm chunk — the same function
-// either way, so both give the same bytes. One job at a time per app: a later job supersedes an earlier one
+// either way, so both give the same bytes. The worker path never loads mesh-wasm (nor its WASM) on this thread. One job at a time per app: a later job supersedes an earlier one
 // (EkzaError('cancelled')) and restarts the worker. A worker that fails to load makes every later job run inline.
 import { EkzaError } from '@ekza-studio/anim-core';
+import type { MeshData } from '@ekza-studio/mesh-core';
 import type { IntakeJob, IntakeResult, IntakeWorkerRequest, IntakeWorkerResponse } from '@ekza-studio/mesh-wasm';
 import type { EditorApp } from '../types';
 import { loadMeshWasm } from './load';
@@ -50,6 +51,47 @@ function clientOf(app: EditorApp): Client {
   return client;
 }
 
+/** A deep copy of a stored mesh: every array its own buffer (the document's revision never detaches). */
+function copyMesh(data: MeshData): MeshData {
+  const layers = new Map<string, MeshData['layers'] extends ReadonlyMap<string, infer V> ? V : never>();
+  for (const [name, layer] of data.layers) layers.set(name, { def: layer.def, data: layer.data.slice() });
+  return {
+    counts: { ...data.counts },
+    position: data.position.slice(),
+    edgeVerts: data.edgeVerts.slice(),
+    edgeFlags: data.edgeFlags.slice(),
+    cornerVert: data.cornerVert.slice(),
+    cornerNext: data.cornerNext.slice(),
+    faceCorner: data.faceCorner.slice(),
+    faceMaterial: data.faceMaterial.slice(),
+    faceFlags: data.faceFlags.slice(),
+    layers,
+  };
+}
+
+/** The buffers of a copied job (each once), for the transfer list. */
+function transferList(job: IntakeJob): ArrayBuffer[] {
+  const out = new Set<ArrayBuffer>();
+  const add = (array: { readonly buffer: ArrayBufferLike }): void => {
+    if (array.buffer instanceof ArrayBuffer) out.add(array.buffer);
+  };
+  for (const { data } of job.meshes) {
+    for (const array of [
+      data.position,
+      data.edgeVerts,
+      data.edgeFlags,
+      data.cornerVert,
+      data.cornerNext,
+      data.faceCorner,
+      data.faceMaterial,
+      data.faceFlags,
+    ])
+      add(array);
+    for (const layer of data.layers.values()) add(layer.data);
+  }
+  return [...out];
+}
+
 async function runInline(job: IntakeJob): Promise<IntakeRun> {
   const wasm = await loadMeshWasm();
   return { result: await wasm.runIntakeJob(job), worker: false };
@@ -70,11 +112,9 @@ export async function runIntake(app: EditorApp, job: IntakeJob): Promise<IntakeR
   }
   const create = client.failed ? null : ((app.meshes as unknown as IntakeWorkerHost).intakeWorker ?? null);
   if (create === null) return runInline(job);
-  const wasm = await loadMeshWasm();
-  const copy: IntakeJob = {
-    ...job,
-    meshes: job.meshes.map((mesh) => ({ ...mesh, data: wasm.cloneMeshData(mesh.data) })),
-  };
+  // The meshes are copied (the document's revisions stay intact); the decoded images are the job's own and travel
+  // by structured clone, so this thread never loads mesh-wasm on the worker path.
+  const copy: IntakeJob = { ...job, meshes: job.meshes.map((mesh) => ({ ...mesh, data: copyMesh(mesh.data) })) };
   return new Promise<IntakeRun>((resolve, reject) => {
     const id = client.nextId++;
     client.pending = { id, job, resolve, reject };
@@ -104,7 +144,7 @@ export async function runIntake(app: EditorApp, job: IntakeJob): Promise<IntakeR
         };
         client.worker = worker;
       }
-      client.worker.postMessage({ type: 'intake', id, job: copy }, wasm.transferablesOf(copy));
+      client.worker.postMessage({ type: 'intake', id, job: copy }, transferList(copy));
     } catch {
       fallBack();
     }
