@@ -335,6 +335,8 @@ describe('profiles and rules', () => {
   it('ships the four ADR 0010 profiles and the M6a handheld profile as data', () => {
     expect(BUILTIN_EXPORT_PROFILES.map((p) => p.id)).toEqual([
       'ekza/space-avatar-v1',
+      // CHARACTER-CONTRACT-SPEC §8.10 (C2): the OMOBA hero package.
+      'ekza/omoba-humanoid-v2',
       'ekza/omoba-humanoid-v1',
       'ekza/vrma-humanoid-v1',
       // M6A-SPEC §5.22 (B8): the static handheld-prop profile.

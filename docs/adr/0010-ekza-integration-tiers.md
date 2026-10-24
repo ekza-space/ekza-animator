@@ -1,6 +1,8 @@
 # ADR 0010 — Ekza integration tiers and the `ekza:animation` contract
 
-- Status: Accepted (2026-10-17); revised 2026-10-17 after the design review (rev. 2)
+- Status: Accepted (2026-10-17); revised 2026-10-17 after the design review (rev. 2); rev. 3 (2026-10-24, character
+  contract C2): row T2 names the game protocol's package manifest, and the clip entries gain the optional `label` and
+  `markers` (ADR 0024, ADR 0025)
 - Inputs: research [03](../research/03-ekza-reuse-audit.md) §2.1, §5–§7, §9 (R7, R12), [02](../research/02-formats-gltf-vrm.md)
   §5.5, §14, [06](../research/06-collaboration.md) §11, [09](../research/09-ui-ux-spec.md) §10.5,
   [04](../research/04-web-stack.md) §13; the registry's profile checks (issue codes `source_too_large`,
@@ -26,7 +28,7 @@ that `model/vrma` has no registry or IANA meaning, and that the Hub → Studio d
    |---|---|---|---|
    | **T0** | `.vrm`/`.glb` with appended slot-named clips (surgeon), `.vrma` per clip, animation-only `.glb`, Tier-0 lints, export profiles and metadata | none | **MVP** |
    | **T1** | Typed asset `ekza:animation:<uuid>`, profile `universal / vrma-humanoid-v1` (builder `none`, format `vrma`, ≤ 8 MiB, 1–32 animations) | registry migration + validator + Hub UI; SDKs; Space/OMOBA consumers | M4a |
-   | **T2** | Avatar-owned animation sets: `asset.extras.ekza_animation_set_v1` slot → clip in `desktop / humanoid-glb-v2` | OMOBA reads aliases from the hashed asset | M4a+ |
+   | **T2** | Character packages: `asset.extras.ekza_package_v1` (`ekza.package.v1`, GAME-PROTOCOL-SPEC §5) slot → clip in `desktop / humanoid-glb-v2` (rev. 3; CHARACTER-CONTRACT-SPEC §4.1) | OMOBA reads the slot map from the hashed asset | M4a+ |
    | **T3** | "Publish to Ekza" from Ekza Studio (device-code login, new `studio-upload` scope) | registry account scope | M4a |
 
 2. **Metadata contract** (written by every exporter in the MVP), inside `asset.extras` so it is covered by the
@@ -46,6 +48,11 @@ that `model/vrma` has no registry or IANA meaning, and that the Hub → Studio d
                      "derivedFrom": [ /* union of the clips' derivedFrom */ ] }
    }
    ```
+
+   Rev. 3 (CHARACTER-CONTRACT-SPEC §8.14): a clip entry may end with `"label": "Shockline (W) — release"` (the clip's
+   display name, written for package clips, whose animation is named by its slot) and `"markers": {"release": 0.2}`
+   (named marker seconds other than the contact); both are written only when set, so files without them keep their
+   bytes.
 
    Rules: no key named `uri` in any letter case anywhere; lowercase hex SHA-256; deterministic key order; no
    timestamps. `ekza_animator_bake_v1` appears only in surgeon outputs (ADR 0005). All downloads use MIME

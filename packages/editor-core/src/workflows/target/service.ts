@@ -3,10 +3,11 @@
 // `clip.setSettings` asks for contract slots, and the Validation rows of area `animation`.
 import { EkzaError } from '@ekza-studio/anim-core';
 import type { CharacterId, ClipId } from '@ekza-studio/doc';
-import { type ContractModel, contractTarget } from '@ekza-studio/io';
+import { type ContractModel, contractTarget, OMOBA_PACKAGE_PROFILE_ID } from '@ekza-studio/io';
 import type { EditorApp, RigValidationRow } from '../../types';
 import { ContractService, type ContractServiceOptions, pinnedModel } from './contracts';
-import { computeSlotStatuses, type SlotStatuses } from './status';
+import { namedMarkers } from './markers';
+import { computeSlotStatuses, type SlotClip, type SlotStatuses } from './status';
 import { type TargetRecord, targetOf } from './table';
 
 const services = new WeakMap<EditorApp, ContractService>();
@@ -33,6 +34,17 @@ export function bindingOf(app: Pick<EditorApp, 'store'>, character: CharacterId)
   return model instanceof EkzaError ? { target, model: null, error: model.message } : { target, model, error: null };
 }
 
+/** The live clips of a character with their named markers (`ekza.clipMarkers`). */
+export function slotClips(app: Pick<EditorApp, 'store'>, character: CharacterId): readonly SlotClip[] {
+  return app.store.query
+    .clipsOfCharacter(character)
+    .filter((clip) => clip.deleted === null)
+    .map((clip) => {
+      const markers = namedMarkers(app.store, clip.id);
+      return Object.keys(markers).length === 0 ? clip : { ...clip, markers };
+    });
+}
+
 const memo = new WeakMap<object, Map<CharacterId, { readonly version: number; readonly value: SlotStatuses | null }>>();
 
 /**
@@ -51,11 +63,7 @@ export function slotStatuses(app: Pick<EditorApp, 'store'>, character: Character
   const value =
     binding === null || binding.model === null
       ? null
-      : computeSlotStatuses(
-          binding.model,
-          binding.target,
-          app.store.query.clipsOfCharacter(character).filter((clip) => clip.deleted === null),
-        );
+      : computeSlotStatuses(binding.model, binding.target, slotClips(app, character));
   byCharacter.set(character, { version: app.store.version, value });
   return value;
 }
@@ -91,23 +99,42 @@ export function contractSlotProblem(
 }
 
 /**
- * The Validation rows of a character's target (area `animation`): one per slot issue. C1 shows them as warnings —
- * nothing a plain export needs fails because of a target; the package export of C2 makes errors block.
+ * The Validation rows of a character's target (area `animation`): one per slot issue, with its one-tap fix
+ * (`target.fix`). For the OMOBA package profile (`ekza/omoba-humanoid-v2`, C2) they keep the contract's severities, so
+ * an error blocks the package export; for any other profile they stay advisory (errors as warnings, warnings as info):
+ * nothing a plain export needs fails because of a target (CC-C1-9).
  */
-export function targetValidationRows(app: Pick<EditorApp, 'store'>, character: CharacterId): RigValidationRow[] {
+export function targetValidationRows(
+  app: Pick<EditorApp, 'store'>,
+  character: CharacterId,
+  profile: string | null = null,
+): RigValidationRow[] {
   const statuses = slotStatuses(app, character);
   if (statuses === null) return [];
+  const strict = profile === OMOBA_PACKAGE_PROFILE_ID;
   const rows: RigValidationRow[] = [];
   for (const row of statuses.rows) {
     if (row.status.kind !== 'custom' && row.status.kind !== 'invalid') continue;
     for (const issue of row.status.issues) {
       rows.push({
         code: `contract.${issue.rule}`,
-        severity: issue.severity === 'error' ? 'warning' : 'info',
+        severity: strict ? issue.severity : issue.severity === 'error' ? 'warning' : 'info',
         area: 'animation',
         message: `${row.label}: ${issue.message}`,
         ids: [row.status.clip],
-        fix: null,
+        fix:
+          issue.fix === undefined
+            ? null
+            : {
+                label: issue.fix,
+                op: 'target.fix',
+                args: {
+                  character,
+                  slot: row.slot,
+                  rule: issue.rule,
+                  ...(issue.marker === undefined ? {} : { marker: issue.marker }),
+                },
+              },
       });
     }
   }

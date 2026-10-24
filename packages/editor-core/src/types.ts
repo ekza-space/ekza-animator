@@ -1432,8 +1432,8 @@ export interface ClipParams {
 export type AutoRigSampleId = 'cube-lad' | 'polybot-tpose' | 'polybot-apose' | 'polybot' | 'seed-san';
 /** `autorig.fix` (§5.2): the one-click fixes of the Model step. */
 export type AutoRigFix = 'center' | 'face' | 'standUp' | 'scale' | 'freeze';
-/** `autorig.export` targets (§5.6.1). */
-export type AutoRigExportTarget = 'ekza-vrm' | 'glb' | 'vrma' | 'omoba-kit';
+/** `autorig.export` targets (§5.6.1); `omoba-hero`: the OMOBA hero package (CHARACTER-CONTRACT-SPEC §8.5, C2). */
+export type AutoRigExportTarget = 'ekza-vrm' | 'omoba-hero' | 'glb' | 'vrma' | 'omoba-kit';
 export interface AutoRigRigResult {
   readonly character: CharacterId; readonly skeleton: SkeletonId;
   readonly straightened: boolean;              // A-posed input: "Straighten to T-Pose" ran (the third undo step)

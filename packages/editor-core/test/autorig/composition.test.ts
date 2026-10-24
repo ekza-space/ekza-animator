@@ -357,7 +357,8 @@ describe('WIZARD_OPERATORS in the rig-workspace chunk (AUTORIG-SPEC §4.5, §7.0
       // D5 landed `autorig.clip.add`: without arguments it refuses with its own argument poll.
       'autorig.clip.add': 'expects { character, clip, params, replace? }',
       // D6 landed `autorig.export`: without arguments it refuses with its argument poll
-      'autorig.export': "expects { character, target: 'ekza-vrm' | 'glb' | 'vrma' | 'omoba-kit', fileName }",
+      'autorig.export':
+        "expects { character, target: 'ekza-vrm' | 'omoba-hero' | 'glb' | 'vrma' | 'omoba-kit', fileName }",
     };
     expect(reasons).toEqual(WIZARD_IDS.map((id) => landed[id] ?? ARRIVES_WITH_AUTORIG));
     // A0 replaced the moved M6b stubs: they poll for real (test/autorig-a0/ runs them), one undo step, listed.

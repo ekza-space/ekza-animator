@@ -50,6 +50,43 @@ import {
   vec3,
 } from './strict';
 
+/**
+ * Why a reader refused a document — the reason codes of OMOBA's reader fixtures (CC Appendix D, `expected/<case>.json`
+ * `"refused: <reason>"`; C2): the 1 MiB cap, the JSON, the JSON Schema checks, a newer `minReaderVersion`, the
+ * revision, a cross-reference, an unknown core rule, a profile (required and unknown, or its `ext` malformed).
+ */
+export type ContractRefusalReason =
+  | 'size'
+  | 'json'
+  | 'schema'
+  | 'reader-version'
+  | 'revision'
+  | 'reference'
+  | 'unknown-rule'
+  | 'profile';
+
+/** The error with its refusal reason recorded in `details.reason`. */
+export function refusal(error: unknown, reason: ContractRefusalReason): unknown {
+  if (!(error instanceof EkzaError)) return error;
+  const details = typeof error.details === 'object' && error.details !== null ? error.details : {};
+  if ('reason' in details) return error;
+  return new EkzaError(error.code, error.message, { ...details, reason });
+}
+
+/** The refusal reason of a reader error (`schema` for any check that names none). */
+export function contractRefusalReason(error: unknown): ContractRefusalReason {
+  const details: Readonly<Record<string, unknown>> =
+    error instanceof EkzaError && typeof error.details === 'object' && error.details !== null
+      ? (error.details as Readonly<Record<string, unknown>>)
+      : {};
+  if (typeof details['reason'] === 'string') return details['reason'] as ContractRefusalReason;
+  if ('rule' in details) return 'unknown-rule';
+  if ('minReaderVersion' in details) return 'reader-version';
+  if ('profile' in details) return 'profile';
+  if (details['field'] === 'contract.revision' && 'expected' in details) return 'revision';
+  return 'schema';
+}
+
 /** The profile modules this build reads (`ext` checked strictly). */
 export const CONTRACT_PROFILE_MODULES: readonly ContractProfileModule[] = [OMOBA_CHARACTER_V1_PROFILE];
 
@@ -244,7 +281,11 @@ function readExt(r: Reader, value: unknown, field: string, position: ExtPosition
   for (const [profile, data] of Object.entries(ext)) {
     if (profile.length > 64) fail(`${field}['${profile}']`, 'a profile id of at most 64 characters');
     if (!isObject(data)) fail(`${field}['${profile}']`, 'an object');
-    r.profiles.get(profile)?.readExt(r, position, data, `${field}['${profile}']`);
+    try {
+      r.profiles.get(profile)?.readExt(r, position, data, `${field}['${profile}']`);
+    } catch (error) {
+      throw refusal(error, 'profile');
+    }
     out[profile] = data;
   }
   return out;
@@ -790,7 +831,11 @@ export function readGameContract(json: unknown, opts: { readonly verifyRevision?
     ext: readExt(r, root['ext'], 'contract.ext', { at: 'document' }),
     ignoredKeys: r.ignored,
   };
-  crossCheck(model);
+  try {
+    crossCheck(model);
+  } catch (error) {
+    throw refusal(error, 'reference');
+  }
   if (opts.verifyRevision !== false) {
     const computed = contractRevision(json);
     if (computed !== model.revision) {

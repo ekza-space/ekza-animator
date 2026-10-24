@@ -21,6 +21,7 @@
     "@pixiv/three-vrm-animation": "catalog:",
     "@types/node": "catalog:",
     "@types/three": "catalog:",
+    "ajv": "8.20.0",
     "gltf-validator": "2.0.0-dev.3.10",
     "three": "catalog:",
     "vitest": "catalog:",

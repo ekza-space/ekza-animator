@@ -87,7 +87,18 @@ export interface TimelineTick {
   readonly selected: boolean;
 }
 
+/**
+ * A layer drawn over the slider's base and owning its own drag handles, loaded lazily by its feature
+ * (CHARACTER-CONTRACT-SPEC §8.8: the contract's markers, window bracket and lead-in band). It draws in CSS px; a drag
+ * gets the pointer's frame on every move and `done` on release (NaN: cancelled).
+ */
+export interface TimeSliderLayer {
+  paint(ctx: CanvasRenderingContext2D, layout: SliderLayout, theme: TimelineTheme): void;
+  grab(x: number, y: number, layout: SliderLayout): ((frame: Frame, done: boolean) => void) | null;
+}
+
 type Gesture =
+  | { readonly kind: 'layer'; readonly drag: (frame: Frame, done: boolean) => void }
   | { readonly kind: 'scrub'; lastFrame: number; readonly carry: boolean }
   | { readonly kind: 'select'; readonly anchor: Frame; band: FrameRange }
   | {
@@ -146,10 +157,19 @@ export class TimeSliderController {
   private readonly badge: PlayheadBadge = { frame: Number.NaN, text: '', width: 0, font: '' };
   private disposed = false;
   private readonly disposers: Disposer[] = [];
+  private layer: TimeSliderLayer | null = null;
 
-  constructor(opts: { readonly app: EditorApp; readonly canvas: HTMLCanvasElement }) {
+  /** Told the active clip each time the view is laid out (a lazy layer's loader watches it). */
+  private readonly onView: ((clip: TimelineContext['clip'] | undefined) => void) | undefined;
+
+  constructor(opts: {
+    readonly app: EditorApp;
+    readonly canvas: HTMLCanvasElement;
+    readonly onView?: (clip: TimelineContext['clip'] | undefined) => void;
+  }) {
     this.app = opts.app;
     this.canvas = opts.canvas;
+    this.onView = opts.onView;
     this.ctx2d = context2d(opts.canvas);
     this.base = opts.canvas.ownerDocument.createElement('canvas');
     this.baseCtx = context2d(this.base);
@@ -178,6 +198,12 @@ export class TimeSliderController {
     this.badgeFont = badgeFont(this.theme);
     this.view = null;
     this.redraw(true);
+  }
+
+  /** Sets (or clears) the lazy layer; setting it again repaints it. */
+  setLayer(layer: TimeSliderLayer | null): void {
+    this.layer = layer;
+    this.invalidate(true);
   }
 
   /** Canvas CSS x of an active-clip frame. */
@@ -262,6 +288,11 @@ export class TimeSliderController {
       return;
     }
     if (e.button !== 0) return;
+    const drag = e.shift ? null : (this.layer?.grab(e.x, e.y, this.currentView().layout) ?? null);
+    if (drag !== null) {
+      this.gesture = { kind: 'layer', drag };
+      return;
+    }
 
     if (e.shift) {
       if (ctx === null) return;
@@ -322,6 +353,10 @@ export class TimeSliderController {
     if (gesture === null || this.disposed) return;
     const frame = this.xToFrame(e.x);
     switch (gesture.kind) {
+      case 'layer':
+        gesture.drag(frame, false);
+        this.invalidate(true);
+        return;
       case 'scrub':
         this.scrub(gesture, frame);
         return;
@@ -371,6 +406,9 @@ export class TimeSliderController {
     if (this.gesture !== gesture) return; // the drag failed or was cancelled while applying the last position
     this.gesture = null;
     switch (gesture.kind) {
+      case 'layer':
+        gesture.drag(this.xToFrame(e.x), true);
+        break;
       case 'scrub':
       case 'select':
         break;
@@ -417,6 +455,7 @@ export class TimeSliderController {
     const gesture = this.gesture;
     this.gesture = null;
     if (gesture?.kind === 'move' || gesture?.kind === 'scale') gesture.drag.cancel();
+    if (gesture?.kind === 'layer') gesture.drag(Number.NaN, true);
     if (gesture !== null) this.invalidate(true);
   }
 
@@ -477,6 +516,7 @@ export class TimeSliderController {
         },
         this.theme,
       );
+      this.layer?.paint(this.baseCtx, layout, this.theme);
       this.baseDirty = false;
     }
     const target = this.ctx2d;
@@ -504,6 +544,7 @@ export class TimeSliderController {
     if (this.view === null) {
       const ctx = activeTimelineContext(this.app);
       this.view = { ctx, layout: sliderLayout(this.cssWidth, this.cssHeight, sliderRange(this.app, ctx)) };
+      this.onView?.(ctx?.clip);
     }
     return this.view;
   }
