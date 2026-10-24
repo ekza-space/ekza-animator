@@ -159,7 +159,8 @@ const linear = (m: Mat4, v: Vec3): Vec3 => [
 
 /**
  * VRM 1.0 renamed the thumb chain; the contract's bone lists (the motion library's `drivenBones`) speak VRM 0.x names,
- * as OMOBA's retargeter reads them (`retarget_animations.VRM1_THUMB_NAMES`, `humanoid/retarget.rs source_semantic`).
+ * as OMOBA's retargeter reads them. The contract says so in `clip.channels.params.vrm1BoneMap` (C0's N4); this map is
+ * the fallback for a contract that predates the parameter.
  */
 const VRM1_THUMBS: Readonly<Record<string, string>> = Object.fromEntries(
   ['left', 'right'].flatMap((side) => [
@@ -168,11 +169,23 @@ const VRM1_THUMBS: Readonly<Record<string, string>> = Object.fromEntries(
   ]),
 );
 
+/** The contract's VRM 1.0 → contract bone names (`clip.channels.params.vrm1BoneMap`), else the built-in thumb map. */
+function vrm1BoneMap(model: ContractModel): Readonly<Record<string, string>> {
+  const map = model.rules.find((rule) => rule.id === 'clip.channels')?.params['vrm1BoneMap'];
+  if (!isRecord(map)) return VRM1_THUMBS;
+  return Object.fromEntries(
+    Object.entries(map).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+  );
+}
+
 /**
- * The VRM humanoid of the file: its version and node index by bone name in VRM 0.x terms (a VRM 1.0 thumb chain is
- * renamed, `VRM1_THUMBS`); version null: no or two VRM extensions.
+ * The VRM humanoid of the file: its version and node index by bone name in the contract's terms (a VRM 1.0 name is
+ * mapped through `renames`); version null: no or two VRM extensions.
  */
-function humanoidOf(json: GltfJson): { readonly version: 'vrm0' | 'vrm1' | null; readonly bones: Map<string, number> } {
+function humanoidOf(
+  json: GltfJson,
+  renames: Readonly<Record<string, string>> = VRM1_THUMBS,
+): { readonly version: 'vrm0' | 'vrm1' | null; readonly bones: Map<string, number> } {
   const root = json as unknown as Readonly<Record<string, unknown>>;
   const extensions = isRecord(root['extensions']) ? root['extensions'] : {};
   const v1 = extensions['VRMC_vrm'];
@@ -182,7 +195,7 @@ function humanoidOf(json: GltfJson): { readonly version: 'vrm0' | 'vrm1' | null;
   if (isRecord(v1)) {
     const human = isRecord(v1['humanoid']) ? v1['humanoid']['humanBones'] : undefined;
     for (const [name, bone] of Object.entries(isRecord(human) ? human : {})) {
-      if (isRecord(bone) && isIndex(bone['node'])) bones.set(VRM1_THUMBS[name] ?? name, bone['node']);
+      if (isRecord(bone) && isIndex(bone['node'])) bones.set(renames[name] ?? name, bone['node']);
     }
     return { version: 'vrm1', bones };
   }
@@ -212,12 +225,12 @@ function accessorBytes(json: GltfJson, index: unknown): number {
   return isIndex(accessor.count) ? accessor.count * components * size : 0;
 }
 
-/** `ekza_animation_v1` clip entries of the file by animation index. */
-function clipMetaByIndex(json: GltfJson): Map<number, Readonly<Record<string, unknown>>> {
+/** The per-clip metadata entries of the file by animation index (`clip.markers.params.metaKey`, `ekza_animation_v1`). */
+function clipMetaByIndex(json: GltfJson, key = 'ekza_animation_v1'): Map<number, Readonly<Record<string, unknown>>> {
   const out = new Map<number, Readonly<Record<string, unknown>>>();
   const asset = (json as unknown as Readonly<Record<string, unknown>>)['asset'];
   const extras = isRecord(asset) ? asset['extras'] : undefined;
-  const meta = isRecord(extras) ? extras['ekza_animation_v1'] : undefined;
+  const meta = isRecord(extras) ? extras[key] : undefined;
   const clips = isRecord(meta) && Array.isArray(meta['clips']) ? meta['clips'] : [];
   for (const clip of clips) if (isRecord(clip) && isIndex(clip['index'])) out.set(clip['index'], clip);
   return out;
@@ -295,6 +308,7 @@ function angleDeg(a: readonly number[], b: readonly number[]): number {
 }
 
 interface SlotContext {
+  readonly json: GltfJson;
   readonly model: ContractModel;
   readonly rig: ContractRig | undefined;
   readonly rest: Rest;
@@ -407,34 +421,45 @@ function checkAnimationSlot(
     }
   }
 
-  // clip.in-place and clip.loop-closure (hips translation in world units of the parent, leg lengths)
+  // clip.in-place (C0's N1: from the rest pose by default, `reference: 'rest-pose'`; caps horizontal, up and down, in
+  // leg lengths, all from the rule's params) and clip.loop-closure — the hips' translation keys as offsets in the rest
+  // frame of their parent, through the parent's rest world transform
   const hipsNode = ctx.bones.get('hips');
   const hips = channels.find((channel) => channel.node === hipsNode && channel.path === 'translation');
   const leg = ctx.legLength;
+  const inPlace = rule('clip.in-place');
   if (hips !== undefined && hips.times.length > 0) {
     const parent = ctx.rest.parentWorld(hipsNode as number);
-    const first = vec3At(hips, 0);
+    const restNode = nodesOf(ctx.json)[hipsNode as number];
+    const reference =
+      inPlace?.params['reference'] === 'first-key'
+        ? vec3At(hips, 0)
+        : ((numbers(restNode?.translation, 3) as Vec3 | null) ?? [0, 0, 0]);
     let horizontal = 0;
-    let vertical = 0;
+    let up = 0;
+    let down = 0;
     for (let i = 0; i < hips.times.length; i++) {
       const v = vec3At(hips, i);
-      const d = linear(parent, [v[0] - first[0], v[1] - first[1], v[2] - first[2]]);
+      const d = linear(parent, [v[0] - reference[0], v[1] - reference[1], v[2] - reference[2]]);
       horizontal = Math.max(horizontal, Math.hypot(d[0], d[2]));
-      vertical = Math.max(vertical, Math.abs(d[1]));
+      up = Math.max(up, d[1]);
+      down = Math.max(down, -d[1]);
     }
     measured['hipsDrift'] = round(horizontal / leg, 4);
-    measured['hipsLift'] = round(vertical / leg, 4);
-    const inPlace = rule('clip.in-place');
+    measured['hipsUp'] = round(up / leg, 4);
+    measured['hipsDown'] = round(down / leg, 4);
     if (inPlace !== undefined && anim.inPlace) {
-      const cap = num(
-        anim.playback === 'hold' ? inPlace.params['maxHorizontalHold'] : inPlace.params['maxHorizontal'],
-        Number.POSITIVE_INFINITY,
-      );
-      const capUp = num(inPlace.params['maxVertical'], Number.POSITIVE_INFINITY);
+      const p = inPlace.params;
+      const cap = num(anim.playback === 'hold' ? p['maxHorizontalHold'] : p['maxHorizontal'], Number.POSITIVE_INFINITY);
+      // a contract before C0's N1 gives one vertical cap (`maxVertical`) for both directions
+      const capUp = num(p['maxUp'], num(p['maxVertical'], Number.POSITIVE_INFINITY));
+      const capDown = num(p['maxDown'], num(p['maxVertical'], Number.POSITIVE_INFINITY));
       if (horizontal / leg > cap + 1e-9) {
         issues.add('clip.in-place', `The hips travel ${(horizontal / leg).toFixed(3)} leg lengths (≤ ${cap})`);
-      } else if (vertical / leg > capUp + 1e-9) {
-        issues.add('clip.in-place', `The hips rise ${(vertical / leg).toFixed(3)} leg lengths (≤ ${capUp})`);
+      } else if (up / leg > capUp + 1e-9) {
+        issues.add('clip.in-place', `The hips rise ${(up / leg).toFixed(3)} leg lengths (≤ ${capUp})`);
+      } else if (down / leg > capDown + 1e-9) {
+        issues.add('clip.in-place', `The hips sink ${(down / leg).toFixed(3)} leg lengths (≤ ${capDown})`);
       }
     }
   }
@@ -502,8 +527,9 @@ function checkRig(
   rig: ContractRig | undefined,
   containers: readonly string[],
   issues: Issues,
+  renames: Readonly<Record<string, string>>,
 ): { bones: Map<string, number>; legLength: number } {
-  const { version, bones } = humanoidOf(json);
+  const { version, bones } = humanoidOf(json, renames);
   const nodes = nodesOf(json);
   let legLength = rig?.lengthUnit.referenceM ?? 1;
   if (version === null) {
@@ -735,13 +761,21 @@ export function checkCharacterPackage(bytes: Uint8Array, opts: PackageCheckOptio
   const rest = new Rest(nodesOf(json));
   const rig =
     model.rigs[model.slots[custom[0]?.[0] ?? '']?.animation?.rig ?? 'humanoid'] ?? Object.values(model.rigs)[0];
-  const { bones, legLength } = checkRig(json, rest, rig, packaging?.containers ?? ['vrm1', 'vrm0'], issues);
+  const { bones, legLength } = checkRig(
+    json,
+    rest,
+    rig,
+    packaging?.containers ?? ['vrm1', 'vrm0'],
+    issues,
+    vrm1BoneMap(model),
+  );
   if (issues.errors) return fail(issues.list, manifest, model);
 
   // the custom slots, each on its own
   const reader = new GltfReader(json, bin);
-  const meta = clipMetaByIndex(json);
-  const ctx: SlotContext = { model, rig, rest, bones, legLength, meta };
+  const metaKey = rule('clip.markers')?.params['metaKey'];
+  const meta = clipMetaByIndex(json, typeof metaKey === 'string' ? metaKey : undefined);
+  const ctx: SlotContext = { json, model, rig, rest, bones, legLength, meta };
   const read = new Map<number, Channel[] | string>();
   const slots: Record<string, PackageSlotReport> = {};
   let ok = true;

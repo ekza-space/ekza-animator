@@ -7,6 +7,8 @@ export { canonicalJson, contractRevision } from './canonical';
 export {
   CONTRACT_PROFILE_MODULES,
   CONTRACT_SLOT_ID,
+  type ContractRefusalReason,
+  contractRefusalReason,
   CORE_RULE_IDS,
   GAME_CONTRACT_KEYS,
   KNOWN_NAMESPACED_RULE_IDS,
