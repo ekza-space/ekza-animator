@@ -103,4 +103,4 @@ under [Gates](#gates).
 | `/editor` | **891,790 B** — `dev` 891,790 B: **+0 B** (gate 900,000 B; AR-B1 limit 897,736 B) |
 | `/autorig` | **652,528 B** — `dev` 652,528 B: **+0 B** (gate 660,000 B) |
 | Stylesheet (every route, not gated) | +2,538 B gzip (ST-T4-17) |
-| `EKZA_E2E_PORT=3164 pnpm run ci` | see the gate record below |
+| `EKZA_E2E_PORT=3164 pnpm run ci` | **Green on `1f71e5ad`** (format, lint, typecheck, deps, fixtures, licences, unit tests, clean build, check:size, e2e 374 passed / 24 skipped / 0 failed); the commit after it changes this file only. Two earlier runs on the busy machine (load average 60–90) failed only on timing assertions in specs the kit does not reach — the Graph Editor double-click window (402 ms > 400 ms), two Auto-Rig timing specs, and Studio's `shell.test.tsx` idle-frame count — each green when re-run alone on the same head |
