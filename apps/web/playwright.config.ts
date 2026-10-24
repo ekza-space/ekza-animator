@@ -73,6 +73,11 @@ const webkitExecutablePath = webkitExecutable();
 const webkitIpad: Project = {
   name: 'webkit-ipad',
   testMatch: HALO_FAMILY,
+  // Desktop WebKit's GPU process can drop a fresh WebGL context while the full suite's Chrome workers load the GPU
+  // (seen in the local gate: "WebGL: context lost" at creation). One WebKit worker, and one retry on a fresh page;
+  // a retried test still shows as flaky in the report.
+  workers: 1,
+  retries: 1,
   use: {
     ...devices['iPad Pro 11 landscape'],
     ...(webkitExecutablePath === undefined ? {} : { launchOptions: { executablePath: webkitExecutablePath } }),

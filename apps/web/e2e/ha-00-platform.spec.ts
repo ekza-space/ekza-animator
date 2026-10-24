@@ -18,6 +18,8 @@ import { controlId, seedSample } from './helpers/seed';
 import { call, expectKernelStarted, loadFile, openEditor, renderedFrames, runOk } from './helpers/test-api';
 
 const DEG = Math.PI / 180;
+/** The first frame can take a while on a loaded machine (the full gate runs every project at once). */
+const FIRST_FRAME_MS = 30_000;
 const isIpad = (info: TestInfo): boolean => info.project.name === 'webkit-ipad';
 
 /** Uncaught page errors from now on (a boot on WebKit must have none). */
@@ -74,7 +76,7 @@ test.describe('ha-00: /editor and /autorig boot and render', () => {
     await expectKernelStarted(page);
     const webgl = await page.evaluate(() => window.__EKZA_STUDIO_TEST__?.webgl.ok ?? false);
     expect(webgl, 'WebGL 2').toBe(true);
-    await expect.poll(() => renderedFrames(page)).toBeGreaterThan(0);
+    await expect.poll(() => renderedFrames(page), { timeout: FIRST_FRAME_MS }).toBeGreaterThan(0);
     expect(await profileOf(page)).toBe(isIpad(testInfo) ? 'ios' : 'standard');
     await seedSample(page, 'polybot');
     await expect.poll(() => distinctColours(page), { timeout: 30_000 }).toBeGreaterThan(16);
@@ -95,7 +97,7 @@ test.describe('ha-00: /editor and /autorig boot and render', () => {
     const errors = pageErrors(page);
     await openAutoRig(page);
     await expect(page.locator('[data-shell="ekza-autorig-shell"]')).toBeVisible();
-    await expect.poll(() => renderedFrames(page)).toBeGreaterThan(0);
+    await expect.poll(() => renderedFrames(page), { timeout: FIRST_FRAME_MS }).toBeGreaterThan(0);
     expect(await profileOf(page)).toBe(isIpad(testInfo) ? 'ios' : 'standard');
     await expect.poll(() => distinctColours(page), { timeout: 30_000 }).toBeGreaterThan(1);
     const picker = page.locator('input[type="file"]').first();
@@ -114,7 +116,7 @@ test.describe('ha-00: iPad portrait', () => {
     test.setTimeout(120_000);
     await openEditor(page);
     await expectKernelStarted(page);
-    await expect.poll(() => renderedFrames(page)).toBeGreaterThan(0);
+    await expect.poll(() => renderedFrames(page), { timeout: FIRST_FRAME_MS }).toBeGreaterThan(0);
     await seedSample(page, 'polybot');
     await expect.poll(() => distinctColours(page), { timeout: 30_000 }).toBeGreaterThan(16);
   });
@@ -127,7 +129,7 @@ test.describe('ha-00: a 13-inch iPad (5.6 MP)', () => {
     test.skip(!isIpad(testInfo), 'WebKit iPad only');
     test.setTimeout(120_000);
     await openEditor(page);
-    await expect.poll(() => renderedFrames(page)).toBeGreaterThan(0);
+    await expect.poll(() => renderedFrames(page), { timeout: FIRST_FRAME_MS }).toBeGreaterThan(0);
     const facts = await canvasFacts(page);
     expect(facts.ratio).toBeCloseTo(1.5, 1);
     expect(facts.antialias).toBe(false);
