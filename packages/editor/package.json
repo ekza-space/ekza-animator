@@ -28,6 +28,7 @@
     "@ekza-studio/editor-core": "workspace:*",
     "@ekza-studio/io": "workspace:*",
     "@ekza-studio/mesh-core": "workspace:*",
+    "@ekza-studio/mesh-wasm": "workspace:*",
     "@ekza-studio/rig": "workspace:*",
     "@ekza-studio/schematic-render": "workspace:*",
     "@ekza-studio/ui": "workspace:*",

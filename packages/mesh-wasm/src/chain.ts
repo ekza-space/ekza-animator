@@ -137,7 +137,11 @@ export async function runIntakeJob(job: IntakeJob, simplifier?: Simplifier): Pro
       }
       case 'paletteBake': {
         const outcome = paletteBake(
-          meshes.map((data, i) => ({ data, materials: job.meshes[i]?.materials ?? [] })),
+          meshes.map((data, i) => ({
+            data,
+            materials: job.meshes[i]?.materials ?? [],
+            paint: job.meshes[i]?.paint ?? null,
+          })),
           job.sources,
           step.args,
         );

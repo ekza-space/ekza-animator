@@ -436,6 +436,89 @@
       }
     },
     {
+      "files": ["packages/mesh-wasm/src/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-studio/anim-core",
+                  "!@ekza-studio/mesh-core",
+                  "!meshoptimizer/simplifier"
+                ],
+                "message": "@ekza-studio/mesh-wasm may import only: @ekza-studio/anim-core, @ekza-studio/mesh-core, meshoptimizer/simplifier (MODELING-PLAN \u00a73.1)."
+              },
+              {
+                "regex": "^@ekza-studio/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ],
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "window",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "document",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "navigator",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "process",
+            "message": "Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          },
+          {
+            "name": "Buffer",
+            "message": "Use Uint8Array; Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          },
+          {
+            "name": "require",
+            "message": "ES modules only; Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/mesh-wasm/test/**", "packages/mesh-wasm/bench/**", "packages/mesh-wasm/vitest.config.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-studio/anim-core",
+                  "!@ekza-studio/mesh-core",
+                  "!vitest",
+                  "!vitest/**",
+                  "!node:*"
+                ],
+                "message": "mesh-wasm tests may import only: @ekza-studio/anim-core, @ekza-studio/mesh-core, vitest, vitest/**, node:* (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-studio/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "files": ["packages/mesh-view/src/**"],
       "rules": {
         "no-restricted-imports": [
@@ -800,9 +883,10 @@
                   "!@ekza-studio/io/project",
                   "!zustand/vanilla",
                   "!@ekza-studio/mesh-core",
-                  "!@ekza-studio/mesh-core/descriptors"
+                  "!@ekza-studio/mesh-core/descriptors",
+                  "!@ekza-studio/mesh-wasm"
                 ],
-                "message": "@ekza-studio/editor-core may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/rig, @ekza-studio/io, @ekza-studio/io/write, @ekza-studio/io/project, zustand/vanilla, @ekza-studio/mesh-core, @ekza-studio/mesh-core/descriptors (ARCHITECTURE \u00a73)."
+                "message": "@ekza-studio/editor-core may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/rig, @ekza-studio/io, @ekza-studio/io/write, @ekza-studio/io/project, zustand/vanilla, @ekza-studio/mesh-core, @ekza-studio/mesh-core/descriptors, @ekza-studio/mesh-wasm (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-studio/[^/]+/[^/]+/",
@@ -835,6 +919,11 @@
                 "name": "@ekza-studio/mesh-core",
                 "allowTypeImports": true,
                 "message": "The mesh kernel is a lazy chunk (M6A-SPEC \u00a72): import types only (or @ekza-studio/mesh-core/descriptors); load the kernel with a dynamic import('@ekza-studio/mesh-core') in the one loader that is allowed to."
+              },
+              {
+                "name": "@ekza-studio/mesh-wasm",
+                "allowTypeImports": true,
+                "message": "mesh-wasm is a lazy chunk (MODELING-PLAN \u00a77.2 G-a): import types only; load it with the dynamic import in src/intake/load.ts, the one loader that is allowed to."
               }
             ]
           }
@@ -1001,9 +1090,10 @@
                   "!@ekza-studio/mesh-view",
                   "!vrm-validator",
                   "!ajv",
-                  "!ajv/**"
+                  "!ajv/**",
+                  "!@ekza-studio/mesh-wasm"
                 ],
-                "message": "@ekza-studio/headless-tests tests may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/doc/testing, @ekza-studio/rig, @ekza-studio/io, @ekza-studio/io/testing, @ekza-studio/editor-core, @ekza-studio/editor-core/testing, @pixiv/three-vrm, @pixiv/three-vrm-animation, gltf-validator, three, three/**, vitest, vitest/**, node:*, @ekza-studio/mesh-core, @ekza-studio/mesh-core/descriptors, @ekza-studio/mesh-core/testing, @ekza-studio/mesh-view, vrm-validator, ajv (ARCHITECTURE \u00a73)."
+                "message": "@ekza-studio/headless-tests tests may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/doc/testing, @ekza-studio/rig, @ekza-studio/io, @ekza-studio/io/testing, @ekza-studio/editor-core, @ekza-studio/editor-core/testing, @pixiv/three-vrm, @pixiv/three-vrm-animation, gltf-validator, three, three/**, vitest, vitest/**, node:*, @ekza-studio/mesh-core, @ekza-studio/mesh-core/descriptors, @ekza-studio/mesh-core/testing, @ekza-studio/mesh-view, vrm-validator, ajv, @ekza-studio/mesh-wasm (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-studio/[^/]+/[^/]+/",
@@ -1776,9 +1866,10 @@
                   "!@ekza-studio/rig",
                   "!@ekza-studio/io",
                   "!gltf-validator",
-                  "!@ekza-studio/mesh-core"
+                  "!@ekza-studio/mesh-core",
+                  "!@ekza-studio/mesh-wasm/worker"
                 ],
-                "message": "@ekza-studio/editor workers may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/rig, @ekza-studio/io, gltf-validator, @ekza-studio/mesh-core (the skin worker, M6B-SPEC \u00a72.1) (ARCHITECTURE \u00a73)."
+                "message": "@ekza-studio/editor workers may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/rig, @ekza-studio/io, gltf-validator, @ekza-studio/mesh-core (the skin worker, M6B-SPEC \u00a72.1), @ekza-studio/mesh-wasm/worker (the intake worker, MODELING-PLAN \u00a77.2) (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-studio/[^/]+/[^/]+/",

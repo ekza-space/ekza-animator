@@ -389,6 +389,9 @@ importers:
       '@ekza-studio/mesh-core':
         specifier: workspace:*
         version: link:../mesh-core
+      '@ekza-studio/mesh-wasm':
+        specifier: workspace:*
+        version: link:../mesh-wasm
       '@ekza-studio/rig':
         specifier: workspace:*
         version: link:../rig
@@ -465,6 +468,9 @@ importers:
       '@ekza-studio/mesh-core':
         specifier: workspace:*
         version: link:../mesh-core
+      '@ekza-studio/mesh-wasm':
+        specifier: workspace:*
+        version: link:../mesh-wasm
       '@ekza-studio/rig':
         specifier: workspace:*
         version: link:../rig
@@ -542,6 +548,9 @@ importers:
       '@ekza-studio/mesh-view':
         specifier: workspace:*
         version: link:../mesh-view
+      '@ekza-studio/mesh-wasm':
+        specifier: workspace:*
+        version: link:../mesh-wasm
       '@ekza-studio/rig':
         specifier: workspace:*
         version: link:../rig

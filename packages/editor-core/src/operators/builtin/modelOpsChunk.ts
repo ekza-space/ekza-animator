@@ -12,6 +12,7 @@ import type { AnyOperator } from './define';
 import { EXPORT_MODEL_OPERATORS } from './exportModel';
 import { HIDE_OPERATORS } from './hide';
 import { IMAGE_PLANE_OPERATORS } from './imagePlane';
+import { INTAKE_OPERATORS } from './intake';
 import { MAKE_EDITABLE_OPERATORS } from './makeEditable';
 import { MESH_OPERATORS } from './mesh';
 import { MODE_OPERATORS } from './mode';
@@ -50,6 +51,8 @@ export const MODEL_OPERATOR_GROUPS = {
     ...IMAGE_PLANE_OPERATORS,
     ...SCENE_OPERATORS,
     ...MAKE_EDITABLE_OPERATORS,
+    // M7 G-a (MODELING-PLAN §7.2): the AI intake operators.
+    ...INTAKE_OPERATORS,
     ...EXPORT_MODEL_OPERATORS,
   ],
 } as const satisfies Readonly<Record<string, readonly AnyOperator[]>>;

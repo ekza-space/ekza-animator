@@ -16,6 +16,7 @@
     "@ekza-studio/io": "workspace:*",
     "@ekza-studio/mesh-core": "workspace:*",
     "@ekza-studio/mesh-view": "workspace:*",
+    "@ekza-studio/mesh-wasm": "workspace:*",
     "@ekza-studio/rig": "workspace:*",
     "@pixiv/three-vrm": "catalog:",
     "@pixiv/three-vrm-animation": "catalog:",

@@ -20,6 +20,7 @@
     "@ekza-studio/doc": "workspace:*",
     "@ekza-studio/io": "workspace:*",
     "@ekza-studio/mesh-core": "workspace:*",
+    "@ekza-studio/mesh-wasm": "workspace:*",
     "@ekza-studio/rig": "workspace:*",
     "zustand": "5.0.15"
   },

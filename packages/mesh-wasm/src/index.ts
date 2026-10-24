@@ -12,3 +12,4 @@ export { kmeans, MAX_KMEANS_ITERATIONS, paletteBake, samplePattern } from './pal
 export { MAX_SEARCH_RUNS, reduceMesh, splitBudget } from './reduce';
 export { loadSimplifier, MESH_WASM_MARKER, MESHOPTIMIZER_VERSION, type Simplifier } from './simplifier';
 export type * from './types';
+export type { IntakeWorkerRequest, IntakeWorkerResponse } from './worker';

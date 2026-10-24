@@ -14,6 +14,7 @@ import { EditorAppProvider } from '../hooks';
 import { CommandPaletteHost } from '../overlays/CommandPalette';
 import { createShellServices } from '../services/browser';
 import type { ToastNotifier } from '../services/notify';
+import { installIntakeWorker } from '../services/intakeWorker';
 import { installSkinWorker } from '../services/skinWorker';
 import type { Summarizer } from '../shell/summary';
 import { Toaster } from '../shell/Toaster';
@@ -106,6 +107,8 @@ function boot(props: StudioHostProps, push: (href: string) => void): Boot {
   }
   // M6b C4: Bind Skin solves in the skin worker (its code is a lazy entry of its own).
   installSkinWorker(app);
+  // M7 G-a: the intake operators (normalize, reduce, palette bake) run their chain in the intake worker.
+  installIntakeWorker(app);
   if (params.e2e) {
     app.prefs.setState({
       firstRunDone: !params.firstRun,

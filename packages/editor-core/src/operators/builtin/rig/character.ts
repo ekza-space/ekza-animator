@@ -433,7 +433,8 @@ const adopt = defineOperator<'char.adopt', Sources>({
 
 // ---------- mesh.importStatic ----------
 
-interface ImportPlan {
+/** What `mesh.importStatic` (and `mesh.intake {bytes}`) read from a file before writing anything (prepare). */
+export interface ImportPlan {
   readonly asset: AssetRecord;
   readonly meshes: readonly {
     readonly meshIndex: number;
@@ -472,7 +473,16 @@ function nodeLocal(node: GltfNode): Float64Array {
   });
 }
 
-async function prepareImport(ctx: OperatorContext, raw: unknown): Promise<ImportPlan> {
+/**
+ * Reads a static GLB for import: stores its bytes as a model asset and makes every mesh instance editable data with its
+ * world placement. `maxTriangles` raises Make editable's 200,000-triangle gate for callers that decimate before
+ * writing (`mesh.intake {bytes}`, MODELING-PLAN §7.2 G-a "Decimate first").
+ */
+export async function prepareImport(
+  ctx: OperatorContext,
+  raw: unknown,
+  opts: { readonly maxTriangles?: number } = {},
+): Promise<ImportPlan> {
   if (!isRecord(raw) || !(raw['bytes'] instanceof Uint8Array))
     throw new EkzaError('invalid-input', 'expects { bytes, name }');
   const bytes = raw['bytes'];
@@ -514,7 +524,11 @@ async function prepareImport(ctx: OperatorContext, raw: unknown): Promise<Import
   for (const instance of instances) {
     const node = nodes[instance.node] as GltfNode;
     const meshIndex = node.mesh as number;
-    const result = await io.meshFromGltf(container, meshIndex);
+    const result = await io.meshFromGltf(
+      container,
+      meshIndex,
+      opts.maxTriangles === undefined ? {} : { maxTriangles: opts.maxTriangles },
+    );
     if ('refused' in result) throw new EkzaError(result.code, result.reason);
     let data = result.data;
     if (dropSkin) {
@@ -552,66 +566,88 @@ const importStatic = defineOperator<'mesh.importStatic', ImportPlan>({
   },
   prepare: prepareImport,
   apply(ctx, args, plan) {
-    const { app, tx } = ctx;
-    if (tx === null) throw new EkzaError('unsupported', 'mesh.importStatic needs a transaction');
-    // The first import names an untitled project (autosave and Recovery show that name; AR-D8-10) after the model it
-    // brings: its first mesh's name, the name Auto-Rig's header and the character take (AR-D9-7); a file whose first
-    // mesh has no name or a modelling tool's default one ("Mesh 0", "pCube10", "Cube.001") after the file (AR-D10-8).
-    const project = tx.get('project', 'project');
-    const fileName = typeof args.name === 'string' ? args.name.trim() : '';
-    const first = plan.meshes[0]?.name.trim() ?? '';
-    const projectName = first !== '' && !isGenericMeshName(first) ? first.slice(0, 64) : baseName(fileName);
-    if (fileName !== '' && project === undefined) tx.put('project', projectRecord(projectName));
-    else if (fileName !== '' && project?.name === 'Untitled') {
-      tx.patch('project', 'project', { name: projectName });
-    }
-    const named = tx.get('project', 'project')?.name;
-    if (named !== undefined && named !== app.session.getState().projectName) {
-      app.session.setState({ projectName: named });
-    }
-    const meshes = attachMeshes(app);
-    if (meshes === null) throw new EkzaError('mesh-loading', 'Mesh tools are loading');
-    if (tx.get('assets', plan.asset.id) === undefined) tx.put('assets', plan.asset);
-    const seed = runSeed(ctx, 'mesh.importStatic');
-    const owner = { scene: true } as const;
-    const taken = new Set<string>();
-    let order: string | null = null;
-    for (const child of tx.query.childrenOf(null, 'scene'))
-      if (order === null || child.order > order) order = child.order;
-    const ids: MeshId[] = [];
-    plan.meshes.forEach((mesh, n) => {
-      const id = derivedId('mesh', 'mesh.importStatic', [plan.asset.id], seed, n);
-      const name = uniqueMeshName(tx, owner, mesh.name, taken);
-      taken.add(name);
-      order = fractionalIndex(order, null);
-      const record: MeshRecord = {
-        id,
-        name,
-        owner,
-        parent: null,
-        order,
-        placement: mesh.placement,
-        pivot: [0, 0, 0],
-        source: { asset: plan.asset.id, mesh: mesh.meshIndex },
-        data: meshes.storeRevision(mesh.data, null, []),
-        faceted: false,
-        generator: null,
-        palette: null,
-        material: { assetSlots: mesh.slots },
-        colourOutput: 'palette-texture',
-        skin: null,
-        budget: null,
-        handheld: null,
-        deleted: null,
-      };
-      tx.put('meshes', record);
-      ids.push(id);
-    });
-    tx.annotate({ label: 'Import Static Model' });
-    const state = app.session.getState();
-    app.session.setState({ selection: { ...state.selection, objects: ids } });
+    if (ctx.tx === null) throw new EkzaError('unsupported', 'mesh.importStatic needs a transaction');
+    const ids = putImportedMeshes(ctx, args.name, plan, runSeed(ctx, 'mesh.importStatic'));
+    ctx.tx.annotate({ label: 'Import Static Model' });
     return { meshes: ids };
   },
 });
+
+/**
+ * Writes an import plan inside the run's transaction: the project's name (first import), the asset, one scene mesh
+ * record per instance with its first revision, and the new meshes as the object selection. `override` replaces an
+ * instance's data, placement and colour fields (`mesh.intake {bytes}` writes the chain's result as the first revision,
+ * so import and intake are one undo step). Ids derive from the asset and `seed`.
+ */
+export function putImportedMeshes(
+  ctx: ApplyContext,
+  fileName: unknown,
+  plan: ImportPlan,
+  seed: string,
+  override?: (
+    n: number,
+  ) => Partial<Pick<MeshRecord, 'placement' | 'palette' | 'material' | 'source' | 'colourOutput'>> & {
+    readonly data?: MeshData;
+  },
+): MeshId[] {
+  const { app, tx } = ctx;
+  if (tx === null) throw new EkzaError('unsupported', 'An import needs a transaction');
+  // The first import names an untitled project (autosave and Recovery show that name; AR-D8-10) after the model it
+  // brings: its first mesh's name, the name Auto-Rig's header and the character take (AR-D9-7); a file whose first
+  // mesh has no name or a modelling tool's default one ("Mesh 0", "pCube10", "Cube.001") after the file (AR-D10-8).
+  const project = tx.get('project', 'project');
+  const name = typeof fileName === 'string' ? fileName.trim() : '';
+  const first = plan.meshes[0]?.name.trim() ?? '';
+  const projectName = first !== '' && !isGenericMeshName(first) ? first.slice(0, 64) : baseName(name);
+  if (name !== '' && project === undefined) tx.put('project', projectRecord(projectName));
+  else if (name !== '' && project?.name === 'Untitled') {
+    tx.patch('project', 'project', { name: projectName });
+  }
+  const named = tx.get('project', 'project')?.name;
+  if (named !== undefined && named !== app.session.getState().projectName) {
+    app.session.setState({ projectName: named });
+  }
+  const meshes = attachMeshes(app);
+  if (meshes === null) throw new EkzaError('mesh-loading', 'Mesh tools are loading');
+  if (tx.get('assets', plan.asset.id) === undefined) tx.put('assets', plan.asset);
+  const owner = { scene: true } as const;
+  const taken = new Set<string>();
+  let order: string | null = null;
+  for (const child of tx.query.childrenOf(null, 'scene')) if (order === null || child.order > order) order = child.order;
+  const ids: MeshId[] = [];
+  plan.meshes.forEach((mesh, n) => {
+    const id = derivedId('mesh', 'mesh.importStatic', [plan.asset.id], seed, n);
+    const unique = uniqueMeshName(tx, owner, mesh.name, taken);
+    taken.add(unique);
+    order = fractionalIndex(order, null);
+    const { data, ...fields } = override?.(n) ?? {};
+    const record: MeshRecord = {
+      id,
+      name: unique,
+      owner,
+      parent: null,
+      order,
+      placement: mesh.placement,
+      pivot: [0, 0, 0],
+      source: { asset: plan.asset.id, mesh: mesh.meshIndex },
+      data: meshes.storeRevision(data ?? mesh.data, null, []),
+      faceted: false,
+      generator: null,
+      palette: null,
+      material: { assetSlots: mesh.slots },
+      colourOutput: 'palette-texture',
+      skin: null,
+      budget: null,
+      handheld: null,
+      deleted: null,
+      ...fields,
+    };
+    tx.put('meshes', record);
+    ids.push(id);
+  });
+  const state = app.session.getState();
+  app.session.setState({ selection: { ...state.selection, objects: ids } });
+  return ids;
+}
 
 export const CHARACTER_OPERATORS: readonly AnyOperator[] = [importStatic, fromModel, adopt];

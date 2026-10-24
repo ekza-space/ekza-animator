@@ -1,4 +1,4 @@
-// A deterministic PNG writer for 8-bit RGB images (M6A-SPEC §5.19 `ekza-palette-v1`): the signature, then exactly the
+// A deterministic PNG writer for 8-bit RGB (and, for M7's texture downsize, RGBA) images (M6A-SPEC §5.19 `ekza-palette-v1`): the signature, then exactly the
 // chunks IHDR, sRGB (rendering intent 0), one IDAT (zlib by fflate at level 9, filter type 0 on every row) and IEND.
 // No timestamps, no text chunks, fixed compression settings: the same pixels always give the same bytes.
 import { EkzaError } from '@ekza-studio/anim-core';
@@ -38,13 +38,21 @@ function chunk(type: string, data: Uint8Array): Uint8Array {
  * EkzaError('invalid-image') when the sizes disagree.
  */
 export function encodePngRgb(width: number, height: number, rgb: Uint8Array): Uint8Array {
+  return encodePng(width, height, rgb, 3);
+}
+
+/**
+ * Encodes 8-bit pixels with `channels` 3 (RGB) or 4 (RGBA, straight alpha), rows top to bottom, as a PNG with an sRGB
+ * chunk (deterministic: see the module comment). Throws EkzaError('invalid-image') when the sizes disagree.
+ */
+export function encodePng(width: number, height: number, pixels: Uint8Array, channels: 3 | 4): Uint8Array {
   if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) {
     throw new EkzaError('invalid-image', `A PNG needs a positive integer size, got ${width} × ${height}`);
   }
-  if (rgb.length !== width * height * 3) {
+  if (pixels.length !== width * height * channels) {
     throw new EkzaError(
       'invalid-image',
-      `${width} × ${height} RGB needs ${width * height * 3} bytes, got ${rgb.length}`,
+      `${width} × ${height} ${channels === 3 ? 'RGB' : 'RGBA'} needs ${width * height * channels} bytes, got ${pixels.length}`,
     );
   }
   const ihdr = new Uint8Array(13);
@@ -52,13 +60,13 @@ export function encodePngRgb(width: number, height: number, rgb: Uint8Array): Ui
   header.setUint32(0, width);
   header.setUint32(4, height);
   ihdr[8] = 8; // bit depth
-  ihdr[9] = 2; // colour type: truecolour (RGB)
+  ihdr[9] = channels === 3 ? 2 : 6; // colour type: truecolour (RGB) or truecolour with alpha (RGBA)
   // compression 0, filter method 0, interlace 0 (the remaining zero bytes)
-  const stride = width * 3;
+  const stride = width * channels;
   const raw = new Uint8Array((stride + 1) * height);
   for (let y = 0; y < height; y++) {
     raw[y * (stride + 1)] = 0; // filter type None
-    raw.set(rgb.subarray(y * stride, (y + 1) * stride), y * (stride + 1) + 1);
+    raw.set(pixels.subarray(y * stride, (y + 1) * stride), y * (stride + 1) + 1);
   }
   const parts = [
     SIGNATURE,

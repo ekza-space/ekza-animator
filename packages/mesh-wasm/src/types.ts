@@ -93,6 +93,9 @@ export interface IntakeMeshIn {
   readonly skinned: boolean;
   /** Per face-material slot: the index of its base colour in `IntakeJob.sources`, or null (white). */
   readonly materials: readonly (number | null)[];
+  /** A palette-coloured mesh: the sRGB colour of each palette slot (index = slot; null = none); faces then take the
+   *  colour of their `paint` slot instead of their material's. */
+  readonly paint?: readonly (readonly [number, number, number] | null)[] | null;
 }
 
 /** What the editor posts to the worker: the meshes, their base colours and the steps, in order. */

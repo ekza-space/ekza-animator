@@ -6,7 +6,7 @@
 // 8-bit colour merge. Deterministic: no random seeding (greedy weighted k-means++), fixed iteration order.
 import type { MeshData } from '@ekza-studio/mesh-core';
 import { BUILTIN_LAYERS, triangulate } from '@ekza-studio/mesh-core';
-import { linearToOklab, linearToSrgb8, oklabToLinear } from './colour';
+import { linearToOklab, linearToSrgb8, oklabToLinear, SRGB_TO_LINEAR } from './colour';
 import { sampleLinear } from './image';
 import type { BaseColourSource, PaletteBakeArgs } from './types';
 
@@ -23,6 +23,8 @@ export interface PaletteMeshIn {
   readonly data: MeshData;
   /** Per face-material slot: the index of its base colour in `sources`, or null (white). */
   readonly materials: readonly (number | null)[];
+  /** sRGB per palette slot for a palette-coloured mesh (faces take their `paint` slot's colour), else null. */
+  readonly paint?: readonly (readonly [number, number, number] | null)[] | null;
 }
 
 export interface PaletteOutcome {
@@ -71,6 +73,8 @@ function faceColours(
   const plainCount = new Uint32Array(F);
   const sample = new Float64Array(3);
   const n = pattern.length / 3;
+  const paintLayer = data.layers.get('paint');
+  const paintSlots = mesh.paint !== null && mesh.paint !== undefined && paintLayer?.def.domain === 'face' ? paintLayer.data : null;
   for (let t = 0; t < tris.length / 3; t++) {
     const f = triFace[t] as number;
     const c0 = tris[3 * t] as number;
@@ -96,7 +100,12 @@ function faceColours(
     let r = 0;
     let g = 0;
     let b = 0;
-    if (texture !== null && uv !== undefined && uv.def.domain === 'corner' && uv.def.comps === 2) {
+    const swatch = paintSlots === null ? undefined : (mesh.paint?.[paintSlots[f] as number] ?? null);
+    if (swatch !== undefined) {
+      r = swatch === null ? 1 : (SRGB_TO_LINEAR[swatch[0]] as number);
+      g = swatch === null ? 1 : (SRGB_TO_LINEAR[swatch[1]] as number);
+      b = swatch === null ? 1 : (SRGB_TO_LINEAR[swatch[2]] as number);
+    } else if (texture !== null && uv !== undefined && uv.def.domain === 'corner' && uv.def.comps === 2) {
       const uvs = uv.data;
       for (let i = 0; i < n; i++) {
         const w0 = pattern[3 * i] as number;

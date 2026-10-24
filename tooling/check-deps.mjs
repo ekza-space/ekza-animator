@@ -23,6 +23,8 @@ const UI = scope('ui');
 const EDITOR = scope('editor');
 const MESH_CORE = scope('mesh-core');
 const MESH_VIEW = scope('mesh-view');
+// MODELING-PLAN §3.1, §7.2 G-a (M7): the lazy WASM adapters (meshoptimizer) and the AI intake chain, run in a worker.
+const MESH_WASM = scope('mesh-wasm');
 const AUTORIG = scope('autorig');
 // STUDIO-TOUCH-SPEC §20.1 (T2): Ekza Studio's Simple layout (the Halo shell).
 const HALO = scope('halo');
@@ -80,6 +82,11 @@ export const ALLOWED = {
     // Browser tests (P1, P4, P5, P6 in Chromium, M6A-SPEC §9 B1) next to the Node run.
     devDependencies: [...BROWSER_TESTS, 'fast-check'],
   },
+  // MODELING-PLAN §3.1: mesh-wasm imports the kernel and the WASM libraries only (never three, React or doc).
+  [MESH_WASM]: {
+    dependencies: [ANIM_CORE, MESH_CORE, 'meshoptimizer'],
+    devDependencies: VITEST,
+  },
   [MESH_VIEW]: {
     dependencies: [ANIM_CORE, MESH_CORE, 'three', 'three-mesh-bvh'],
     devDependencies: [...BROWSER_TESTS, '@types/three'],
@@ -113,7 +120,8 @@ export const ALLOWED = {
     ],
   },
   [EDITOR_CORE]: {
-    dependencies: [ANIM_CORE, DOC, RIG, IO, MESH_CORE, 'zustand'],
+    // M7 G-a: mesh-wasm is reached through one lazy loader (editor-core/src/intake/load.ts).
+    dependencies: [ANIM_CORE, DOC, RIG, IO, MESH_CORE, MESH_WASM, 'zustand'],
     devDependencies: [...VITEST, 'fast-check', 'gltf-validator'],
   },
   // M-AI (MCP-SPEC §2 layering table). `ekza-studio-mcp` is the only published package: every runtime dependency is
@@ -183,6 +191,7 @@ export const ALLOWED = {
       EDITOR_CORE,
       MESH_CORE,
       MESH_VIEW,
+      MESH_WASM,
       ...VRM,
       '@types/three',
       'gltf-validator',
@@ -221,6 +230,8 @@ export const ALLOWED = {
       IO,
       EDITOR_CORE,
       MESH_CORE,
+      // M7 G-a: the intake worker entry (editor/src/workers/intake.worker.ts).
+      MESH_WASM,
       VIEWPORT,
       CURVE_EDITOR,
       UI,
