@@ -515,7 +515,9 @@ function storageManager(): PersistApi | undefined {
  * eviction after seven days without a visit (S11): true when granted, false when refused, null where the API is
  * missing or fails. Granting is up to the browser (device check D12).
  */
-export async function requestPersistentStorage(api: PersistApi | undefined = storageManager()): Promise<boolean | null> {
+export async function requestPersistentStorage(
+  api: PersistApi | undefined = storageManager(),
+): Promise<boolean | null> {
   if (api?.persist === undefined) return null;
   try {
     if ((await api.persisted?.()) === true) return true;
