@@ -127,3 +127,25 @@ test('ha-J4: fix foot sliding and polish a walk with curves in ≤ 10 touches (t
 test('ha-J4f: the same with fingers only in ≤ 10 touches', async ({ page }, testInfo) => {
   await journey(page, 'finger', testInfo);
 });
+
+test('ha-J4 on webkit-ipad: the walk opens in Curves and Move Y shows alone (single taps)', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'webkit-ipad', 'webkit-ipad only');
+  await openHalo(page);
+  await loadSample(page, 'seed-san');
+  const character = (await call(page, 'characters'))[0]?.id ?? '';
+  await runOk(page, 'library.useClip', { character, clip: 'walk' });
+  const walk = (await call(page, 'clips')).find((clip) => clip.name === 'Walk');
+  if (walk === undefined) throw new Error('no Walk');
+  await runOk(page, 'clip.setActive', { clip: walk.id });
+  const goal = (await call(page, 'controls')).find((c) => c.name === 'L Leg IK')?.id ?? '';
+  await runOk(page, 'select.controls', { ids: [goal], mode: 'replace' }, { panel: 'viewport', paneId: 'pane-single' });
+  const radio = await layerRadio(page, 'Curves');
+  await page.touchscreen.tap(radio.x, radio.y);
+  await curvesReady(page);
+  const chip = await centreOf(page, 'halo-curves-chip-Move Y');
+  await page.touchscreen.tap(chip.x, chip.y);
+  await expect.poll(async () => (await curves(page)).curves.length).toBe(1);
+  expect((await curves(page)).axisLabels.map((l) => l.text)).toContain('0');
+});
