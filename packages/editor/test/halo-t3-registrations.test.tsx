@@ -255,9 +255,23 @@ describe('the Recovery prompt is the host’s; the mounted shell offers the slot
 });
 
 describe('Pro’s switch to the Simple layout (§16.1)', () => {
-  it('shell.halo navigates on the same page with the workspace; Help › and File › list it', async () => {
-    const { app, host, pushed } = setup();
+  it('Help › and File › hide the switch until Halo ships, unless the page asks for it (?simple=1)', () => {
+    const { app, host } = setup();
     mountPro(host);
+    expect(app.operators.get('shell.halo')).toBeDefined();
+    expect(app.menus.get('shell.help.halo')).toBeUndefined();
+    expect(app.menus.get('shell.file.halo')).toBeUndefined();
+  });
+
+  it('shell.halo navigates on the same page with the workspace; Help › and File › list it', async () => {
+    const search = window.location.search;
+    window.history.replaceState(null, '', '?simple=1');
+    const { app, host, pushed } = setup();
+    try {
+      mountPro(host);
+    } finally {
+      window.history.replaceState(null, '', search === '' ? window.location.pathname : search);
+    }
     expect(app.operators.get('shell.halo')).toMatchObject({
       label: 'Switch to the Simple Layout',
       flags: { internal: true },

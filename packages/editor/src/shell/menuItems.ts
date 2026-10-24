@@ -87,6 +87,16 @@ export const PRO_TITLE: boolean = false;
 /** The name Pro's chrome shows (the menu bar's mark). */
 export const PRO_NAME = PRO_TITLE ? 'Ekza Studio Pro' : 'Ekza Studio';
 
+/**
+ * Pro's switch to the Simple layout (the File › and Help › items, the status line's button) is visible once Halo ships
+ * (`PRO_TITLE`, T12); until then only e2e pages and `?simple=1` show it, so `dev` can carry the touch shell unreleased.
+ */
+export function simpleLayoutSwitch(): boolean {
+  if (PRO_TITLE) return true;
+  if (typeof window === 'undefined') return false;
+  return /[?&](e2e|simple)=1(&|$)/.test(window.location.search);
+}
+
 /** The lazy half of the Simple layout switch (`./haloSwitch`); null when it cannot load (the switch still happens). */
 const loadHaloSwitch = (): Promise<typeof HaloSwitch | null> => import('./haloSwitch').catch(() => null);
 
@@ -384,6 +394,8 @@ export function shellMenuItems(
       workspaces: ANIMATE_LIKE,
     });
   });
+  if (!simpleLayoutSwitch())
+    return items.filter((item) => item.id !== 'shell.file.halo' && item.id !== 'shell.help.halo');
   return items;
 }
 

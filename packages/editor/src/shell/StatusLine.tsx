@@ -39,6 +39,7 @@ import { useRegistryList } from '../hooks/useRegistry';
 import { TweenBar } from '../panels/shared/TweenBar';
 import { useShell, useShellUi } from './context';
 import { RIG_LAYOUTS } from './rig/layouts';
+import { simpleLayoutSwitch } from './menuItems';
 import { shortcutFor } from './menus';
 
 /**
@@ -370,18 +371,20 @@ export function StatusLine(): JSX.Element {
         <AgentPillSlot open={openAgentPanel} ready={workspaceReady} />
       </Group>
       {/* STUDIO-TOUCH-SPEC §16.1: the same project in the Simple layout (Help › and File › have it too). */}
-      <Group label="Layout">
-        <Tip text="The same project in Ekza Studio's Simple layout, one thing at a time">
-          <button
-            type="button"
-            className="rounded px-1.5 text-ui text-fg-3 hover:bg-hover hover:text-fg"
-            data-testid="status-halo"
-            onClick={() => run('shell.halo')}
-          >
-            ▤ Simple layout
-          </button>
-        </Tip>
-      </Group>
+      {simpleLayoutSwitch() ? (
+        <Group label="Layout">
+          <Tip text="The same project in Ekza Studio's Simple layout, one thing at a time">
+            <button
+              type="button"
+              className="rounded px-1.5 text-ui text-fg-3 hover:bg-hover hover:text-fg"
+              data-testid="status-halo"
+              onClick={() => run('shell.halo')}
+            >
+              ▤ Simple layout
+            </button>
+          </Tip>
+        </Group>
+      ) : null}
     </Fragment>
   );
 
