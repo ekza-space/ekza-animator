@@ -53,7 +53,7 @@ Generated meshes are dense, often non-manifold, mis-oriented and unrigged; the E
    (retention is 1–7 days), cap size, SHA-256, `AssetStore.put`, `io` input budgets and structural checks, validator,
    the existing GLB importer. Clients never send URLs (no SSRF); the gateway uploads its own stored bytes to providers.
    No special "AI asset" format.
-5. **The post-processing chain is the modeling toolkit**: normalize (+Z forward, metres, origin at bottom centre),
+5. **The post-processing chain is built from the modeling tools**: normalize (+Z forward, metres, origin at bottom centre),
    merge by distance, cleanup, reduce (meshoptimizer, index-only so UVs and weights stay valid), quadrangulate,
    symmetrize, normals, palette bake to per-face palette slots, then the M6b rig/skin or a provider rig imported through
    `char.makeEditable`. Every step is an undoable, adjustable `mesh.*`/`skin.*` operator usable by hand, by presets and

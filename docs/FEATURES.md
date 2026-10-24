@@ -72,8 +72,8 @@ Specs: [MVP-SPEC](MVP-SPEC.md) §4.10–4.11, [M6A-SPEC](M6A-SPEC.md) §7–8, [
 
 | Feature | What it does | Where | Status |
 |---|---|---|---|
-| Animate workspace | Viewport, Outliner, Clips, Channel Box, Attributes, Graph Editor, Dope Sheet, Clip Library, time slider | workspace tab **Animate** | `v0.1.0` (Dope Sheet `v0.2.0`, Clip Library `v0.4.0`) |
-| Model workspace | Viewport, Outliner, Toolkit, Channel Box, Attributes, Palette, Mesh Check; time slider hidden | tab **Model** | `v0.3.0` |
+| Animate workspace | Viewport, Outliner, Clips, Channels, Attributes, Graph Editor, Dope Sheet, Clip Library, time slider | workspace tab **Animate** | `v0.1.0` (Dope Sheet `v0.2.0`, Clip Library `v0.4.0`) |
+| Model workspace | Viewport, Outliner, Toolkit, Channels, Attributes, Palette, Mesh Check; time slider hidden | tab **Model** | `v0.3.0` |
 | Rig & Skin workspace | Viewport with the Rig checklist, Rig Toolkit, Paint Weights, Validation panels | tab **Rig & Skin** | `v0.4.0` |
 | Review workspace | Read-only review tab | tab shown disabled ("Arrives in V1") | Planned (V1) |
 | Docked panels | dockview layout: drag, tab, split and float panels; Windows › *panel name* reopens one | Windows menu; Windows › Reset Workspace | `v0.1.0` |
@@ -104,7 +104,7 @@ Specs: [MVP-SPEC](MVP-SPEC.md) §4.10–4.11, [M6A-SPEC](M6A-SPEC.md) §7–8, [
 | Preferences | Start in, navigation, Space key, auto-key channels, key reduction on import, Graph Editor handles | Edit › Preferences… | `v0.1.0` (Start in `v0.5.0`) |
 | Pick-walk | Arrow keys walk the control hierarchy (Animate) or components (Model) | arrows | `v0.2.0` / `v0.3.0` |
 | MMB virtual slider | Middle-drag in the viewport changes the selected channel | MMB drag | `v0.2.0` |
-| Channel Box | Numeric channel values, lock channels | Channel Box panel | `v0.1.0` |
+| Channels | Numeric channel values, lock channels | Channels panel | `v0.1.0` |
 
 ### 2.4 Viewport
 
@@ -166,7 +166,7 @@ Low-poly box modeling with desktop-DCC interaction. Spec: [M6A-SPEC](M6A-SPEC.md
 | Transforms | Freeze / Reset Transformations | Modify |
 | Normals | Soften / Harden Edge, Set Normal Angle, Reverse, Conform; show normals, face orientation, triangulation, hard edges, wire-on-shaded, backface culling | Mesh Display |
 | UV projections | Planar, Automatic (box), Cylindrical (no UV editor) | UV menu |
-| Modeling Toolkit | Tool options with option boxes | Toolkit panel |
+| Modeling Tools | Tool options with option boxes | Toolkit panel |
 
 ### 3.4 Colour, checks and export
 

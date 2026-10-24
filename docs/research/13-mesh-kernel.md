@@ -37,8 +37,8 @@
 **The desktop DCC or the open-source DCC, from the kernel's side.** The engine should be shaped like the
 open-source DCC (BMesh-style topology, attribute layers, destructive ops with a redo panel), because that is the
 better documented, more robust edit-kernel design and because history graphs are expensive in a collaborative web
-document. The surface can be shaped like the desktop DCC (component modes, Modeling Toolkit habits, tool
-manipulators, its node parameter names on the op args, the last op's inputs shown next to the Channel Box as it does
+document. The surface can be shaped like the desktop DCC (component modes, modeling-tools habits, tool
+manipulators, its node parameter names on the op args, the last op's inputs shown next to the Channels panel as it does
 there): every kernel op exposes JSON args that both a desktop-DCC-style tool and an open-source-DCC-style modal/redo
 panel drive. This supports the coordinator's position — the desktop DCC's interaction model, the open-source DCC's
 ideas where they are better — with one refinement: copy the open-source DCC's *data model*, not just its UI ideas.

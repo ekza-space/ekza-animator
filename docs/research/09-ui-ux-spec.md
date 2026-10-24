@@ -14,11 +14,11 @@ Reading guide: §1 principles, §2–3 layout, §4 panels, §5 viewport, §6 int
 
 ## 1. Design principles
 
-1. **DCC muscle memory first, browser reality second.** Default hotkeys, navigation, Channel Box colours, time-slider behaviour and Graph Editor semantics follow a leading commercial desktop DCC ("the desktop DCC" below) wherever the browser allows. Every divergence is listed (§7.5) and is rebindable.
+1. **DCC muscle memory first, browser reality second.** Default hotkeys, navigation, Channels panel colours, time-slider behaviour and Graph Editor semantics follow a leading commercial desktop DCC ("the desktop DCC" below) wherever the browser allows. Every divergence is listed (§7.5) and is rebindable.
 2. **Animate controls, not bones.** In the Animate workspace the selection mask defaults to *controls only*. Bones and meshes are visible but not pickable unless the mask is changed.
 3. **The panel under the pointer receives the hotkey** (desktop-DCC convention). `F` frames whatever the panel under the cursor shows: the viewport frames the selection, the Graph Editor frames the selected keys.
 4. **No modal dialogs while animating.** Option boxes are non-blocking popovers. Destructive operations are undoable and announced by a toast. Only file import/export and preferences open as dialogs.
-5. **Precision always available.** Every drag has a numeric twin: the Channel Box, the Graph Editor stats fields and the time field. Fields accept relative expressions (`+=5`, `*1.1`, `-=90`).
+5. **Precision always available.** Every drag has a numeric twin: the Channels panel, the Graph Editor stats fields and the time field. Fields accept relative expressions (`+=5`, `*1.1`, `-=90`).
 6. **Dense but legible.** 12 px UI text, 22 px rows, mid-dark neutral greys. These pass WCAG 2.2 AA contrast (§8.3). They are not near-black: long sessions and mid-tone model readability matter more than brand mood.
 7. **One command registry.** Menus, marking menus, toolbar buttons, the command palette and hotkeys all call the same command IDs. This gives one place for labels, enabled state, undo and docs.
 8. **Ready for collaboration without being shaped by it.** Selection, cursor, playhead and camera are per-user state from day one. Collaboration later broadcasts these values; it does not change who owns them (§12, §13).
@@ -34,12 +34,12 @@ Reading guide: §1 principles, §2–3 layout, §4 panels, §5 viewport, §6 int
 | Tool Box (Q/W/E/R) | **Merged into the Status line** | Saves a 40 px column |
 | Panel menus + Panel toolbar | **Keep** per viewport pane (header row) | Camera, Shading, Show, Lock, Bookmarks, Isolate, Maximize |
 | Quick Layout buttons | **Keep** (layout preset picker + `Shift+[` / `Shift+]`) | §3 |
-| Channel Box | **Keep, faithful** (including the field colour states) | §4.5 |
+| Channels | **Keep, faithful** (including the field colour states) | §4.5 |
 | Attribute Editor | **Keep** as a second tab of the right panel | Control/Bone/Constraint/Clip/Character sections |
 | Outliner | **Keep** | Adds a *Clips* tab |
 | Time Slider + Range Slider + playback controls | **Keep, faithful** | Adds a clip selector and an fps menu |
 | Help Line / Command Line | **Help Line kept** (hints, status); command line → command palette | Script console later |
-| Hotbox (hold Space) | **Simplified**: Space-hold radial for pane type and camera | Full hotbox later |
+| Quick Menu (hold Space) | **Simplified**: Space-hold radial for pane type and camera | Full Quick Menu later |
 | Marking menus | **Keep** (hold key + LMB, RMB in panels) | §7.4 |
 | Graph Editor | **Keep, faithful core** plus a pen tool and a tween slider | §4.7 |
 | Dope Sheet | **Keep** (the desktop DCC's 2025 release added ripple edit and precision mode; ripple edit included) | §4.8 |
@@ -98,7 +98,7 @@ Reference frame 1440×900 CSS px (works from 1280×720; §11.2 covers smaller si
 | Status line | 32 px | fixed | groups collapse to icon-only below 1280 px |
 | Left dock (Outliner / Clips) | 240 px | 180 px | collapsible to a 36 px icon rail |
 | Center (viewport panes) | flex | 240×180 per pane | — |
-| Right dock (Channel Box / Attributes) | 280 px | 220 px | collapsible to a rail |
+| Right dock (Channels panel / Attributes) | 280 px | 220 px | collapsible to a rail |
 | Bottom dock (Graph Editor / Dope Sheet) | 36 % of the content height | 160 px | `⌄` collapses to the tab strip; `⤢` maximizes |
 | Time slider | 30 px (+8 px when bookmarks or an audio track exist) | fixed | — |
 | Range slider + playback | 28 px | fixed | — |
@@ -152,7 +152,7 @@ Rules:
 | Playback | **Play/Stop** (`Alt+V` / `Esc`), **Go to start/end**, **Next/prev key/frame**, **Loop ▸ Once / Loop / Ping-pong**, **Speed ▸**, **Snap to frames** |
 | Rig | **Auto control rig (VRM humanoid)**, **Add control to bone…**, **Edit control shape…**, **Constraint ▸ Parent/Orient/Point**, **Mirror controls L→R**, **Reset to rest pose**, IK/FK (later) |
 | Display | **Shading ▸**, **Show ▸** (meshes/joints/controls/grid/cameras/HUD), **X-ray**, **Onion skin…**, **Safe frame**, **Background ▸**, Motion trail (later) |
-| Windows | **Graph Editor**, **Dope Sheet**, **Outliner**, **Clips**, **Channel Box**, **Attributes**, **Layout presets ▸**, **Reset workspace**, History (later), Console (later) |
+| Windows | **Graph Editor**, **Dope Sheet**, **Outliner**, **Clips**, **Channels**, **Attributes**, **Layout presets ▸**, **Reset workspace**, History (later), Console (later) |
 | Help | **Shortcuts** (`?`), **Getting started**, **Docs**, **Report a bug**, **About / licences** (sample asset attributions) |
 
 Top-right of the menu bar: workspace tabs (§9.3), presence avatars (later, §12) and a primary **Export** button.
@@ -240,7 +240,7 @@ Actions: New, Duplicate (`Mod+D`), Delete, Import…, **From Ekza clip library �
 
 **Safe frame** (shot cameras): mask outside the target aspect (16:9 default; 1:1, 9:16, 4:3, custom) at 60 % `--bg-app`, plus a 1 px title-safe guide. The ratio is stored on the camera, so a later export or playblast uses the same frame.
 
-### 4.5 Channel Box (right dock, tab 1)
+### 4.5 Channels panel (right dock, tab 1)
 
 ```
  l_wrist_ctl                 ✎ (rename)   Rotate order [XYZ▾]
@@ -596,14 +596,14 @@ All numeric fields share the grammar `[=]?expr | (+=|-=|*=|/=) expr`, where `exp
 ### 7.1 Implementation rules
 
 1. Match on **`KeyboardEvent.code`** (physical key), never `key`. Option+letter on macOS yields characters such as `√` in `key`, and Russian ЙЦУКЕН and other non-US layouts would otherwise break `W`/`E`/`R`. Show the user's real key labels with `navigator.keyboard.getLayoutMap()` (Chromium) and fall back to US labels.
-2. **Scope resolution:** text input focused → only `Esc`, `Enter`, `Tab`, and `Mod+S`/`Mod+Z` when the input is not a text editor. Otherwise: modal/overlay → **panel under the pointer** (Graph, Dope, Viewport, Outliner, Channel Box, Timeline) → workspace → global. A scope may *consume* or *pass through*.
+2. **Scope resolution:** text input focused → only `Esc`, `Enter`, `Tab`, and `Mod+S`/`Mod+Z` when the input is not a text editor. Otherwise: modal/overlay → **panel under the pointer** (Graph, Dope, Viewport, Outliner, Channels, Timeline) → workspace → global. A scope may *consume* or *pass through*.
 3. **Tap vs hold:** keys with both meanings (`Space`, `W/E/R/Q` + LMB, `K`, `I`, `J`, `Shift+S`) start a 200 ms timer on keydown (ignore `e.repeat`). Release before the timer and without pointer activity = tap. Otherwise = hold (spring-loaded tool or marking menu); keyup restores the previous tool.
 4. `preventDefault()` only for handled combos, plus `Space` (page scroll), `Alt` keyup (Firefox Windows menu-bar focus) and MMB defaults (§5.1). Keep browser `Mod+F`, `Mod+L`, `Mod+R` untouched. Guard unsaved work with `beforeunload`.
 5. All bindings live in one table (command id → chord list → scope) that the Hotkey editor, cheat sheet (`?`) and docs read. User overrides are stored as a diff in preferences. Conflicts are detected inside a scope and flagged by the editor.
 
 ### 7.2 Default map
 
-Legend: **M** = matches the desktop DCC's default · **M~** = modelled on the desktop DCC, adapted · **E** = Ekza addition. Scope: G global, V viewport, T timeline, GE Graph Editor, DS Dope Sheet, O Outliner, CB Channel Box.
+Legend: **M** = matches the desktop DCC's default · **M~** = modelled on the desktop DCC, adapted · **E** = Ekza addition. Scope: G global, V viewport, T timeline, GE Graph Editor, DS Dope Sheet, O Outliner, CB Channels panel.
 
 **Global / file / edit**
 
@@ -621,7 +621,7 @@ Legend: **M** = matches the desktop DCC's default · **M~** = modelled on the de
 | Duplicate (clip / keys) | `Ctrl+D` | `Cmd+D` | O, GE, DS | M |
 | Select all (controls / keys) | `Ctrl+A` | `Cmd+A` | context | E (the desktop DCC uses Ctrl+A for the Attribute Editor) |
 | Maximize pane under pointer | `Space` tap | same | G | M |
-| Pane/camera radial | `Space` hold | same | G | M~ (hotbox-lite) |
+| Pane/camera radial | `Space` hold | same | G | M~ (a lite quick menu) |
 | Zen mode (hide side docks) | `Shift+Space` | same | G | M~ (desktop DCC: `Ctrl+Space`; that conflicts with the macOS input-source switch) |
 | Previous / next layout preset | `Shift+[` / `Shift+]` | same | G | M |
 | Cancel / stop playback / close menu | `Esc` | same | G | M |
@@ -677,7 +677,7 @@ Legend: **M** = matches the desktop DCC's default · **M~** = modelled on the de
 | Pan / zoom view | `Alt+MMB` / `Alt+RMB` (axis zoom `Alt+Shift+RMB`), wheel | M |
 | Tangent marking menu | RMB on key/curve | M~ (desktop DCC: `Shift+S` + MMB; MMB is unavailable on trackpads) |
 
-**Outliner / Channel Box:** `/` focus filter, `F2` rename (`Enter` on macOS, where F-keys need `fn`), arrow tree navigation, `Tab` field cycling, `↑/↓` value nudge.
+**Outliner / Channels panel:** `/` focus filter, `F2` rename (`Enter` on macOS, where F-keys need `fn`), arrow tree navigation, `Tab` field cycling, `↑/↓` value nudge.
 
 ### 7.3 Spring-loaded tools and marking menus
 
@@ -730,7 +730,7 @@ Legend: **M** = matches the desktop DCC's default · **M~** = modelled on the de
 
 ### 8.1 Direction
 
-Desktop-DCC-style neutral greys, cleaned up: flat surfaces, hairline borders, one restrained accent. The Ekza brand enters through the **violet accent `#7c5cff`** used in `ekza-arena-web` (`--accent: #7c5cff`, `--accent-strong: #9b82ff`), which marks chrome only: focus, active tab, primary button, selected list rows. **Semantic animation colours (axes, keys, playhead, Channel Box states, rig sides) never use the accent.** Arena's near-black cinema base (`#050506`) is deliberately *not* reused: a pro tool needs mid-dark surfaces so models' mid-tones and thin curves stay readable for hours. `omoba-ui` (Verdant Crown emerald/gold) is a game skin and is not reused, but its *method* is adopted: a `tokens.json` source of truth, a generated CSS file and a contrast-check script.
+Desktop-DCC-style neutral greys, cleaned up: flat surfaces, hairline borders, one restrained accent. The Ekza brand enters through the **violet accent `#7c5cff`** used in `ekza-arena-web` (`--accent: #7c5cff`, `--accent-strong: #9b82ff`), which marks chrome only: focus, active tab, primary button, selected list rows. **Semantic animation colours (axes, keys, playhead, Channels panel states, rig sides) never use the accent.** Arena's near-black cinema base (`#050506`) is deliberately *not* reused: a pro tool needs mid-dark surfaces so models' mid-tones and thin curves stay readable for hours. `omoba-ui` (Verdant Crown emerald/gold) is a game skin and is not reused, but its *method* is adopted: a `tokens.json` source of truth, a generated CSS file and a contrast-check script.
 
 ### 8.2 Colour tokens
 
@@ -741,7 +741,7 @@ Desktop-DCC-style neutral greys, cleaned up: flat surfaces, hairline borders, on
 | `--bg-app` | `#1b1c1f` | window background, gaps between docks |
 | `--bg-panel` | `#232428` | panel bodies |
 | `--bg-header` | `#2a2b30` | panel headers, toolbars, tab strips, menu bar |
-| `--bg-field` | `#17181b` | inputs, Channel Box fields, curve-view background |
+| `--bg-field` | `#17181b` | inputs, Channels panel fields, curve-view background |
 | `--bg-hover` | `#30323a` | hover rows/buttons |
 | `--bg-pressed` | `#3a3d46` | pressed / toggled-on (non-accent) |
 | `--bg-selected` | `#3b3270` | selected list rows (accent-tinted) |
@@ -782,7 +782,7 @@ Desktop-DCC-style neutral greys, cleaned up: flat surfaces, hairline borders, on
 | `--rig-left` / `--rig-right` / `--rig-center` / `--rig-ik` | `#4f8dff` / `#ff5f69` / `#ffd84d` / `#ff9f43` | control colours by side |
 | `--ghost-past` / `--ghost-future` | `#ff8a5c` / `#5cc8ff` | onion skin |
 | `--locked-badge` | `#e3b34a` | camera locked badge |
-| Channel Box states | see §4.5 | |
+| Channels panel states | see §4.5 | |
 | `--presence-1…6` (later) | `#ff5cc8`, `#00c2a8`, `#b18cff`, `#ffb020`, `#8bd450`, `#5cc8ff` | collaborators; always paired with a dashed style and a name chip, never a solid fill, so they cannot be mistaken for semantic colours |
 
 **Colour-blind alternative** (preference "Axis palette: Standard / Colour-blind safe"): Okabe–Ito `X #e69f00`, `Y #56b4e9`, `Z #cc79a7`. Axis letters are always drawn, so neither palette relies on hue alone.
@@ -869,7 +869,7 @@ System cursors where they fit (`default`, `pointer`, `text`, `col-resize`, `row-
 Rules:
 
 - Time slider + range slider are **fixed chrome** (not dockable) in the MVP, which keeps them predictable. Phase 2 may expose them as a panel.
-- **Viewport panes cannot float or pop out in the MVP.** All panes render through one WebGL canvas with scissoring (§13.3), and a popout window would need its own GL context. Non-3D panels (Graph Editor, Dope Sheet, Outliner, Channel Box) may float in the MVP and pop out to a second monitor in Phase 2. The Graph Editor is Canvas 2D, so it works in a popout.
+- **Viewport panes cannot float or pop out in the MVP.** All panes render through one WebGL canvas with scissoring (§13.3), and a popout window would need its own GL context. Non-3D panels (Graph Editor, Dope Sheet, Outliner, Channels) may float in the MVP and pop out to a second monitor in Phase 2. The Graph Editor is Canvas 2D, so it works in a popout.
 - Splitter drag never remounts panels. The WebGL canvas is never resized by React re-render, only by the `ResizeObserver` of each pane surface.
 
 ### 9.2 Persistence model
@@ -990,8 +990,8 @@ VRM 1.0 `meta` carries `avatarPermission`, `commercialUsage`, `creditNotation`, 
 ### 11.1 Accessibility baseline (WCAG 2.2 AA where applicable)
 
 - Contrast per §8.3; focus visible everywhere (`:focus-visible`); hit targets ≥ 24×24 px.
-- Keyboard-reachable chrome: `F6` / `Shift+F6` cycle focus between regions (menu bar → status line → left dock → panes → right dock → bottom dock → timeline). Each region exposes ARIA roles: `menubar`, `toolbar`, `tree` (Outliner), `grid` (Channel Box), `tablist` (docks), `slider` (time slider: `aria-valuenow` = frame, arrow keys step frames while focused), `dialog`.
-- Canvas content (viewport, curves) is not screen-reader accessible by nature. Every selection and value is also reachable through the Outliner and Channel Box, and every action is in menus and the command palette. Graph keys get a keyboard path: with the curve view focused, `Tab` cycles keys and the stats fields edit them.
+- Keyboard-reachable chrome: `F6` / `Shift+F6` cycle focus between regions (menu bar → status line → left dock → panes → right dock → bottom dock → timeline). Each region exposes ARIA roles: `menubar`, `toolbar`, `tree` (Outliner), `grid` (Channels), `tablist` (docks), `slider` (time slider: `aria-valuenow` = frame, arrow keys step frames while focused), `dialog`.
+- Canvas content (viewport, curves) is not screen-reader accessible by nature. Every selection and value is also reachable through the Outliner and Channels panel, and every action is in menus and the command palette. Graph keys get a keyboard path: with the curve view focused, `Tab` cycles keys and the stats fields edit them.
 - Never colour alone (§4.5, §5.5, §8.2): axis letters, key glyph shapes, state bars, dashed styles for remote users.
 - `prefers-reduced-motion`: no camera transitions, no animated collapses. `prefers-contrast: more`: switch to a high-contrast token set (later).
 - UI scale 90/100/110/125/150 % (root `font-size`; all tokens in `rem`), independent from browser zoom, which must also work.
@@ -1000,7 +1000,7 @@ VRM 1.0 `meta` carries `avatarPermission`, `commercialUsage`, `creditNotation`, 
 
 | Width | Behaviour |
 |---|---|
-| ≥ 1600 px | default layout; Attributes may sit under the Channel Box |
+| ≥ 1600 px | default layout; Attributes may sit under the Channels panel |
 | 1280–1599 | default layout (§2) |
 | 1024–1279 | Left dock collapses to an icon rail (opens as an overlay drawer); right dock 220 px; status-line labels hidden (icons + tooltips) |
 | 768–1023 (tablet landscape) | Compact: single viewport, bottom sheet for Graph/Dope Sheet, docks as drawers; touch/pen profile (later) |
@@ -1025,7 +1025,7 @@ State model prerequisite (§13): document state is shared; selection, current ti
 | Menu bar | **Presence stack**: avatar chips (initials or Ekza avatar) in each user's presence colour; hover = "Anna — editing Hero › l_wrist_ctl in Graph Editor"; click = **Follow** (your pane mirrors their camera; any navigation stops following) |
 | Outliner | coloured dot(s) next to items other users have selected; **character ownership** chip when the session uses "one character per animator" mode |
 | Viewport | remote selection: dashed 2 px control outline in the user colour + name chip; remote live drags arrive as normal document updates (no remote manipulator drawn); remote cursors not shown in 3D (noise) |
-| Channel Box | 2 px left bar in the user colour on channels another user is editing right now |
+| Channels | 2 px left bar in the user colour on channels another user is editing right now |
 | Graph Editor | **remote cursors** in *graph space* (frame, value), so they land correctly at any zoom; remote key selection = coloured outline ring; name tag on hover |
 | Timeline / Dope Sheet | **remote playheads**: thin lines in the user colour with an avatar tab on the ruler; playback is independent per user by default; *Sync playback* toggle for review sessions |
 | Soft locks | Starting to drag a control someone else is dragging → amber toast "Anna is moving this — continue?" Otherwise last-writer-wins per key, and overwritten edits show "Restore mine" in a toast |
@@ -1063,7 +1063,7 @@ State model prerequisite (§13): document state is shared; selection, current ti
                          <CurveCanvas/>                                 // Canvas2D, imperative renderer
                        </SplitPane> <RemoteCursorsLayer/>
      <DopeSheetPanel>  <DopeToolbar/> <DopeRows/> <DopeCanvas/>
-     <ChannelBoxPanel> <ChannelBoxHeader/> <ChannelRows/> <ChannelContextMenu/>
+     <ChannelsPanel> <ChannelsHeader/> <ChannelRows/> <ChannelContextMenu/>
      <AttributesPanel> <ControlSection/> <ConstraintSection/> <BoneSection/> <ClipSection/> <CharacterSection/>
      <RigBuilderPanel/> <ValidationPanel/>                              // Rig workspace
    </DockHost>
@@ -1121,7 +1121,7 @@ interface Command<A = void> {
   id: CommandId;
   label: string;                                    // i18n key
   icon?: IconId;
-  scope: 'global' | 'viewport' | 'graph' | 'dope' | 'timeline' | 'outliner' | 'channelBox';
+  scope: 'global' | 'viewport' | 'graph' | 'dope' | 'timeline' | 'outliner' | 'channels';
   defaultKeys?: Chord[];                            // physical codes, e.g. { code: 'KeyS', mods: [] }
   enabled?(ctx: CommandContext): boolean;
   run(ctx: CommandContext, args: A): void | UndoableOp;
@@ -1141,7 +1141,7 @@ interface Command<A = void> {
 | `zustand` | 5.0.15 | MIT | stores |
 | `lucide-react` | 1.59.0 | ISC | generic icons |
 | `@fontsource-variable/inter`, `@fontsource-variable/jetbrains-mono` | 5.3.0 | OFL-1.1 | self-hosted fonts |
-| *Not recommended for the main UI* | `leva` 0.10.1 (MIT) | — | its look and density don't match a professional DCC-grade Channel Box; keep it for dev-only debug panels |
+| *Not recommended for the main UI* | `leva` 0.10.1 (MIT) | — | its look and density don't match a professional DCC-grade Channels panel; keep it for dev-only debug panels |
 | *Custom (≈ 300–500 LOC)* | HotkeyManager | — | needs `event.code`, panel-under-pointer scopes, tap/hold and key+mouse chords, which generic libraries (e.g. `tinykeys` 4.0.1) don't cover |
 
 Reuse from the Ekza codebase: **`ekza-avatar-renderer`** for its CC0 shared clip library (`idle/walk/attack/cast/death`, imported as editable clips) and its VRM test fixture as the sample avatar. Tokens borrow only the accent and the spacing scale from **`ekza-arena-web`**, and only the method from **`omoba-ui`**. **`core`**'s input layer is gameplay-oriented (device-neutral movement), so it is not reused for editor hotkeys.
@@ -1157,7 +1157,7 @@ Reuse from the Ekza codebase: **`ekza-avatar-renderer`** for its CC0 shared clip
 | Control rig visuals: circle controls with Line2, side colours, occlusion-aware X-ray, screen-space picking | Shape library beyond circle/square/cube | Custom shapes editor |
 | Manipulators W/E/R with Object/World/**Gimbal**, snapping, readouts | Parent space, trackball | — |
 | Outliner (tree, filter, sync) + Clips tab | Selection sets | Ownership chips |
-| Channel Box with desktop-DCC state colours, virtual sliders, expressions, key/mute/lock menu; Attributes (Control, Constraint, Clip, Character) | Bone section extras | Expression channel |
+| Channels panel with desktop-DCC state colours, virtual sliders, expressions, key/mute/lock menu; Attributes (Control, Constraint, Clip, Character) | Bone section extras | Expression channel |
 | Graph Editor: channel list, curves, keys/handles, marquee, move/scale, **pen tool**, 7 tangent types, break/unify, normalize, stacked, buffer snapshot/swap, F/A, snapping, stats fields, tangent marking menu | Weighted tangents UI, Simplify/Smooth/Euler filters popovers, infinity editing | Retime tool, blend-to-buffer slider |
 | Dope Sheet: rows, keys, breakdowns, move/scale, ripple, copy/paste | Hold bars | — |
 | Time slider + range slider: ticks, scrub, Shift-range edit, bookmarks, clip selector, fps, loop, speed, auto-key | Audio waveform | Time Editor / layers UI |
@@ -1173,7 +1173,7 @@ Reuse from the Ekza codebase: **`ekza-avatar-renderer`** for its CC0 shared clip
 1. **Space behaviour default:** keep the desktop-DCC tap-maximize/hold-radial (current spec) or default to Space = play for web-native users? (Spec: tap-maximize, with a first-run toggle next to the nav-profile choice.)
 2. **Arrow keys:** desktop-DCC pick-walk (spec default) or open-source-DCC-style frame stepping? Owner preference decides; both exist as a preference.
 3. **Default shot-camera framing:** fixed 3/4 front at 50 mm, or auto-framed from the character bounds on load (proposed: auto-frame once, then persist)?
-4. **Euler-only authoring:** confirm that rotations are always edited as Euler curves (with rotate order per control) and converted on export; affects Channel Box and Graph Editor UX (the curve doc decides).
+4. **Euler-only authoring:** confirm that rotations are always edited as Euler curves (with rotate order per control) and converted on export; affects Channels panel and Graph Editor UX (the curve doc decides).
 5. **Workspace "Model" tab** visible but disabled from day one (spec) or hidden until it exists?
 6. **Timeline docking:** keep it fixed in the MVP (spec) or allow docking at once for users with vertical monitors?
 7. **Brand intensity:** violet accent only for chrome (spec), or also playhead/selection to feel more "Ekza"? Not recommended: it collides with semantic colours.
@@ -1189,7 +1189,7 @@ Desktop DCC (vendor documentation; URLs omitted):
 - Graph Editor Curves menu (2023)
 - `filterCurve` command reference
 - `keyTangent` command reference
-- Channel Box (2024)
+- Channels panel (2024)
 - Time Slider (2024)
 - Playback Controls (2025)
 - Time Slider preferences

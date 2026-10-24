@@ -71,7 +71,7 @@ start together and build in parallel in their own worktrees (branches `m2a/<slug
 |---|---|---|---|---|---|---|
 | A0 | `contracts-foundation` | §4 contracts, stubs and working baselines, schema v2 (atomic), attribute channels in the compiler and kernel, frame scheduler, key gesture, cycle-aware loop clips, layout v2, keymap, menus, test API | Integration | 3.5 | Done (on `dev`, merged first) | [notes](wp-notes/m2a-contracts-foundation.md) |
 | A1 | `rig-ik` | `ik2` op with foot roll in the foot frame, mesh-based foot pivots, limb IK records, hyperextension-safe matching, import to IK with fidelity fallback, Plant Feet on IK legs | A1 | 6.5 | Done (on `dev`; contract PR C-1…C-7 ratified) | FR-RIG-11; [notes](wp-notes/m2a-rig-ik.md) |
-| A2 | `ik-editor` | IK operators and UI (Channel Box, Attributes with foot fields, viewport), visibility, pick-walk, virtual slider (rows and viewport MMB), body-part keying | A2 | 6 | Done (on `dev`; IK tests and E2E-M2A-01…07, 25 run ungated; the same-mode switch is refused, M2A-A2-23) | [notes](wp-notes/m2a-ik-editor.md) |
+| A2 | `ik-editor` | IK operators and UI (Channels, Attributes with foot fields, viewport), visibility, pick-walk, virtual slider (rows and viewport MMB), body-part keying | A2 | 6 | Done (on `dev`; IK tests and E2E-M2A-01…07, 25 run ungated; the same-mode switch is refused, M2A-A2-23) | [notes](wp-notes/m2a-ik-editor.md) |
 | A3 | `dopesheet-timing` | Dope Sheet, time-slider copy/ripple/MMB carry/nudge, insert/remove time, global-region ripple, breakdown retiming | A3 | 5.5 | Done (on `dev`; E2E-M2A-10b and -14 run ungated) | FR-DS-01..02, FR-TIME-10; [notes](wp-notes/m2a-dopesheet-timing.md) |
 | A4 | `graph-posing` | Tween family (status line too), breakdown display, half-cycle mirror animation, buffer curves, normalized/stacked views, scale/region tool, M-1 (frame profile first) | A4 | 5.5 | Done (on `dev`; M-1 met, p95 3.2 ms on `dev`; E2E-M2A-15 ungated) | [notes](wp-notes/m2a-graph-posing.md); FR-KEY-08..09, FR-GE-18..20 |
 | A5 | `platform-perf` | M-2 lazy loading + size gate, M-3 curve evaluation, autosave + recovery, export key reduction | A5 | 5 | Done (on `dev`; M-2 gate in CI, M-3 met) | FR-PROJ-05, FR-EXP-12; [notes](wp-notes/m2a-platform-perf.md) |
@@ -249,7 +249,7 @@ SwiftShader CI; math tests green; every panel mounts in `/dev/panels` with the f
 
 **Deliverables**: everything in [MVP-SPEC §1.1](MVP-SPEC.md#11-in-scope-m1-core): open GLB/VRM 0.x/1.0 and samples,
 FK control rig (humanoid with `cog`/`fk.hips`, mesh-based sizes; generic), Plant Feet, node-constraint preview,
-outliner, Channel Box, single/split/quad viewports with locked shot camera, Alt+drag + trackpad navigation, W/E
+outliner, Channels, single/split/quad viewports with locked shot camera, Alt+drag + trackpad navigation, W/E
 manipulators with Gimbal mode, marquee and pick cycling, keying and auto-key, time slider with range editing,
 scene clock, Canvas2D Graph Editor with the weighted/stepped tangent model (AnimX-compatible) and Simplify, multiple
 clips with provenance, pose tools, editor history (unkeyed edits undoable), three exports (surgeon bake,
@@ -461,7 +461,7 @@ misses M-1, M-2 and M-3 (M2A-SPEC §5.21).
 4. Tween slider family, breakdown keys, mirror animation with half-cycle offset, cycle-aware auto tangents on loop
    clips (FR-KEY-08..09, FR-POSE-05, FR-GE-17).
 5. Buffer curves, normalized/stacked views, Graph Editor scale/region (FR-GE-18..20); export-side key reduction
-   (FR-EXP-12); pick-walk; Channel Box virtual slider; keying by body part; autosave + recovery (FR-PROJ-05).
+   (FR-EXP-12); pick-walk; Channels panel virtual slider; keying by body part; autosave + recovery (FR-PROJ-05).
 
 **Acceptance**: a walk cycle and an attack clip with planted feet and contact are authored without Plant Feet
 (E2E-M2A-23, -24); M-1, M-2 and M-3 met; public README with GIFs; `v0.2.x`.

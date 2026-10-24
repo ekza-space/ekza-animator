@@ -6,12 +6,12 @@
 | Date | 2026-10-19 |
 | Scope | The Rig & Skin workspace as a whole: tab, layout, modes (Object, Skeleton, Skin, Shapes), the pose view (bind / test / clip), joint display, the Joint tool and joint hierarchy editing, Orient Joint, Mirror Joint, templates and Quick Rig, Bind Skin, the Paint Skin Weights panel with the influences list (hold/lock), the Component Editor weight table, weight utilities, constraints (parent/point/orient/aim with weights and maintain offset), control shape editing (FR-RIG-13), the Validation panel and export hand-off, onboarding, menus, marking menus, the keymap rows, the React component tree and the D/U/P state classification |
 | Out of scope | Algorithms and data contracts owned by the sibling notes of this planning round and by research 14: Quick Rig fitting, projected-centre maths, auto-skin solvers, the normalization contract, constraint evaluation (research 07 §7), the VRM/GLB writers. This note fixes only what the UI needs from them (§21) |
-| Builds on | Research [09](09-ui-ux-spec.md) (shell, Channel Box, tokens, marking-menu geometry), [16](16-model-workspace-ui.md) (workspace tabs, Model layout, key-scope chain), [14](14-skinning-own-models.md) (skeleton, skin, weights, writers), [17](17-dcc-rigging-basics.md) (sibling note of this round: joint orientation, Joint tool, hierarchy ops, mirror, the move/rotate/test rule, bind options, paint semantics; this note follows its decisions J1–J8, S1–S6, R1–R5 and lists the one key it resolves differently, §25 Q-RIG-UI-11), [07](07-rig-controls-math.md) (control model §3, shapes §5.4, constraints §7, rig format §19); [M6A-SPEC](../M6A-SPEC.md) §4.6, §5.17, §5.18, §7, §8 (the contracts this workspace reuses); [M2A-SPEC](../M2A-SPEC.md) §5.5, §7 (IK display, Limb section); [MODELING-PLAN](../MODELING-PLAN.md) §3.10, §5; ADR [0016](../adr/0016-modeling-interaction-paradigm.md); the shipped code in `packages/rig`, `packages/doc/src/records.ts`, `packages/editor-core/src/keymap/dcc.ts`, `packages/editor-core/src/workspaces` |
+| Builds on | Research [09](09-ui-ux-spec.md) (shell, Channels, tokens, marking-menu geometry), [16](16-model-workspace-ui.md) (workspace tabs, Model layout, key-scope chain), [14](14-skinning-own-models.md) (skeleton, skin, weights, writers), [17](17-dcc-rigging-basics.md) (sibling note of this round: joint orientation, Joint tool, hierarchy ops, mirror, the move/rotate/test rule, bind options, paint semantics; this note follows its decisions J1–J8, S1–S6, R1–R5 and lists the one key it resolves differently, §25 Q-RIG-UI-11), [07](07-rig-controls-math.md) (control model §3, shapes §5.4, constraints §7, rig format §19); [M6A-SPEC](../M6A-SPEC.md) §4.6, §5.17, §5.18, §7, §8 (the contracts this workspace reuses); [M2A-SPEC](../M2A-SPEC.md) §5.5, §7 (IK display, Limb section); [MODELING-PLAN](../MODELING-PLAN.md) §3.10, §5; ADR [0016](../adr/0016-modeling-interaction-paradigm.md); the shipped code in `packages/rig`, `packages/doc/src/records.ts`, `packages/editor-core/src/keymap/dcc.ts`, `packages/editor-core/src/workspaces` |
 
 Reading guide: §0 decisions; §1 starting point; §2 the verified reference (a leading commercial desktop DCC, "the
 desktop DCC" below); §3 the tab; §4 layout; §5 modes and the pose view; §6 viewport display; §7 Skeleton mode; §8 Skin
 mode; §9 constraints; §10 control shapes; §11 test deformation and bind pose; §12 onboarding; §13 Validation and export;
-§14 Outliner; §15 Channel Box and Attributes; §16 menus; §17 marking menus; §18 keymap; §19 component tree; §20 state;
+§14 Outliner; §15 Channels panel and Attributes; §16 menus; §17 marking menus; §18 keymap; §19 component tree; §20 state;
 §21 contracts; §22 accessibility; §23 collaboration; §24 build slice and acceptance; §25 open questions; §26 non-goals;
 §27 sources.
 
@@ -29,7 +29,7 @@ mode; §9 constraints; §10 control shapes; §11 test deformation and bind pose;
 | RU6 | **Component Editor (Smooth Skins)** as a bottom-dock table: rows = selected vertices, columns = influences, a **Hold** row, a Total column, typed values normalized interactively with holds respected. | The precise fix tool for low-poly meshes where one wrong vertex shows; desktop-DCC users look there. |
 | RU7 | **Validation panel = the export gate**: VRM required bones, unique names, parent map, T-pose, symmetry, grounding, max 4 influences, unweighted vertices, weight sums, non-uniform or non-unit scale, transforms not frozen, bind-pose consistency, stale skin, constraint cycles; each row has *Select* and, where safe, *Fix*. Severity follows the chosen export profile. The tab glyph and the Export dialog read the same results. | One source of truth for "can I ship this character"; research 14 §4.2, §7.4 and §9.4 define the codes. |
 | RU8 | **Onboarding is a setup checklist** for a modeled mesh: *Template humanoid → Fit joints (symmetry) → Bind (auto weights) → Test pose → Fix weights → Control rig → Animate*. Each step is a button that opens the right mode and tool; state glyphs come from the same derived checks. | The owner's turnkey loop (MODELING-PLAN §2.1) made visible and resumable; nothing is a modal wizard except Quick Rig's marker step. |
-| RU9 | **Constraints the desktop-DCC way**: select target(s) first, the driven control last, `Constrain › Parent/Point/Orient/Aim` with an option box (Maintain Offset, axes, weight); the constraint appears in the Outliner under its driven control, its target weights and blend as Channel Box rows, its settings in Attributes. Pole Vector routes to limb IK. Available in Rig & Skin and Animate. | The vendor documents the selection order and options (§2); research 07 §7 already defines the maths; a constraint drives the control's space, so the control stays animatable. |
+| RU9 | **Constraints the desktop-DCC way**: select target(s) first, the driven control last, `Constrain › Parent/Point/Orient/Aim` with an option box (Maintain Offset, axes, weight); the constraint appears in the Outliner under its driven control, its target weights and blend as Channels panel rows, its settings in Attributes. Pole Vector routes to limb IK. Available in Rig & Skin and Animate. | The vendor documents the selection order and options (§2); research 07 §7 already defines the maths; a constraint drives the control's space, so the control stays animatable. |
 | RU10 | **Control shapes are edited in Shapes mode**: library picker, colour (side / palette / custom), size, line width; `W`/`E`/`R` move/rotate/scale the **shape offset**, never the control; CV editing (`F9` or RMB › Control Vertex) turns a library shape into a custom one; Mirror Shape L→R; copy/paste; reset. **No edit in Shapes mode can create a key** (FR-RIG-13). | Desktop-DCC users reshape controls by editing CVs; the custom-shape transform of a popular open-source DCC (scale/translation/rotation override) is the cleaner data model; both are covered by `ControlShape.offset` + `custom`. |
 | RU11 | **Moving a joint after binding keeps the mesh where it is** (the desktop DCC's *Move Skinned Joints* semantics are the only behaviour); there is no "joint drags the skin at rest" mode. | Bind = rest: inverse bind matrices are derived (research 14 D2), so a rest move cannot deform the rest mesh. Stated as a divergence (§18.5). |
 | RU12 | **Selection undo on in Rig & Skin** (`prefs.modeling.undoSelection.rig = true`): joint, vertex, control and CV selections are coalesced "Select" steps as in Model. | A hand-built vertex selection for the weight table is as precious as a loop selection in Model. |
@@ -49,7 +49,7 @@ mode; §9 constraints; §10 control shapes; §11 test deformation and bind pose;
 | Rig records | `RigRecord`, `ControlRecord` (`shape: ControlShape { kind, size, offset, custom: SplineSet \| null, color: 'side' \| '#hex', lineWidth }`, `mirror`, `attrs`), `ConstraintRecord` (**schema slot**: `type parent│point│orient│aim`, `driven`, `targets {target, weight, offset?}`, `maintainOffset`, `params`, `enabled`; compiles to a disabled op), `SolverRecord` (`ik2`, `footRoll` live since M2a) | Constraints UI writes `ConstraintRecord`; Shapes mode writes `ControlRecord.shape` |
 | Rig operators | `rig.addLimbIk`, `rig.ikFk.match`, `rig.ikFk.matchRange`, `rig.ikFk.switch`, `rig.setControlSize`, `rig.setFootParams`, `rig.setRotateOrder`, `rig.toggleSecondary` | Kept; the Rig & Skin menus list them where they fit |
 | Shapes | `registerControlShape(kind, SplineSet)` registry in anim-core; auto-rig picks kinds and sizes (`rig/src/autorig/shapes.ts`) | The library picker reads the registry |
-| Panels | Outliner, Channel Box (field states incl. `--cb-constrained`), Attributes (Limb section), Clips, Graph, Dope Sheet, Timeline | Rig variants and new sections |
+| Panels | Outliner, Channels panel (field states incl. `--cb-constrained`), Attributes (Limb section), Clips, Graph, Dope Sheet, Timeline | Rig variants and new sections |
 | Display | `DisplayFlags.skeleton` (`Alt+J`), `controls` (`Alt+C`), `xray` (`Alt+X`); joint glyphs exist as a debug layer | Joint display becomes a first-class overlay (§6) |
 | Workspaces | `WORKSPACE.rig = 'rig'` reserved; Model's B9 registers Rig & Skin as a **disabled** tab ("Arrives with characters from your own models (v0.4)") | M6b enables it |
 
@@ -57,7 +57,7 @@ mode; §9 constraints; §10 control shapes; §11 test deformation and bind pose;
 
 Workspace tabs and per-workspace layouts/menus/status groups; the generic `MarkingMenu`; the command palette;
 hierarchical key scopes and the keyboard adapter order; `ComponentSelection` (vertex bitsets, hide bitsets, version);
-BVH picking in `mesh-view`; the Last-op card and Channel Box INPUTS (`params: ParamDef[]`, `edit.adjustLast`); the modal
+BVH picking in `mesh-view`; the Last-op card and Channels panel INPUTS (`params: ParamDef[]`, `edit.adjustLast`); the modal
 tool contract and the narrow numeric-capture window; selection undo; hide/isolate; overlay camera layers 6–9; the
 halo rule for overlay tokens; the `BIND POSE` badge; the MMB stand-in for trackpad profiles (M6A-SPEC §5.17).
 
@@ -264,7 +264,7 @@ Per-pane display flags are remembered per workspace (M6A-SPEC §4.6), so Rig's `
 | View | Viewport shows | Editable | Badge |
 |---|---|---|---|
 | **Bind** (default) | the rest pose = bind pose (research 14 D2) | joint rest positions, Orient/Mirror Joint, templates, Quick Rig, Bind Skin, weights, constraints, shapes | `BIND POSE` |
-| **Test** | the bind pose plus the **test pose**: session overrides on the joints' driving controls (the control rig exists from the moment of binding, research 14 D10 and 17 J7; a joint rotated with `E` writes its control's override) | weights (painting on the posed mesh, research 14 §7.3), shapes, constraints; joint **rest** moves are disabled ("Go to Bind Pose to move joints") | `TEST POSE` (`--pose-test`, light pink as the Channel Box "changed" state) |
+| **Test** | the bind pose plus the **test pose**: session overrides on the joints' driving controls (the control rig exists from the moment of binding, research 14 D10 and 17 J7; a joint rotated with `E` writes its control's override) | weights (painting on the posed mesh, research 14 §7.3), shapes, constraints; joint **rest** moves are disabled ("Go to Bind Pose to move joints") | `TEST POSE` (`--pose-test`, light pink as the Channels panel "changed" state) |
 | **Clip** | the active clip at the current frame (the `__rom` test clip by default; any clip of the character) | weights (paint on the posed mesh), shapes, constraints; rest moves disabled; channel edits are Animate's ("Clips are edited in Animate") | `CLIP walk · f24` |
 
 - **Go to Bind Pose** (the desktop DCC's name; status line `Bind`, Skin menu, RMB E slot) clears every test override,
@@ -589,7 +589,7 @@ old rest shift by the pose delta (n clips). Do this before animating." One undo 
 
 - **Outliner**: the constraint is a child row of its driven control (`⛓ parent → L Hand, prop_grip`), like the desktop
   DCC's constraint node under the constrained transform; filter toggle `⛓`.
-- **Channel Box** (driven control or constraint row selected): the driven channels show the `--cb-constrained` state
+- **Channels** (driven control or constraint row selected): the driven channels show the `--cb-constrained` state
   (shipped token); a **constraint section** lists `Blend` and one weight row per target (`L Hand W0`, `prop W1`),
   editable with virtual sliders. In Rig & Skin they are rest values (D); keying them is Animate's (the M2a custom
   attribute mechanism: the operator creates keyable `@` attributes on the driven control, the desktop DCC's
@@ -659,7 +659,7 @@ keymap shadows keying chords, and the operators touch only `ControlRecord.shape`
 
 | Need | UI |
 |---|---|
-| Rotate joints to test (no control rig yet) | Skeleton mode, `E` on joints → Test view; Channel Box shows `Rotate X/Y/Z` test rows in the "changed" pink |
+| Rotate joints to test (no control rig yet) | Skeleton mode, `E` on joints → Test view; Channels panel shows `Rotate X/Y/Z` test rows in the "changed" pink |
 | Pose with the control rig | Object mode, select controls, `W`/`E` (IK legs work: M2a) → Test |
 | Range of motion | `Skin › Test › Range of Motion` creates/refreshes `__rom`; Pose view `Clip`; `Alt+V` plays; the timeline shows its poses |
 | Any clip | Clip selector in the timeline; Pose view switches to `Clip` |
@@ -804,9 +804,9 @@ Steps are never locked: any button works at any time and the glyphs only report.
 
 ---
 
-## 15. Channel Box and Attributes in Rig & Skin
+## 15. Channels panel and Attributes in Rig & Skin
 
-| Selection | Channel Box | Attributes sections |
+| Selection | Channels | Attributes sections |
 |---|---|---|
 | Joint (Bind) | `Rest Position X/Y/Z` (character space, D, editable; symmetry writes the partner); INPUTS of the last joint op | **Joint**: name, humanoid bone, side, mirror partner, parent, rest position, rest orientation (Euler), tail, locked; **Skeleton**: template, preset, symmetry, joint count |
 | Joint (Test) | `Rotate X/Y/Z` test rows (pink "changed"), rest rows read-only | same |
@@ -960,7 +960,7 @@ and never runs `skel.joint.delete`.
    <PaintWeightsPanel> <MeshSelect/> <PaintModeRadio/> <InfluenceListToolbar/>
      <InfluenceList/> (virtualized) <InfluenceRow/> <WeightActions/> <PaintOperationRadio/>
      <ValueOpacityFields/> <FloodButton/> <BrushSection/> <MirrorSection/> <WeightDisplaySection/>
-   <ChannelBoxPanel> … <JointRows/> <TestPoseRows/> <ConstraintWeightRows/> <InputsSection/>
+   <ChannelsPanel> … <JointRows/> <TestPoseRows/> <ConstraintWeightRows/> <InputsSection/>
    <AttributesPanel> … <JointSection/> <SkeletonSection/> <SkinSection/> <ConstraintSection/>
      <ControlShapeSection/> <LimbSection/> (shipped)
    <ComponentEditorPanel> <WeightTableToolbar/> <HoldRow/> <WeightTable/> (virtualized grid)
@@ -1116,9 +1116,9 @@ widened scope splits the UI as follows; the kernel, solver, constraint-op and wr
 | Package | Scope | Size | Depends on |
 |---|---|---|---|
 | C6a `rig-shell` | WorkspaceDef, modes and digits, pose view, status groups, layout presets, key scopes and §18 rows (stubs that poll-fail until owners land), menus §16, marking-menu data §17, Outliner Rig variant, joint overlay + display flags, Validation panel + glyph, setup checklist, empty states | 5 | C0; M6a B0b, B9 |
-| C6b `skeleton-ui` | Joint tool, Insert Joint, `D`/symmetry/projected-centre interaction, Quick Rig stepper and markers, Orient/Mirror option boxes, Attributes › Joint/Skeleton, Channel Box rest/test rows | 3 (inside C1's 6) | C6a, C1 kernel |
+| C6b `skeleton-ui` | Joint tool, Insert Joint, `D`/symmetry/projected-centre interaction, Quick Rig stepper and markers, Orient/Mirror option boxes, Attributes › Joint/Skeleton, Channels panel rest/test rows | 3 (inside C1's 6) | C6a, C1 kernel |
 | C6c `skin-ui` | Paint Weights panel, brush tool and keys, weight surface display modes, influence list with holds, Component Editor, utilities wiring, `U` menu, posed-mesh painting UI | 4 (inside C3's 6) | C6a, C3 kernel, M6a B6/B10/B12a |
-| C8 `constraints` | constraint op registration (research 07 §7) + Constrain menu, option boxes, Outliner rows, Channel Box weights, Attributes › Constraint, constraint lines, Animate menu entries | ≈ 4 (UI ≈ 2) | C6a, rig compiler |
+| C8 `constraints` | constraint op registration (research 07 §7) + Constrain menu, option boxes, Outliner rows, Channels panel weights, Attributes › Constraint, constraint lines, Animate menu entries | ≈ 4 (UI ≈ 2) | C6a, rig compiler |
 | C9 `control-shapes` | Shapes mode, library popover, colour, offset transforms, CV edit with conversion to custom, mirror/copy/paste/reset, `rig.autoRig.update` keeps overrides | ≈ 3 | C6a, C4 |
 
 ### 24.2 Acceptance scenarios (`E2E-RIG-UI-*`, Chrome; mouse and trackpad profiles)
@@ -1140,7 +1140,7 @@ widened scope splits the UI as follows; the kernel, solver, constraint-op and wr
 6. **Pose view**: `E` on the elbow switches to Test; `W` on a joint then poll-fails "Go to Bind Pose to move joints";
    Bind ↔ Test restores the last test pose; leaving Rig clears it; Animate shows the clip frame.
 7. **Constraint**: select `L Hand` then a secondary control, Constrain › Parent with Maintain Offset: the Outliner row
-   appears under the driven control, Channel Box shows Blend and W0; moving the hand in Test moves the control;
+   appears under the driven control, Channels panel shows Blend and W0; moving the hand in Test moves the control;
    one undo removes the constraint; Animate's Rig › Constrain lists the same items.
 8. **Shapes**: `3`, select `fk.upperArm.L`, Replace with square, colour custom, `R` scales the shape offset 1.5×,
    Mirror Shape L → R; the keys table is unchanged (count and hashes); undo restores.

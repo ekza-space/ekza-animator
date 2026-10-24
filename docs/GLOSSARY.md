@@ -20,7 +20,7 @@ descriptively.
 | **Canonical character space** | VRM 1.0 convention used by the rig: +Y up, +Z forward, character's left = +X, metres. VRM 0.x models are rotated by π about Y (`facing`) to match. |
 | **Change batch** | The record-level before/after list a transaction (or preview update) emits, with its origin (`local`, `undo`, `remote`, …) and, for field-merge updates, the changed fields. |
 | **Channel** | One scalar animatable value of a control: `tx ty tz rx ry rz sx sy sz` or a custom `@attr`. One curve per channel. |
-| **Channel Box** | DCC-style panel listing the selected controls' channels with numeric fields and keyed/changed/locked colours. |
+| **Channels** | DCC-style panel listing the selected controls' channels with numeric fields and keyed/changed/locked colours. |
 | **Claim** | Collaboration (M3): a soft lock announced through presence ("Alice is animating the left arm"). Advisory, never blocks offline users; structural clip operations need an exclusive claim. |
 | **Clip** | A named animation of one character (glTF `animation`; an "action" in some DCCs). Owns layers, curves and keys; has its own fps, range, scene start, loop flag, root-motion mode, contact frame, tags and provenance. |
 | **Clip frame / scene frame** | Clip frame: time in the clip's own fps (what the ruler and Graph Editor show). Scene frame: the shared clock at the project's scene fps; `clipFrame = (sceneFrame − sceneStart)·clipFps/sceneFps`. |

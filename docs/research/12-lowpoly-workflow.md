@@ -680,7 +680,7 @@ Budgets and practice
   colour shift from mip-mapping small islands: https://discussions.unity.com/t/using-one-material-for-nearly-the-whole-world/682877
 - Missing-normal handling in other importers: https://github.com/CesiumGS/cesium/issues/6506
 - Open-source DCC 4.1 modeling release notes (Smooth by Angle, sharpness attributes).
-- Desktop DCC reference: Modeling Toolkit hotkeys (2023 help).
+- Desktop DCC reference: Modeling Tools hotkeys (2023 help).
 - Desktop DCC reference: smooth-skin bind methods (2017 help); Geodesic Voxel binding (2018 help).
 - Baran and Popović, "Automatic Rigging and Animation of 3D Characters" (SIGGRAPH 2007):
   https://people.csail.mit.edu/ibaran/papers/2007-SIGGRAPH-Pinocchio.pdf

@@ -1,7 +1,7 @@
 # SHADING-SPEC — Basic shading without UVs (Lambert and Blinn)
 
 - Status: v1.0 (2026-10-21), built on `feat/shading` (from `dev` d748932). Owner request in [TODO](../TODO.md)
-  ("Basic shading without UVs"): a Hypershade-lite — Lambert and Blinn materials, no UVs, assigned to objects or
+  ("Basic shading without UVs"): a lite shader editor — Lambert and Blinn materials, no UVs, assigned to objects or
   selected faces, flat/smooth; export Lambert → roughness 1 / metallic 0, Blinn → roughness from glossiness plus
   `KHR_materials_specular`.
 - Decision record: [ADR 0019](adr/0019-swatch-shaders.md) (a swatch is the shader; swatches table version 2 instead of
@@ -101,7 +101,7 @@ UI:
   committed on release/Enter, one step each), Specular colour; Blinn swatches show a highlight dot in the grid.
   Buttons **New Lambert** and **New Blinn** run Assign New Material on the selection.
 - Menus: Edit Mesh › Assign New Material › Lambert / Blinn, and the same sub-menu next to Assign Colour in the
-  component and face marking-menu lists; the command palette finds it (aliases "Lambert", "Blinn", "Hypershade", "New
+  component and face marking-menu lists; the command palette finds it (aliases "Lambert", "Blinn", "Shader Editor", "New
   Material"). No default key (the desktop DCC has none).
 - Like the mesh operators, the poll does not start the mesh kernel (menus poll every item): it says "Mesh tools are
   loading" until Model entry has loaded it.

@@ -47,7 +47,7 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | FR-RIG-01 | Auto-generate an FK control rig for VRM humanoids on the bones present: `root`, `cog` (pure space), `fk.hips` (pelvis), spine chain parented to `cog`, neck, head, jaw, shoulders, arms, hands, fingers, legs parented to `fk.hips`, feet, toes. | MVP | M1 | Seed-san: ≥ 50 controls; rotating `fk.hips` leaves the spine's world rotation unchanged; missing optional bones collapse to the nearest ancestor. |
 | FR-RIG-02 | Zero pose = rest pose: each control has an offset ("zero group"); default channels reproduce the rest pose. | MVP | M1 | All fixtures: bone locals equal rest within 1e-9 at default channels. |
 | FR-RIG-03 | DCC-style circle controls around bones (shape registry), sized from the skinned mesh (1.25 × P90 vertex distance, bone-length fallback) with per-group clamps and offsets (fingers as lollipops), coloured by side (L blue, R red, centre yellow) with hover/selected/lead highlight tokens. | MVP | M1 | No control below its group minimum; in a framed hand view on Seed-san and Polybot every finger control has a pick point ≥ 6 px from every other control's polyline. |
-| FR-RIG-04 | `root` (floor placement) and `cog` (pure space) are translate+rotate keyable; `fk.hips` and FK controls rotate-only; imports put hips motion on `cog`. | MVP | M1 | Channel Box shows t+r for root/cog, r for `fk.hips` and FK. |
+| FR-RIG-04 | `root` (floor placement) and `cog` (pure space) are translate+rotate keyable; `fk.hips` and FK controls rotate-only; imports put hips motion on `cog`. | MVP | M1 | Channels panel shows t+r for root/cog, r for `fk.hips` and FK. |
 | FR-RIG-05 | Bones hidden and not pickable by default; secondary controls for non-humanoid joints (excluding spring-bone joints and node-constraint destinations) hidden by default with a toggle. | MVP | M1 | Seed-san hair spring joints have no controls. |
 | FR-RIG-06 | Humanoid controls are world-aligned in canonical space; VRM 0.x and 1.0 controls mean the same thing; normalized rotations are computed from bone world deltas. | MVP | M1 | The same channel values give the same `humanLocal` on Polybot and Seed-san (< 1e-6); three-vrm parity with `flipYaw` for VRM 0.x (1e-6). |
 | FR-RIG-07 | Generic skinned GLBs get a 1:1 bone-aligned FK rig (t, r, s keyable). | MVP | M1 | Quaternius: one control per skin joint. |
@@ -92,11 +92,11 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 |---|---|---|---|---|
 | FR-OUT-01 | Tree: character → Rig (control hierarchy), Skeleton (read-only bones with VRM humanoid names), Clips. | MVP | M1 | Seed-san rows match the rig records. |
 | FR-OUT-02 | Filter by name and humanoid bone name. | MVP | M1 | "leftHand" shows `fk.hand.L`. |
-| FR-OUT-03 | Selection synced both ways with the viewport and Channel Box; hover pre-highlights in viewports. | MVP | M1 | US-05. |
+| FR-OUT-03 | Selection synced both ways with the viewport and Channels panel; hover pre-highlights in viewports. | MVP | M1 | US-05. |
 | FR-OUT-04 | Rename clips inline; controls rename in V1. | MVP | M1 | Clip rename undoable. |
 | FR-OUT-05 | Pick-walk with arrow keys over the control hierarchy. | V1 | M2a ✓ | ↑ selects the parent control. |
 
-### FR-CB — Channel Box
+### FR-CB — Channels panel
 
 | ID | Requirement | Pri | M | Acceptance criterion |
 |---|---|---|---|---|
@@ -113,9 +113,9 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 |---|---|---|---|---|
 | FR-KEY-01 | `S` keys all keyable channels of the selected controls (or the whole character by key target) at the current frame. | MVP | M1 | Keys created per MVP-SPEC §4.11.1. |
 | FR-KEY-02 | `Shift+W/E/R` key translate/rotate/scale only; rotation keys are synchronized across rx/ry/rz. | MVP | M1 | `Shift+E` creates 3 rotation keys only. |
-| FR-KEY-03 | Key selected Channel Box channels. | MVP | M1 | Only highlighted channels keyed (rotation triple rule applies). |
+| FR-KEY-03 | Key channels selected in the Channels panel. | MVP | M1 | Only highlighted channels keyed (rotation triple rule applies). |
 | FR-KEY-04 | Auto-key toggle (red time-slider border); default rule (only channels with curves) with a preference to key all. | MVP | M1 | E2E-21. |
-| FR-KEY-05 | Delete keys at the current frame (viewport/Channel Box) and selected keys (Graph Editor and time-slider band). | MVP | M1 | Undoable. |
+| FR-KEY-05 | Delete keys at the current frame (viewport/Channels) and selected keys (Graph Editor and time-slider band). | MVP | M1 | Undoable. |
 | FR-KEY-06 | Default tangent types for new keys as a preference (default auto/auto). | MVP | M1 | Changing the preference affects new keys only. |
 | FR-KEY-07 | Unkeyed edits: static values on key-less channels (document, undoable); session overrides on keyed channels (discarded on frame change, undoable through the editor history). | MVP | M1 | MVP-SPEC §4.11.2 table tests; E2E-24. |
 | FR-KEY-08 | Breakdown keys with proportional retiming. | V1 | M2a ✓ | Moving neighbours keeps the ratio. |
@@ -366,7 +366,7 @@ below. Acceptance criteria name the M6a e2e scenarios (`E2E-MOD-NN`) and gates. 
 | FR-MOD-24 | Planar, box and cylindrical UV projections; UVs propagated by every op. | V1 | M6a ✓ | Projection goldens (M6A-SPEC §5.28). |
 | FR-MOD-25 | Reference image planes per ortho camera (offset, size, opacity, depth, lock), never picked or exported, saved in the project. | V1 | M6a ✓ | E2E-MOD-29. |
 | FR-MOD-26 | Poly Count HUD with a triangle budget bar; Mesh Check panel and overlay with "select matching" and explicit fixes. | V1 | M6a ✓ | E2E-MOD-09, -25; HUD counts equal the kernel's. |
-| FR-MOD-27 | Adjust Last Operation (Last-op card and Channel Box INPUTS, `T`), Repeat Last (`G`), last tool (`Y`), numeric input in the narrow capture window; Modeling Toolkit with option boxes. | V1 | M6a ✓ | E2E-MOD-06, -07, -19. |
+| FR-MOD-27 | Adjust Last Operation (Last-op card and Channels panel INPUTS, `T`), Repeat Last (`G`), last tool (`Y`), numeric input in the narrow capture window; Modeling Tools with option boxes. | V1 | M6a ✓ | E2E-MOD-06, -07, -19. |
 | FR-MOD-28 | Mesh storage as revision refs over content-addressed chunks (schema v3), autosave and `.ekzanim` with mesh blobs, byte-bounded undo; bit-exact undo and deterministic revisions. | V1 | M6a ✓ | E2E-MOD-14; properties P5, P6, P8; B7 memory bench. |
 | FR-MOD-29 | Make editable for imported meshes (licence-gated) keeping skin weights, morph targets, UVs and colours; export through the surgeon's "replace primitives" step with bake marker v2; edited characters keep MToon outlines and expressions. | V1 | M6a ✓ | E2E-MOD-12, -30, -31. |
 | FR-MOD-30 | Static GLB export (author writer) with the `ekza/omoba-handheld-v1` profile, `mesh.*`/`ekza.*` lints and the `ekza_model_v1` provenance block. | V1 | M6a ✓ | E2E-MOD-13; AS-LP-B. |
