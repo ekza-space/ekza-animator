@@ -18,7 +18,7 @@
 // route never loads this module (T1a amendment A1: the manager holds a stage, never the state machine).
 import type { NavGesture } from '../navigation/profiles';
 import type { PickResult, ViewPreset } from '../types';
-import { POINTER_TOLERANCE, usePointerTolerance } from './tolerance';
+import { POINTER_TOLERANCE, setPointerTolerance } from './tolerance';
 
 /** The pointer types an arbiter may buffer (the mouse stays eager, as in Studio Pro). */
 export type ArbiterPointerType = 'touch' | 'pen';
@@ -216,7 +216,7 @@ export function hostPort<E extends ArbiterPointer>(host: ArbiterHost<E>): Arbite
     startNav: (paneId, e, gesture) => host.pipe(paneId, e, gesture),
     navigate: (paneId, gesture, dx, dy, at) => host.navigate(paneId, gesture, dx, dy, at),
     endNavigate: (paneId) => host.endNavigate(paneId),
-    pointer: usePointerTolerance,
+    pointer: setPointerTolerance,
   };
 }
 

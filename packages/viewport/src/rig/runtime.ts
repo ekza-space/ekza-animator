@@ -7,6 +7,7 @@ import type { Disposer } from '@ekza-studio/anim-core';
 import type { JointId, MeshId } from '@ekza-studio/doc';
 import { type EditorApp, quickRigOf, rigGeometry } from '@ekza-studio/editor-core';
 import { projectedCenter, type QuickRigMarker } from '@ekza-studio/rig';
+import type { VirtualHoldCode } from '../input/modifiers';
 import type { ViewportManager, ViewportPointerLayer } from '../manager/ViewportManager';
 import { JointInput } from '../tools/rig/jointTransform/input';
 import { rigSkinRuntimes } from '../tools/rig/paint';
@@ -62,7 +63,7 @@ class Held implements HeldKeys {
 export function createRigRuntime(app: EditorApp, vm: ViewportManager): ViewportRigRuntime {
   const joints = new JointOverlay(vm, app);
   const markers = new QuickRigMarkerOverlay(vm, app);
-  const held = new Held((code) => vm.virtualHeld(code));
+  const held = new Held((code) => vm.modifierSource?.get().held.has(code as VirtualHoldCode) === true);
   let preview: JointPreview | null = null;
   let dirty = true;
   let rebuildMs = 0;

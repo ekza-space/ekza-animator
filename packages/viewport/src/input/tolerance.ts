@@ -1,8 +1,9 @@
 // Tolerances by pointer type (STUDIO-TOUCH-SPEC §5.4, ST-8; T1). The mouse keeps Studio Pro's values; a finger and the
 // pen get larger pick radii, slops and multi-tap windows. `PICK` (theme.ts) holds the tolerances of the pointer in use
 // and every consumer reads it at call time (the control, joint and manipulator pickers, the select tools' cycle radius
-// and marquee threshold), so a touch shell's input stage switches them per event (`usePointerTolerance`) and Studio
-// Pro, which installs no stage, never runs this module.
+// and marquee threshold), so a touch shell's input stage switches them per event (`setPointerTolerance`); Studio Pro,
+// which installs no stage, keeps the mouse's. The Model select runtime reads the table for its double-click and its
+// component pick radius by pointer type.
 import { PICK } from '../theme';
 
 export type PointerKind = 'mouse' | 'pen' | 'touch';
@@ -32,7 +33,7 @@ export const pointerInUse = (): PointerKind => inUse;
  * Switches PICK to a pointer type's tolerances: the pick radii of controls, joints and manipulator handles, the cycle
  * radius (the multi-tap radius) and the marquee threshold (the slop). The mouse restores Studio Pro's values.
  */
-export function usePointerTolerance(type: string): void {
+export function setPointerTolerance(type: string): void {
   const kind = pointerKind(type);
   if (kind === inUse) return;
   inUse = kind;

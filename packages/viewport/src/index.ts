@@ -47,6 +47,7 @@ export {
   NO_MODIFIERS,
   type VirtualHoldCode,
   type VirtualModifiers,
+  virtualKey,
 } from './input/modifiers';
 export {
   handleGrowPx,
@@ -54,7 +55,7 @@ export {
   type PointerKind,
   pointerInUse,
   pointerKind,
-  usePointerTolerance,
+  setPointerTolerance,
 } from './input/tolerance';
 // AUTORIG-SPEC §8.1 (D3): a shell's per-press navigation override (`ViewportManager.setNavigationOverride`).
 export type { NavGesture, NavigationOverride, NavPointerInput } from './navigation/override';

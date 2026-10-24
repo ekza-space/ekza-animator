@@ -24,6 +24,7 @@ import {
 import type { BitSet, ComponentKind, MeshProblem } from '@ekza-studio/mesh-core';
 import { type Camera, Matrix4, Ray, Vector3 } from 'three';
 import type { SpatialBounds } from '../../../framing/bounds';
+import { POINTER_TOLERANCE, pointerInUse } from '../../../input/tolerance';
 import type { ViewportManager } from '../../../manager/ViewportManager';
 import { loadMeshDisplay, type MeshDisplay, type MeshDisplayPick } from '../../../mesh';
 import { PICK } from '../../../theme';
@@ -46,15 +47,24 @@ export function loopGestureOf(mods: {
 /** The tables whose changes can change a mesh's Mesh Check options. */
 const LINT_TABLES: ReadonlySet<string> = new Set(['meshes', 'groups', 'palettes', 'swatches']);
 
-/** Two presses within this time (ms) and distance (CSS px) on one component make a double-click (§5.6 loop table). */
-export const DOUBLE_CLICK_MS = 500;
-export const DOUBLE_CLICK_PX = 4;
+/**
+ * Two presses within this time (ms) and distance (CSS px) on one component make a double-click (§5.6 loop table):
+ * the mouse's. A pen or a finger uses its own multi-tap window and radius (STUDIO-TOUCH-SPEC §5.4, C17), which a touch
+ * shell's arbiter never exceeds, so it never hands this runtime a pair it did not absorb.
+ */
+export const DOUBLE_CLICK_MS = POINTER_TOLERANCE.mouse.multiTapMs;
+export const DOUBLE_CLICK_PX = POINTER_TOLERANCE.mouse.multiTapPx;
 
 /** What the display's queries take for a pane (the caller's options of B6's hand-over). */
 interface PaneQuery {
   readonly camera: Camera;
   readonly viewport: { readonly w: number; readonly h: number };
-  readonly opts: { readonly cameraBased: boolean; readonly backfaces: boolean; readonly wire: boolean };
+  readonly opts: {
+    readonly cameraBased: boolean;
+    readonly backfaces: boolean;
+    readonly wire: boolean;
+    readonly radiusPx?: number;
+  };
 }
 
 /** The pointer behaviour of the select, move, rotate and scale tools in the Model workspace. */
@@ -191,7 +201,11 @@ export class ModelSelectRuntime {
     const wire = flags.shading === 'wire';
     const cameraBased = model.cameraBased === 'on' || (model.cameraBased === 'auto' && !wire && !flags.xray);
     const backfaces = (flags.xray || model.backfaces) && !flags.cull;
-    return { camera: view.camera, viewport: { w: view.width, h: view.height }, opts: { cameraBased, backfaces, wire } };
+    // STUDIO-TOUCH-SPEC §5.4: a finger or the pen picks components within its own radius (the mouse: the picker's)
+    const pointer = pointerInUse();
+    const radius = pointer === 'mouse' ? {} : { radiusPx: POINTER_TOLERANCE[pointer].pickPx };
+    const opts = { cameraBased, backfaces, wire, ...radius };
+    return { camera: view.camera, viewport: { w: view.width, h: view.height }, opts };
   }
 
   /** The component of `kind` under a pane point (hilited meshes only), or null. */
@@ -651,12 +665,13 @@ class ModelPointer implements ModelSelectBehaviour {
 
   private isDouble(e: ToolPointerEvent): boolean {
     const last = this.last;
+    const tap = POINTER_TOLERANCE[e.pointerType];
     return (
       last !== null &&
       last.paneId === e.paneId &&
       last.mode === selectModeOf(e) &&
-      e.timeStamp - last.at <= DOUBLE_CLICK_MS &&
-      Math.hypot(e.x - last.x, e.y - last.y) <= DOUBLE_CLICK_PX
+      e.timeStamp - last.at <= tap.multiTapMs &&
+      Math.hypot(e.x - last.x, e.y - last.y) <= tap.multiTapPx
     );
   }
 

@@ -1,6 +1,7 @@
 // Dope Sheet geometry (M2A-SPEC §5.10, research 09 §4.8): the ruler strip at the top, the region-bar strip under
 // it, then one row per Dope Sheet row. x = (frame − f0)·sx; row i's top = ROWS_TOP + i·ROW_HEIGHT − scrollY.
 import type { Frame } from '@ekza-studio/anim-core';
+import { CURVE_POINTER_TOLERANCE } from '../painters/theme';
 import type { DopeSheetViewState } from '../types';
 
 /** Height of the ruler strip (frame labels; click/drag scrubs). CSS px. */
@@ -13,9 +14,9 @@ export const ROWS_TOP = RULER_HEIGHT + REGION_HEIGHT;
 export const ROW_HEIGHT = 20;
 /** Half the glyph's width (a diamond 9 px wide). */
 export const GLYPH_RADIUS = 4.5;
-/** Hit tolerances (CSS px). */
-export const GLYPH_HIT_PX = 6;
-export const REGION_HANDLE_PX = 6;
+/** Hit tolerances (CSS px) for the mouse; the pointer in use's are `CURVE_TOLERANCE`'s (STUDIO-TOUCH-SPEC §5.4). */
+export const GLYPH_HIT_PX = CURVE_POINTER_TOLERANCE.mouse.glyphPx;
+export const REGION_HANDLE_PX = CURVE_POINTER_TOLERANCE.mouse.regionHandlePx;
 /** `F` / `A` padding on each side (§4.9 `dopeSheet.frame`: 8 %). */
 export const FRAME_PADDING = 0.08;
 /** Zoom limits (CSS px per frame). */

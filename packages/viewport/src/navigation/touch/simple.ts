@@ -4,7 +4,8 @@
 // (the profile's wheel, unchanged); ortho panes never orbit; a press the active tool claims (a manipulator, a joint, a
 // control, the mesh under a painting or marker tool, or a claim a step registers) goes to the tool; `Alt` + mouse
 // falls through to the user's profile (Alt+drag navigation keeps working). On a touch screen two fingers pan and
-// pinch-zoom (`./pair`, a stage of the pointer path in a lazy chunk, loaded only where touch points exist).
+// pinch-zoom (`./pair`, a stage of the pointer path in a lazy chunk, loaded only where touch points exist; WebKit's
+// iPad emulation reports none, and cannot drive two fingers anyway).
 // Not a `NavProfile` value and never a preference: the user's Studio `navProfile` is never written, and the
 // disposer removes the override (shell unmount), so Studio after a switch navigates with the user's own profile.
 import type { Disposer } from '@ekza-studio/anim-core';
@@ -67,12 +68,8 @@ export function toolClaims(app: EditorApp, vm: Viewport, paneId: string, x: numb
   return false;
 }
 
-/**
- * Whether the device can touch: touch points, or a coarse pointer (WebKit's iPad emulation reports no touch points).
- */
-const touchDevice = (): boolean =>
-  typeof navigator !== 'undefined' &&
-  (navigator.maxTouchPoints > 0 || globalThis.matchMedia?.('(any-pointer: coarse)').matches === true);
+/** Whether the device has touch points (two-finger navigation then loads with the override). */
+const touchDevice = (): boolean => typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
 
 /**
  * Installs the Simple override on a viewport (and, on a touch device, the two-finger stage); the disposer removes

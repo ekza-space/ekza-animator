@@ -1,6 +1,6 @@
 // STUDIO-TOUCH-SPEC §5.5, §20.3 item 3 (T1): virtual modifiers. A touch shell's source (the Thumb key) adds Shift /
 // Mod / Alt and a stand-in button to every tool pointer event, hands its held codes to the active tool's `key()` as
-// downs and ups, and answers `virtualHeld` (the rig runtime's held keys); each marked `virtual`. Without a source
+// downs and ups, and lends its holds to the rig runtime's held keys; each marked `virtual`. Without a source
 // (Studio Pro) the events are today's. A virtual X reaches the real Model transform runtime as its grid-snap hold.
 import type { MeshId, MeshRef } from '@ekza-studio/doc';
 import { type EditorApp, loadMeshKernel, registerBuiltinOperators, type ToolKeyEvent } from '@ekza-studio/editor-core';
@@ -86,6 +86,9 @@ function click(pane: HTMLElement, id: number): void {
   }
 }
 
+/** What the rig runtime's held keys read of the viewport's virtual modifiers. */
+const heldBy = (r: Rig, code: VirtualHoldCode): boolean => r.vm.modifierSource?.get().held.has(code) === true;
+
 const mods = (patch: Partial<VirtualModifiers>, held: readonly VirtualHoldCode[] = []): VirtualModifiers => ({
   ...NO_MODIFIERS,
   held: new Set(held),
@@ -137,7 +140,7 @@ describe('virtual modifiers (§5.5, §20.3 item 3)', () => {
     const source = createModifierSource();
     const off = r.vm.setModifierSource(source);
     source.set(mods({}, ['KeyX']));
-    expect(r.vm.virtualHeld('KeyX')).toBe(true);
+    expect(heldBy(r, 'KeyX')).toBe(true);
     source.set(mods({}, ['KeyX', 'KeyB']));
     source.set(mods({}, ['KeyB']));
     expect(keys.map((k) => `${k.type} ${k.code} ${k.virtual}`)).toEqual([
@@ -146,10 +149,10 @@ describe('virtual modifiers (§5.5, §20.3 item 3)', () => {
       'up KeyX true',
     ]);
     expect(keys.every((k) => !k.shift && !k.mod && !k.alt && !k.ctrl && !k.repeat)).toBe(true);
-    expect(r.vm.virtualHeld('KeyX')).toBe(false);
+    expect(heldBy(r, 'KeyX')).toBe(false);
     off();
     expect(keys.at(-1)).toMatchObject({ type: 'up', code: 'KeyB', virtual: true });
-    expect(r.vm.virtualHeld('KeyB')).toBe(false);
+    expect(heldBy(r, 'KeyB')).toBe(false);
     source.set(mods({}, ['KeyV'])); // a removed source is no longer heard
     expect(keys).toHaveLength(4);
   });
@@ -160,14 +163,14 @@ describe('virtual modifiers (§5.5, §20.3 item 3)', () => {
     const offFirst = r.vm.setModifierSource(first);
     const second = createModifierSource(mods({}, ['KeyD']));
     const offSecond = r.vm.setModifierSource(second);
-    expect(r.vm.virtualHeld('KeyD')).toBe(true);
+    expect(heldBy(r, 'KeyD')).toBe(true);
     first.set(mods({}, ['KeyJ']));
-    expect(r.vm.virtualHeld('KeyJ')).toBe(false);
+    expect(heldBy(r, 'KeyJ')).toBe(false);
     expect(keys.map((k) => `${k.type} ${k.code}`)).toEqual(['down KeyD']);
     offFirst(); // the replaced source's disposer leaves the current one
-    expect(r.vm.virtualHeld('KeyD')).toBe(true);
+    expect(heldBy(r, 'KeyD')).toBe(true);
     offSecond();
-    expect(r.vm.virtualHeld('KeyD')).toBe(false);
+    expect(heldBy(r, 'KeyD')).toBe(false);
   });
 
   it('a virtual X is the Model transform runtime’s grid-snap hold (a real tool)', async () => {

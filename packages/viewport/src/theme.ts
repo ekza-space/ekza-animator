@@ -59,11 +59,13 @@ export const PICK: {
   marqueeMinPx: 4,
 };
 
-/** Mesh opacity while a pane shows x-ray. */
-export const XRAY_DEFAULT_OPACITY = 0.5;
-/** The x-ray opacity of the pane being drawn (a display overlay may set its own, STUDIO-TOUCH-SPEC §4.7). */
-export let XRAY_OPACITY = XRAY_DEFAULT_OPACITY;
+/**
+ * Mesh opacity while a pane shows x-ray: 0.5, or the x-ray opacity of the display overlay of the pane being drawn
+ * (STUDIO-TOUCH-SPEC §4.7; the manager sets it per pane, SceneSync reads it when it switches x-ray on).
+ */
+export let XRAY_OPACITY = 0.5;
 
+/** The manager's per-pane x-ray opacity (§20.3 item 17). */
 export function setXrayOpacity(opacity: number): void {
   XRAY_OPACITY = opacity;
 }

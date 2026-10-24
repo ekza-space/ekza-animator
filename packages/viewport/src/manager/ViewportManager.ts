@@ -34,7 +34,6 @@ import {
   type NavProfile,
   PANEL,
   type ToolInstance,
-  type ToolKeyEvent,
   type ToolPointerEvent,
   VIEWPORT_TOOL,
 } from '@ekza-studio/editor-core';
@@ -78,7 +77,7 @@ import type { NavigationController, NavState } from '../navigation/NavigationCon
 import type { NavigationOverride } from '../navigation/override';
 import { isMmbStandIn, type NavGesture, pointerGesture, wheelAction } from '../navigation/profiles';
 import { Backdrop, createGrid } from '../overlays/background';
-import { XRAY_DEFAULT_OPACITY, XRAY_OPACITY, setXrayOpacity } from '../theme';
+import { XRAY_OPACITY, setXrayOpacity } from '../theme';
 import { MarqueeBox } from '../overlays/marquee';
 import { SkeletonLayer } from '../overlays/skeleton';
 import { paneGl } from '../panes/layout';
@@ -101,7 +100,7 @@ import type {
   ViewPreset,
 } from '../types';
 import type { CoalescedSample, PipeStep, PointerArbiter, PointerArbiterStage, ViewGesture } from '../input/arbiter';
-import type { ModifierSource, VirtualHoldCode, VirtualModifiers } from '../input/modifiers';
+import type { ModifierSource, VirtualModifiers } from '../input/modifiers';
 import type { ImagePlaneLayer, ImagePlaneSpec } from './imagePlanes';
 import { type MeshLayerHost, meshPaneDisplay } from './meshLayers';
 import { setManagerOf } from './registry';
@@ -617,31 +616,24 @@ export class ViewportManager {
 
   /**
    * STUDIO-TOUCH-SPEC §5.5, §20.3 item 3: a touch shell's virtual modifiers (the Thumb key; `input/modifiers.ts`).
-   * Their Shift / Mod / Alt and stand-in button join every tool pointer event; a held code that comes or goes reaches
-   * the active tool's `key()` as a down or up; `virtualHeld` answers the rig runtime's held keys. All marked `virtual`.
-   * The disposer removes this source and releases its holds.
+   * Their Shift / Mod / Alt and stand-in button join every tool pointer event; the source is handed the active tool's
+   * key path for its held codes (downs and ups, released when it is removed); the rig runtime's held keys read its
+   * holds (`modifierSource`). All marked `virtual`. The disposer removes this source.
    */
   setModifierSource(source: ModifierSource | null): Disposer {
     this.mods = source;
-    let held: ReadonlySet<string> = new Set();
-    const sync = (): void => {
-      const next: ReadonlySet<string> = (this.mods === source && source?.get().held) || new Set();
-      for (const code of held) if (!next.has(code)) this.tool()?.key?.(virtualKey('up', code));
-      for (const code of next) if (!held.has(code)) this.tool()?.key?.(virtualKey('down', code));
-      held = next;
-    };
-    const off = source?.subscribe(sync);
-    sync();
+    const off = source?.attach((e) => {
+      if (this.mods === source) this.tool()?.key?.(e);
+    });
     return () => {
       off?.();
       if (this.mods === source) this.mods = null;
-      sync();
     };
   }
 
-  /** Whether a virtual modifier holds a key (the rig runtime's held keys, §20.3 item 3). */
-  virtualHeld(code: string): boolean {
-    return this.mods?.get().held.has(code as VirtualHoldCode) === true;
+  /** The virtual modifiers set (`setModifierSource`), or null: the rig runtime's held keys read its holds. */
+  get modifierSource(): ModifierSource | null {
+    return this.mods;
   }
 
   /**
@@ -655,9 +647,7 @@ export class ViewportManager {
       const pane = this.panes.get(paneId);
       if (pane === undefined) return;
       pane.display = this.shown(paneId, pane.base);
-      this.manipulatorDirty = true;
-      this.picker.forget(paneId);
-      this.invalidate();
+      this.refreshManipulatorSoon();
     };
     apply(overlay);
     return () => {
@@ -667,8 +657,7 @@ export class ViewportManager {
 
   /** A pane's display under its overlay. */
   private shown(paneId: string, base: DisplayFlags): PaneRuntime['display'] {
-    const overlay = this.overlays.get(paneId);
-    return overlay === undefined ? base : { ...base, ...overlay };
+    return { ...base, ...this.overlays.get(paneId) };
   }
 
   /**
@@ -1355,7 +1344,7 @@ export class ViewportManager {
       renderer.render(planes.scene, camera);
     }
     // §20.3 item 17: an overlay's x-ray opacity (SceneSync reads it when x-ray is switched on)
-    const opacity = display.xrayOpacity ?? XRAY_DEFAULT_OPACITY;
+    const opacity = display.xrayOpacity ?? 0.5;
     if (opacity !== XRAY_OPACITY) {
       this.sync.setXray(false);
       setXrayOpacity(opacity);
@@ -1934,7 +1923,7 @@ export class ViewportManager {
   // navigation ------------------------------------------------------------------------------------------------------
 
   private startNav(pane: PaneRuntime, e: PointerEvent, gesture: NavGesture): void {
-    this.endWheelBurst();
+    this.endNavigate();
     const resolved = this.resolve(pane);
     let swallowed = false;
     let shot: ShotNav | null = null;
@@ -2037,14 +2026,14 @@ export class ViewportManager {
         return;
       }
       if (this.wheel === null || this.wheel.cameraId !== resolved.shot.id) {
-        this.endWheelBurst();
+        this.endNavigate();
         const shot = this.beginShotNav(resolved.shot);
         if (shot === null) return;
         this.wheel = { ...shot, timer: null };
       }
       controller = this.wheel.nav;
     } else {
-      this.endWheelBurst();
+      this.endNavigate();
       resolved.view.touched = true;
     }
     apply(controller, rect);
@@ -2052,18 +2041,17 @@ export class ViewportManager {
     if (burst !== null && resolved.kind === 'shot') {
       this.writeShot(burst);
       if (burst.timer !== null) clearTimeout(burst.timer);
-      burst.timer = timed ? setTimeout(() => this.endWheelBurst(), WHEEL_BURST_MS) : null;
+      burst.timer = timed ? setTimeout(() => this.endNavigate(), WHEEL_BURST_MS) : null;
     }
     this.picker.forget(pane.id);
     this.invalidate();
   }
 
-  /** STUDIO-TOUCH-SPEC §20.3 item 1: ends a `navigate` gesture; a shot camera's moves commit once, off the undo stack. */
+  /**
+   * STUDIO-TOUCH-SPEC §20.3 item 1: ends a `navigate` gesture (or a wheel burst): a shot camera's moves commit once, off
+   * the undo stack.
+   */
   endNavigate(_paneId?: string): void {
-    this.endWheelBurst();
-  }
-
-  private endWheelBurst(): void {
     const burst = this.wheel;
     if (burst === null) return;
     this.wheel = null;
@@ -2382,21 +2370,20 @@ function dragFlags(record: ControlRecord): {
   };
 }
 
-/** §20.3 item 3: a virtual hold's key event for the active tool. */
-function virtualKey(type: 'down' | 'up', code: string): ToolKeyEvent {
-  return { type, code, shift: false, alt: false, mod: false, ctrl: false, repeat: false, virtual: true };
-}
-
-/** §20.3 item 3: a touch shell's virtual modifiers on a tool event (`virtual` when they change it). */
+/** §20.3 item 3: a touch shell's virtual modifiers on a tool event, marked `virtual` while any is on. */
 function withVirtual(e: ToolPointerEvent, mods: VirtualModifiers): ToolPointerEvent {
-  const button = e.button === 0 && mods.button !== undefined ? mods.button : e.button;
-  const shift = e.shift || mods.shift;
-  const mod = e.mod || mods.mod;
-  const alt = e.alt || mods.alt;
-  if (button === e.button && shift === e.shift && mod === e.mod && alt === e.alt) return e;
-  // the stand-in button replaces the primary one in `buttons` too (middle 4, secondary 2)
-  const buttons = button !== e.button && e.buttons & 1 ? (e.buttons & ~1) | (button === 1 ? 4 : 2) : e.buttons;
-  return { ...e, button, buttons, shift, mod, alt, virtual: true };
+  if (!mods.shift && !mods.mod && !mods.alt && mods.button === undefined) return e;
+  const button = e.button === 0 ? (mods.button ?? 0) : e.button;
+  return {
+    ...e,
+    button,
+    // the stand-in button replaces the primary one in `buttons` too (middle 4, secondary 2)
+    buttons: button === e.button ? e.buttons : (e.buttons & ~1) | (button === 1 ? 4 : 2),
+    shift: e.shift || mods.shift,
+    mod: e.mod || mods.mod,
+    alt: e.alt || mods.alt,
+    virtual: true,
+  };
 }
 
 function sameState(a: PaneState, b: PaneState | undefined): boolean {

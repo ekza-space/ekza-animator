@@ -30,7 +30,7 @@ import { HitScratch, hitTestScene } from '../hit/hitTest';
 import { sizeBackingStore } from '../painters/canvas';
 import type { OverlayState } from '../painters/overlay';
 import { Canvas2DCurveRenderer, type CurveRenderer } from '../painters/renderer';
-import { type GraphTheme, readGraphTheme } from '../painters/theme';
+import { CURVE_TOLERANCE, type GraphTheme, readGraphTheme, setCurvePointer } from '../painters/theme';
 import { builtinGraphTool, GRAPH_SELECT_TOOL, type GraphToolHost } from '../tools/graphTools';
 import type { GraphHit, GraphViewMode, GraphViewState, RegionHandle } from '../types';
 import {
@@ -48,7 +48,6 @@ import { buildCurveSet, type CurveEntry, type CurveSet, drawnOf, EMPTY_CURVE_SET
 import { curvesBounds, keysBounds } from './frame';
 import { drawnValueAt, newInfinityMapping } from './geometry';
 import {
-  DRAG_THRESHOLD_PX,
   type Gesture,
   type GestureHost,
   type GesturePointer,
@@ -476,6 +475,7 @@ export class GraphEditorController {
 
   pointerDown(e: ToolPointerEvent): void {
     if (this.disposed) return;
+    setCurvePointer(e.pointerType); // §5.4: the tolerances follow the pointer
     this.autoFrame = false;
     if (this.busy) {
       // One gesture at a time; a press whose button is no longer down lost its release (outside the window
@@ -510,6 +510,7 @@ export class GraphEditorController {
 
   pointerMove(e: ToolPointerEvent): void {
     if (this.disposed) return;
+    setCurvePointer(e.pointerType);
     const p = toGesturePointer(e);
     this.pointer = p;
     if (this.gesture !== null) {
@@ -519,7 +520,7 @@ export class GraphEditorController {
     }
     const pending = this.pending;
     if (pending !== null) {
-      if (Math.hypot(p.x - pending.start.x, p.y - pending.start.y) < DRAG_THRESHOLD_PX) return;
+      if (Math.hypot(p.x - pending.start.x, p.y - pending.start.y) < CURVE_TOLERANCE.dragPx) return;
       this.pending = null;
       this.gesture = pending.drag?.() ?? null;
       this.gesture?.update(p);

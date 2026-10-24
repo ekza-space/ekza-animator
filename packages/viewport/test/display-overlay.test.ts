@@ -38,7 +38,7 @@ describe('ViewportManager.setDisplayOverlay (§20.3 item 17)', () => {
     expect(rig.vm.rememberedPane(id)).toEqual(remembered);
     off();
     expect(rig.vm.pickCandidates(id, at.x, at.y).some((hit) => hit.kind === 'control')).toBe(true);
-    expect(rig.vm.paneView(id)?.display).toBe(own);
+    expect(rig.vm.paneView(id)?.display).toEqual(own);
     off(); // idempotent
   });
 
