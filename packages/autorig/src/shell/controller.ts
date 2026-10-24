@@ -7,7 +7,7 @@
 import type { Disposer } from '@ekza-studio/anim-core';
 import type { AutoRigSampleId, AutoRigSubject, EditorApp } from '@ekza-studio/editor-core';
 import { type HostShell, provideAutoRigTestState } from '@ekza-studio/editor/host';
-import { installSimpleNavigation } from '../nav';
+import { installSimpleNavigation } from '@ekza-studio/viewport';
 import { autoRigProgress, checklistLoaded, landingStep, loadChecklist, resolveSubject } from '../progress';
 import {
   type AutoRigSessionStore,
