@@ -1,18 +1,17 @@
 // The Rig & Skin shell UI (M6B-SPEC §8; C7): a lazy chunk loaded on the first Rig & Skin entry (`./index.ts`). It
-// contributes the Rig menus, the `rig.modes` marking menu, the status-line group bodies and the pane overlays, and
-// makes the right and bottom dock tabs follow the mode (§5.24: Object → Channels panel / Validation, Skeleton → Rig
-// Toolkit / Validation, Skin → Paint Weights / Component Editor), remembering the tabs the user leaves showing in a
-// mode (`RigSessionState.tabMemory`), and watches the window width (below 1024 px Rig & Skin is view-only, §5.24).
+// contributes the status-line group bodies and the pane overlays, and makes the right and bottom dock tabs follow the
+// mode (§5.24: Object → Channels panel / Validation, Skeleton → Rig Toolkit / Validation, Skin → Paint Weights /
+// Component Editor), remembering the tabs the user leaves showing in a mode (`RigSessionState.tabMemory`), and watches
+// the window width (below 1024 px Rig & Skin is view-only, §5.24 — Pro's rule only: STUDIO-TOUCH-SPEC §16.1, AR-V1).
+// The Rig menus, the `rig.modes` marking menu and the two view settings behind them are the page's host's since
+// STUDIO-TOUCH-SPEC T3 (`host/registrations/rig.ts`), so they outlive this shell.
 import type { Disposer } from '@ekza-studio/anim-core';
 import { type EditorApp, PANEL, type RigMode } from '@ekza-studio/editor-core';
-import { RIG_MARKING_MENUS } from '../../overlays/menus/rig';
 import { registerSkeletonUi } from '../../panels/rigToolkit/sections/skeleton/register';
 import { registerRigOverlays } from '../../panels/viewport/rig/overlays';
-import { RIG_MENU_ITEMS, registerRigDynamicMenus } from '../menus/rig';
 import type { RigShellDeps } from './index';
 import { kindOfPanel } from '../layout';
 import { RIG_SLOTS } from './layouts';
-import { registerRigShellOperators } from './operators';
 import { setRigHelp } from '../HelpLine';
 import { rigHelpLine } from './helpLine';
 import { registerRigStatusGroups } from './status';
@@ -64,14 +63,12 @@ export function followModeTabs(app: EditorApp, deps: RigShellDeps): Disposer {
 }
 
 export function registerRigShellUi(app: EditorApp, deps: RigShellDeps): Disposer {
-  const disposers: Disposer[] = [registerRigShellOperators(app), registerRigDynamicMenus(app)];
-  for (const def of RIG_MENU_ITEMS) {
-    if (app.menus.get(def.id) === undefined) disposers.push(app.contribute({ kind: 'menu', def }));
-  }
-  for (const def of RIG_MARKING_MENUS) {
-    if (app.markingMenus.get(def.id) === undefined) disposers.push(app.contribute({ kind: 'markingMenu', def }));
-  }
-  disposers.push(registerRigStatusGroups(), registerRigOverlays(app), watchRigViewOnly(app), followModeTabs(app, deps));
+  const disposers: Disposer[] = [
+    registerRigStatusGroups(),
+    registerRigOverlays(app),
+    watchRigViewOnly(app),
+    followModeTabs(app, deps),
+  ];
   // C3: the skeleton UI's shell parts (the FK FOR TEST badge).
   setRigHelp(rigHelpLine);
   disposers.push(registerSkeletonUi(app), () => setRigHelp(null));

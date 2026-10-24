@@ -1,14 +1,12 @@
-// B10's pane overlays and marking menus (M6A-SPEC §8.4, §8.7, §5.24; eager, small): the Poly Count HUD slot (top-left,
-// drawn in Model while the pane's `polyCount` flag is on; the HUD itself is a lazy chunk), the `BIND POSE` badge
-// (bottom-right, Model with a skinned mesh) and the `model.modes` / `model.convert` marking menus. The shell calls
-// `registerModelSelectUi` once per app.
+// B10's pane overlays (M6A-SPEC §8.7, §5.24; eager, small): the Poly Count HUD slot (top-left, drawn in Model while
+// the pane's `polyCount` flag is on; the HUD itself is a lazy chunk) and the `BIND POSE` badge (bottom-right, Model
+// with a skinned mesh). The Studio shell calls `registerModelSelectUi` once per app; they are drawn in Pro's panes
+// (`PaneView`) only. B10's `model.modes` / `model.convert` marking menus (§8.4) are data the page's host registers on
+// the first Model entry for every shell (`overlays/menus`, `host/registrations`; STUDIO-TOUCH-SPEC §20.3 item 12, T3).
 import type { Disposer } from '@ekza-studio/anim-core';
 import type { DocumentStore } from '@ekza-studio/doc';
-import type { EditorApp } from '@ekza-studio/editor-core';
 import { type JSX, lazy, Suspense } from 'react';
 import { useDocQuery, useSession } from '../../../hooks';
-import { CONVERT_MENU } from '../../../overlays/menus/convert';
-import { MODES_MENU } from '../../../overlays/menus/modes';
 import { type PaneOverlayProps, registerPaneOverlay } from '../../../overlays/slots';
 
 const Hud = lazy(() => import('./Hud'));
@@ -43,14 +41,9 @@ export function BindPoseBadge(props: PaneOverlayProps): JSX.Element | null {
   );
 }
 
-/** Registers the HUD and bind-pose overlays and the mode and convert marking menus; the disposer removes them. */
-export function registerModelSelectUi(app: EditorApp): Disposer {
-  const disposers: Disposer[] = [
-    registerPaneOverlay('hud', HudSlot),
-    registerPaneOverlay('bindPose', BindPoseBadge),
-    app.contribute({ kind: 'markingMenu', def: MODES_MENU }),
-    app.contribute({ kind: 'markingMenu', def: CONVERT_MENU }),
-  ];
+/** Registers the HUD and bind-pose overlays; the disposer removes them. */
+export function registerModelSelectUi(): Disposer {
+  const disposers: Disposer[] = [registerPaneOverlay('hud', HudSlot), registerPaneOverlay('bindPose', BindPoseBadge)];
   return () => {
     for (const dispose of disposers.splice(0).reverse()) dispose();
   };

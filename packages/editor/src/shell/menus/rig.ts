@@ -1,7 +1,8 @@
 // The Rig & Skin menu set (M6B-SPEC §0.4.5, §8.4; C7): every item names its operator with `workspaces: ['rig']`, so
 // Model and Animate never list it. Only what works in the MVP is listed (Q-MVP-15: deferred items are absent, not
-// disabled stubs). Registered by the lazy rig shell (`shell/rig/register.ts`) on the first Rig & Skin entry; the
-// menu ids are the eager `RIG_MENUS`. Items whose arguments come from the active skeleton or the lead joint
+// disabled stubs). Registered by the page's host on the first Rig & Skin entry, for every shell
+// (`host/registrations/rig.ts`, STUDIO-TOUCH-SPEC §20.3 item 12, T3: Halo's parity reads every item with arguments);
+// the menu ids are the eager `RIG_MENUS`. Items whose arguments come from the active skeleton or the lead joint
 // (Skeleton › Symmetry X ✓, Map Humanoid Bone ▸) are re-registered when those change (`registerRigDynamicMenus`).
 import type { Disposer } from '@ekza-studio/anim-core';
 import type { HumanBoneName, JointId, SkeletonRecord } from '@ekza-studio/doc';

@@ -1,8 +1,8 @@
 // Two Rig & Skin view settings behind the §0.4.5 menu items (C7, M6B-C7-6): Skeleton › Snap to Projected Center ✓
 // (`session.rig.snap.projectedCenter`, U state) and Display › Joint Size ▸ (`prefs.rigging.jointSize`). They are
-// shell operators (like `workspace.showPanel`), internal (the palette does not list them), registered by the lazy rig
-// shell UI; the status line edits the same state.
-import type { Disposer } from '@ekza-studio/anim-core';
+// internal (the palette does not list them) and shell-neutral: since STUDIO-TOUCH-SPEC T3 the page's host registers
+// them on the first Rig & Skin entry for every shell (`host/registrations/rig.ts`); Pro's status line and Halo's Rig
+// stage edit the same state.
 import type { EditorApp, OperatorDef, PollResult } from '@ekza-studio/editor-core';
 
 const ok: PollResult = true;
@@ -64,13 +64,4 @@ export function rigShellOperators(app: EditorApp): readonly OperatorDef<unknown>
     },
   };
   return [snap, jointSize] as readonly OperatorDef<unknown>[];
-}
-
-export function registerRigShellOperators(app: EditorApp): Disposer {
-  const disposers = rigShellOperators(app)
-    .filter((def) => app.operators.get(def.id) === undefined)
-    .map((def) => app.contribute({ kind: 'operator', def }));
-  return () => {
-    for (const dispose of disposers.splice(0).reverse()) dispose();
-  };
 }

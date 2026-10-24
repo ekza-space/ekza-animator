@@ -1,7 +1,8 @@
-// Operators owned by the Studio shell (MVP-SPEC §4.9 owner 8): `view.toggleMaximize`, the workspace, layout preset,
-// selection mask and full-screen commands. Registered through `app.contribute` like every other operator (ADR 0008);
-// none of them writes the document. `ui.open`, `ui.close` and `prefs.set` are the page host's (AUTORIG-SPEC §4.4,
-// `host/operators.ts`): they exist on every route.
+// Operators owned by the Studio shell (MVP-SPEC §4.9 owner 8): `view.toggleMaximize` and the workspace and layout
+// preset commands (dockview's). Registered through `app.contribute` like every other operator (ADR 0008); none of them
+// writes the document. `ui.open`, `ui.close` and `prefs.set` are the page host's (AUTORIG-SPEC §4.4,
+// `host/operators.ts`) and so, since STUDIO-TOUCH-SPEC T3, are the shell-neutral `view.selectionMask` and
+// `view.toggleFullscreen` (`host/registrations/view.ts`): they exist on every route.
 import { type Disposer, EkzaError } from '@ekza-studio/anim-core';
 import {
   type Contribution,
@@ -10,7 +11,6 @@ import {
   PANEL,
   type PanelKind,
   type PollResult,
-  type SelectionMask,
 } from '@ekza-studio/editor-core';
 import type { StoreApi } from 'zustand/vanilla';
 import { CHROME_PARTS, type ChromePart } from './layout';
@@ -25,8 +25,6 @@ export interface ShellOperatorDeps {
   readonly ui: StoreApi<ShellUiState>;
   /** The user's layout presets (docs/LAYOUT-PRESETS.md). */
   readonly presets: LayoutPresetStore;
-  /** The document whose Fullscreen API `view.toggleFullscreen` uses (default: the global document; null: none). */
-  readonly document?: Document | null;
 }
 
 type PresetOpsModule = typeof PresetOps;
@@ -98,17 +96,6 @@ export function shellOperatorDefs(app: EditorApp, deps: ShellOperatorDeps): Cont
       if (!deps.workspace.showPanel(args.panel)) {
         throw new EkzaError('unsupported', `Panel '${args.panel}' is not available in this build`);
       }
-    },
-  };
-
-  const selectionMask: OperatorDef<{ readonly mask: Partial<SelectionMask> }> = {
-    id: 'view.selectionMask',
-    label: 'Selection Mask',
-    category: 'select',
-    scope: 'global',
-    apply(_ctx, args) {
-      const tools = app.session.getState().tools;
-      app.session.setState({ tools: { ...tools, selectionMask: { ...tools.selectionMask, ...args.mask } } });
     },
   };
 
@@ -233,41 +220,10 @@ export function shellOperatorDefs(app: EditorApp, deps: ShellOperatorDeps): Cont
     apply: (_ctx, args, impl) => impl.deletePreset(app, deps, args.id),
   };
 
-  const doc = (): Document | null =>
-    deps.document !== undefined ? deps.document : typeof document === 'undefined' ? null : document;
-  const toggleFullscreen: OperatorDef = {
-    id: 'view.toggleFullscreen',
-    label: 'Full Screen',
-    aliases: ['Fullscreen'],
-    description: 'Show the editor full screen (the browser Fullscreen API), or leave full screen.',
-    category: 'view',
-    scope: 'global',
-    poll() {
-      const d = doc();
-      return d !== null && d.fullscreenEnabled ? ok : fail('Full screen is not available in this browser');
-    },
-    apply() {
-      const d = doc();
-      if (d === null) return;
-      // Called in the key or menu event's user activation; the browser answers asynchronously.
-      const request =
-        d.fullscreenElement === null
-          ? d.documentElement.requestFullscreen({ navigationUI: 'hide' })
-          : d.exitFullscreen();
-      request.catch((error: unknown) =>
-        app.services.notify.toast({
-          kind: 'warning',
-          text: `The browser refused full screen${error instanceof Error ? `: ${error.message}` : ''}`,
-        }),
-      );
-    },
-  };
-
   return [
     toggleMaximize,
     resetWorkspace,
     showPanel,
-    selectionMask,
     toggleTimeline,
     toggleChrome,
     toggleFocus,
@@ -275,7 +231,6 @@ export function shellOperatorDefs(app: EditorApp, deps: ShellOperatorDeps): Cont
     savePreset,
     renamePreset,
     deletePreset,
-    toggleFullscreen,
   ].map((def) => ({ kind: 'operator', def: def as OperatorDef<unknown, unknown, unknown> }) as const);
 }
 

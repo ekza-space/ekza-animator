@@ -156,11 +156,13 @@ describe('shell autosave', () => {
     app.prefs.setState({ firstRunDone: false });
     app.session.setState({ dialog: 'firstRun' });
     const target = new EventTarget();
-    const stop = startShellAutosave({
-      app,
-      runFromUi: (op, args) => shell.runFromUi(op, args),
-      target,
-    });
+    const runFromUi = (op: string, args?: unknown) => shell.runFromUi(op, args);
+    const stopAutosave = startShellAutosave({ app, target });
+    const stopPrompt = promptRecovery({ app, runFromUi });
+    const stop = (): void => {
+      stopPrompt();
+      stopAutosave();
+    };
     await waitFor(() => app.session.getState().recovery.length === 2);
     expect(app.session.getState().dialog).toBe('firstRun');
     app.prefs.setState({ firstRunDone: true });
@@ -203,7 +205,7 @@ describe('shell autosave', () => {
   it('a host without storage (autosave: null) turns autosave off and says so once', async () => {
     const { app, shell, toasts } = createTestShell();
     Object.assign(app.services, { autosave: null });
-    const stop = startShellAutosave({ app, runFromUi: (op, args) => shell.runFromUi(op, args), target: null });
+    const stop = startShellAutosave({ app, target: null });
     await waitFor(() => toasts.store.getState().toasts.length === 1);
     expect(toasts.store.getState().toasts[0]).toMatchObject({
       kind: 'info',
