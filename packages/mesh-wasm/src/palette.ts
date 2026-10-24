@@ -114,15 +114,14 @@ function faceSamples(mesh: PaletteMeshIn, sources: readonly BaseColourSource[], 
         g = swatch === null ? 1 : (SRGB_TO_LINEAR[swatch[1]] as number);
         b = swatch === null ? 1 : (SRGB_TO_LINEAR[swatch[2]] as number);
       } else if (textured) {
-        const uvs = (uv as NonNullable<typeof uv>).data;
+        const uvs = uv.data;
         const w0 = pattern[3 * i] as number;
         const w1 = pattern[3 * i + 1] as number;
         const w2 = pattern[3 * i + 2] as number;
         const u = w0 * (uvs[2 * c0] as number) + w1 * (uvs[2 * c1] as number) + w2 * (uvs[2 * c2] as number);
         const v =
           w0 * (uvs[2 * c0 + 1] as number) + w1 * (uvs[2 * c1 + 1] as number) + w2 * (uvs[2 * c2 + 1] as number);
-        const tex = texture as NonNullable<typeof texture>;
-        sampleLinear(tex.image, u, v, tex.wrapS, tex.wrapT, sample);
+        sampleLinear(texture.image, u, v, texture.wrapS, texture.wrapT, sample);
         r = (sample[0] as number) * factor[0];
         g = (sample[1] as number) * factor[1];
         b = (sample[2] as number) * factor[2];
