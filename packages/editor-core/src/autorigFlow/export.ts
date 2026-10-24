@@ -9,7 +9,7 @@ import type { CharacterId, CharacterRecord } from '@ekza-studio/doc';
 import type { AutoRigExportResult, AutoRigExportTarget } from '../types';
 import type { AutoRigFlowHost } from './host';
 
-/** A live model-sourced character (`isModelCharacter`, written out: the shells' chunks stay off the export workflow). */
+/** A live model-sourced character (`isModelCharacter`, written out: shell chunks stay off the export workflow). */
 const isModel = (record: CharacterRecord): boolean => record.deleted === null && record.source.kind === 'model';
 
 /** FNV-1a (32 bit) of the UTF-8 bytes of a text, 8 hex digits (io's `omobaSlug` fallback hash). */
@@ -75,7 +75,7 @@ export function exportFileNameOf(
   }
 }
 
-/** The display name the file is named after (as `autorig.export` names it): a model character's VRM name, else its own. */
+/** The name the file is named after (as `autorig.export` names it): a model character's VRM name, else its own. */
 export const exportAvatarName = (record: CharacterRecord): string =>
   (isModel(record) ? (record.vrm?.name ?? '').trim() : '') || record.name;
 

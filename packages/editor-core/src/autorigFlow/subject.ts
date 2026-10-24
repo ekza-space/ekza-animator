@@ -1,6 +1,6 @@
 // The flow's subject as the document has it now (AUTORIG-SPEC §4.3; T5b). The same rule as Auto-Rig's derived progress
-// (`autorig/src/progress`, which T5c moves into editor-core and then reads from here): a character id that was undone is
-// dropped, and scene meshes adopted by Create Skeleton lead to the model character that holds them, so a skeleton
+// (`autorig/src/progress`, which T5c moves into editor-core and then reads from here): a character id that was undone
+// is dropped, and scene meshes adopted by Create Skeleton lead to the model character that holds them, so a skeleton
 // made in Studio still counts. Pure reads.
 import { type CharacterId, type CharacterRecord, derivedId, type MeshId, type ReadView } from '@ekza-studio/doc';
 import type { AutoRigSubject, EditorApp } from '../types';

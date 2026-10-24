@@ -1,9 +1,9 @@
 // ②'s step start (AUTORIG-SPEC §4.2, §5.3, §4.3; D4; a lazy chunk). After the frame's entry order (preview stopped,
 // tool session ended, Rig & Skin, Object mode) it opens M6b's Quick Rig on the subject — editor-core's `autorigFlow`
 // (T5b, shared with Halo's *Rig it* card): the scene meshes of a new subject (`select.objects` then
-// `skel.quickRig.start {meshes}`: the One-Click guess) or, back from ③, the subject character's meshes (the M6b re-run);
-// a session already open on the same meshes is kept, and a subject that skipped ① (*From Studio*) records its start
-// pose from the guess (§4.3). This module keeps ②'s transient state and frames the panes. Nothing here writes the
+// `skel.quickRig.start {meshes}`: the One-Click guess) or, back from ③, the subject character's meshes (the M6b
+// re-run); a session already open on the same meshes is kept, and a subject that skipped ① (*From Studio*) records its
+// start pose from the guess (§4.3). This module keeps ②'s transient state and frames the panes. Nothing here writes the
 // document.
 import type { MeshId } from '@ekza-studio/doc';
 import {

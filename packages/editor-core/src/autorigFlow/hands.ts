@@ -1,9 +1,9 @@
-// ③ *Adjust joints* → *Done*: the hands follow their forearms (AUTORIG-SPEC §5.4, AS-AR-1 step 12; AR-D7-16; moved
-// from Auto-Rig ③ by T5b). The fit aims each hand (its tail and its fingers) along the forearm it was fitted with
-// (M6B §0.4.2: hand tail = wrist + 0.55·(wrist − elbow)). When *Adjust joints* moves an elbow or a wrist, the forearm turns but
-// C3's joint-only move (`D` + `W`) leaves every other joint — the hand's tail and fingers — where it was (M6b's P-J1),
-// so `skel.tpose` keeps the hand's row. On *Done* Auto-Rig turns each hand's subtree (tail and fingers, about the
-// wrist) by the same rotation its forearm made since *Adjust joints* opened, so the hand keeps its angle to the
+// ③ *Adjust joints* → *Done*: the hands follow their forearms (AUTORIG-SPEC §5.4, AS-AR-1 step 12; AR-D7-16; moved from
+// Auto-Rig ③ by T5b). The fit aims each hand (its tail and its fingers) along the forearm it was fitted with (M6B
+// §0.4.2: hand tail = wrist + 0.55·(wrist − elbow)). When *Adjust joints* moves an elbow or a wrist, the forearm turns
+// but C3's joint-only move (`D` + `W`) leaves every other joint — the hand's tail and fingers — where it was (M6b's
+// P-J1), so `skel.tpose` keeps the hand's row. On *Done* Auto-Rig turns each hand's subtree (tail and fingers, about
+// the wrist) by the same rotation its forearm made since *Adjust joints* opened, so the hand keeps its angle to the
 // forearm: an elbow moved back onto the arm line clears the row. Only shipped operators run (§4.5): the bound meshes
 // are unbound (`skin.unbind {confirm}`; Done rebinds right after, which recomputes the weights anyway), each turned
 // hand is one `skel.joint.rotateRest {mode: 'subtree', pivot: wrist}` (bound joints refuse a subtree rest rotation),

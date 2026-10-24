@@ -104,7 +104,7 @@ export function recordAutoRigFlow(host: AutoRigFlowHost): AutoRigFlowLog {
   };
 }
 
-/** A one-line view of an entry (`autorig.rig {"rigidParts":false,"straighten":true} → finished [skel.quickRig.commit, …]`). */
+/** A one-line view of an entry (`autorig.rig {"straighten":true} → finished [skel.quickRig.commit, …]`). */
 export const formatLogEntry = (entry: AutoRigFlowLogEntry): string =>
   `${entry.op} ${JSON.stringify(entry.args)} → ${entry.status}${
     entry.document.length === 0 ? '' : ` [${entry.document.join(', ')}]`

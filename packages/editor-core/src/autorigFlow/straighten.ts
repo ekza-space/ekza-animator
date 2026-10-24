@@ -135,7 +135,7 @@ export function watchStraighten(
   return { stop, done: () => pending };
 }
 
-/** Whether the shells warn (AR-R4-3): the last straighten stretched an edge beyond the limit and the points are still those. */
+/** Whether the shells warn (AR-R4-3): the last straighten tore beyond the limit and the points are still those. */
 export function tornNow(
   app: EditorApp,
   character: CharacterId | null,

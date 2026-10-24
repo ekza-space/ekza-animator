@@ -10,7 +10,7 @@ import type { WizardContext } from '../../shell/context';
 import { flowHost } from '../model/flowHost';
 import { rememberedAuthor } from './author';
 
-/** A live model-sourced character (editor-core's `isModelCharacter`, written out: this chunk stays off the workflow). */
+/** A live model-sourced character (editor-core's `isModelCharacter`, written out: off the export workflow). */
 const isModel = (record: CharacterRecord): boolean => record.deleted === null && record.source.kind === 'model';
 
 const prepared = new WeakMap<WizardContext, Set<string>>();

@@ -1,8 +1,8 @@
 // The host an Auto-Rig flow runs in (STUDIO-TOUCH-SPEC §20.3 item 10, T5b; AUTORIG-SPEC §4.1, §4.3). The flow is the
 // orchestration both shells run — the Auto-Rig wizard and Halo's Rig recipes — so that they issue the same operator
 // sequence for the same model (AS-ST-5): it never writes the document itself (every change is an operator run, ADR 0021
-// rule 2), never shows anything (strings, dialogs and steps stay the shell's) and keeps its U state in a small store the
-// shell provides (the wizard maps it onto its session and slices; Halo onto its own session, a test onto memory).
+// rule 2), never shows anything (strings, dialogs and steps stay the shell's) and keeps its U state in a small store
+// the shell provides (the wizard maps it onto its session and slices; Halo onto its own session, a test onto memory).
 //
 // Two funnels, because the shells show failures differently: `run` is an operator the person asked for (a file, a fix,
 // a download: the wizard's `ctx.run` toasts its failure), `quiet` is the flow's bookkeeping (a workspace switch, Quick
