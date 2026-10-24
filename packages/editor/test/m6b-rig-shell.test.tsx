@@ -29,6 +29,7 @@ import {
   templateJointId,
   templateJointRecords,
 } from '@ekza-studio/rig';
+import { TooltipProvider } from '@ekza-studio/ui';
 import { act, type JSX } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { RIG_MARKING_MENUS } from '../src/overlays/menus/rig';
@@ -43,6 +44,7 @@ import { applyRigLayout, RIG_LAYOUT, RIG_LAYOUTS, RIG_SLOTS } from '../src/shell
 import { followModeTabs, rememberTabs } from '../src/shell/rig/register';
 import { RIG_VIEW_ONLY_QUERY, rigNarrow, watchRigViewOnly } from '../src/shell/rig/viewOnly';
 import { useStatusGroup } from '../src/shell/statusGroupRegistry';
+import { EditorAppProvider } from '../src/hooks';
 import { by, cleanup, mountPlain } from './panels/helpers';
 import { createTestShell, ShellFrame, waveFixtures } from './shell-helpers';
 
@@ -243,6 +245,39 @@ describe('the Rig menus (§0.4.5)', () => {
     expect(fileLabels()).not.toContain('Export Character…');
     // The shipped Windows layouts are Animate's; Rig & Skin lists its own presets.
     expect(RIG_LAYOUTS.map((entry) => entry.layout)).toEqual(['single', RIG_LAYOUT.side, RIG_LAYOUT.markers]);
+  });
+});
+
+describe('the status line joint size (T6-INT, P-T6B-3)', () => {
+  it('⊖ and ⊕ change the joint size through prefs.set: the poll passes and nothing is refused', async () => {
+    const test = await rigShell();
+    const { app, shell } = test;
+    const refused: string[] = [];
+    const runFromStatus = (op: string, args?: unknown): void => {
+      void shell.runFromUi(op, args).then((result) => {
+        if (result.status !== 'finished') refused.push(`${op}: ${JSON.stringify(result)}`);
+      });
+    };
+    function JointSize(): JSX.Element | null {
+      const Body = useStatusGroup('jointDisplay');
+      return Body === null ? null : <Body app={app} run={runFromStatus} />;
+    }
+    await mountPlain(
+      <EditorAppProvider app={app}>
+        <TooltipProvider>
+          <JointSize />
+        </TooltipProvider>
+      </EditorAppProvider>,
+    );
+    const before = app.prefs.getState().rigging.jointSize;
+    await act(async () => by('status-jointsize-up').click());
+    await waitUntil(() => app.prefs.getState().rigging.jointSize === before + 0.25);
+    await act(async () => by('status-jointsize-down').click());
+    await waitUntil(() => app.prefs.getState().rigging.jointSize === before);
+    expect(refused).toEqual([]);
+    expect(
+      app.operators.poll('prefs.set', { panel: PANEL.viewport }, { patch: { rigging: app.prefs.getState().rigging } }),
+    ).toBe(true);
   });
 });
 

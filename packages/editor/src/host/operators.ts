@@ -51,6 +51,9 @@ const PREF_KEYS: ReadonlySet<string> = new Set([
   // M6a (M6A-SPEC §4.6; B13): the first-run start workspace and the modeling preferences (palette recents).
   'lastWorkspace',
   'modeling',
+  // M6b (§5.22; STUDIO-TOUCH-SPEC T6-INT, P-T6B-3): the rigging preferences — Studio Pro's status-line joint size,
+  // the option defaults of the Rig & Skin option boxes, Halo's Settings › Rigging and More's *Make default*.
+  'rigging',
 ]);
 
 export interface HostOperatorDeps {

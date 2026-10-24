@@ -29,8 +29,8 @@ import { sanitizePrefs } from '../../src/prefs/persist';
 
 /**
  * The host's `prefs.set` allow-list, copied as data from `PREF_KEYS` in `packages/editor/src/host/operators.ts`
- * (editor-core cannot import the editor package). `rigging` is not in it: rigging preferences are written by their
- * own operators or by Studio Pro's panels directly.
+ * (editor-core cannot import the editor package). `rigging` is in it since T6-INT (Studio Pro's status-line joint size,
+ * the option boxes' *Make default*); the rigging settings with a named operator still write through it.
  */
 const PREF_KEYS: ReadonlySet<string> = new Set([
   'firstRunDone',
@@ -55,6 +55,7 @@ const PREF_KEYS: ReadonlySet<string> = new Set([
   'autosave',
   'lastWorkspace',
   'modeling',
+  'rigging',
 ]);
 
 /** Named writers registered by editor-core (typed against its operator map). */

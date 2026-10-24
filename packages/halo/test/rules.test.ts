@@ -27,9 +27,78 @@ describe('every document write is an operator run (§20.1)', () => {
     expect(files.filter((f) => /setRigViewOnly|providePaneDisplay/.test(f.text)).map((f) => f.path)).toEqual([]);
   });
   it('no shared preference written implicitly (only a visible control may, §16.4)', () => {
-    expect(files.filter((f) => /prefs\.setState|'prefs\.set'/.test(f.text)).map((f) => f.path)).toEqual([]);
+    const found = files.flatMap((f) => prefWrites(f.path.slice(SRC.length + 1), f.text));
+    expect(found).toEqual([]);
+    // every allowed writer still writes (a stale row would hide a moved write)
+    for (const [path] of PREF_CONTROLS) {
+      const file = files.find((f) => f.path.endsWith(`/${path}`));
+      expect(file, path).toBeDefined();
+      expect(
+        prefMentions(file?.text ?? '').some((m) => m.kind === 'write'),
+        path,
+      ).toBe(true);
+    }
+  });
+  it('the preference rule: tables name `prefs.set`, sheet controls run it, nothing else writes', () => {
+    // positive: a manifest or label table only names the operator; a visible sheet control runs it
+    expect(prefWrites('manifest/labels.ts', "export const L = { 'prefs.set': 'Settings' };")).toEqual([]);
+    expect(prefWrites('manifest/disclosure.ts', "  'prefs.set': on(2, [S('settings')]),")).toEqual([]);
+    expect(prefWrites('sheets/more/MoreSheet.tsx', "void ctx.run('prefs.set', { patch });")).toEqual([]);
+    expect(prefWrites('sheets/settings/model.ts', "if (d.writer === 'prefs.set') return d.writer;")).toEqual([]);
+    // negative: a direct store write anywhere, the operator run outside a visible control, a write in a table
+    expect(prefWrites('sheets/more/MoreSheet.tsx', 'app.prefs.setState({ modeling });')).toEqual([
+      'sheets/more/MoreSheet.tsx: prefs.setState (a store write; run prefs.set from a visible control)',
+    ]);
+    expect(prefWrites('shell/controller.ts', "void ctx.run('prefs.set', { patch: { autoKey: true } });")).toEqual([
+      "shell/controller.ts: 'prefs.set' outside a visible control (PREF_CONTROLS)",
+    ]);
+    expect(prefWrites('manifest/labels.ts', "run('prefs.set', {});")).toEqual([
+      "manifest/labels.ts: 'prefs.set' outside a visible control (PREF_CONTROLS)",
+    ]);
   });
 });
+
+/**
+ * The visible controls that may write a shared preference (§16.4), each through the host's `prefs.set` (or the
+ * operator that owns the setting): Settings' rows (the descriptor table's writer, run from the row's control) and More's
+ * ⚙ Options *Make default*.
+ */
+const PREF_CONTROLS: ReadonlyMap<string, string> = new Map([
+  ['sheets/settings/model.ts', "Settings › every row: the descriptor's writer, run by the row's control"],
+  ['sheets/more/MoreSheet.tsx', 'More › ⚙ Options › Make default: the option defaults'],
+]);
+
+interface PrefMention {
+  readonly kind: 'write' | 'name';
+  readonly text: string;
+}
+
+/**
+ * Every mention of a preference write in a source text: `prefs.setState(` (a direct store write) and the operator id
+ * `'prefs.set'` — as a table key (`'prefs.set':`, the manifest and the labels only name it) or as a value (run, or
+ * handed to a run).
+ */
+function prefMentions(text: string): PrefMention[] {
+  const out: PrefMention[] = [];
+  for (const m of text.matchAll(/prefs\.setState\s*\(/g)) out.push({ kind: 'write', text: m[0] });
+  for (const m of text.matchAll(/'prefs\.set'(\s*:)?/g))
+    out.push({ kind: m[1] === undefined ? 'write' : 'name', text: m[0] });
+  return out;
+}
+
+/** The violations of one file (its path relative to `src`). */
+function prefWrites(path: string, text: string): string[] {
+  const out: string[] = [];
+  for (const mention of prefMentions(text)) {
+    if (mention.kind === 'name') continue;
+    if (mention.text.startsWith('prefs.setState')) {
+      out.push(`${path}: prefs.setState (a store write; run prefs.set from a visible control)`);
+    } else if (!PREF_CONTROLS.has(path)) {
+      out.push(`${path}: 'prefs.set' outside a visible control (PREF_CONTROLS)`);
+    }
+  }
+  return out;
+}
 
 /** Every string of the catalogue with its key path (functions called with a sample value). */
 function strings(node: unknown, path: string[] = []): { readonly path: string; readonly text: string }[] {

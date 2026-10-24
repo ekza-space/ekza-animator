@@ -20,20 +20,20 @@ function optionDefaults(app: EditorApp, op: string): Readonly<Record<string, unk
 
 const isRigOp = (op: string): boolean => /^(skel|skin|rig|char)\./.test(op);
 
-/** *Make default* (§5.6, §16.4): the only write to the option defaults, from a visible control. */
-function makeDefault(app: EditorApp, op: string, values: Readonly<Record<string, unknown>>): void {
-  const prefs = app.prefs.getState();
-  if (isRigOp(op)) {
-    const rigging = prefs.rigging;
-    app.prefs.setState({
-      rigging: { ...rigging, optionDefaults: { ...rigging.optionDefaults, [op]: values as never } },
-    });
-  } else {
-    const modeling = prefs.modeling;
-    app.prefs.setState({
-      modeling: { ...modeling, optionDefaults: { ...modeling.optionDefaults, [op]: values as never } },
-    });
-  }
+/**
+ * *Make default* (§5.6, §16.4): the only write to the option defaults, from a visible control — the host's `prefs.set`
+ * (an operator run, like Studio Pro's status line; `rigging` joined its allow-list at T6-INT).
+ */
+function makeDefault(
+  ctx: HaloSheetProps['ctx'],
+  op: string,
+  values: Readonly<Record<string, unknown>>,
+): Promise<boolean> {
+  const prefs = ctx.host.app.prefs.getState();
+  const patch = isRigOp(op)
+    ? { rigging: { ...prefs.rigging, optionDefaults: { ...prefs.rigging.optionDefaults, [op]: values } } }
+    : { modeling: { ...prefs.modeling, optionDefaults: { ...prefs.modeling.optionDefaults, [op]: values } } };
+  return ctx.run('prefs.set', { patch }).then((result) => result.status === 'finished');
 }
 
 interface OptionsTarget {
@@ -47,6 +47,7 @@ function visibleParams(def: OperatorDef<unknown, unknown, unknown> | undefined):
 }
 
 function OptionsView(props: {
+  readonly ctx: HaloSheetProps['ctx'];
   readonly app: EditorApp;
   readonly target: OptionsTarget;
   readonly onRun: (args: unknown) => void;
@@ -93,8 +94,7 @@ function OptionsView(props: {
         {target.mode === 'options' ? (
           <TouchButton
             onClick={() => {
-              makeDefault(app, target.row.op, values);
-              setSaved(true);
+              void makeDefault(props.ctx, target.row.op, values).then(setSaved);
             }}
             data-testid="halo-more-options-default"
           >
@@ -182,6 +182,7 @@ export default function MoreSheet({ ctx, args }: HaloSheetProps): JSX.Element {
     >
       {options !== null ? (
         <OptionsView
+          ctx={ctx}
           app={app}
           target={options}
           onBack={() => setOptions(null)}
