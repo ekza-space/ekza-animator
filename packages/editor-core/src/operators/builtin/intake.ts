@@ -22,6 +22,7 @@ import { EkzaError } from '@ekza-studio/anim-core';
 import type { MeshId } from '@ekza-studio/doc';
 import { isAssetCharacter } from '../../characters/registry';
 import { INTAKE_BUDGETS, type IntakeArgs, type IntakePreset } from '../../intake/types';
+import type * as RunModule from '../../intake/run';
 import type { IntakePrepared } from '../../intake/run';
 import type { EditorApp, OperatorContext, PollResult } from '../../types';
 import { type AnyOperator, defineOperator, fail, isRecord, OK } from './define';
@@ -141,7 +142,17 @@ export const NORMALIZE_PARAMS: readonly ParamDef[] = [
 
 /** The reduce options shared by `mesh.reduce` (all) and `mesh.intake` (defaults). */
 const REDUCE_OPTIONS: readonly ParamDef[] = [
-  { name: 'uvWeight', label: 'UV Weight', kind: 'number', bound: 'value', default: 1, min: 0, max: 100, step: 0.1, group: 'Reduce' },
+  {
+    name: 'uvWeight',
+    label: 'UV Weight',
+    kind: 'number',
+    bound: 'value',
+    default: 1,
+    min: 0,
+    max: 100,
+    step: 0.1,
+    group: 'Reduce',
+  },
   {
     name: 'normalWeight',
     label: 'Normal Weight',
@@ -297,6 +308,15 @@ export const INTAKE_LABELS: Readonly<Record<IntakeOperatorId, string>> = {
   'mesh.intake': 'Intake',
 };
 
+/** Command-palette aliases (common names of the same operations; no product names, TRADEMARKS TM-1…4). */
+export const INTAKE_ALIASES: Readonly<Record<IntakeOperatorId, readonly string[]>> = {
+  'mesh.normalize': ['Fix Orientation', 'Face Forward', 'Set Height', 'Ground Model'],
+  'mesh.reduce': ['Decimate', 'Reduce Polygons', 'Simplify Mesh', 'Polygon Budget'],
+  'mesh.paletteBake': ['Bake Palette', 'Bake Colours', 'Texture to Palette'],
+  'mesh.textureDownsize': ['Resize Textures', 'Texture Size'],
+  'mesh.intake': ['AI Cleanup', 'Clean Up Generated Model', 'Intake Preset'],
+};
+
 /** Poll reasons (plain words: the Halo, the palette and agents show them as they are). */
 export const SELECT_A_MESH = 'Select a mesh';
 export const NOT_BEFORE_RIGGING = 'Normalize works before rigging';
@@ -358,7 +378,9 @@ function pollTargets(app: EditorApp, id: IntakeOperatorId, args: unknown, target
     if (record.data === null) return fail(`${record.name} has no mesh data`);
     const owner = 'character' in record.owner ? app.store.get('characters', record.owner.character) : undefined;
     if ((id === 'mesh.normalize' || id === 'mesh.intake') && (record.skin !== null || owner !== undefined)) {
-      return fail(`${NOT_BEFORE_RIGGING}: ${record.name} ${record.skin !== null ? 'is skinned' : 'belongs to a character'}`);
+      return fail(
+        `${NOT_BEFORE_RIGGING}: ${record.name} ${record.skin !== null ? 'is skinned' : 'belongs to a character'}`,
+      );
     }
     if (
       (id === 'mesh.paletteBake' || id === 'mesh.textureDownsize') &&
@@ -376,7 +398,7 @@ function pollTargets(app: EditorApp, id: IntakeOperatorId, args: unknown, target
     const budget =
       typeof raw['triangles'] === 'number'
         ? raw['triangles']
-        : INTAKE_BUDGETS[(raw['preset'] as IntakePreset | undefined) ?? 'character'] ?? INTAKE_BUDGETS.character;
+        : (INTAKE_BUDGETS[(raw['preset'] as IntakePreset | undefined) ?? 'character'] ?? INTAKE_BUDGETS.character);
     let total = 0;
     for (const mesh of targets) {
       const count = trianglesOf(app, mesh);
@@ -400,7 +422,7 @@ function poll(app: EditorApp, id: IntakeOperatorId, args: unknown): PollResult {
 
 // ---------- the operators ----------
 
-type Run = typeof import('../../intake/run');
+type Run = typeof RunModule;
 
 function intakeOperator(id: IntakeOperatorId, params: readonly ParamDef[], description: string): AnyOperator {
   const label = INTAKE_LABELS[id];
@@ -414,6 +436,7 @@ function intakeOperator(id: IntakeOperatorId, params: readonly ParamDef[], descr
     flags: { undo: true, adjustable: true, repeatable: true },
     params,
     extraArgs: id === 'mesh.intake' ? ['meshes', 'bytes', 'name'] : ['meshes'],
+    aliases: INTAKE_ALIASES[id],
     undoLabel: () => label,
     poll: ({ app }, args) => poll(app, id, args),
     async prepare(ctx: OperatorContext, args) {

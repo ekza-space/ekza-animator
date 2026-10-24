@@ -366,7 +366,7 @@ export function reduceMesh(
  */
 export function splitBudget(counts: readonly number[], budget: number): number[] {
   const order = counts.map((count, i) => ({ count, i })).sort((a, b) => a.count - b.count || a.i - b.i);
-  const out = new Array<number>(counts.length).fill(0);
+  const out = Array.from({ length: counts.length }, () => 0);
   let remaining = Math.max(0, Math.floor(budget));
   let rest = counts.reduce((sum, count) => sum + count, 0);
   for (const { count, i } of order) {

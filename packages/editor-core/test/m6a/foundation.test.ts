@@ -256,7 +256,11 @@ describe('every M6a operator resolves and poll-fails cleanly (§3 rule 1)', () =
     'edit.adjustLast',
     'edit.repeatLast',
   ]);
-  const M6A = BUILTIN_OPERATORS.filter((def) => def.workspaces?.includes('model') === true || GLOBAL.has(def.id));
+  /** M7 G-a's intake operators also list the Model workspace; they are not §6 rows (test/m7/intake.test.ts). */
+  const M7 = new Set(['mesh.normalize', 'mesh.reduce', 'mesh.paletteBake', 'mesh.textureDownsize', 'mesh.intake']);
+  const M6A = BUILTIN_OPERATORS.filter(
+    (def) => (def.workspaces?.includes('model') === true || GLOBAL.has(def.id)) && !M7.has(def.id),
+  );
   /** Poll reasons of the operators that have landed, for the arguments below (headless: no viewport, no shell). */
   const LANDED: Readonly<Record<string, readonly string[]>> = {
     'workspace.set': ['expects { workspace }'],

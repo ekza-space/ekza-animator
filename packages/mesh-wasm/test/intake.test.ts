@@ -68,8 +68,9 @@ describe('reduce (meshoptimizer simplifyWithAttributes)', () => {
     const locked = reduceMesh(simplifier, sphere, 3000, { ...REDUCE, lockSeams: true }, false);
     expect(locked.facts.locked).toBeGreaterThan(0);
     const tris = triangleCount(locked.data);
-    if (tris > 3000) expect(locked.warnings.map((w) => w.code)).toEqual(['reduce.target-unreached']);
-    else expect(tris).toBeGreaterThanOrEqual(2999);
+    // Either the target is reached, or the report says it is not.
+    expect(locked.warnings.map((w) => w.code)).toEqual(tris > 3000 ? ['reduce.target-unreached'] : []);
+    expect(tris > 3000 || tris >= 2999).toBe(true);
     expect(openEdges(locked.data)).toEqual({ border: 0, nonManifold: 0 });
   });
 
@@ -88,7 +89,7 @@ describe('reduce (meshoptimizer simplifyWithAttributes)', () => {
     // The locked pole rings cost triangles: the target may stay out of reach, and the report says so.
     const codes = outcome.warnings.map((w) => w.code);
     expect(codes).not.toContain('reduce.non-manifold');
-    if (triangleCount(outcome.data) > 500) expect(codes).toContain('reduce.target-unreached');
+    expect(codes.includes('reduce.target-unreached')).toBe(triangleCount(outcome.data) > 500);
   });
 
   it('splits one budget over the parts of a model', () => {
@@ -177,7 +178,8 @@ describe('normalize', () => {
     expect((minZ + maxZ) / 2).toBeCloseTo(0, 5);
     // The nose (the point furthest along +X) now points to +Z.
     let nosePoint = 0;
-    for (let p = 1; p < data.counts.points; p++) if ((nose[3 * p] as number) > (nose[3 * nosePoint] as number)) nosePoint = p;
+    for (let p = 1; p < data.counts.points; p++)
+      if ((nose[3 * p] as number) > (nose[3 * nosePoint] as number)) nosePoint = p;
     expect(out[3 * nosePoint + 2]).toBeCloseTo(maxZ, 5);
     expect(out[3 * nosePoint]).toBeCloseTo(0, 5);
     expect(validateMesh(outcome.meshes[0] as never)).toEqual([]);

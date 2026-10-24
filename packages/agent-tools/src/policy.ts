@@ -269,6 +269,12 @@ export const OPERATOR_POLICY: Readonly<Record<string, OperatorAgentPolicy>> = nu
   'mesh.uv.box': denied(DENIED_MODELING),
   'mesh.uv.cylindrical': denied(DENIED_MODELING),
   'mesh.cleanup': denied(DENIED_MODELING),
+  // M7 G-a: the intake operators (modeling, denied like the rest until agents get modeling tools).
+  'mesh.normalize': denied(DENIED_MODELING),
+  'mesh.reduce': denied(DENIED_MODELING),
+  'mesh.paletteBake': denied(DENIED_MODELING),
+  'mesh.textureDownsize': denied(DENIED_MODELING),
+  'mesh.intake': denied(DENIED_MODELING),
   'mesh.paint': denied(DENIED_MODELING),
   'mesh.paint.fillShell': denied(DENIED_MODELING),
   'mesh.paint.remap': denied(DENIED_MODELING),

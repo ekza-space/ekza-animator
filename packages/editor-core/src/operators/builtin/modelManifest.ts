@@ -894,6 +894,7 @@ export const MODEL_OPERATOR_MANIFEST: ModelOperatorManifest = {
       scope: 'model',
       flags: { undo: true, adjustable: true, repeatable: true },
       workspaces: ['model', 'rig'],
+      aliases: ['Fix Orientation', 'Face Forward', 'Set Height', 'Ground Model'],
     },
     {
       id: 'mesh.reduce',
@@ -902,6 +903,7 @@ export const MODEL_OPERATOR_MANIFEST: ModelOperatorManifest = {
       scope: 'model',
       flags: { undo: true, adjustable: true, repeatable: true },
       workspaces: ['model', 'rig'],
+      aliases: ['Decimate', 'Reduce Polygons', 'Simplify Mesh', 'Polygon Budget'],
     },
     {
       id: 'mesh.paletteBake',
@@ -910,6 +912,7 @@ export const MODEL_OPERATOR_MANIFEST: ModelOperatorManifest = {
       scope: 'model',
       flags: { undo: true, adjustable: true, repeatable: true },
       workspaces: ['model', 'rig'],
+      aliases: ['Bake Palette', 'Bake Colours', 'Texture to Palette'],
     },
     {
       id: 'mesh.textureDownsize',
@@ -918,6 +921,7 @@ export const MODEL_OPERATOR_MANIFEST: ModelOperatorManifest = {
       scope: 'model',
       flags: { undo: true, adjustable: true, repeatable: true },
       workspaces: ['model', 'rig'],
+      aliases: ['Resize Textures', 'Texture Size'],
     },
     {
       id: 'mesh.intake',
@@ -926,6 +930,7 @@ export const MODEL_OPERATOR_MANIFEST: ModelOperatorManifest = {
       scope: 'model',
       flags: { undo: true, adjustable: true, repeatable: true },
       workspaces: ['model', 'rig'],
+      aliases: ['AI Cleanup', 'Clean Up Generated Model', 'Intake Preset'],
     },
     { id: 'file.exportModel', label: 'Export Model', category: 'file', scope: 'global', workspaces: ['model'] },
   ],

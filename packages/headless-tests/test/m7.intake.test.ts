@@ -3,14 +3,8 @@
 // imported and cleaned by the intake preset in one undo step to ≤ 3,000 triangles and ≤ 16 colours, closed along every
 // UV seam; it exports with 0 glTF-Validator errors, Auto-Rig rigs it and its VRM passes vrm-validator; the same input
 // and params give the same bytes; "Decimate first" takes a 218k-triangle file that Make editable refuses.
-import type { CharacterId, MeshId } from '@ekza-studio/doc';
-import {
-  attachMeshes,
-  type EditorApp,
-  type IntakeOutcome,
-  loadMeshKernel,
-  quickRigOf,
-} from '@ekza-studio/editor-core';
+import type { AssetId, CharacterId, MeshId } from '@ekza-studio/doc';
+import { attachMeshes, type EditorApp, type IntakeOutcome, loadMeshKernel, quickRigOf } from '@ekza-studio/editor-core';
 import { type ExportArtifact, parseGlb } from '@ekza-studio/io';
 import { makeAiLikeGlb } from '@ekza-studio/io/testing';
 import { type MeshData, topologyStats, validateMesh } from '@ekza-studio/mesh-core';
@@ -113,7 +107,9 @@ describe('M7 G-a: the intake preset on an AI-like model', () => {
     expect(outcome.worker).toBe(false);
     process.stdout.write(
       `m7ga intake (Node, this thread): ${outcome.steps
-        .map((s) => `${s.kind} ${s.ms.toFixed(1)} ms ${s.trianglesBefore}→${s.trianglesAfter} ${JSON.stringify(s.facts)}`)
+        .map(
+          (s) => `${s.kind} ${s.ms.toFixed(1)} ms ${s.trianglesBefore}→${s.trianglesAfter} ${JSON.stringify(s.facts)}`,
+        )
         .join('\n  ')}\n  chain ${outcome.ms.toFixed(1)} ms\n`,
     );
     // Undo restores the import exactly.
@@ -192,7 +188,9 @@ describe('M7 G-a: Decimate first (imports over 200,000 triangles)', () => {
     expect(outcome.triangles.after).toBeLessThanOrEqual(10_000);
     const data = await dataOf(a, outcome.meshes[0] as MeshId);
     expect(topologyStats(data)).toMatchObject({ boundaryLoops: 0, nonManifoldEdges: 0 });
-    process.stdout.write(`m7ga decimate first 217,854 → ${outcome.triangles.after}: chain ${outcome.ms.toFixed(0)} ms, run ${ms.toFixed(0)} ms\n`);
+    process.stdout.write(
+      `m7ga decimate first 217,854 → ${outcome.triangles.after}: chain ${outcome.ms.toFixed(0)} ms, run ${ms.toFixed(0)} ms\n`,
+    );
     // One step: undo removes the import too.
     a.history.undo();
     expect(a.store.list('meshes').filter((mesh) => mesh.deleted === null)).toHaveLength(0);
@@ -209,10 +207,8 @@ describe('M7 G-a: the single operators', () => {
     const reduced = (await runOk(a, 'mesh.reduce', { meshes, preset: 'prop' })) as IntakeOutcome;
     expect(reduced.triangles.after).toBeLessThanOrEqual(500);
     expect(a.history.peekUndo()?.label).toBe('Reduce');
-    expect(a.operators.poll('mesh.reduce', undefined, { meshes, preset: 'prop' })).toMatchObject({
-      ok: false,
-      reason: expect.stringMatching(/^Already under the budget/),
-    });
+    const verdict = a.operators.poll('mesh.reduce', undefined, { meshes, preset: 'prop' });
+    expect(verdict !== true && verdict.reason.startsWith('Already under the budget')).toBe(true);
     await runOk(a, 'mesh.normalize', { meshes, height: 1.2, forward: '+x' });
     expect(a.history.peekUndo()?.label).toBe('Normalize');
     const { hi, lo } = bounds(await dataOf(a, meshes[0] as MeshId));
@@ -230,12 +226,16 @@ describe('M7 G-a: the single operators', () => {
     const { meshes } = (await runOk(a, 'mesh.importStatic', { bytes: model, name: 'generated.glb' })) as {
       meshes: MeshId[];
     };
-    const before = a.store.get('meshes', meshes[0] as MeshId)?.material as { assetSlots: { asset: string }[] };
+    const before = a.store.get('meshes', meshes[0] as MeshId)?.material as {
+      readonly assetSlots: readonly { readonly asset: AssetId }[];
+    };
     const outcome = (await runOk(a, 'mesh.textureDownsize', { meshes, size: 512 })) as IntakeOutcome;
     expect(outcome.aiMarksMayBeAltered).toBe(true);
-    const after = a.store.get('meshes', meshes[0] as MeshId)?.material as { assetSlots: { asset: string }[] };
+    const after = a.store.get('meshes', meshes[0] as MeshId)?.material as {
+      readonly assetSlots: readonly { readonly asset: AssetId }[];
+    };
     expect(after.assetSlots[0]?.asset).not.toBe(before.assetSlots[0]?.asset);
-    const bytes = await a.services.assets.get(after.assetSlots[0]?.asset as never);
+    const bytes = await a.services.assets.get(after.assetSlots[0]?.asset as AssetId);
     expect((await validate(bytes)).errors).toBe(0);
     const json = (await parseGlb(bytes)).json as Json;
     expect(json['images']).toHaveLength(1);

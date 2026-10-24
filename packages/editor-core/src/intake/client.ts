@@ -71,7 +71,10 @@ export async function runIntake(app: EditorApp, job: IntakeJob): Promise<IntakeR
   const create = client.failed ? null : ((app.meshes as unknown as IntakeWorkerHost).intakeWorker ?? null);
   if (create === null) return runInline(job);
   const wasm = await loadMeshWasm();
-  const copy: IntakeJob = { ...job, meshes: job.meshes.map((mesh) => ({ ...mesh, data: wasm.cloneMeshData(mesh.data) })) };
+  const copy: IntakeJob = {
+    ...job,
+    meshes: job.meshes.map((mesh) => ({ ...mesh, data: wasm.cloneMeshData(mesh.data) })),
+  };
   return new Promise<IntakeRun>((resolve, reject) => {
     const id = client.nextId++;
     client.pending = { id, job, resolve, reject };

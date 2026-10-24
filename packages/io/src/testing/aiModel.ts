@@ -195,10 +195,18 @@ export function makeAiLikeGlb(opts: AiLikeModelOptions = {}): Uint8Array {
     const o = [0, 1, 2].map((k) => bp[3 * cornerPoint(c0) + k] as number);
     const e1 = [0, 1, 2].map((k) => (bp[3 * cornerPoint(c1) + k] as number) - (o[k] as number));
     const e2 = [0, 1, 2].map((k) => (bp[3 * cornerPoint(c2) + k] as number) - (o[k] as number));
-    const normal = [e1[1]! * e2[2]! - e1[2]! * e2[1]!, e1[2]! * e2[0]! - e1[0]! * e2[2]!, e1[0]! * e2[1]! - e1[1]! * e2[0]!];
+    const normal = [
+      e1[1]! * e2[2]! - e1[2]! * e2[1]!,
+      e1[2]! * e2[0]! - e1[0]! * e2[2]!,
+      e1[0]! * e2[1]! - e1[1]! * e2[0]!,
+    ];
     const lu = Math.hypot(...e1) || 1;
     const u = e1.map((v) => v / lu);
-    const vRaw = [normal[1]! * u[2]! - normal[2]! * u[1]!, normal[2]! * u[0]! - normal[0]! * u[2]!, normal[0]! * u[1]! - normal[1]! * u[0]!];
+    const vRaw = [
+      normal[1]! * u[2]! - normal[2]! * u[1]!,
+      normal[2]! * u[0]! - normal[0]! * u[2]!,
+      normal[0]! * u[1]! - normal[1]! * u[0]!,
+    ];
     const lv = Math.hypot(...vRaw) || 1;
     const v = vRaw.map((x) => x / lv);
     // The face's extent in (u, v) over all its corners.
@@ -294,7 +302,9 @@ export function makeAiLikeGlb(opts: AiLikeModelOptions = {}): Uint8Array {
         return toX ? [c, b, -a] : [a, b, c];
       })();
       vNormal.push(nx, ny, nz);
-      vUv.push(...uvOf(chart, cornerBase[3 * i] as number, cornerBase[3 * i + 1] as number, cornerBase[3 * i + 2] as number));
+      vUv.push(
+        ...uvOf(chart, cornerBase[3 * i] as number, cornerBase[3 * i + 1] as number, cornerBase[3 * i + 2] as number),
+      );
     }
     indices[i] = vertex;
   }

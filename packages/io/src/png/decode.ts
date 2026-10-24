@@ -118,10 +118,11 @@ export function decodePng(bytes: Uint8Array): DecodedImage {
     const value = (byte >> (8 - depth - (bit & 7))) & ((1 << depth) - 1);
     return type === 3 ? value : Math.round((value * 255) / ((1 << depth) - 1));
   };
-  const keyGrey = type === 0 && trns !== null && trns.length >= 2 ? ((trns[0] as number) << 8) | (trns[1] as number) : -1;
+  const keyGrey =
+    type === 0 && trns !== null && trns.length >= 2 ? ((trns[0] as number) << 8) | (trns[1] as number) : -1;
   const keyRgb =
     type === 2 && trns !== null && trns.length >= 6
-      ? [0, 2, 4].map((i) => (((trns as Uint8Array)[i] as number) << 8) | ((trns as Uint8Array)[i + 1] as number))
+      ? [0, 2, 4].map((i) => ((trns[i] as number) << 8) | (trns[i + 1] as number))
       : null;
   const raw16 = (line: number, index: number): number =>
     depth === 16

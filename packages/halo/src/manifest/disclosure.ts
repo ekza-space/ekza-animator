@@ -451,6 +451,13 @@ export const DISCLOSURE: Readonly<Record<string, ManifestEntry>> = {
   'mesh.uv.box': on(2, [M('mesh', 'UV'), M('faces', 'Colour & surface')], MAKE),
   'mesh.uv.cylindrical': on(2, [M('mesh', 'UV'), M('faces', 'Colour & surface')], MAKE),
   'mesh.cleanup': on(2, [M('mesh', 'Clean up'), S('health', 'checks')], MAKE),
+  // M7 G-a (MODELING-PLAN §7.2; DECISIONS M7-GA-CONTRACT-6): the AI intake operators, in More until T8's Make stage
+  // gives the intake preset its own place (the Generate panel, G-d, runs it after an import).
+  'mesh.intake': on(2, [M('mesh', 'Clean up')], { ...MAKE, plain: 'Clean up a generated model' }),
+  'mesh.reduce': on(2, [M('mesh', 'Clean up')], { ...MAKE, plain: 'Fewer triangles' }),
+  'mesh.normalize': on(2, [M('mesh', 'Transform')], { ...MAKE, plain: 'Stand up and face front' }),
+  'mesh.paletteBake': on(2, [M('mesh', 'Colour & surface')], { ...MAKE, plain: 'Flat colours from the texture' }),
+  'mesh.textureDownsize': on(2, [M('mesh', 'Colour & surface')], { ...MAKE, plain: 'Smaller textures' }),
   'mesh.combine': on(2, [M('mesh', 'Object')], MAKE),
   'mesh.separate': on(2, [M('mesh', 'Object')], MAKE),
   'mesh.extract': on(2, [M('faces', 'Shape')], MAKE),

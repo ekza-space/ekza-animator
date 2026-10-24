@@ -1043,9 +1043,11 @@
                   "!node:*",
                   "!@ekza-studio/mesh-core",
                   "!@ekza-studio/mesh-core/descriptors",
-                  "!@ekza-studio/mesh-core/testing"
+                  "!@ekza-studio/mesh-core/testing",
+                  "!@ekza-studio/mesh-wasm",
+                  "!@ekza-studio/mesh-wasm/worker"
                 ],
-                "message": "@ekza-studio/editor-core tests may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/doc/testing, @ekza-studio/rig, @ekza-studio/io, @ekza-studio/io/testing, zustand/vanilla, fast-check, gltf-validator, vitest, vitest/**, node:*, @ekza-studio/mesh-core, @ekza-studio/mesh-core/descriptors, @ekza-studio/mesh-core/testing (ARCHITECTURE \u00a73)."
+                "message": "@ekza-studio/editor-core tests may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/doc/testing, @ekza-studio/rig, @ekza-studio/io, @ekza-studio/io/testing, zustand/vanilla, fast-check, gltf-validator, vitest, vitest/**, node:*, @ekza-studio/mesh-core, @ekza-studio/mesh-core/descriptors, @ekza-studio/mesh-core/testing, @ekza-studio/mesh-wasm, @ekza-studio/mesh-wasm/worker (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-studio/[^/]+/[^/]+/",

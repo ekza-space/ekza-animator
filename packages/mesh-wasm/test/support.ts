@@ -84,7 +84,8 @@ export function bandTexture(size: number, charts: number): RgbaImage {
       const band = BANDS[Math.min(BANDS.length - 1, Math.floor(originalV * BANDS.length))] as readonly number[];
       const noise = (hash01(x, y) - 0.5) * 0.06;
       const o = 4 * (y * size + x);
-      for (let c = 0; c < 3; c++) rgba[o + c] = Math.max(0, Math.min(255, Math.round((band[c] as number) * (1 + noise))));
+      for (let c = 0; c < 3; c++)
+        rgba[o + c] = Math.max(0, Math.min(255, Math.round((band[c] as number) * (1 + noise))));
       rgba[o + 3] = 255;
       void u;
     }
@@ -155,7 +156,10 @@ export function gridSphere(nu: number, nv: number, fanPoles = false): MeshData {
   for (let i = 0; i < nu; i++) {
     const u0 = i / nu;
     const u1 = (i + 1) / nu;
-    faces.push({ verts: [0, ring(1, i + 1), ring(1, i)], uvs: [fanPoles ? (u0 + u1) / 2 : 0.5, 0, u1, 1 / nv, u0, 1 / nv] });
+    faces.push({
+      verts: [0, ring(1, i + 1), ring(1, i)],
+      uvs: [fanPoles ? (u0 + u1) / 2 : 0.5, 0, u1, 1 / nv, u0, 1 / nv],
+    });
     for (let j = 1; j < nv - 1; j++) {
       const v0 = j / nv;
       const v1 = (j + 1) / nv;

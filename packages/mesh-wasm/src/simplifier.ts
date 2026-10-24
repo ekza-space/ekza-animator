@@ -2,9 +2,10 @@
 // 1.3.0; the WASM is embedded in the module, ≈ 20 kB gzip), imported on first use only. This module is the one place
 // that loads it, so neither the editor route nor the kernel chunk ever carries it: the editor reaches it through the
 // intake worker (or this package's lazy chunk in hosts without workers).
+import type { MeshoptSimplifier } from 'meshoptimizer/simplifier';
 
 /** `MeshoptSimplifier` of `meshoptimizer/simplifier`. */
-export type Simplifier = typeof import('meshoptimizer/simplifier').MeshoptSimplifier;
+export type Simplifier = typeof MeshoptSimplifier;
 
 /** `check-size` marker of the mesh-wasm boundary (lazy: never in a route's initial scripts). */
 export const MESH_WASM_MARKER = 'ekza-mesh-wasm' as const;

@@ -37,6 +37,7 @@ import { localFromWorld } from '../mesh/records';
 import { runSeed } from '../mesh/seed';
 import type { IntakeOperatorId } from '../operators/builtin/intake';
 import { lastOrder, swatchIdFor } from '../operators/builtin/palette';
+import type * as CharacterModuleType from '../operators/builtin/rig/character';
 import type { ImportPlan } from '../operators/builtin/rig/character';
 import type { ApplyContext, EditorApp, MeshRuntimeRegistry, OperatorContext } from '../types';
 import { loadWritePath } from '../workflows/export';
@@ -52,7 +53,7 @@ import {
 } from './types';
 
 type WritePath = Awaited<ReturnType<typeof loadWritePath>>;
-type CharacterModule = typeof import('../operators/builtin/rig/character');
+type CharacterModule = typeof CharacterModuleType;
 
 const UNITS: Readonly<Record<string, number>> = { m: 1, cm: 0.01, mm: 0.001, in: 0.0254 };
 const AXES = new Set<string>(['+x', '-x', '+y', '-y', '+z', '-z']);
@@ -98,7 +99,12 @@ function normalizeArgs(args: IntakeArgs, height: number | null): NormalizeArgs {
     up: str(args, 'up', '+y', AXES) as SignedAxis,
     unit: UNITS[str(args, 'unit', 'm')] ?? 1,
     height,
-    origin: str(args, 'origin', 'bottom-center', new Set(['bottom-center', 'center', 'keep'])) as NormalizeArgs['origin'],
+    origin: str(
+      args,
+      'origin',
+      'bottom-center',
+      new Set(['bottom-center', 'center', 'keep']),
+    ) as NormalizeArgs['origin'],
   };
 }
 
@@ -135,8 +141,10 @@ export function stepsOf(id: IntakeOperatorId, args: IntakeArgs): IntakeStep[] {
         { kind: 'normalize', args: normalizeArgs(args, nullableNum(args, 'height') ?? INTAKE_HEIGHTS[preset]) },
         { kind: 'reduce', args: { ...reduceArgs(args), regularize: null } },
       ];
-      if (bool(args, 'quadrangulate', true)) steps.push({ kind: 'quadrangulate', args: { angle: (30 * Math.PI) / 180 } });
-      if (str(args, 'texture', 'palette') === 'palette') steps.push({ kind: 'paletteBake', args: { colours, samples: 6 } });
+      if (bool(args, 'quadrangulate', true))
+        steps.push({ kind: 'quadrangulate', args: { angle: (30 * Math.PI) / 180 } });
+      if (str(args, 'texture', 'palette') === 'palette')
+        steps.push({ kind: 'paletteBake', args: { colours, samples: 6 } });
       return steps;
     }
   }
@@ -264,7 +272,9 @@ async function baseColours(
             }
             const decoded = await image;
             if (decoded === null) {
-              warnings.push(`The ${info.mimeType || 'image'} texture of ${read.name} could not be read here: its colour factor is used`);
+              warnings.push(
+                `The ${info.mimeType || 'image'} texture of ${read.name} could not be read here: its colour factor is used`,
+              );
             } else {
               texture = {
                 image: decoded,
@@ -311,7 +321,8 @@ export async function prepareIntake(
   const warnings: string[] = [];
   const steps = stepsOf(id, args);
   const needsColour = steps.some((step) => step.kind === 'paletteBake');
-  const keepTexture = id === 'mesh.textureDownsize' || (id === 'mesh.intake' && str(args, 'texture', 'palette') === 'keep');
+  const keepTexture =
+    id === 'mesh.textureDownsize' || (id === 'mesh.intake' && str(args, 'texture', 'palette') === 'keep');
   const assetBytes = (asset: AssetId): Promise<Uint8Array | null> => app.services.assets.get(asset).catch(() => null);
 
   let imported: IntakePrepared['imported'] = null;
@@ -520,7 +531,8 @@ export function applyIntake(
       const first = plan.meshes[0]?.name ?? 'Model';
       palette = putPalette(tx, result.palette, `${first} palette`, [plan.asset.id], seed);
     }
-    for (const record of prepared.assets.values()) if (tx.get('assets', record.id) === undefined) tx.put('assets', record);
+    for (const record of prepared.assets.values())
+      if (tx.get('assets', record.id) === undefined) tx.put('assets', record);
     written = character.putImportedMeshes(ctx, args.name, plan, seed, (n) => ({
       ...(outMeshes[n] === undefined ? {} : { data: outMeshes[n].data }),
       ...(world ? { placement: xfIdentity() } : {}),
@@ -545,7 +557,8 @@ export function applyIntake(
       const first = before.get(prepared.targets[0] as MeshId)?.name ?? 'Model';
       palette = putPalette(tx, result.palette, `${first} palette`, prepared.targets, seed);
     }
-    for (const record of prepared.assets.values()) if (tx.get('assets', record.id) === undefined) tx.put('assets', record);
+    for (const record of prepared.assets.values())
+      if (tx.get('assets', record.id) === undefined) tx.put('assets', record);
     const order = [...prepared.targets].sort(
       (a, b) => depthOf(tx, before.get(a) as MeshRecord) - depthOf(tx, before.get(b) as MeshRecord),
     );

@@ -92,6 +92,9 @@ export const BOUNDARIES = [
   // their entry modules only.
   { id: 'rig-workspace', label: 'Rig & Skin workspace', markers: ['ekza-rig-workspace'] },
   { id: 'skin-worker', label: 'skin worker (bind solvers)', markers: ['ekza-skin-worker'] },
+  // MODELING-PLAN §7.2 G-a (M7): the intake chain (mesh-wasm, its worker and the meshoptimizer simplifier WASM) loads
+  // on the first intake operator run, never with a route.
+  { id: 'mesh-wasm', label: 'mesh-wasm (intake chain, meshoptimizer simplifier)', markers: ['ekza-mesh-wasm'] },
   {
     id: 'character-runtime',
     label: 'character runtime (model-sourced characters)',

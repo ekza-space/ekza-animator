@@ -23,7 +23,13 @@ export function cornerFaces(data: MeshData): Uint32Array {
 }
 
 /** Twice the area and the unit normal of triangle (a, b, c) of points, written to `out` (nx, ny, nz); returns 2·area. */
-export function triangleNormal(position: ArrayLike<number>, a: number, b: number, c: number, out: Float64Array): number {
+export function triangleNormal(
+  position: ArrayLike<number>,
+  a: number,
+  b: number,
+  c: number,
+  out: Float64Array,
+): number {
   const ax = position[3 * a] as number;
   const ay = position[3 * a + 1] as number;
   const az = position[3 * a + 2] as number;
@@ -125,8 +131,7 @@ export function buildTriangleMesh(input: TriangleMeshInput): MeshData {
     if (a !== b && b !== c && a !== c) keep.push(t);
   }
   const used = new Uint8Array(P0);
-  for (const t of keep)
-    for (let i = 0; i < 3; i++) used[source.cornerVert[corners[3 * t + i] as number] as number] = 1;
+  for (const t of keep) for (let i = 0; i < 3; i++) used[source.cornerVert[corners[3 * t + i] as number] as number] = 1;
   const pointOf = new Int32Array(P0).fill(-1);
   let P = 0;
   for (let p = 0; p < P0; p++) if (used[p] === 1) pointOf[p] = P++;

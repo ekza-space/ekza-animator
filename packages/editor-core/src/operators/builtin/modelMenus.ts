@@ -188,6 +188,19 @@ export const MODEL_MENU_ITEMS: readonly MenuItemDef[] = [
     ],
     200,
   ),
+  // M7 G-a (MODELING-PLAN §7.2): the intake operators, after Cleanup.
+  ...model(
+    'mesh',
+    'intake',
+    [
+      ['intake', 'mesh.intake', undefined, 'Intake…'],
+      ['normalize', 'mesh.normalize', undefined, 'Normalize…'],
+      ['reduce', 'mesh.reduce', undefined, 'Reduce…'],
+      ['paletteBake', 'mesh.paletteBake', undefined, 'Palette Bake…'],
+      ['textureDownsize', 'mesh.textureDownsize', undefined, 'Downsize Textures…'],
+    ],
+    250,
+  ),
   ...model('mesh', 'editable', [['makeEditable', 'mesh.makeEditable']], 300),
 
   ...model('edit-mesh', 'components', [

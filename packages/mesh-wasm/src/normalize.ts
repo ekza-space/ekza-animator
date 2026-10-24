@@ -31,7 +31,8 @@ export function frameRotation(up: SignedAxis, forward: SignedAxis): Mat4 {
   const r: V3 = [u[1] * f[2] - u[2] * f[1], u[2] * f[0] - u[0] * f[2], u[0] * f[1] - u[1] * f[0]];
   const rows = [r, u, f];
   const m = new Float64Array(16);
-  for (let row = 0; row < 3; row++) for (let col = 0; col < 3; col++) m[col * 4 + row] = (rows[row] as V3)[col] as number;
+  for (let row = 0; row < 3; row++)
+    for (let col = 0; col < 3; col++) m[col * 4 + row] = (rows[row] as V3)[col] as number;
   m[15] = 1;
   return m;
 }

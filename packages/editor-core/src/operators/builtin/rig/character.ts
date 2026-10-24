@@ -584,9 +584,9 @@ export function putImportedMeshes(
   fileName: unknown,
   plan: ImportPlan,
   seed: string,
-  override?: (
-    n: number,
-  ) => Partial<Pick<MeshRecord, 'placement' | 'palette' | 'material' | 'source' | 'colourOutput'>> & {
+  override?: (n: number) => Partial<
+    Pick<MeshRecord, 'placement' | 'palette' | 'material' | 'source' | 'colourOutput'>
+  > & {
     readonly data?: MeshData;
   },
 ): MeshId[] {
@@ -613,7 +613,8 @@ export function putImportedMeshes(
   const owner = { scene: true } as const;
   const taken = new Set<string>();
   let order: string | null = null;
-  for (const child of tx.query.childrenOf(null, 'scene')) if (order === null || child.order > order) order = child.order;
+  for (const child of tx.query.childrenOf(null, 'scene'))
+    if (order === null || child.order > order) order = child.order;
   const ids: MeshId[] = [];
   plan.meshes.forEach((mesh, n) => {
     const id = derivedId('mesh', 'mesh.importStatic', [plan.asset.id], seed, n);

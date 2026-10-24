@@ -74,7 +74,8 @@ function faceColours(
   const sample = new Float64Array(3);
   const n = pattern.length / 3;
   const paintLayer = data.layers.get('paint');
-  const paintSlots = mesh.paint !== null && mesh.paint !== undefined && paintLayer?.def.domain === 'face' ? paintLayer.data : null;
+  const paintSlots =
+    mesh.paint !== null && mesh.paint !== undefined && paintLayer?.def.domain === 'face' ? paintLayer.data : null;
   for (let t = 0; t < tris.length / 3; t++) {
     const f = triFace[t] as number;
     const c0 = tris[3 * t] as number;
@@ -140,9 +141,7 @@ function faceColours(
     const a = area[f] as number;
     for (let k = 0; k < 3; k++) {
       colour[3 * f + k] =
-        a > 0
-          ? (colour[3 * f + k] as number) / a
-          : (plain[3 * f + k] as number) / Math.max(1, plainCount[f] as number);
+        a > 0 ? (colour[3 * f + k] as number) / a : (plain[3 * f + k] as number) / Math.max(1, plainCount[f] as number);
     }
   }
   return { colour, area };
@@ -277,7 +276,8 @@ export function paletteBake(
     for (let c = 0; c < 3; c++) points[3 * i + c] = (binSum[3 * bin + c] as number) / w;
   });
   const k = Math.max(1, Math.min(Math.floor(args.colours), N));
-  const { centres, weight, iterations } = N === 0 ? { centres: new Float64Array(3), weight: new Float64Array(1), iterations: 0 } : kmeans(points, weights, k);
+  const { centres, weight, iterations } =
+    N === 0 ? { centres: new Float64Array(3), weight: new Float64Array(1), iterations: 0 } : kmeans(points, weights, k);
   // Swatches: live clusters by covered area (ties: darker first), merged when they round to one 8-bit colour.
   const live = Array.from({ length: k }, (_, j) => j).filter((j) => (weight[j] as number) > 0);
   live.sort(

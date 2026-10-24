@@ -188,6 +188,7 @@ export function transferablesOf(value: IntakeJob | IntakeResult): ArrayBuffer[] 
     for (const layer of data.layers.values()) add(layer.data);
   };
   for (const mesh of value.meshes) addMesh(mesh.data);
-  if ('sources' in value) for (const source of value.sources) if (source.texture !== null) add(source.texture.image.rgba);
+  if ('sources' in value)
+    for (const source of value.sources) if (source.texture !== null) add(source.texture.image.rgba);
   return [...out];
 }

@@ -16,7 +16,8 @@ export interface GlbImage {
   readonly mimeType: string;
 }
 
-const isRecord = (value: unknown): value is Json => typeof value === 'object' && value !== null && !Array.isArray(value);
+const isRecord = (value: unknown): value is Json =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
 function base64Decode(text: string): Uint8Array {

@@ -6,7 +6,11 @@
 //
 // Protocol (`editor-core/src/intake/client.ts`): a request `{type: 'intake', id, job}` with the job's typed arrays
 // transferred; the response `{id, result}` (arrays transferred back) or `{id, error: {code, message}}`.
-import { handleIntakeRequest, type IntakeWorkerRequest, type IntakeWorkerResponse } from '@ekza-studio/mesh-wasm/worker';
+import {
+  handleIntakeRequest,
+  type IntakeWorkerRequest,
+  type IntakeWorkerResponse,
+} from '@ekza-studio/mesh-wasm/worker';
 
 interface WorkerScope {
   onmessage: ((event: { readonly data: IntakeWorkerRequest }) => void) | null;
