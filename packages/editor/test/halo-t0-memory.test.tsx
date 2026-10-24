@@ -53,7 +53,7 @@ describe('decideMemoryProfile', () => {
     expect(profile.textureCapPx).toBe(2048);
     expect(profile.prefs).toEqual({ modeling: { undoBudgetMB: 96, journalBudgetMB: 24 } });
     expect(profile.triangles).toEqual({ warn: 60_000, limit: 200_000 });
-    expect(IOS_MEMORY.undoBudgetMB + IOS_MEMORY.journalBudgetMB).toBe(120);
+    expect(IOS_MEMORY).toMatchObject({ dprCap: 1.5, dprCapAboveMp: 4, msaaOffAboveMp: 5, textureCapPx: 2048 });
   });
 
   it('reads the device from the window: an iPad user agent with touch points, the larger of screen and window', () => {
