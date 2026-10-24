@@ -179,19 +179,33 @@ is `dev` `582aa335`, measured the same way in a scratch worktree:
 | `halo/test/rules.test.ts` (T6a) | the vocabulary lint admits *animation* in `home.`, `intake.`, `share.`, `recipes.` | Share's destinations and slots, Continue's counts |
 | `editor/src/host/index.ts` (T0, T2) | re-exports: `sniffFileKind`, `nameForKind`, `UNSUPPORTED_FILE_TEXT`, `isIosWebKit`, `FileKind`, `sharePreferred`, `requestPersistentStorage` | Halo reaches the editor only through `./host` (see sizes for what sharing these modules costs `/editor`) |
 
-## Merging with `dev` (for the integration)
+## Merged with `dev` (T7)
 
-`dev` moved to `22b007b6` (T7 merged) while this branch was built; nothing was merged here. A dry run
-(`git merge-tree`) conflicts in four files, each a union:
+`origin/dev` `22b007b6` (T7, the Animate stage) is merged into this branch (`6f50d2cf`). The four conflicts were
+resolved as unions: `BUILT_OWNERS` holds T6a, T6b, T7 and T11; the shell controller starts both stages' parts
+(`startAnimate`, `startHome`) and reports both test-API slices (`animate`, `t11`); DECISIONS-OPEN keeps T7's and
+T11's rows (each its own `### P · T…` block); the `searchOnly` baseline was regenerated on the merged shell. With it
+P-T11-6 is done: the Library's *Add starter set* runs the *Add animations* recipe's steps (`starterSteps` in
+`recipes/addAnimations.ts`, the one starter list; T7's `starterCalls` keeps its signature and test).
 
-- `packages/halo/src/manifest/types.ts`: `BUILT_OWNERS` = T6a, T6b, T7, T11 (and both comment lines).
-- `packages/halo/src/shell/controller.ts`: both packages' imports, `startAnimate(controller)` and `startHome(controller)`
-  in `start()`, both test API slices (`animate`, `t11`).
-- `packages/halo/src/manifest/searchOnly.baseline.json`: regenerate with `EKZA_HALO_PARITY_WRITE=1` (ha-parity) after
-  the merge; with T7 and T11 both built the generator's own projection is 57–58.
-- `docs/DECISIONS-OPEN.md`: keep both packages' rows (T11's are their own `### P · T11` block).
+| `searchOnly` (ha-parity at `/app`) | dev (T7) | T11 alone | merged |
+|---|---|---|---|
+| total | 71 | 100 | **58** (4 explicit, 54 pending) |
+| reachable without search (of 352) | 281 | 250 | **289** |
 
-`manifest/sheets.ts` merges cleanly (T7's `library` sections beside T11's `share`).
+`ha-parity` passes on the regenerated file with no slack (no *lower the baseline* note): the ratchet is strict again.
+
+Gate on the merged branch: `EKZA_E2E_PORT=3186 pnpm run ci` at `fc05e1b3`, **green** (exit 0) on the first run —
+23 / 23 test tasks (halo 201, editor-core 1,821, editor 677 + 1, curve-editor 220 + 3, headless-tests 225, …), the
+build, check:size, and **e2e 509 passed, 108 skipped, 0 failed, 0 flaky** (`chrome`, `chrome-touch`, `webkit-ipad`).
+
+| Route (production build, gzip -9) | dev `22b007b6` (measured the same way) | merged `fc05e1b3` | Δ |
+|---|---|---|---|
+| `/editor` | 897,211 B | **897,482 B** | +271 B |
+| `/autorig` | 657,809 B | **657,839 B** | +30 B |
+| `/app` | 715,694 B | **722,865 B** | +7,171 B (report-only) |
+
+The deltas are T11's own, as before the merge (+267 / +30 / +7,218 B against `582aa335`).
 
 ## Patches for other packages
 
@@ -202,7 +216,7 @@ is `dev` `582aa335`, measured the same way in a scratch worktree:
 | P-T11-3 | `viewport` (T1's owner) | A camera getter/setter for a pane's view (`viewCamera(paneId)` / `setViewCamera(paneId, {position, quaternion})`): J10's silent resume restores the document, stage, time and selection, but the view camera comes back framed, not where it was (the viewport keeps no camera across a reload) | J10 "the same … camera" |
 | P-T11-4 | Studio Pro's `EditorShell` arrival (T12, T3's follow-up) | Pro's toast *Same project, every panel at once · Undo still works* on arrival `from=halo` (§16.1, J9) is still missing; ha-J9 checks the document, history, selection, time and workspace instead | J9's wording |
 | P-T11-5 | `halo/src/manifest/disclosure.ts` (T6b, T12) | `file.saveJson` stays explicit `searchOnly`; the spec's *Share › Advanced › Debug JSON* (§15 row 12.3) can be added to Advanced when the owner wants developers to find it there (the ratchet then goes to 99) | §20.5 "developer items only" |
-| P-T11-6 | T7 (`sheets/library`, `stages/animate`) | T7's Library *Add starter set* and T11's *Add animations* recipe both run `autorig.clip.add` × idle / walk / run; the Library may call `addAnimationsRecipe` (`recipes/addAnimations.ts`) so both stay one list | One starter set |
+| P-T11-6 | T7 (`sheets/library`) | **Done in the merge** (`9e5e76a7`): the Library's *Add starter set* runs the *Add animations* recipe's steps (`starterSteps`) | One starter set |
 | P-T11-7 | `docs/STUDIO-TOUCH-SPEC.md` §20.2 (T12) | The files as built: `home/{model,start,resume,save,slice}.ts`, `intake/{intake,flowHost}.ts` (the spec has `home/intake/`), `sheets/share/{model,bake,GameTarget}`, `recipes/{recipe,index}.ts` | The spec follows the code |
 
 ## Follow-ups
