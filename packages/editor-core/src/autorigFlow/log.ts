@@ -13,6 +13,7 @@ export interface AutoRigFlowLogEntry {
   readonly op: string;
   /** Through `run` (the person's) or `quiet` (bookkeeping). */
   readonly via: 'run' | 'quiet';
+  /** The comparable arguments (`comparableArgs`); null without any. */
   readonly args: unknown;
   readonly status: 'finished' | 'cancelled' | 'failed';
   /** The document runs during it (operator ids, in order; inner runs of a composition included). */
@@ -81,7 +82,7 @@ export function recordAutoRigFlow(host: AutoRigFlowHost): AutoRigFlowLog {
       const entry: { -readonly [K in keyof AutoRigFlowLogEntry]: AutoRigFlowLogEntry[K] } = {
         op,
         via,
-        args: comparableArgs(args, tokens),
+        args: args === undefined ? null : comparableArgs(args, tokens),
         status: 'failed',
         document,
       };
