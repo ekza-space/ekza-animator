@@ -28,6 +28,7 @@ import { prefetchLazyChunks } from './prefetch';
 import { arrivalStage, HALO_STAGES, PANE, parseStage, STAGE_BASICS, stageOfWorkspace, workspaceOfStage } from './stage';
 import { createHaloStore, type HaloStore, initialUi } from './store';
 import { countVisibleTargets } from './targets';
+import { coachMarks } from './coach';
 
 export interface HaloController {
   readonly ctx: ShellContext;
@@ -80,7 +81,12 @@ export function createHaloController(host: HostShell): HaloController {
     store,
     toasts,
     vm: () => host.ui.getState().viewport,
-    run: (op, args) => host.runFromUi(op, args, { panel: PANEL.viewport, paneId: PANE }),
+    // a refusal says why in Halo's own toast (the host writes it to Pro's help line, which Halo does not show)
+    run: (op, args) =>
+      host.runFromUi(op, args, { panel: PANEL.viewport, paneId: PANE }).then((result) => {
+        if (result.status === 'cancelled' && result.reason !== '') toasts.push({ key: 'reason', text: result.reason });
+        return result;
+      }),
   };
   let root: HTMLElement | null = null;
   let input: InputHandle | null = null;
@@ -415,6 +421,9 @@ export function createHaloController(host: HostShell): HaloController {
           toPro: (dialog) => toPro(dialog),
         }),
       );
+
+      // §17 coach marks, once per surface on this device, in context: the first Halo, the first Thumb key
+      if (!host.params.e2e || host.params.firstRun) disposers.push(coachMarks(ctx, localStorage));
 
       // S23: every small lazy chunk at idle after boot and again when the network comes back
       disposers.push(prefetchLazyChunks(app));

@@ -10,6 +10,7 @@ import { HaloPane } from '../canvas/HaloPane';
 import { ViewPuck } from '../canvas/ViewPuck';
 import { HaloLayer } from '../halo/HaloLayer';
 import { Icon } from '../halo/icons';
+import { TargetBar } from '../halo/TargetMode';
 import { Home } from '../home/Home';
 import { en } from '../i18n/en';
 import { ThumbKeyView } from '../input/ThumbKeyView';
@@ -101,6 +102,7 @@ export function Frame({ controller }: { readonly controller: HaloController }): 
             <TopBar controller={controller} size={size} />
           </div>
           <SessionBar controller={controller} top={insetTop} />
+          <TargetBar controller={controller} top={insetTop} />
           <div
             className={`pointer-events-none absolute ${offSide} flex flex-col items-start gap-2.5`}
             style={{ bottom: `calc(var(--touch-inset-bottom) + ${insetBottom - 12}px)` }}

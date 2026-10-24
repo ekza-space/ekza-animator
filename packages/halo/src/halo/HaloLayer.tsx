@@ -14,6 +14,7 @@ import { ConfirmCard } from '../dialogs/ConfirmCard';
 import { Breadcrumb } from './Breadcrumb';
 import { BREADCRUMB_ROW, breadcrumbTop, selectionBox } from './geometry';
 import { Icon } from './icons';
+import { TargetLine } from './TargetMode';
 import { FACE_OPS } from './run';
 import { opOf, type Verb } from './verbSource';
 
@@ -56,6 +57,7 @@ export function HaloLayer({
   const form = useHaloStore(store, (s) => s.form);
   const confirm = useHaloStore(store, (s) => s.confirm);
   const handedness = useHaloStore(store, (s) => s.input.handedness);
+  const targeting = useHaloStore(store, (s) => s.target !== null);
   const selection = useSessionValue(app, (s) => s.selection);
   const components = useSessionValue(app, (s) => s.model.components.version);
   const lastRun = useSessionValue(app, (s) => s.lastRun);
@@ -193,6 +195,7 @@ export function HaloLayer({
           />
         </div>
       )}
+      {targeting ? <TargetLine box={box} origin={ctx.vm()?.paneRect('pane-single') ?? { x: 0, y: 0 }} /> : null}
       <p className="sr-only" aria-live="polite" data-testid="halo-announce">
         {announce}
       </p>

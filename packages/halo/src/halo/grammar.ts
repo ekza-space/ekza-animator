@@ -127,6 +127,18 @@ export function createGrammar(deps: GrammarDeps): Grammar {
     const tap = pending;
     pending = null;
     if (tap === null) return;
+    // §6.4 verb → target: the tapped object is the target; the subject gets its selection back
+    const target = store.get().target;
+    if (target !== null) {
+      store.set({ target: null });
+      const lead = app.session.getState().selection.objects.at(-1);
+      if (lead === undefined || target.subject.includes(lead)) return;
+      void ctx
+        .run(target.op, { ids: target.subject, parent: lead })
+        .then(() => ctx.run('select.objects', { ids: target.subject, mode: 'replace' }))
+        .then(() => openArc(tap.at));
+      return;
+    }
     const noun = currentNoun();
     if (noun === null) {
       store.set({ halo: null });

@@ -284,6 +284,7 @@ export const en = {
     allJoints: 'All joints',
     bindSkin: 'Bind skin',
     pivot: 'Pivot',
+    parentTo: 'Parent to…',
     again: (label: string): string => `Again: ${label}`,
     repeat: (label: string): string => `${label} again`,
   },

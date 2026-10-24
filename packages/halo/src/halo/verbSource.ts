@@ -45,6 +45,8 @@ export interface Verb {
   readonly hasMenu?: boolean;
   /** The verb changed in place (⟳ Again, Paste ▾, §6.1). */
   readonly changed?: boolean;
+  /** §6.4: the verb needs a second thing — it waits for a tap on the target, then runs with the target as `parent`. */
+  readonly target?: boolean;
 }
 
 export interface VerbSource {
@@ -207,6 +209,7 @@ function table(app: EditorApp, noun: Noun, stage: HaloStage): Verb[] {
         op('scene.duplicate', v.duplicate, 'duplicate', 'E'),
         toStage('paint', v.paint, 'paint'),
         toStage('rig', v.rigIt, 'rig'),
+        op('scene.parent', v.parentTo, 'connect', 'W', undefined, { target: true }),
         op('scene.delete', v.delete, 'delete', 'SW'),
       ];
     case 'face':
@@ -302,6 +305,9 @@ export function opOf(verb: Verb): OperatorId | null {
 /** A verb's poll in the single pane: true, or the reason it cannot run now (§6.3: greyed with the reason). */
 export function pollVerb(app: EditorApp, verb: Verb): PollResult {
   if (!('op' in verb.run)) return true;
+  // a verb → target cannot be polled before its target is tapped (§6.4); its run is
+  if (verb.target === true)
+    return app.operators.get(verb.run.op) === undefined ? { ok: false, reason: en.sheet.soon } : true;
   if (app.operators.get(verb.run.op) === undefined) return { ok: false, reason: en.sheet.soon };
   try {
     return app.operators.poll(verb.run.op, { panel: 'viewport', paneId: PANE }, verb.run.args);

@@ -205,6 +205,37 @@ test.describe('ha-02: touch grammar', () => {
     await expect(petal(page, 'Duplicate')).toBeVisible();
     expect((await grammar(page))['halo']).toEqual({ mode: 'arc', reduced: false });
   });
+  test('verb → target: Parent to… waits for a tap on the target, then parents the subject (§6.4)', async ({
+    page,
+  }, testInfo) => {
+    touchOnly(testInfo);
+    await openHalo(page);
+    // two shapes (imported meshes keep their place, so the subject and the target are primitives), the target
+    // framed in the middle of the pane and the subject selected
+    await runOk(page, 'workspace.set', { workspace: 'model' });
+    const a = (await runOk<{ mesh: string }>(page, 'mesh.create.cube')).mesh;
+    const b = (await runOk<{ mesh: string }>(page, 'mesh.create.cube')).mesh;
+    await expect.poll(async () => (await halo(page)).stage).toBe('make');
+    await runOk(page, 'scene.object.transform', {
+      ids: [b],
+      placements: [{ t: [6, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] }],
+    });
+    await runOk(page, 'select.objects', { ids: [b], mode: 'replace' });
+    await runOk(page, 'view.frame', { what: 'selection', paneId: 'pane-single' });
+    await runOk(page, 'select.objects', { ids: [a], mode: 'replace' });
+    // a selection made elsewhere shows its breadcrumb; the Halo opens from its ⋯ Verbs
+    await page.getByTestId('halo-verbs').tap();
+    await expect.poll(async () => (await halo(page)).noun).toEqual({ kind: 'object', id: a });
+    await fingerTap(page, await petalCenter(page, 'Parent to'));
+    await expect(page.getByTestId('halo-target')).toBeVisible();
+    const pane = (await call(page, 'panes')).find((p) => p.id === 'pane-single');
+    if (pane === undefined) throw new Error('no pane');
+    await fingerTap(page, { x: pane.rect.x + pane.rect.w / 2, y: pane.rect.y + pane.rect.h / 2 });
+    await expect.poll(async () => (await call(page, 'meshes')).find((m) => m.id === a)?.parent).toBe(b);
+    await expect(page.getByTestId('halo-target')).toHaveCount(0);
+    // the subject keeps its selection and its Halo
+    await expect.poll(async () => (await halo(page)).noun?.id).toBe(a);
+  });
 });
 
 /** The centre of a petal (page px), for a finger tap. */

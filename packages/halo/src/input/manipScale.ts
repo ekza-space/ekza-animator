@@ -7,7 +7,8 @@
 export const MANIP_SCALE = { touch: 1.4, pen: 1, mouse: 1 } as const;
 
 type Kind = keyof typeof MANIP_SCALE;
-const kindOf = (pointerType: string): Kind => (pointerType === 'touch' || pointerType === 'pen' ? pointerType : 'mouse');
+const kindOf = (pointerType: string): Kind =>
+  pointerType === 'touch' || pointerType === 'pen' ? pointerType : 'mouse';
 
 export interface ManipScale {
   /** A press of this pointer type; returns the scale in force after it. */

@@ -40,6 +40,14 @@ export function createVerbRunner(
       return;
     }
     const { op, args } = verb.run;
+    if (verb.target === true) {
+      // §6.4: "now tap the target" — the next tap's object becomes the verb's `parent`
+      store.set({
+        target: { label: verb.label, op, subject: [...app.session.getState().selection.objects] },
+        halo: null,
+      });
+      return;
+    }
     const anchor = store.get().halo?.at ?? store.get().anchor;
     void (async () => {
       const def = app.operators.get(op);

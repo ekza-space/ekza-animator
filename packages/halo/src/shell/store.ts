@@ -59,6 +59,14 @@ export interface ConfirmCard {
   readonly args: unknown;
 }
 
+/** A verb that needs a second thing (§6.4: Parent to…, Weld to…): it runs on the next tap's object. */
+export interface TargetState {
+  readonly label: string;
+  readonly op: string;
+  /** The subject's records (the selection when the verb was chosen). */
+  readonly subject: readonly string[];
+}
+
 export interface LoupeState {
   readonly at: Point;
   readonly candidates: readonly { readonly id: string; readonly label: string }[];
@@ -106,6 +114,8 @@ export interface HaloUi {
   readonly touches: number;
   /** Coach marks already shown (§17). */
   readonly coached: readonly string[];
+  /** §6.4 verb → target: the verb waits for the next tap on its target. */
+  readonly target: TargetState | null;
 }
 
 export function initialUi(stage: HaloStage = 'make'): HaloUi {
@@ -136,6 +146,7 @@ export function initialUi(stage: HaloStage = 'make'): HaloUi {
     input: DEFAULT_INPUT,
     touches: 0,
     coached: [],
+    target: null,
   };
 }
 
