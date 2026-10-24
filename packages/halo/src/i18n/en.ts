@@ -266,7 +266,7 @@ export const en = {
     secondary: 'Hold',
     reduce: 'Reduce gestures',
     reduceHelp:
-      'No two-finger undo, quick pinch or flicks: ↶ undoes, a double-tap on View frames everything, a ring waits for a tap.',
+      'No two-finger undo, quick pinch or flicks: the undo button undoes, a double-tap on View frames everything, a ring waits for a tap.',
     quickPinch: 'Quick pinch frames everything',
     thumbKey: 'Thumb key',
     thumbAuto: 'When it helps',
