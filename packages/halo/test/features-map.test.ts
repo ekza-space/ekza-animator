@@ -122,16 +122,18 @@ describe('STUDIO-TOUCH-SPEC §15 capability inventory ↔ FEATURES.md (T6b)', ()
     expect(subsections.map((subsection) => subsection.number)).toEqual(
       Array.from({ length: SUBSECTIONS }, (_, i) => i + 1),
     );
-    for (const { table } of subsections) expect(table.header, table.h3).toEqual(INVENTORY_HEADER);
+    for (const { table } of subsections) {
+      expect({ table: table.h3, header: table.header }).toEqual({ table: table.h3, header: INVENTORY_HEADER });
+    }
     expect(rows.filter((row) => row.cells !== INVENTORY_HEADER.length).map((row) => row.id)).toEqual([]);
   });
 
   it(`numbers its ${INVENTORY_ROWS} rows k.1… in each §15.k, as many as the heading says`, () => {
     for (const { number, declared, table } of subsections) {
-      expect(
-        table.rows.map((row) => row[0]),
-        table.h3,
-      ).toEqual(Array.from({ length: declared }, (_, i) => `${number}.${i + 1}`));
+      expect({ table: table.h3, rows: table.rows.map((row) => row[0]) }).toEqual({
+        table: table.h3,
+        rows: Array.from({ length: declared }, (_, i) => `${number}.${i + 1}`),
+      });
     }
     expect(rows).toHaveLength(INVENTORY_ROWS);
     expect(new Set(rows.map((row) => row.id)).size).toBe(INVENTORY_ROWS);

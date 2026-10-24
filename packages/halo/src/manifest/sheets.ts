@@ -2,8 +2,9 @@
 // test 7: "a sheet binding exists") and what the frame hands a sheet. The frame (T6a) owns where a sheet docks — the
 // right edge on wide containers, the bottom in portrait and on phones — and which one is open; a sheet owns its body.
 // Every sheet is lazy (§20.6): `sheetLoaders.ts` holds the `import()`s, this module is plain data and types.
-import type { HaloStage, OperatorResult } from '@ekza-studio/editor-core';
+
 import type { HostShell } from '@ekza-studio/editor/host';
+import type { HaloStage, OperatorResult } from '@ekza-studio/editor-core';
 import type { DestinationId } from '../path/destinations';
 import type { Noun } from '../verbs/nouns';
 import type { SheetId } from './types';

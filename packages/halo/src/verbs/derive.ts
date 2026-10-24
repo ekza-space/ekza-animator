@@ -15,8 +15,8 @@ import {
   isSurfaceEntry,
   type ManifestEntry,
   type NounKind,
-  type Stage,
   STAGES,
+  type Stage,
   surfaceText,
 } from '../manifest/types';
 import { stagesOfWorkspaces } from '../path/destinations';

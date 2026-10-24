@@ -4,8 +4,9 @@
 // installs the parity probe and feeds the test API's `halo()` (stage, open sheet, noun, petals, the visible targets and
 // a `t6b` slice with the readiness list). The launcher row (`data-harness`) is test chrome, not part of the layout,
 // and is left out of the visible-target count.
-import type { EditorApp } from '@ekza-studio/editor-core';
+
 import { provideHaloTestState, useHost, useHostUi } from '@ekza-studio/editor/host';
+import type { EditorApp } from '@ekza-studio/editor-core';
 import { Cluster, TouchButton, TouchRoot } from '@ekza-studio/ui/touch';
 import {
   type ComponentType,
