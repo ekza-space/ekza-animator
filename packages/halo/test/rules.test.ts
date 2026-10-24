@@ -88,12 +88,12 @@ describe('lazy on /app (§20.6)', () => {
     return new Set([...seen].map((path) => path.slice(SRC.length + 1)));
   }
 
-  it('the manifest, the parity check, More and every sheet stay out of the initial scripts', () => {
+  it('the manifest, the parity check, More, every sheet, the intake and the recipes stay out of the initial scripts', () => {
     const eager = eagerModules();
     expect(eager.has('shell/Frame.tsx')).toBe(true);
     expect(eager.has('path/Path.tsx')).toBe(true);
     const lazy = [...eager].filter((path) =>
-      /^(manifest\/(disclosure|labels|paramSurfaces|check|census|probe|dialogs)|verbs\/derive|sheets\/|input\/(install|InputSettings)|palette\/)/.test(
+      /^(manifest\/(disclosure|labels|paramSurfaces|check|census|probe|dialogs)|verbs\/derive|sheets\/|input\/(install|InputSettings)|palette\/|intake\/|recipes\/)/.test(
         path,
       ),
     );

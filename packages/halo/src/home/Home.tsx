@@ -5,14 +5,11 @@
 // sniffed, `../intake`) and *Make a character* (three starts); *Rig a model for me ▸* (Auto-Rig, `shell.navigate`);
 // one gesture line; a quiet ▤ Pro layout. Files dropped on Home are brought in the same way. The live canvas idles
 // behind it. Every tap counts one touch (AS-ST-4).
-import { intakeModel, intakeSampleArgs } from '@ekza-studio/editor-core';
 import { pickerAccept } from '@ekza-studio/editor/host';
 import { Cluster, TouchButton, TouchIconButton } from '@ekza-studio/ui/touch';
 import { type JSX, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Icon } from '../halo/icons';
 import { en } from '../i18n/en';
-import { bringFiles } from '../intake/intake';
-import { haloFlowHost } from '../intake/flowHost';
 import type { HaloController } from '../shell/controller';
 import { useHaloStore } from '../shell/store';
 import {
@@ -31,6 +28,9 @@ import { homeServices } from './start';
 const ACCEPT = '.glb,.gltf,.vrm,.vrma,.ekzanim,.json,model/gltf-binary,model/gltf+json';
 
 type Panel = null | 'samples' | 'starts';
+
+/** Bring a model's intake and the shared Auto-Rig flow: a lazy chunk, loaded on the first file or the Cube Lad. */
+const loadIntake = () => import('../intake/intake');
 
 /** The time to the minute, as an external store (the Continue cards' "2 min ago"). */
 const minuteClock = {
@@ -86,7 +86,8 @@ export function Home({
       const call = sampleCall(sample);
       if (call.op === 'autorig.sample') {
         // the Cube Lad is a model to rig: the shared intake (Rig & Skin), then *Rig it for me ▸*
-        const outcome = await intakeModel(haloFlowHost(ctx), 'autorig.sample', intakeSampleArgs(sample));
+        const { sampleIntake } = await loadIntake();
+        const outcome = await sampleIntake(controller, sample);
         if (outcome.status === 'finished') {
           controller.leaveHome();
           await controller.enterStage('rig');
@@ -104,7 +105,8 @@ export function Home({
     run(`start:${start}`, async () => {
       const template = startCall(start);
       if (template === null) {
-        const outcome = await intakeModel(haloFlowHost(ctx), 'autorig.sample', intakeSampleArgs('cube-lad'));
+        const { sampleIntake } = await loadIntake();
+        const outcome = await sampleIntake(controller, 'cube-lad');
         if (outcome.status !== 'finished') {
           ctx.toasts.push({ key: 'home', text: outcome.error, tone: 'error' });
           return;
@@ -129,7 +131,9 @@ export function Home({
 
   const bring = (files: readonly File[]): void => {
     if (files.length === 0) return;
-    run('bring', () => bringFiles(controller, files, { ask, done: () => controller.leaveHome() }));
+    run('bring', () =>
+      loadIntake().then(({ bringFiles }) => bringFiles(controller, files, { ask, done: () => controller.leaveHome() })),
+    );
   };
 
   // files dropped on Home (D9: a drop from the Files app) are brought in like picked ones

@@ -15,10 +15,12 @@
 // Every change is an operator run.
 import {
   type AutoRigIntakeOutcome,
+  type AutoRigSampleId,
   chooseFlowCharacter,
   freshDocument,
   intakeFileArgs,
   intakeModel,
+  intakeSampleArgs,
   type IntakeReport,
   reRigArgs,
 } from '@ekza-studio/editor-core';
@@ -74,6 +76,11 @@ export function stageAfter(
   if (outcome.route.kind === 'animations') return 'animate';
   if (report.kind === 'project') return characters > 0 ? 'animate' : 'make';
   return 'rig';
+}
+
+/** A static sample through the shared intake (Home's Cube Lad: Rig & Skin, `autorig.sample`, the routing). */
+export function sampleIntake(controller: HaloController, sample: AutoRigSampleId): Promise<AutoRigIntakeOutcome> {
+  return intakeModel(haloFlowHost(controller.ctx), 'autorig.sample', intakeSampleArgs(sample));
 }
 
 /** Reads and sniffs the picked files (S10: the bytes decide, the name only follows them). */
