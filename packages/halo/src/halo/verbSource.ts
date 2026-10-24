@@ -7,7 +7,7 @@
 import type { EditorApp, HaloStage, OperatorId, PollResult } from '@ekza-studio/editor-core';
 import type { CompassSlot } from '@ekza-studio/ui/touch';
 import { en } from '../i18n/en';
-import type { NounKind, SheetId } from '../manifest/types';
+import { type NounKind, type SheetId, TARGET_OPS } from '../manifest/types';
 import { PANE } from '../shell/stage';
 import type { NounFocus } from '../shell/store';
 import { moreFor } from '../verbs/derive';
@@ -206,8 +206,7 @@ const ICONS: Readonly<Record<string, VerbIcon>> = {
 /** Per petal: the icon the Halo drew for it before the table (Duplicate is a copy with a plus). */
 const PETAL_ICON: Readonly<Record<string, VerbIcon>> = { duplicate: 'duplicate', newAnimation: 'clip' };
 
-/** The verbs that wait for a target through the grammar's target mode (§6.4): their run takes `{ids, parent}`. */
-export const TARGET_OPS: ReadonlySet<string> = new Set<string>(['scene.parent']);
+export { TARGET_OPS };
 
 const v = en.verbs;
 

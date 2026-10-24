@@ -51,6 +51,7 @@ interface Report {
 }
 interface Baseline {
   readonly total: number;
+  readonly reachable: number;
   readonly byStage: Record<string, number>;
   readonly targets: Record<string, number>;
   readonly items: readonly string[];
@@ -188,6 +189,8 @@ test('every operator, argument shape and kernel question has a Halo surface; sea
   // The ratchet: no new search-only entry, never more than the baseline in total or in any stage.
   expect(items.filter((key) => !baseline.items.includes(key))).toEqual([]);
   expect(report.searchOnly.total).toBeLessThanOrEqual(baseline.total);
+  // … and what is reachable without search never shrinks (T6-INT: a surface that goes away is a regression too)
+  expect(report.reachable).toBeGreaterThanOrEqual(baseline.reachable);
   for (const [stage, count] of Object.entries(report.searchOnly.byStage)) {
     expect({ stage, count: Math.min(count, baseline.byStage[stage] ?? 0) }).toEqual({ stage, count });
   }

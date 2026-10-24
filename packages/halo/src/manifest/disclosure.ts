@@ -486,8 +486,8 @@ export const DISCLOSURE: Readonly<Record<string, ManifestEntry>> = {
   'scene.rename': on(1, [C('breadcrumb'), S('numbers', 'mesh'), S('scene', 'objects')], MAKE),
   'imagePlane.import': on(1, [P('empty')], { ...MAKE, plain: 'Reference' }),
   'imagePlane.set': on(1, [P('imagePlane'), S('numbers', 'imagePlane'), S('scene', 'references')], MAKE),
-  'imagePlane.delete': on(1, [P('imagePlane')], MAKE),
-  'imagePlane.replace': on(2, [M('imagePlane', 'Image')], MAKE),
+  'imagePlane.delete': on(1, [P('imagePlane'), S('scene', 'references')], MAKE),
+  'imagePlane.replace': on(2, [M('imagePlane', 'Image'), S('scene', 'references')], MAKE),
 
   // ===== Paint (§13.1, §15.4) =====
   'mesh.paint': on(1, [P('faces'), T('paint')], { stages: ['make', 'paint'], ...HANDS, plain: 'Colour' }),

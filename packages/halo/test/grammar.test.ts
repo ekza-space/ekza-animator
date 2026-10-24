@@ -242,6 +242,23 @@ describe('long-press and flicks (§5.2)', () => {
     w.dispose();
   });
 
+  it('a long-press on the manipulator opens its own noun (§6.2: Space, Size, Pivot); closing ends the focus', () => {
+    const w = world();
+    toolSelects(w, [A]);
+    w.port.hit = { kind: 'manipulator', handle: 'rx' };
+    w.arbiter.down('pane-single', ev(1, 400, 300));
+    vi.advanceTimersByTime(460);
+    expect(w.store.get().halo).toMatchObject({ mode: 'ring' });
+    expect(w.store.get().focus).toEqual({ kind: 'manipulator', id: null });
+    expect(w.grammar.noun()?.kind).toBe('manipulator');
+    expect(w.port.calls).toEqual([]); // the tool never saw the press
+    w.arbiter.up('pane-single', ev(1, 400, 300), false);
+    w.grammar.close();
+    expect(w.store.get().focus).toBeNull();
+    expect(w.grammar.noun()).toBeNull();
+    w.dispose();
+  });
+
   it('with Reduce gestures the ring stays open for a tap instead of running the flick (AS-ST-9)', () => {
     const w = world({ reduceGestures: true });
     w.arbiter.down('pane-single', ev(1, 400, 300));

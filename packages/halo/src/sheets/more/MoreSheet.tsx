@@ -10,6 +10,7 @@ import { SheetGroup, TouchButton, TouchIconButton } from '@ekza-studio/ui/touch'
 import { type JSX, useMemo, useState } from 'react';
 import type { HaloSheetProps } from '../../manifest/sheets';
 import { type MoreRow, moreFor } from '../../verbs/derive';
+import { type PetalDef, petalsFor } from '../../verbs/table';
 import { FieldRow, HaloSheet, OpenInProButton, ParamControl, useAppVersion } from './kit';
 
 /** The option defaults of an operator (Model's or Rig & Skin's table, as Studio Pro's option boxes keep them). */
@@ -160,6 +161,19 @@ export default function MoreSheet({ ctx, args }: HaloSheetProps): JSX.Element {
   const [options, setOptions] = useState<OptionsTarget | null>(null);
   const groups = moreFor(app, ctx.noun, ctx.stage, filter);
   const label = ctx.noun === null || ctx.noun.kind === 'empty' ? 'here' : ctx.noun.label;
+  // The noun's petals that go somewhere (Checks, About this character, Paint, Rig it): More lists them too, so a
+  // Compact verb bar that folded them keeps them one tap away (T6-INT; §4.4, §6.3).
+  const query = filter.trim().toLowerCase();
+  const goes = petalsFor(ctx.noun?.kind ?? 'empty', ctx.stage).filter(
+    (petal) => petal.go !== undefined && (query === '' || petal.plain.toLowerCase().includes(query)),
+  );
+  const go = (petal: PetalDef): void => {
+    if (petal.go?.sheet !== undefined) ctx.open(petal.go.sheet);
+    else if (petal.go?.stage !== undefined) {
+      ctx.setStage(petal.go.stage);
+      ctx.close();
+    }
+  };
 
   const run = (row: MoreRow): void => {
     // §6.4: Parent to… and the other verbs that take a second thing wait for a tap on it in the canvas
@@ -208,7 +222,23 @@ export default function MoreSheet({ ctx, args }: HaloSheetProps): JSX.Element {
             data-testid="halo-more-filter"
             className="mx-1 mt-1 mb-2 min-h-(--touch-hit) w-[calc(100%-8px)] rounded-touch border border-line bg-field px-3 text-[16px] text-fg placeholder:text-fg-3"
           />
-          {groups.length === 0 ? (
+          {goes.length === 0 ? null : (
+            <section aria-label="Go to" data-testid="halo-more-group">
+              <SheetGroup>Go to</SheetGroup>
+              {goes.map((petal) => (
+                <div key={petal.id} className="flex items-center gap-1" data-testid="halo-more-go" data-go={petal.id}>
+                  <button
+                    type="button"
+                    className="flex min-h-[52px] min-w-0 flex-1 flex-col justify-center rounded-touch px-2.5 py-1.5 text-left active:bg-header"
+                    onClick={() => go(petal)}
+                  >
+                    <span className="font-medium text-fg">{petal.plain}</span>
+                  </button>
+                </div>
+              ))}
+            </section>
+          )}
+          {groups.length === 0 && goes.length === 0 ? (
             <p className="px-2.5 py-4 text-fg-3" data-testid="halo-more-empty">
               Nothing matches. Search (⌕ Do or find…) reaches every verb in every stage.
             </p>

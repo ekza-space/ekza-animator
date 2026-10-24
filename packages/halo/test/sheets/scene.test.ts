@@ -282,7 +282,13 @@ describe('show and hide (§15 row 1.10)', () => {
     expect(plane).toMatchObject({ kind: 'plane', name: 'Front ref', select: null, hidden: false });
     expect(plane.detail).toBe('Front view · 50 %');
     expect(plane.eye?.calls).toEqual([{ op: 'imagePlane.set', args: { id: s.plane, patch: { visible: false } } }]);
-    expect(plane.menu.map((a) => a.id)).toEqual(['hide', 'lock']);
+    expect(plane.menu.map((a) => a.id)).toEqual(['hide', 'lock', 'delete']);
+    expect(plane.menu.at(-1)?.calls).toEqual([{ op: 'imagePlane.delete', args: { id: s.plane } }]);
+    const bytes = new Uint8Array([1, 2, 3]);
+    expect(plane.replaceImage?.(bytes, 'side.png')).toEqual({
+      op: 'imagePlane.replace',
+      args: { id: s.plane, bytes, name: 'side.png' },
+    });
     await runCalls(s.app, plane.eye?.calls ?? []);
     const hidden = row(sceneModel(s.app), `plane:${s.plane}`);
     expect(hidden).toMatchObject({ hidden: true, detail: 'Front view · 50 % · hidden' });

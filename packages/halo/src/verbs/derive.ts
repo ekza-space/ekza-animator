@@ -18,6 +18,7 @@ import {
   STAGES,
   type Stage,
   surfaceText,
+  TARGET_OPS,
 } from '../manifest/types';
 import { stagesOfWorkspaces } from '../path/destinations';
 import type { Noun } from './nouns';
@@ -106,11 +107,14 @@ function poll(app: EditorApp, op: string, args: unknown): { enabled: boolean; re
   }
 }
 
+const READY = { enabled: true, reason: null } as const;
+
 /** A poll that failed only on argument validation ("expects { … }"): the row's arguments come from a form or a target. */
 const ARGUMENT_REASON = /^expects\b|\bexpects \{/;
 
 function row(app: EditorApp, op: OperatorId, args: unknown, plain: string, petal: boolean): MoreRow {
-  const polled = poll(app, op, args);
+  // a verb → target asks for its target after the tap (§6.4): its poll, which wants the target selected, waits
+  const polled = TARGET_OPS.has(op) && app.operators.get(op) !== undefined ? READY : poll(app, op, args);
   const surfaces = paramSurfacesOf(op);
   const argumentsMissing = polled.reason !== null && ARGUMENT_REASON.test(polled.reason);
   // An operator with a pre-run form asks for its arguments on the tap (§5.6); others say what to pick, in plain words.

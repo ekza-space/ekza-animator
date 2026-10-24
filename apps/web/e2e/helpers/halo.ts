@@ -147,7 +147,13 @@ export async function openSheetFromShell(page: Page, id: HaloSheetId, touch: boo
     }
     await press(page.getByTestId('halo-crumb-character'));
     await expect.poll(async () => (await halo(page)).noun?.kind).toBe('character');
-    await press(haloMenu(page).getByRole('menuitem', { name: /^About this character/ }));
+    const petalAbout = haloMenu(page).getByRole('menuitem', { name: /^About this character/ });
+    if (await petalAbout.isVisible()) await press(petalAbout);
+    else {
+      // a Compact verb bar folds it into its More: the More sheet lists where the character's petals go
+      await press(haloMenu(page).locator('[data-verb="more"]'));
+      await press(page.getByTestId('halo-sheet-more').locator('[data-go="about"] button'));
+    }
   } else if (label !== undefined) {
     await press(page.getByTestId('halo-project'));
     await press(page.getByTestId('halo-project-menu').getByRole('menuitem', { name: label, exact: true }));

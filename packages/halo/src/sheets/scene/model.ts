@@ -86,6 +86,8 @@ export interface SceneRow {
   readonly menu: readonly SceneAction[];
   /** Rename: the call for a new name, or null. */
   readonly rename: ((name: string) => OperatorCall) | null;
+  /** A reference image's *Replace image…*: the picked file's bytes into `imagePlane.replace` (one undo step). */
+  readonly replaceImage?: (bytes: Uint8Array, name: string) => OperatorCall;
   /** Where it may be dropped or parented; empty: it cannot be lifted. */
   readonly parentTargets: readonly ParentTarget[];
 }
@@ -480,8 +482,14 @@ function planeRow(ctx: Ctx, plane: ImagePlaneRecord): SceneRow {
     hidden: !plane.visible,
     select: null,
     eye,
-    menu: [eye, lock],
+    // T6-INT: the canvas cannot select a plane yet (P-T6B-7), so its row carries Delete as well
+    menu: [
+      eye,
+      lock,
+      action(ctx.app, 'delete', 'Delete', 'Delete', [{ op: 'imagePlane.delete', args: { id: plane.id } }]),
+    ],
     rename: (name) => set({ name }),
+    replaceImage: (bytes, name) => ({ op: 'imagePlane.replace', args: { id: plane.id, bytes, name } }),
     parentTargets: [],
   };
 }
@@ -751,6 +759,7 @@ export function sceneCalls(
     for (const row of rows) {
       add(section, [row.select, row.eye, ...row.menu]);
       if (row.rename !== null) out.push({ section, call: row.rename(row.name) });
+      if (row.replaceImage !== undefined) out.push({ section, call: row.replaceImage(new Uint8Array(), row.name) });
     }
   };
   rowCalls('objects', model.objects);

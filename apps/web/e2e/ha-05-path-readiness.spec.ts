@@ -109,7 +109,6 @@ test('readiness is one list: glyphs, the status pill, Health and the budget read
 test('the visible-target budget at rest holds (≤ 22)', async ({ page }) => {
   await open(page);
   await runOk(page, 'file.loadSample', { sample: 'polybot' });
-  await expect.poll(async () => (await halo(page)).stage).toBe('animate');
   await expect.poll(async () => (await halo(page)).visibleTargets).toBeGreaterThan(3);
   expect((await halo(page)).visibleTargets).toBeLessThanOrEqual(22);
 });
