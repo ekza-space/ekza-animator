@@ -999,6 +999,12 @@ Open path: TRELLIS.2 (MIT, but its setup pulls nvdiffrast/nvdiffrec under a non-
 and UniRig (MIT); Hunyuan3D open weights only as an opt-in with a territory gate (EU, UK and South Korea excluded,
 1M-MAU cap). Details and sources: research 15 §2–§4.
 
+Re-verified 2026-10-24 for G-b/G-c ([research 15 addendum A](research/15-ai-3d-generation.md#addendum-a--re-verification-for-m7-g-bg-c-2026-10-24),
+DECISIONS-OPEN §T): Tripo P1 is 50–20,000 faces, the rig version is sent as `model` (default still v1.0), P-series
+concurrency is 5; both providers remesh an **uploaded** mesh (Meshy `/remesh`, 100–300,000, quads, 5 credits; Tripo
+`/mesh/decimate` v3.0, 500–20,000 / quads 500–10,000, 35/40 credits); Meshy's `lowpoly` retires 2026-10-30 as planned;
+no provider lists Russia as restricted, but all bill through Stripe or USD cards; fal.ai is the proposed third adapter.
+
 ---
 
 ## 8. End-to-end acceptance AS-LP — "Lowpoly Lad and his sword"

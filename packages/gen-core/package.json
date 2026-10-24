@@ -1,0 +1,21 @@
+{
+  "name": "@ekza-studio/gen-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The ekza-gen/v1 contract of AI 3D generation: types, job state machine, request validation and the typed GenerationClient (zero runtime dependencies; browser and Node).",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "devDependencies": {
+    "@ekza-studio/doc": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

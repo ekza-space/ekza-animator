@@ -595,3 +595,134 @@ Repository context: [ADR 0010](../adr/0010-ekza-integration-tiers.md) (metadata 
 [research 03](03-ekza-reuse-audit.md) (registry rules, profiles), [research 06](06-collaboration.md) (blobs by hash),
 [research 08](08-extensibility-modeling.md) (operators, plugin threat model, `MeshData`),
 [ARCHITECTURE](../../ARCHITECTURE.md) (input budgets, performance budgets), [ROADMAP](../ROADMAP.md) (M-2 bundle budget).
+
+---
+
+## Addendum A — re-verification for M7 G-b/G-c (2026-10-24)
+
+> Read 2026-10-24 for the gateway and adapter build ([wp-note m7-gbc](../wp-notes/m7-gbc.md), DECISIONS-OPEN §T).
+> Method: the providers' machine-readable docs fetched and grepped (Tripo international per-page Markdown
+> `developers.tripo3d.ai/en/docs/<page>.md` — its `llms-full.txt` answers 404 on the `.ai` site, and the `.com` corpus
+> is the China region; Meshy `llms.txt`, `llms-full.txt`, `openapi.yaml` and `/api/<page>.md`), the pricing pages
+> (Tripo's from its rendered page and JS bundle), terms pages, and for Part A/B the providers' payment pages and
+> terms. Items marked **(unverified)** rest on one secondary source or a search snippet. The research network exits
+> through Singapore, so IP blocking from Russia could not be tested.
+
+### A.1 Tripo (international API v3)
+
+| Item | Finding (2026-10-24) |
+|---|---|
+| Base, auth | `https://openapi.tripo3d.ai/v3`, `Authorization: Bearer <key>`; v2 (`api.tripo3d.ai/v2/openapi`) still answers and shares keys; China region `openapi.tripo3d.com/v3` (Alipay, CNY) |
+| Create | `POST /generation/text-to-model` (`prompt` ≤ 1,024 chars, `negative_prompt` ≤ 255) and `POST /generation/image-to-model` (`input` = a `file_…` token, a URL or a `task_…` id); answer `{code: 0, data: {task_id}}` |
+| Models | `model` omitted = H3.1 `v3.1-20260211`; **`P1-20260311`** native low-poly, **50–20,000** faces (the 48 minimum of the snapshot belongs to P2); `P2-20260801` preview, native quads 48–25,000 (triangles 48–50,000); H3.0 `v3.0-20250812`, H2.5 `v2.5-20250123` |
+| P-series fields | `face_limit`, `texture` (default true), `pbr` (default true, forces texture), `texture_quality` fast/standard/detailed/extreme, `texture_version`, `delight`, `auto_size`, `export_uv`, `export_orientation` (default **+x**), `model_seed`/`texture_seed`; `quad` P2 only (400 on P1); `smart_low_poly`, `generate_parts`, `geometry_quality` are H-series only |
+| Upload | `POST /files` multipart (images JPEG/PNG ≤ 20 MB; models GLB/glTF/FBX/OBJ/STL ≤ 150 MB) → `file_token`; or `POST /files/presign` → presigned PUT (30 min; also WebP) |
+| Task | `GET /tasks/{id}` → `status` queued/running/success/failed/cancelled (+ `banned`, `expired` in the lifecycle page), `progress` 0–100, `output.model_url`, `output.rendered_image_url` (the v2 names `pbr_model`/`base_model` are gone), `credits_consumed` **decimal** (e.g. `48.00`), `error_code`/`error_message` |
+| Rig | `POST /animations/rig-check` (free) and `/animations/rig`: input task/file/URL; the version field is **`model`** (not `rig_version`), default still `v1.0-20240301`, so `v3.0-20260909` must be sent; `rig_type` biped (default) … `others` (v3.0); `spec` tripo (default), actorcore, unity, unreal, `vrm` (VRM 1.0 naming) and one named after a web auto-rigging service — the newer specs need v3.0 and apply to biped; `out_format` glb/fbx; 25 credits. Retarget `/animations/retarget`, 10 credits per animation |
+| **Remesh of an existing or uploaded mesh** | **`POST /mesh/decimate`**: `input` task/file token/URL (GLB/glTF/FBX/OBJ/STL ≤ 150 MB); `model` `v3.0` (35 credits triangles, 40 quads; 500–20,000 tris / 500–10,000 quads; `smart_uv`), `v2.0` (30), `v1.0` (10, `face_limit` required, up to 2M); `bake` (default true). Smart UV `POST /mesh/uv` (20 credits, ≤ 80k triangles). Changelog dates the v3.0 retopology "2026-10" |
+| Webhooks | console only (no per-request URL); events `task.completed`, `task.failed`, `balance.low`; headers `Tripo-Webhook-Signature: t=<unix>,v1=<hex>` = HMAC-SHA256(secret, `t + "." + rawBody`), `Tripo-Webhook-Delivery` (dedupe), `Tripo-Webhook-Id`, `Tripo-Webhook-Event`; reject `t` older than ≈ 300 s; answer 2xx within ≈ 5 s. Whether the `whsec_` prefix is part of the HMAC key: **(unverified)**, the sample uses the whole string |
+| Limits, errors | per key 429 code 1007 (`X-RateLimit-*`); concurrency 429 code 2000 with `Retry-After`; default concurrency H-series 10, **P-series 5** (the snapshot said 3), mesh operations 10, animation 10; envelope `{code, status: "error", message, suggestion, request_id}`; 1000/1001 key, 2008 content policy, 2010 insufficient credits (HTTP 403), 2015 version deprecated; a live unauthenticated call answers the undocumented code 2 |
+| Prices ($0.01/credit, Stripe, from $1) | P1 text→3D 30 / 40 (no / standard texture), image→3D 40 / 50, detailed 60; P2 100 / 110; H3.1 text 10 / 20, image 20 / 30, smart low-poly +10, quad +5; rig 25, rig-check 0, retarget 10, retopology v3.0 35 / 40, Smart UV 20 |
+| Terms (2025-07-11) | paid users hold the rights to inputs and outputs and Tripo "will not use Inputs and Outputs as training data"; free users: Tripo keeps the rights; keys may not be transferred without written approval (§3.2); no competing models; credits non-refundable |
+
+### A.2 Meshy
+
+| Item | Finding (2026-10-24) |
+|---|---|
+| Base, auth | `https://api.meshy.ai/openapi/…`, `Authorization: Bearer msy_…`; per-key monthly credit limit and IP allow-list (403 `ip_not_authorized`); the shared test key was retired on 2026-09-16; creates answer **202** `{result: <id>}`; timestamps in ms |
+| Text→3D | `POST /openapi/v2/text-to-3d`, still two stages: `mode: "preview"` (`prompt` ≤ 800, `model_type` standard / **smart-topology** / lowpoly (deprecated), `ai_model` `meshy-t2`/`meshy-t2.5` for Smart Topology, `target_polycount`, `pose_mode`, `moderation`, `target_formats`) then `mode: "refine"` (`preview_task_id`, `enable_pbr`, `texture_resolution` 2k/4k/8k; inherits `ai_model`) |
+| Image→3D | `POST /openapi/v1/image-to-3d`, `image_url` = URL or data URI (JPG/PNG/WebP ≤ 20 MB); Smart Topology = `model_type: "smart-topology"` + `ai_model: "meshy-t2.5"` (100–30,000, default 15,000; `meshy-t2` 100–15,000); triangle only (`topology: quad` → 400); `should_texture`, `enable_pbr`, `texture_resolution`; `remove_lighting`/`image_enhancement` → 400 with Smart Topology. Multi-image `POST /openapi/v1/multi-image-to-3d` (1–4) has **no** Smart Topology |
+| `lowpoly` retirement | confirmed for **2026-10-30**; the endpoint pages name `smart-topology` + `meshy-t2.5` as the replacement (the `llms.txt` summary still says t2) |
+| **Remesh of an existing or uploaded mesh** | **`POST /openapi/v1/remesh`**: `input_task_id` or `model_url` (URL ≤ 400 MB, or a data URI ≤ 100 MB with MIME `application/octet-stream`; GLB/glTF/OBJ/FBX/STL); `topology` quad/triangle, `target_polycount` 100–300,000 (default 30,000), `decimation_mode`, `target_formats`; resize/origin options moved to `/resize` and `/convert` (1 credit each); **5 credits**. Also UV unwrap `/v1/uv-unwrap` (GLB ≤ 40k faces, 5) and retexture `/v1/retexture` (10/15) |
+| Task | `GET /openapi/<v>/<collection>/{id}` (+ `/stream` SSE); `status` PENDING / IN_PROGRESS / SUCCEEDED / FAILED / CANCELED (IN_PROGRESS may step back to PENDING); `model_urls.glb`, `thumbnail_url`, `consumed_credits` (integer, 0 on FAILED), `task_error {type: invalid_input / timeout / service_unavailable / server_error, message}`; GET answers carry `Retry-After`; DELETE refunds a PENDING task, 409 on IN_PROGRESS |
+| Rig, animation | `POST /openapi/v1/rigging` (`input_task_id` ≤ 320k faces or a GLB `model_url` facing +Z; `height_meters` default 1.7; humanoid textured models; 5 credits; `result.rigged_character_glb_url`); since 2026-10-23 `texture_image_url` is deprecated. Animation `POST /openapi/v1/animations` 3 credits per action |
+| Webhooks | still **unsigned**; configured in the developer platform (5 active, 10 total, every active webhook receives every task); body = the task object; retries up to 4 (in progress) / 9 (final); out of order and duplicates possible — dedupe on (`id`, `status`) |
+| Limits, errors | 20 req/s; concurrent tasks Pro 10, Premium 30, Ultra 100, Studio 60; 429 "Rate limit exceeded" (with `Retry-After`) or `NoMorePendingTasks` (without); 402 = no credits **or the Free plan**; envelope `{message}`; new optional `X-Meshy-Metadata` header (2026-10-21, Studio/Enterprise) |
+| Prices | t2/t2.5 text preview 5; image mesh-only 5, + 2K/4K texture 15, 8K 20; refine 10 (2K/4K) / 15; remesh 5; UV 5; rig 5; animation 3/action; plans Pro $20/1,000 ($0.020), Premium $40/3,000 ($0.0133), Ultra $100/8,000 ($0.0125), Studio $70/5,500 + $10/seat; the API needs a paid plan; credit-pack prices **(unverified)** |
+| Terms (2026-09-19) | API output of non-Enterprise customers deleted after 3 days (the pricing page advertises 14 days for Studio — a conflict to ask about); Meshy may train on non-Enterprise inputs and outputs (§2.9); paid plans own outputs, Free plan: Meshy owns, CC BY 4.0; AI marks must not be removed; no reselling or redistributing access (v), no multiple users per account (vi) |
+
+### A.3 Changes against the 2026-10-18 snapshot
+
+- Tripo P1 range is **50–20,000** faces (48 is P2's floor); P-series concurrency is **5**, not 3.
+- Tripo's rig version is sent in **`model`**; the default is still v1.0, so the adapter always sends `v3.0-20260909`.
+- Tripo has a retopology `v3.0` (35/40 credits, `smart_uv`) and Smart UV (20 credits); rig, retopology and Smart UV accept a file token or URL, so **uploaded meshes work** at Tripo as at Meshy.
+- Tripo's multipart upload accepts JPEG/PNG only (WebP through presign); the v3 task output names are `model_url`/`rendered_image_url`.
+- Webhooks are configured in the consoles at both providers; neither takes a per-request URL.
+- Meshy: unchanged prices and ranges; `X-Meshy-Metadata` (10-21) and the deprecated rigging `texture_image_url` (10-23) are new; the 3-day vs 14-day retention conflict for Studio.
+
+### A.4 Remesh/retopology of an existing mesh (the owner's "API cleanup" step)
+
+| Where | Endpoint | Input | Range, topology | Price |
+|---|---|---|---|---|
+| Meshy | `POST /openapi/v1/remesh` | earlier task or uploaded model (data URI ≤ 100 MB) | 100–300,000, quad or triangle | 5 credits ($0.06–0.10) |
+| Tripo | `POST /v3/mesh/decimate` (`model: v3.0`) | earlier task, file token (≤ 150 MB) or URL | 500–20,000 tris / 500–10,000 quads | 35 / 40 credits ($0.35 / $0.40) |
+| Tencent HY 3D (intl) | `Submit3DSmartTopologyJob` | GLB/OBJ ≤ 200 MB by URL | triangle or quadrilateral, `FaceLevel` high/medium/low (no exact count) | 50 credits (≈ $0.75) |
+| fal.ai | `fal-ai/hunyuan-3d/v3.1/smart-topology`; `tripo3d/tripo/remesh` | URL | as upstream | $0.75; "$0.01 per unit" (unit undefined, likely Tripo credits) |
+| Rodin, Stability, the RUB aggregator below | none | — | — | — |
+
+G-c ships both direct paths (Meshy remesh, Tripo decimate) as the `retopology` op.
+
+### A.5 Availability and payment from Russia (Part A)
+
+No provider below names Russia as a restricted country in its terms; the blocker is **payment**: every Western checkout
+is Stripe or a USD card/ACH, and Stripe says Russian-issued cards are "unlikely to be successful" (Mir unsupported).
+IP blocking from Russia was not tested (no evidence found either way).
+
+| Provider | Russia restricted? | Payment | Russian cards | Note |
+|---|---|---|---|---|
+| Tripo international | no (general "applicable laws") | Stripe, USD; AWS Marketplace (500k credits $4,500) | no | China site `tripo3d.com`: Alipay, Chinese corporate bank transfer, fapiao |
+| Meshy | no | Stripe (cards, Alipay via Stripe, Link); PayPal not for Russia; crypto US only; Enterprise wire | no (Meshy's help: Russia on Stripe's restricted list) | — |
+| Hyper3D Rodin | no (sanctions only in force majeure) | USD; API needs Business $120/month | very likely no **(unverified)** | — |
+| Tencent Cloud intl (HY 3D) | no (lists Iran, Cuba, DPRK, Syria, Crimea, DNR/LNR) | cards incl. UnionPay; USD bank transfer | Visa/MC no; UnionPay of a Russian bank possible in theory **(unverified)** | the only direct contract that plainly admits a Russian customer; perpetual rights to train on inputs, no opt-out |
+| Stability AI | no (US embargoes) | prepaid credits, processor not named | no | — |
+| fal.ai | no (US embargo, restricted parties) | card or ACH in USD (ToS §9(c)) | no | — |
+
+- **RUB route:** a Russian aggregator (gen-api.ru, ООО «ИНФИМУМ») resells Rodin, Tripo H3.1, Meshy 6/7, Hunyuan3D and
+  TRELLIS generation for RUB (callback URL unsigned, results 14 days); **no remesh and no rig**. Other Russian API
+  aggregators checked expose no 3D models.
+- **Domestic:** Sber GigaChat `text2model3d` (text → FBX only; legal entities through cloud.ru from 2026-09-01); no 3D
+  API found at other Russian clouds.
+- Consequence for the owner: the international launch needs a non-Russian payment instrument or entity for Tripo,
+  Meshy (and fal in G2); a Russia-billed tenant can generate through the RUB aggregator (a later adapter) and remesh or
+  rig in the editor or through an international tenant.
+
+### A.6 Alternatives for a third adapter (Part B)
+
+| | Rodin direct | Tencent HY 3D intl | Stability SPAR3D / SF3D | fal.ai |
+|---|---|---|---|---|
+| API | `api.hyper3d.com/api/v2`, multipart create, poll | TC3-HMAC API 3.0, Submit/Query, JobId 24 h | synchronous GLB response | queue `queue.fal.run/{endpoint}` + `fal_webhook` |
+| Low-poly / quads | Gen-2.5 tiers, `mesh_mode` Quad | LowPoly + quadrilateral (not on 3.1), `FaceCount` | `remesh` triangle/quad, `target_count` 100–20,000 | per hosted model |
+| Remesh of an upload | no | yes (smart topology) | no | yes (Hunyuan smart topology, Tripo remesh) |
+| Rig | no | `SubmitAutoRiggingJob` (FBX/OBJ ≤ 60 MB, T-pose) + 48 motions | no | Meshy rigging/animation for any GLB |
+| Price | 0.5 credit ≈ $0.75 direct; Business $120/month | Pro 25 cr ($0.375), LowPoly 30, smart topology 50, rig 10 | SPAR3D $0.04, SF3D $0.10 | Hunyuan 3.1 $0.375, smart topology $0.75; Tripo H3.1 $0.20–0.40; Meshy 7.1 $0.80/1.20; Rodin 2.5 $0.40; TRELLIS.2 $0.25–0.35 |
+| Retention / training | 7 days / no training | output ≤ 7 days / perpetual training right, no opt-out | "as long as reasonably necessary" / opt-out | payloads 90 days unless `X-Fal-Store-IO: 0`; usage data may feed fal's models |
+| Webhook signing | none | none | n/a | **ED25519** (JWKS, ±300 s) |
+
+**Recommendation (G2):** fal.ai as the third adapter — one integration adds Hunyuan 3.1 (incl. LowPoly quads and smart
+topology of uploads), Tripo remesh, Meshy rig/animation for any GLB, Rodin 2.5 without the $120 plan, TRELLIS.2, and
+the only standard webhook signature; it is USD card/ACH only. Tencent HY 3D direct is the fallback when no
+international payment works (risks: concurrency 1–3, training rights, the platform's 2026-09-30 model-hub migration —
+ask Tencent whether the 3D actions survive it). A RUB-aggregator adapter for a Russia-billed tenant (generation only).
+Skip Rodin direct and Stability for now.
+
+Sources (read 2026-10-24): https://developers.tripo3d.ai/en/docs/introduction.md · …/migration-v2-to-v3.md ·
+…/models-and-versions.md · …/generation-image-to-model/p.md · …/generation-text-to-model/p.md · …/files.md ·
+…/files-presign.md · …/task-query.md · …/task-lifecycle.md · …/animations-rig.md · …/animations-rig-check.md ·
+…/mesh-decimate.md · …/webhooks.md · …/rate-limits.md · …/error-handling.md · https://developers.tripo3d.ai/en/pricing ·
+https://developers.tripo3d.ai/en/terms · https://developers.tripo3d.com/llms-full.txt (China region) ·
+https://docs.meshy.ai/llms.txt · https://docs.meshy.ai/en/llms-full.txt · https://docs.meshy.ai/openapi.yaml ·
+https://docs.meshy.ai/api/{text-to-3d,image-to-3d,multi-image-to-3d,remesh,rigging,animation,webhooks,rate-limits,errors,pricing,asset-retention,changelog}.md ·
+https://www.meshy.ai/pricing · https://www.meshy.ai/terms-of-use · https://help.meshy.ai/en/articles/9991955-what-payment-methods-do-you-offer ·
+https://support.stripe.com/questions/sanctions-on-russia-and-belarus · https://www.tripo3d.ai/terms ·
+https://aws.amazon.com/marketplace/pp/prodview-hwlbvx7vubh7c · https://developers.tripo3d.com/en/docs/b2b-payment.md ·
+https://hyper3d.ai/legal/terms · https://hyper3d.ai/pricing?lang=en · https://docs.hyper3d.ai/en/api-specification/rodin-gen2-5 ·
+https://docs.hyper3d.ai/en/legal/data-retention-policy · https://www.tencentcloud.com/document/product/301/9248 ·
+https://www.tencentcloud.com/document/product/555/7425 · https://intl.cloud.tencent.com/document/product/301/78149 ·
+https://www.tencentcloud.com/document/api/1284/75531 · https://www.tencentcloud.com/document/api/1284/77048 ·
+https://www.tencentcloud.com/document/api/1284/79641 · https://www.tencentcloud.com/document/product/1284/75281 ·
+https://intl.cloud.tencent.com/document/product/1284/75295 · https://www.tencentcloud.com/announce/detail/101147 ·
+https://stability.ai/terms-of-service · https://docs.stability.ai/pricing ·
+https://docs.stability.ai/api-reference/3d/stable-point-aware-3d.md · https://www.fal.ai/legal/terms-of-service ·
+https://fal.ai/docs/model-apis/model-endpoints/webhooks · https://fal.ai/docs/model-apis/model-endpoints/queue ·
+https://fal.ai/docs/model-apis/data-retention · https://api.fal.ai/v1/models · https://gen-api.ru/collections/3d ·
+https://developers.sber.ru/docs/ru/gigachat/guides/3d-models-generation

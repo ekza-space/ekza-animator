@@ -1,0 +1,30 @@
+{
+  "$comment": "M7 G-b (ADR 0017 §1): strings that must never appear in a browser bundle of apps/web — provider key and secret variable names, provider API and result hosts, and the gen-gateway marker. Read by tooling/check-gen-boundary.mjs; packages/gen-gateway/test/boundary.test.ts fails when an adapter's key variable or host is missing here.",
+  "keyNames": [
+    "GEN_GATEWAY_TOKEN",
+    "TRIPO_API_KEY",
+    "TRIPO_WEBHOOK_SECRET",
+    "MESHY_API_KEY",
+    "FAL_KEY",
+    "RODIN_API_KEY",
+    "HYPER3D_API_KEY",
+    "TENCENTCLOUD_SECRET_ID",
+    "TENCENTCLOUD_SECRET_KEY",
+    "STABILITY_API_KEY",
+    "GEN_API_KEY"
+  ],
+  "hosts": [
+    "tripo3d.ai",
+    "tripo3d.com",
+    "meshy.ai",
+    "hyper3d.ai",
+    "hyper3d.com",
+    "tencentcloudapi.com",
+    "fal.run",
+    "fal.ai",
+    "fal.media",
+    "stability.ai",
+    "gen-api.ru"
+  ],
+  "markers": ["ekza-gen-gateway:server-only"]
+}

@@ -24,7 +24,8 @@
     "check:deps": "node tooling/check-deps.mjs",
     "check:fixtures": "node tooling/check-fixtures.mjs",
     "check:licenses": "node tooling/check-licenses.mjs",
-    "ci": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run check:deps && pnpm run check:fixtures && pnpm run check:licenses && pnpm run test && pnpm --filter web clean:next && pnpm run build && pnpm --filter web check:size && pnpm run test:e2e"
+    "check:gen-boundary": "node tooling/check-gen-boundary.mjs",
+    "ci": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run check:deps && pnpm run check:fixtures && pnpm run check:licenses && pnpm run test && pnpm --filter web clean:next && pnpm run build && pnpm --filter web check:size && pnpm run check:gen-boundary && pnpm run test:e2e"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

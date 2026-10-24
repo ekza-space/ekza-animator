@@ -13,6 +13,7 @@ import type { ComponentKind, ComponentSelection, DirtySet, EditMesh, ElementRema
   MeshOp, MeshSetOp, Normals, OpFrame, OpResult, OpWarning, Refusal, SymmetryAxis, SymmetryMap,
   Triangulation } from '@ekza-studio/mesh-core';   // type-only: no kernel code is bundled
 import type { BindReport, PaintOp, SkinBindArgs, SkinWeights } from '@ekza-studio/mesh-core';   // M6b, type-only
+import type { GenerationClient } from '@ekza-studio/gen-core';                                   // M7 G-b, type-only
 import type { ExportArtifact, ExportKind, ExportProfileDef, ExportReduceSpec, ExportRequest, GlbContainer, LintIssue,
   StarterPackManifest, ValidationReport } from '@ekza-studio/io';
 import type { ChannelBuffer, ClipSampler, FootPin, LimbId, PoseBuffers, PoseClipboard, QuickRigMarker, QuickRigMarkers,
@@ -647,6 +648,10 @@ export interface EditorServices {
   readonly readSample?: ((sample: SampleDef) => Promise<Uint8Array>) | null;
   /** M-AI: still and contact-sheet capture (live: WebGL + schematic fallback; headless: schematic). */
   readonly viewCapture?: ViewCaptureService | null;
+  /** M7 (ADR 0017 §2, additive): the `ekza-gen/v1` client of the configured gateway; absent or null hides AI
+   *  generation. The host creates it (`createGenerationClient` of @ekza-studio/gen-core) and never passes provider keys
+   *  or origins: only the gateway base URL, the operator's bearer token and, where allowed, a bring-your-own key. */
+  readonly generation?: GenerationClient | null;
 }
 
 /** M2a: content-addressed autosave slots (IndexedDB in the browser; null in Node). */

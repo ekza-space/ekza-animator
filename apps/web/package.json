@@ -21,6 +21,7 @@
   "dependencies": {
     "@ekza-studio/autorig": "workspace:*",
     "@ekza-studio/editor": "workspace:*",
+    "@ekza-studio/gen-gateway": "workspace:*",
     "@ekza-studio/halo": "workspace:*",
     "@ekza-studio/ui": "workspace:*",
     "@pixiv/three-vrm": "catalog:",

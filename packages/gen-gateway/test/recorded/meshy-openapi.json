@@ -1,0 +1,344 @@
+{
+  "provider": "meshy",
+  "source": "Request and response shapes of the Meshy API documentation (docs.meshy.ai/api/{text-to-3d,image-to-3d,remesh,rigging,errors,rate-limits}.md and openapi.yaml), read 2026-10-24. Examples from the docs (signed URL query strings shortened), not live captures; scripts/smoke-real.ts --record writes live exchanges in this format.",
+  "cases": [
+    {
+      "name": "text-to-3D preview, Smart Topology t2.5",
+      "call": {
+        "kind": "submit",
+        "stage": 0,
+        "request": {
+          "provider": "meshy",
+          "op": "text-to-model",
+          "prompt": "a monster mask",
+          "params": { "faceLimit": 500, "texture": "color" }
+        }
+      },
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v2/text-to-3d",
+            "json": {
+              "mode": "preview",
+              "prompt": "a monster mask",
+              "model_type": "smart-topology",
+              "ai_model": "meshy-t2.5",
+              "moderation": true,
+              "target_polycount": 500,
+              "target_formats": ["glb"]
+            }
+          },
+          "response": { "status": 202, "json": { "result": "018a210d-8ba4-705c-b111-1f1776f7f578" } }
+        }
+      ],
+      "expect": { "taskId": "018a210d-8ba4-705c-b111-1f1776f7f578" }
+    },
+    {
+      "name": "text-to-3D refine of the preview (stage 1)",
+      "call": {
+        "kind": "submit",
+        "stage": 1,
+        "request": {
+          "provider": "meshy",
+          "op": "text-to-model",
+          "prompt": "a monster mask",
+          "params": { "faceLimit": 500, "texture": "pbr" }
+        },
+        "previousTaskId": "018a210d-8ba4-705c-b111-1f1776f7f578"
+      },
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v2/text-to-3d",
+            "json": {
+              "mode": "refine",
+              "preview_task_id": "018a210d-8ba4-705c-b111-1f1776f7f578",
+              "enable_pbr": true,
+              "texture_resolution": "2k",
+              "moderation": true,
+              "target_formats": ["glb"]
+            }
+          },
+          "response": { "status": 202, "json": { "result": "018b314a-a1b5-716d-c222-2f1776f7f579" } }
+        }
+      ],
+      "expect": { "taskId": "018b314a-a1b5-716d-c222-2f1776f7f579" }
+    },
+    {
+      "name": "image-to-3D with a data URI, textured, A-pose",
+      "call": {
+        "kind": "submit",
+        "stage": 0,
+        "request": {
+          "provider": "meshy",
+          "op": "image-to-model",
+          "images": [{ "upload": "up_1" }],
+          "params": { "faceLimit": 3000, "restPose": "a" }
+        },
+        "images": ["image/png"]
+      },
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/image-to-3d",
+            "json": {
+              "image_url": { "$startsWith": "data:image/png;base64,iVBORw0KGgo" },
+              "model_type": "smart-topology",
+              "ai_model": "meshy-t2.5",
+              "moderation": true,
+              "target_polycount": 3000,
+              "pose_mode": "a-pose",
+              "should_texture": true,
+              "enable_pbr": false,
+              "texture_resolution": "2k",
+              "target_formats": ["glb"]
+            }
+          },
+          "response": { "status": 202, "json": { "result": "018a210d-8ba4-705c-b111-1f1776f7f578" } }
+        }
+      ],
+      "expect": { "taskId": "018a210d-8ba4-705c-b111-1f1776f7f578" }
+    },
+    {
+      "name": "remesh an earlier task to quads",
+      "call": {
+        "kind": "submit",
+        "stage": 0,
+        "request": {
+          "provider": "meshy",
+          "op": "retopology",
+          "source": { "job": "job_1" },
+          "params": { "faceLimit": 4000, "quad": true }
+        },
+        "source": { "taskId": "018a210d-8ba4-705c-b111-1f1776f7f578" }
+      },
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/remesh",
+            "json": {
+              "input_task_id": "018a210d-8ba4-705c-b111-1f1776f7f578",
+              "topology": "quad",
+              "target_polycount": 4000,
+              "target_formats": ["glb"]
+            }
+          },
+          "response": { "status": 202, "json": { "result": "0193bfc5-ee4f-73f8-8525-44b398884ce9" } }
+        }
+      ],
+      "expect": { "taskId": "0193bfc5-ee4f-73f8-8525-44b398884ce9" }
+    },
+    {
+      "name": "rig an uploaded GLB (model_url as an octet-stream data URI)",
+      "call": {
+        "kind": "submit",
+        "stage": 0,
+        "request": { "provider": "meshy", "op": "rig", "source": { "upload": "up_2" }, "params": {} },
+        "source": { "bytes": "cube" }
+      },
+      "exchanges": [
+        {
+          "request": {
+            "method": "POST",
+            "path": "/v1/rigging",
+            "json": {
+              "model_url": { "$startsWith": "data:application/octet-stream;base64,Z2xURg" },
+              "height_meters": 1.7
+            }
+          },
+          "response": { "status": 202, "json": { "result": "018b314a-a1b5-716d-c222-2f1776f7f579" } }
+        }
+      ],
+      "expect": { "taskId": "018b314a-a1b5-716d-c222-2f1776f7f579" }
+    },
+    {
+      "name": "image-to-3D task: SUCCEEDED (docs example)",
+      "call": {
+        "kind": "status",
+        "op": "image-to-model",
+        "stage": 0,
+        "taskId": "018a210d-8ba4-705c-b111-1f1776f7f578"
+      },
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v1/image-to-3d/018a210d-8ba4-705c-b111-1f1776f7f578" },
+          "response": {
+            "status": 200,
+            "headers": { "retry-after": "5" },
+            "json": {
+              "id": "018a210d-8ba4-705c-b111-1f1776f7f578",
+              "type": "image-to-3d",
+              "model_urls": {
+                "glb": "https://assets.meshy.ai/x/tasks/018a210d/output/model.glb?Expires=1",
+                "fbx": "https://assets.meshy.ai/x/tasks/018a210d/output/model.fbx?Expires=1"
+              },
+              "thumbnail_url": "https://assets.meshy.ai/x/tasks/018a210d/output/preview.png?Expires=1",
+              "progress": 100,
+              "started_at": 1692771667037,
+              "created_at": 1692771650657,
+              "expires_at": 1692771679037,
+              "finished_at": 1692771669037,
+              "status": "SUCCEEDED",
+              "preceding_tasks": 0,
+              "task_error": { "message": "" },
+              "consumed_credits": 30
+            }
+          }
+        }
+      ],
+      "expect": {
+        "state": "succeeded",
+        "progress": 100,
+        "retryAfterMs": 5000,
+        "credits": 30,
+        "outputs": [
+          { "role": "model", "url": "https://assets.meshy.ai/x/tasks/018a210d/output/model.glb?Expires=1" },
+          { "role": "thumbnail", "url": "https://assets.meshy.ai/x/tasks/018a210d/output/preview.png?Expires=1" }
+        ],
+        "error": null
+      }
+    },
+    {
+      "name": "rigging task: SUCCEEDED, the rigged GLB from result",
+      "call": { "kind": "status", "op": "rig", "stage": 0, "taskId": "018b314a-a1b5-716d-c222-2f1776f7f579" },
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v1/rigging/018b314a-a1b5-716d-c222-2f1776f7f579" },
+          "response": {
+            "status": 200,
+            "json": {
+              "id": "018b314a-a1b5-716d-c222-2f1776f7f579",
+              "type": "rig",
+              "status": "SUCCEEDED",
+              "progress": 100,
+              "consumed_credits": 5,
+              "result": {
+                "rigged_character_fbx_url": "https://assets.meshy.ai/0630/tasks/018b/output/Character_output.fbx?Expires=1",
+                "rigged_character_glb_url": "https://assets.meshy.ai/0630/tasks/018b/output/Character_output.glb?Expires=1",
+                "basic_animations": {
+                  "walking_glb_url": "https://assets.meshy.ai/0630/tasks/018b/output/Animation_Walking_withSkin.glb?Expires=1"
+                }
+              },
+              "preceding_tasks": 0
+            }
+          }
+        }
+      ],
+      "expect": {
+        "state": "succeeded",
+        "credits": 5,
+        "outputs": [
+          { "role": "model", "url": "https://assets.meshy.ai/0630/tasks/018b/output/Character_output.glb?Expires=1" }
+        ]
+      }
+    },
+    {
+      "name": "task: IN_PROGRESS",
+      "call": { "kind": "status", "op": "text-to-model", "stage": 0, "taskId": "018a" },
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v2/text-to-3d/018a" },
+          "response": {
+            "status": 200,
+            "json": {
+              "id": "018a",
+              "status": "IN_PROGRESS",
+              "progress": 50,
+              "preceding_tasks": 0,
+              "consumed_credits": 0
+            }
+          }
+        }
+      ],
+      "expect": { "state": "running", "progress": 50, "outputs": [], "error": null }
+    },
+    {
+      "name": "task: FAILED by moderation",
+      "call": { "kind": "status", "op": "image-to-model", "stage": 0, "taskId": "018c" },
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v1/image-to-3d/018c" },
+          "response": {
+            "status": 200,
+            "json": {
+              "id": "018c",
+              "status": "FAILED",
+              "progress": 0,
+              "consumed_credits": 0,
+              "task_error": { "type": "invalid_input", "message": "The input image was flagged by content moderation." }
+            }
+          }
+        }
+      ],
+      "expect": { "state": "blocked", "credits": 0, "error": { "code": "moderation", "retryable": false } }
+    },
+    {
+      "name": "task: FAILED by a server error",
+      "call": { "kind": "status", "op": "image-to-model", "stage": 0, "taskId": "018d" },
+      "exchanges": [
+        {
+          "request": { "method": "GET", "path": "/v1/image-to-3d/018d" },
+          "response": {
+            "status": 200,
+            "json": {
+              "id": "018d",
+              "status": "FAILED",
+              "progress": 0,
+              "consumed_credits": 0,
+              "task_error": { "type": "server_error", "message": "Internal error" }
+            }
+          }
+        }
+      ],
+      "expect": { "state": "failed", "error": { "code": "provider-failed", "retryable": true } }
+    },
+    {
+      "name": "create refused: 402 (no credits or the Free plan)",
+      "call": {
+        "kind": "submit",
+        "stage": 0,
+        "request": { "provider": "meshy", "op": "text-to-model", "prompt": "a mask", "params": { "texture": "none" } }
+      },
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v2/text-to-3d" },
+          "response": { "status": 402, "json": { "message": "Insufficient credits" } }
+        }
+      ],
+      "expect": { "error": { "code": "insufficient-credits", "sent": "no", "retryable": false } }
+    },
+    {
+      "name": "create refused: too many pending tasks (429 without Retry-After)",
+      "call": {
+        "kind": "submit",
+        "stage": 0,
+        "request": { "provider": "meshy", "op": "text-to-model", "prompt": "a mask", "params": { "texture": "none" } }
+      },
+      "exchanges": [
+        {
+          "request": { "method": "POST", "path": "/v2/text-to-3d" },
+          "response": {
+            "status": 429,
+            "json": { "message": "NoMorePendingTasks: You have reached the limit of pending tasks" }
+          }
+        }
+      ],
+      "expect": { "error": { "code": "rate-limited", "sent": "no", "retryable": true, "retryAfterMs": null } }
+    },
+    {
+      "name": "cancel an IN_PROGRESS task: 409",
+      "call": { "kind": "cancel", "op": "image-to-model", "stage": 0, "taskId": "018e" },
+      "exchanges": [
+        {
+          "request": { "method": "DELETE", "path": "/v1/image-to-3d/018e" },
+          "response": { "status": 409, "json": { "message": "Task is in progress" } }
+        }
+      ],
+      "expect": { "cancel": "too-late" }
+    }
+  ]
+}

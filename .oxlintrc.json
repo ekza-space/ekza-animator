@@ -800,9 +800,10 @@
                   "!@ekza-studio/io/project",
                   "!zustand/vanilla",
                   "!@ekza-studio/mesh-core",
-                  "!@ekza-studio/mesh-core/descriptors"
+                  "!@ekza-studio/mesh-core/descriptors",
+                  "!@ekza-studio/gen-core"
                 ],
-                "message": "@ekza-studio/editor-core may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/rig, @ekza-studio/io, @ekza-studio/io/write, @ekza-studio/io/project, zustand/vanilla, @ekza-studio/mesh-core, @ekza-studio/mesh-core/descriptors (ARCHITECTURE \u00a73)."
+                "message": "@ekza-studio/editor-core may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/rig, @ekza-studio/io, @ekza-studio/io/write, @ekza-studio/io/project, zustand/vanilla, @ekza-studio/mesh-core, @ekza-studio/mesh-core/descriptors, @ekza-studio/gen-core (types only) (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-studio/[^/]+/[^/]+/",
@@ -835,6 +836,11 @@
                 "name": "@ekza-studio/mesh-core",
                 "allowTypeImports": true,
                 "message": "The mesh kernel is a lazy chunk (M6A-SPEC \u00a72): import types only (or @ekza-studio/mesh-core/descriptors); load the kernel with a dynamic import('@ekza-studio/mesh-core') in the one loader that is allowed to."
+              },
+              {
+                "name": "@ekza-studio/gen-core",
+                "allowTypeImports": true,
+                "message": "editor-core holds only the GenerationClient type of the optional EditorServices.generation slot (ADR 0017 \u00a72); the client itself is created by the host."
               }
             ]
           }
@@ -1080,6 +1086,194 @@
                   "!node:*"
                 ],
                 "message": "@ekza-studio/motion-analysis tests may import only: @ekza-studio/anim-core, fast-check, vitest, vitest/**, node:* (MCP-SPEC \u00a72, ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-studio/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/gen-core/src/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**", "!./**", "!../**"],
+                "message": "@ekza-studio/gen-core may import only relative modules: it is the zero-dependency ekza-gen/v1 contract and the only generation code a browser bundle may hold (ADR 0017 \u00a72)."
+              },
+              {
+                "regex": "^@ekza-studio/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ],
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "window",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "document",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "navigator",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "process",
+            "message": "Node APIs are allowed only in tests (ADR 0017 \u00a72)."
+          },
+          {
+            "name": "Buffer",
+            "message": "Use Uint8Array; Node APIs are allowed only in tests (ADR 0017 \u00a72)."
+          },
+          {
+            "name": "require",
+            "message": "ES modules only; Node APIs are allowed only in tests (ADR 0017 \u00a72)."
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/gen-core/test/**", "packages/gen-core/vitest.config.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**", "!./**", "!../**", "!@ekza-studio/doc", "!vitest", "!vitest/**", "!node:*"],
+                "message": "@ekza-studio/gen-core tests may import only: @ekza-studio/doc (types), vitest, vitest/**, node:* (ADR 0017 \u00a72)."
+              },
+              {
+                "regex": "^@ekza-studio/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/gen-gateway/src/**"],
+      "excludeFiles": ["packages/gen-gateway/src/node/**", "packages/gen-gateway/src/testing/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**", "!./**", "!../**", "!@ekza-studio/gen-core"],
+                "message": "@ekza-studio/gen-gateway may import only: @ekza-studio/gen-core; its root is a Fetch-API handler without Node APIs (node:* only in src/node/** and src/testing/**, ADR 0017 \u00a72)."
+              },
+              {
+                "regex": "^@ekza-studio/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ],
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "window",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "document",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "navigator",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "process",
+            "message": "Node APIs are allowed only in src/node/**, src/testing/** and tests (ADR 0017 \u00a72)."
+          },
+          {
+            "name": "Buffer",
+            "message": "Use Uint8Array; Node APIs are allowed only in src/node/**, src/testing/** and tests (ADR 0017 \u00a72)."
+          },
+          {
+            "name": "require",
+            "message": "ES modules only; Node APIs are allowed only in src/node/**, src/testing/** and tests (ADR 0017 \u00a72)."
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/gen-gateway/src/node/**", "packages/gen-gateway/src/testing/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**", "!./**", "!../**", "!@ekza-studio/gen-core", "!node:*", "!node:*/**"],
+                "message": "@ekza-studio/gen-gateway/node and /testing may import only: @ekza-studio/gen-core, node:* (ADR 0017 \u00a72)."
+              },
+              {
+                "regex": "^@ekza-studio/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "packages/gen-gateway/test/**",
+        "packages/gen-gateway/scripts/**",
+        "packages/gen-gateway/vitest.config.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-studio/gen-core",
+                  "!vitest",
+                  "!vitest/**",
+                  "!node:*",
+                  "!node:*/**"
+                ],
+                "message": "@ekza-studio/gen-gateway tests and scripts may import only: @ekza-studio/gen-core, vitest, vitest/**, node:* (ADR 0017 \u00a72)."
+              },
+              {
+                "regex": "^@ekza-studio/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["apps/web/app/api/**", "apps/web/instrumentation.gen.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**", "!./**", "!../**", "!@ekza-studio/gen-gateway/next", "!next", "!next/**"],
+                "message": "The generation route and the startup check may import only: @ekza-studio/gen-gateway/next, next, next/** (server builds only; ADR 0017 \u00a72)."
               },
               {
                 "regex": "^@ekza-studio/[^/]+/[^/]+/",
@@ -1997,7 +2191,7 @@
     },
     {
       "files": ["apps/web/app/**"],
-      "excludeFiles": ["apps/web/app/e2e/**", "apps/web/app/dev/**"],
+      "excludeFiles": ["apps/web/app/e2e/**", "apps/web/app/dev/**", "apps/web/app/api/**"],
       "rules": {
         "no-restricted-imports": [
           "error",
