@@ -10,7 +10,6 @@ import { en } from '../i18n/en';
 import { type NounKind, type SheetId, TARGET_OPS } from '../manifest/types';
 import { PANE } from '../shell/stage';
 import type { NounFocus } from '../shell/store';
-import { moreFor } from '../verbs/derive';
 import { characterNoun, EMPTY_NOUN, type Noun as KindNoun, resolveNoun as resolveKindNoun } from '../verbs/nouns';
 import { PETAL_VARIANTS, type PetalDef, type PetalVariant, petalsFor } from '../verbs/table';
 import type { VerbIcon } from './icons';
@@ -64,8 +63,11 @@ export interface VerbSource {
   noun(app: EditorApp, stage: HaloStage, focus?: NounFocus | null): Noun | null;
   /** At most six, in slot order; the grammar greys the ones whose poll fails (§6.3). */
   petals(app: EditorApp, noun: Noun, stage: HaloStage): readonly Verb[];
-  /** ⋯ More beyond the petals: every other operator the Disclosure Manifest attaches to the noun and stage. */
-  more(app: EditorApp, noun: Noun, stage: HaloStage): readonly Verb[];
+  /**
+   * ⋯ More beyond the petals: every other operator the Disclosure Manifest attaches to the noun and stage. Async: the
+   * manifest is the More sheet's lazy chunk (§20.6), never in `/app`'s initial scripts.
+   */
+  more(app: EditorApp, noun: Noun, stage: HaloStage): Promise<readonly Verb[]>;
 }
 
 // ---------- nouns ----------
@@ -302,7 +304,8 @@ export function petalVerbs(app: EditorApp, kind: NounKind, stage: HaloStage): Ve
 export const haloVerbs: VerbSource = {
   noun: resolveNoun,
   petals: (app, noun, stage) => petalVerbs(app, noun.kind, stage),
-  more(app, noun, stage) {
+  async more(app, noun, stage) {
+    const { moreFor } = await import('../verbs/derive');
     return moreFor(app, noun.source, stage)
       .flatMap((group) => group.rows)
       .filter((row) => !row.petal)

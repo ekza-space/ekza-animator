@@ -225,6 +225,20 @@ describe('a tap (§5.2, §6.1)', () => {
   });
 });
 
+describe('the verb source (P-T6A-1)', () => {
+  it('More beyond the petals comes from the manifest, loaded on demand', async () => {
+    const w = world();
+    toolSelects(w, [A]);
+    const noun = haloVerbs.noun(w.app, 'animate');
+    expect(noun?.kind).toBe('control');
+    const more = noun === null ? [] : await haloVerbs.more(w.app, noun, 'animate');
+    expect(more.length).toBeGreaterThan(0);
+    const petals = new Set(noun === null ? [] : haloVerbs.petals(w.app, noun, 'animate').map((v) => v.id));
+    expect(more.filter((verb) => petals.has(verb.id))).toEqual([]);
+    w.dispose();
+  });
+});
+
 describe('long-press and flicks (§5.2)', () => {
   it('a long-press on empty space opens the ring of empty space’s verbs; a flick runs the slot', () => {
     const w = world();

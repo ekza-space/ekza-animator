@@ -59,6 +59,48 @@ describe('every document write is an operator run (§20.1)', () => {
   });
 });
 
+describe('lazy on /app (§20.6)', () => {
+  /** The modules `src/index.ts` reaches by static imports (an `import()` is a lazy chunk and stops the walk). */
+  function eagerModules(): Set<string> {
+    const seen = new Set<string>();
+    const resolve = (from: string, spec: string): string | null => {
+      if (!spec.startsWith('.')) return null;
+      const base = join(from, '..', spec);
+      for (const candidate of [base, `${base}.ts`, `${base}.tsx`, join(base, 'index.ts')]) {
+        try {
+          if (statSync(candidate).isFile()) return candidate;
+        } catch {
+          // not this one
+        }
+      }
+      return null;
+    };
+    const walk = (path: string): void => {
+      if (seen.has(path)) return;
+      seen.add(path);
+      const text = readFileSync(path, 'utf8');
+      for (const m of text.matchAll(/^(?:import|export)\s+(?!type\b)[^;]*?from\s+'([^']+)'/gms)) {
+        const next = resolve(path, m[1] ?? '');
+        if (next !== null) walk(next);
+      }
+    };
+    walk(join(SRC, 'index.ts'));
+    return new Set([...seen].map((path) => path.slice(SRC.length + 1)));
+  }
+
+  it('the manifest, the parity check, More and every sheet stay out of the initial scripts', () => {
+    const eager = eagerModules();
+    expect(eager.has('shell/Frame.tsx')).toBe(true);
+    expect(eager.has('path/Path.tsx')).toBe(true);
+    const lazy = [...eager].filter((path) =>
+      /^(manifest\/(disclosure|labels|paramSurfaces|check|census|probe|dialogs)|verbs\/derive|sheets\/|input\/(install|InputSettings)|palette\/)/.test(
+        path,
+      ),
+    );
+    expect(lazy).toEqual([]);
+  });
+});
+
 /**
  * The visible controls that may write a shared preference (§16.4), each through the host's `prefs.set` (or the
  * operator that owns the setting): Settings' rows (the descriptor table's writer, run from the row's control) and More's
