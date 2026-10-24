@@ -1398,6 +1398,15 @@ Library, Rec and Reach.
 | ST-T7-20 | An animation's Settings (§10.6) | In its docked Halo: fps 24 · 30 · 60 (+ the clip's own) with *Keep frames*; start, end and length as time chips (scrub, or tap for the numpad; whole frames); *Loops*; travel *With the hips · In place*; the contact frame *At the playhead* / *Clear*; tags. Every change is one `clip.setSettings` run (one undo step), Pro's clip settings call | Numbers' clip section (its Pro-named fields) stays under ⋯ More | — |
 | ST-T7-UNIT | Time unit | **Owner 2026-10-24: frames by default** ("cycles are usually 50, at most 100 frames; animating in frames is easier"). Settings › Time *Frames · Seconds* (Animation section, the `halo.time` slot) is a per-device Halo preference in localStorage (`ekza-studio:halo:time:v1`); a stored choice is kept. It sets the Thread's readout and ruler (whole-frame labels, step by zoom: 0 · 10 · 20 … or 0 · 12 · 24 …; beat ticks unchanged), the docked Halos' titles, an animation's Settings and the Curves axis (T10). J3 stays a two-second wave, made with the 60 f chip | Seconds by default (v0.2's §10.3) | owner |
 
+### P · T10 — Curves and History (2026-10-24)
+
+Build decisions of work package T10 ([wp-note](wp-notes/halo-t10.md)): the Thread's ruler, Curves, the History ribbon
+and Ask.
+
+| ID | Decision | Default chosen | Alternative / note | Decide by |
+|---|---|---|---|---|
+| ST-T10-RULER | The Thread's ruler | **Owner 2026-10-24: "a tick on every frame"** — the classic animation time slider, read the way Studio Pro's time slider reads: a tick on every frame of the visible span, every 2nd then every 5th frame only below 3 px a frame; numbers on taller ticks every 5th or 10th frame by the zoom (every frame zoomed in; a half-height tick between two numbers); the first and last frame always numbered; numbers never overlap (a number that would collide is left out; the playhead's box takes the place of the numbers it covers and shows its own frame); the playhead on whole frames with its number in a box; the selection's keys as red marks on their frames (white selected, green in-betweens, faint without a selection); no beat ticks; under *Seconds* the ticks stay on frames and the numbers read seconds where they fall on whole frames. Halo's own pure step function (`thread/strip/model.ts` `rulerMarks`): Pro's `rulerSteps` lives in the curve editor, a lazy chunk on `/app`, and the strip is layer 0 (eager); the rules differ only where the owner asked (ticks down to 3 px, not 6; numbers on 1 · 5 · 10 · 20 · 50 …, not 1 · 2 · 5) | T7's numbers every 10th / 12th frame with 0.25 s beat ticks: rejected by the owner | owner |
+
 ## Q. Character contract, defaults chosen (2026-10-24)
 
 Defaults and owner questions of the character contract between Ekza Studio, Ekza Hub and OMOBA

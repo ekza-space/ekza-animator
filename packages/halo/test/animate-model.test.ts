@@ -1,7 +1,7 @@
 // The Animate stage's pure parts (STUDIO-TOUCH-SPEC §10; T7): the Animations row's chips folded to the visible-target
 // budget, + New's arguments (whole frames of 1, 2 or 4 s), the fitting manipulator (a turn ring for FK controls, move
-// for IK goals and the root) and the controls that Reach, on Polybot; the Thread's strip geometry, beat ticks on whole
-// frames, the dot under a finger and the Blend chip's keys; the Library's kinds, search, trim and calls; Reach's plane
+// for IK goals and the root) and the controls that Reach, on Polybot; the Thread's strip geometry, the ruler (a tick on
+// every frame, ST-T10-RULER), the dot under a finger and the Blend chip's keys; the Library's kinds, search, trim and calls; Reach's plane
 // math; the channel labels' values (Pro's numbers, P14).
 import type { ClipRecord } from '@ekza-studio/doc';
 import { VIEWPORT_TOOL } from '@ekza-studio/editor-core';
@@ -31,14 +31,14 @@ import {
 } from '../src/stages/animate/model';
 import { planePoint, rotate, toCharacter, toScene } from '../src/stages/animate/reach';
 import {
-  beatTicks,
   between,
   dotAt,
-  frameLabel,
-  frameLabels,
-  frameStep,
   frameToX,
   type KeyDot,
+  MIN_TICK_PX,
+  type RulerLabel,
+  rulerMarks,
+  secondsLabel,
   snapFrame,
   stripLayout,
   timeText,
@@ -129,13 +129,120 @@ describe('the Thread’s strip (§10.3)', () => {
     expect(snapFrame(99, { start: 0, end: 60 })).toBe(60);
   });
 
-  it('beat ticks every 0.25 s on the whole frame nearest each beat (30 fps: 7.5 frames → 8)', () => {
-    const ticks = beatTicks({ start: 0, end: 60 }, FPS30);
-    expect(ticks.map((t) => t.frame)).toEqual([0, 8, 15, 23, 30, 38, 45, 53, 60]);
-    expect(ticks.filter((t) => t.major).map((t) => t.seconds)).toEqual([0, 0.5, 1, 1.5, 2]);
-    expect(beatTicks({ start: 0, end: 48 }, { num: 24, den: 1 }).map((t) => t.frame)).toEqual([
-      0, 6, 12, 18, 24, 30, 36, 42, 48,
+  // a mono font of 11 px: 6.6 px a character
+  const measure = (text: string): number => text.length * 6.6;
+  const apart = (labels: readonly RulerLabel[]): boolean =>
+    labels.every(
+      (label, i) => i === 0 || (labels[i - 1] as RulerLabel).left + (labels[i - 1] as RulerLabel).width <= label.left,
+    );
+
+  it('a tick on every frame and a number every 5th frame for a 60 f animation on an iPad (ST-T10-RULER)', () => {
+    const layout = stripLayout(628, { start: 0, end: 60 });
+    const marks = rulerMarks(layout, 628, { start: 0, end: 60 }, FPS30, 'frames', measure);
+    expect(marks.tickStep).toBe(1);
+    expect(marks.ticks).toHaveLength(61);
+    expect(marks.labelStep).toBe(5);
+    expect(marks.ticks.filter((t) => t.level === 2).map((t) => t.frame)).toEqual([
+      0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60,
     ]);
+    expect(marks.labels.map((l) => l.text)).toEqual([
+      '0',
+      '5',
+      '10',
+      '15',
+      '20',
+      '25',
+      '30',
+      '35',
+      '40',
+      '45',
+      '50',
+      '55',
+      '60',
+    ]);
+    // the last number sits left of its tick (it would leave the strip), right of it otherwise (Studio Pro's way)
+    const last = marks.labels.at(-1) as RulerLabel;
+    expect(last.left + last.width).toBeLessThanOrEqual(frameToX(layout, 60));
+    expect((marks.labels[1] as RulerLabel).left).toBeGreaterThan(frameToX(layout, 5));
+    expect(apart(marks.labels)).toBe(true);
+  });
+
+  it('100 f: ticks every frame, numbers every 10th with halves taller; the first and last always numbered', () => {
+    const layout = stripLayout(628, { start: 0, end: 100 });
+    const marks = rulerMarks(layout, 628, { start: 0, end: 100 }, FPS30, 'frames', measure);
+    expect(marks.tickStep).toBe(1);
+    expect(marks.ticks).toHaveLength(101);
+    expect(marks.labelStep).toBe(10);
+    // the halves between two numbers are taller than a frame's tick
+    expect(marks.ticks.filter((t) => t.level === 1).map((t) => t.frame)).toEqual([
+      5, 15, 25, 35, 45, 55, 65, 75, 85, 95,
+    ]);
+    expect(marks.labels[0]?.text).toBe('0');
+    expect(marks.labels.at(-1)?.text).toBe('100');
+    expect(apart(marks.labels)).toBe(true);
+    // an odd end still gets its number, and the major next to it gives way
+    const odd = rulerMarks(
+      stripLayout(628, { start: 0, end: 97 }),
+      628,
+      { start: 0, end: 97 },
+      FPS30,
+      'frames',
+      measure,
+    );
+    expect(odd.labels.at(-1)?.text).toBe('97');
+    expect(apart(odd.labels)).toBe(true);
+  });
+
+  it('zoomed in, every frame is numbered; zoomed far out, ticks fall back to every 2nd, then 5th frame', () => {
+    const close = rulerMarks(
+      stripLayout(628, { start: 20, end: 32 }),
+      628,
+      { start: 0, end: 60 },
+      FPS30,
+      'frames',
+      measure,
+    );
+    expect(close.labelStep).toBe(1);
+    expect(close.labels.map((l) => l.frame)).toEqual([20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]);
+    const far = rulerMarks(
+      stripLayout(390, { start: 0, end: 200 }),
+      390,
+      { start: 0, end: 200 },
+      FPS30,
+      'frames',
+      measure,
+    );
+    // 1.8 px a frame: every 2nd frame
+    expect(far.tickStep).toBe(2);
+    const farther = rulerMarks(
+      stripLayout(390, { start: 0, end: 500 }),
+      390,
+      { start: 0, end: 500 },
+      FPS30,
+      'frames',
+      measure,
+    );
+    expect(farther.tickStep).toBe(5);
+    for (const marks of [far, farther]) {
+      const perFrame = (390 - 28) / (marks === far ? 200 : 500);
+      expect(marks.tickStep * perFrame).toBeGreaterThanOrEqual(MIN_TICK_PX);
+      expect(marks.labelStep % marks.tickStep).toBe(0);
+      expect(apart(marks.labels)).toBe(true);
+    }
+  });
+
+  it('under Seconds the ticks stay on frames and the numbers read seconds', () => {
+    const layout = stripLayout(628, { start: 0, end: 60 });
+    const marks = rulerMarks(layout, 628, { start: 0, end: 60 }, FPS30, 'seconds', measure);
+    expect(marks.tickStep).toBe(1);
+    expect(marks.ticks).toHaveLength(61);
+    expect(marks.labels[0]?.text).toBe('0');
+    expect(marks.labels.at(-1)?.text).toBe('2 s');
+    // labels fall on whole frames: 0.25 s at 30 fps is 7.5 frames, so it is never a step
+    expect(marks.labels.every((l) => Number.isInteger(l.frame))).toBe(true);
+    expect(secondsLabel(15, FPS30)).toBe('0.5');
+    expect(secondsLabel(45, FPS30)).toBe('1.5');
+    expect(apart(marks.labels)).toBe(true);
   });
 
   it('the dot under a finger, the keys around the playhead, seconds as the readout shows them', () => {
@@ -148,17 +255,6 @@ describe('the Thread’s strip (§10.3)', () => {
     expect(between(dots, 50)).toBeNull();
     expect(timeText(15, FPS30, 'seconds')).toBe('0.50 s');
     expect(timeText(15, FPS30, 'frames')).toBe('15 f');
-    // the ruler's frame labels: 0 · 10 · 20 … at 30 fps, 0 · 12 · 24 … at 24 fps, the step from the zoom
-    expect(frameStep(FPS30, 10.4)).toBe(10);
-    expect(frameStep(FPS30, 1.5)).toBe(50);
-    expect(frameStep(FPS30, 60)).toBe(1);
-    expect(frameStep({ num: 24, den: 1 }, 5)).toBe(12);
-    expect(frameStep({ num: 24, den: 1 }, 1.5)).toBe(48);
-    expect(frameStep({ num: 24, den: 1 }, 10)).toBe(6);
-    expect(frameLabels({ start: 0, end: 60 }, 10)).toEqual([0, 10, 20, 30, 40, 50, 60]);
-    expect(frameLabels({ start: 7, end: 31 }, 12)).toEqual([12, 24]);
-    expect(frameLabel(60, true)).toBe('60 f');
-    expect(frameLabel(10, false)).toBe('10');
   });
 });
 
