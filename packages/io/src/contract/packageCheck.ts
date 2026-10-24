@@ -128,16 +128,24 @@ class Rest {
       for (const child of listField(node.children)) if (isIndex(child)) this.parent.set(child, index);
     });
   }
-  worldOf(index: number, depth = 0): Mat4 {
+  /** World matrix of a node: its ancestor chain walked iteratively (no recursion; a cycle stops the walk). */
+  worldOf(index: number): Mat4 {
     const known = this.world.get(index);
     if (known !== undefined) return known;
-    const node = this.nodes[index] ?? {};
-    const up = this.parent.get(index);
-    const matrix =
-      up === undefined || depth > this.nodes.length
-        ? localMatrix(node)
-        : multiply(this.worldOf(up, depth + 1), localMatrix(node));
-    this.world.set(index, matrix);
+    const chain: number[] = [];
+    const seen = new Set<number>();
+    let at: number | undefined = index;
+    while (at !== undefined && !this.world.has(at) && !seen.has(at)) {
+      seen.add(at);
+      chain.push(at);
+      at = this.parent.get(at);
+    }
+    let matrix = at === undefined || !this.world.has(at) ? IDENTITY : (this.world.get(at) as Mat4);
+    for (let i = chain.length - 1; i >= 0; i--) {
+      const node = chain[i] as number;
+      matrix = multiply(matrix, localMatrix(this.nodes[node] ?? {}));
+      this.world.set(node, matrix);
+    }
     return matrix;
   }
   parentWorld(index: number): Mat4 {
@@ -262,12 +270,23 @@ interface Channel {
   readonly at: string;
 }
 
-function channelsOf(reader: GltfReader, animation: GltfAnimationDef, a: number): Channel[] | string {
+function channelsOf(
+  reader: GltfReader,
+  animation: GltfAnimationDef | undefined,
+  a: number,
+  maxBytes: number,
+): Channel[] | string {
+  if (!isRecord(animation)) return `animation ${a} does not exist`;
   const samplers = listField(animation.samplers);
   const out: Channel[] = [];
   for (const [c, channel] of listField(animation.channels).entries()) {
-    const sampler = isIndex(channel.sampler) ? samplers[channel.sampler] : undefined;
-    if (sampler === undefined) return `animation ${a} channel ${c} has no sampler`;
+    const sampler = isRecord(channel) && isIndex(channel.sampler) ? samplers[channel.sampler] : undefined;
+    if (!isRecord(sampler)) return `animation ${a} channel ${c} has no sampler`;
+    // an accessor cannot hold more data than the file: refuse before allocating for it
+    for (const accessor of [sampler.input, sampler.output]) {
+      if (accessorBytes(reader.json, accessor) > maxBytes)
+        return `accessor ${String(accessor)} claims more data than the file`;
+    }
     try {
       out.push({
         node: isRecord(channel.target) && isIndex(channel.target.node) ? channel.target.node : null,
@@ -332,7 +351,7 @@ function checkAnimationSlot(
   if (anim === null) return measured;
   const byNode = new Map<number, string>();
   for (const [bone, node] of ctx.bones) byNode.set(node, bone);
-  const driven = new Set(ctx.rig?.drivenBones ?? []);
+  const driven = new Set((ctx.model.rigs[anim.rig] ?? ctx.rig)?.drivenBones ?? []);
 
   // clip.channels
   const channelParams = rule('clip.channels')?.params ?? {};
@@ -342,9 +361,12 @@ function checkAnimationSlot(
   for (const channel of channels) {
     const bone = channel.node === null ? undefined : byNode.get(channel.node);
     const where = bone ?? (channel.node === null ? 'no node' : `node ${channel.node}`);
-    if (channel.path === 'weights') issues.add('clip.channels', 'A morph weights channel', channel.at);
-    else if (channel.path === 'scale') issues.add('clip.channels', `A scale channel on ${where}`, channel.at);
-    else if (bone === undefined) issues.add('clip.channels', `A channel on ${where}, not a humanoid bone`, channel.at);
+    if (channel.path === 'weights') {
+      if (channelParams['weights'] !== true) issues.add('clip.channels', 'A morph weights channel', channel.at);
+    } else if (channel.path === 'scale') {
+      if (channelParams['scale'] !== true) issues.add('clip.channels', `A scale channel on ${where}`, channel.at);
+    } else if (bone === undefined)
+      issues.add('clip.channels', `A channel on ${where}, not a humanoid bone`, channel.at);
     else if (channel.path === 'rotation' && !driven.has(bone)) {
       issues.add('clip.channels', `${bone} is not a bone the game drives`, channel.at);
     } else if (channel.path === 'translation' && !translationBones.includes(bone)) {
@@ -408,7 +430,8 @@ function checkAnimationSlot(
       rate = Math.max(rate, hz);
     }
   }
-  if (rate > maxHz + 1e-6) issues.add('clip.keys', `Sampled at ${Math.round(rate)} Hz (≤ ${maxHz} Hz)`);
+  // key times are float32: a relative slack keeps a clip sampled at exactly the cap inside it
+  if (rate > maxHz * (1 + 1e-4)) issues.add('clip.keys', `Sampled at ${Math.round(rate)} Hz (≤ ${maxHz} Hz)`);
   measured['durationSecs'] = round(duration);
   measured['keys'] = keys;
   measured['sampleRateHz'] = round(rate, 3);
@@ -548,7 +571,7 @@ function checkRig(
       issues.add('rig.humanoid', `${bones.size} humanoid bones (≤ ${rig.maxHumanoidBones})`, '/extensions');
     }
     if (nodes.length > rig.maxNodes) issues.add('rig.humanoid', `${nodes.length} nodes (≤ ${rig.maxNodes})`, '/nodes');
-    if (rig.uniformScale === 'humanoid-bones-and-ancestors') {
+    else if (rig.uniformScale === 'humanoid-bones-and-ancestors') {
       const checked = new Set<number>();
       for (const start of bones.values()) {
         for (let node: number | undefined = start; node !== undefined && !checked.has(node); ) {
@@ -613,6 +636,23 @@ function checkSlots(
  * problem is an issue of the rule it breaks.
  */
 export function checkCharacterPackage(bytes: Uint8Array, opts: PackageCheckOptions): PackageReport {
+  try {
+    return checkPackage(bytes, opts);
+  } catch (error) {
+    // a file shaped in a way no rule foresaw is still a refusal, never a crash
+    const message = `The package could not be read: ${error instanceof Error ? error.message : String(error)}`;
+    return {
+      bytes: bytes.byteLength,
+      manifest: null,
+      contract: null,
+      issues: [{ rule: 'pack.manifest', severity: 'error', message, path: null }],
+      slots: {},
+      ok: false,
+    };
+  }
+}
+
+function checkPackage(bytes: Uint8Array, opts: PackageCheckOptions): PackageReport {
   const fail = (
     issues: readonly PackageIssue[],
     manifest: PackageManifest | null = null,
@@ -712,6 +752,7 @@ export function checkCharacterPackage(bytes: Uint8Array, opts: PackageCheckOptio
   for (const index of referenced) {
     const animation = animations[index];
     for (const sampler of listField(animation?.samplers)) {
+      if (!isRecord(sampler)) continue;
       for (const accessor of [sampler.input, sampler.output]) {
         if (!isIndex(accessor) || counted.has(accessor)) continue;
         counted.add(accessor);
@@ -787,7 +828,7 @@ export function checkCharacterPackage(bytes: Uint8Array, opts: PackageCheckOptio
     }
     let channels = read.get(fill.animation);
     if (channels === undefined) {
-      channels = channelsOf(reader, animations[fill.animation] as GltfAnimationDef, fill.animation);
+      channels = channelsOf(reader, animations[fill.animation], fill.animation, bytes.byteLength);
       read.set(fill.animation, channels);
     }
     const slotIssues = new Issues(rule);

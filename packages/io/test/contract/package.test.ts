@@ -19,6 +19,8 @@ import {
   readPackageManifest,
   validationReport,
 } from '../../src/contract';
+import { parseGlbSync } from '../../src/glb/parse';
+import { assembleGlb } from '../../src/glb/write';
 
 const ROOT = new URL('../../../../', import.meta.url);
 const DIR = new URL('fixtures/contracts/omoba/v1/', ROOT);
@@ -143,6 +145,27 @@ describe('package bytes: reports and measured values', () => {
     expect(at.slots['base.run']?.measured['hipsDrift']).toBeCloseTo(0.149, 3);
     const over = checkCharacterPackage(bytesOf('packages/clip-hips-drift-over.glb'), OPTIONS);
     expect(over.slots['base.run']?.issues.map((issue) => issue.rule)).toEqual(['clip.in-place']);
+  });
+
+  it('a malformed package is a verdict, never a throw (null channels, an accessor claiming more than the file)', () => {
+    const bytes = bytesOf('packages/ok-vrm1-three-slots.glb');
+    const { json, bin } = parseGlbSync(bytes);
+    const broken = JSON.parse(JSON.stringify(json)) as {
+      animations: { channels: unknown[]; samplers: { input: number }[] }[];
+      accessors: { count: number }[];
+    };
+    (broken.animations[1] as { channels: unknown[] }).channels = [null];
+    const input = broken.animations[2]?.samplers[0]?.input ?? 0;
+    (broken.accessors[input] as { count: number }).count = 1_000_000_000;
+    const file = assembleGlb(JSON.stringify(broken), bin === null ? null : [bin]);
+    // with the contract's byte cap the huge accessor fails pack.bytes first
+    expect(gateVerdict(checkCharacterPackage(file, OPTIONS)).pack).toEqual(['pack.bytes']);
+    // without it, the reader refuses the accessor before allocating for it
+    const model = CONTRACTS.get(MANIFEST.contracts[0]?.revision as string) as ContractModel;
+    const uncapped: ContractModel = { ...model, rules: model.rules.filter((rule) => rule.id !== 'pack.bytes') };
+    const report = checkCharacterPackage(file, { contract: () => uncapped });
+    expect(report.slots['basic.wildspark.0']?.verdict).toBe('fail');
+    expect(report.slots['skill.wild_zap.release']?.issues[0]?.message).toContain('more data than the file');
   });
 
   it('not a GLB, or no manifest: pack.manifest', () => {

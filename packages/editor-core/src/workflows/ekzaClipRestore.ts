@@ -1,14 +1,15 @@
 // The clip metadata round-trip (CHARACTER-CONTRACT-SPEC §8.14, ADR 0010 rev. 3; C2): a clip in a file Ekza Studio
 // wrote (`asset.extras.ekza_animation_v1`, provenance tool `ekza-animator`) comes back with what Studio recorded — its
 // slot (when no other clip of the character holds it), contact frame, root motion, tags, display label (a package clip
-// is named by its slot: the label is the clip's name) and named markers (into `ekza.clipMarkers` when the target chunk
-// registered the table). Other tools' files keep the import's own defaults. Part of the lazy import path.
+// is named by its slot: the label is the clip's name) and named markers (into `ekza.clipMarkers`, registered while
+// planning). Other tools' files keep the import's own defaults. Part of the lazy import path.
 import type { Frame } from '@ekza-studio/anim-core';
 import { type ClipRecord, getTableDef, type Tx } from '@ekza-studio/doc';
 import type { GlbContainer } from '@ekza-studio/io';
 import type { ClipWritePlan } from './clipWrite';
 import { sanitizeClipName } from './names';
 import { ekzaClipEntry } from './provenance';
+import { ensureMarkersTable } from './target/markers';
 
 const SLOT = /^[a-z][a-z0-9_-]{0,47}(\.[a-z0-9][a-z0-9_-]{0,47}){0,7}$/;
 const TAG = /^[a-z0-9_-]{1,32}$/;
@@ -83,6 +84,8 @@ export function withRestoredSettings(
     Math.min(Math.max(clip.range.start + Math.round(secs * rate), clip.range.start), clip.range.end);
   const markers: Record<string, Frame> = {};
   for (const [name, secs] of Object.entries(restored.markers)) markers[name] = frame(secs);
+  // the import writes named markers: their extension table registers here (prepare), before the transaction
+  if (Object.keys(markers).length > 0) ensureMarkersTable();
   return {
     ...plan,
     clip: {
@@ -97,7 +100,7 @@ export function withRestoredSettings(
   };
 }
 
-/** After the clip is written: its named markers (when the markers table is registered). */
+/** After the clip is written: its named markers (the table was registered while planning). */
 export function writeRestoredMarkers(
   tx: Tx,
   clip: Pick<ClipRecord, 'id' | 'character'>,

@@ -171,14 +171,22 @@ export function attachContractLayer(
       if (Number.isFinite(frame) && clamped !== from) {
         void app.run('target.marker.set', { clip: clip.id, marker: name, frame: clamped }, { panel: PANEL.timeline });
       }
+      drawnKey = '';
       slider.setLayer(layer);
     };
   };
 
   const layer: TimeSliderLayer = { paint, grab };
+  let drawnKey = '';
   const refresh = (): void => {
     if (kit === null || dragging !== null) return;
-    scene = sceneOf(app, kit);
+    const next = sceneOf(app, kit);
+    // repaint only when what the layer draws changed (a key drag changes the document, not the marks)
+    const key =
+      next === null ? '' : JSON.stringify([next.clip.id, next.clip.range, next.clip.fps, next.anim, next.markers]);
+    if (key === drawnKey && (next === null) === (scene === null)) return;
+    drawnKey = key;
+    scene = next;
     if (scene === null) {
       delete canvas.dataset['contractMarkers'];
       shown = null;
@@ -194,11 +202,16 @@ export function attachContractLayer(
     refresh();
   };
   let live = true;
-  void loadTargetKit(app).then((loaded) => {
-    if (!live) return;
-    kit = loaded;
-    refresh();
-  });
+  loadTargetKit(app).then(
+    (loaded) => {
+      if (!live) return;
+      kit = loaded;
+      refresh();
+    },
+    () => {
+      // the target chunk did not load: the slider stays without the contract's marks
+    },
+  );
   const offSession = app.session.subscribe(onSession);
   const offStore = app.store.subscribe(refresh);
   return () => {
