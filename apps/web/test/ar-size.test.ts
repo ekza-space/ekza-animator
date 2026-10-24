@@ -64,7 +64,7 @@ function build(chunks: Readonly<Record<string, string>> = CHUNKS): string {
 describe('check:size per route (AUTORIG-SPEC §7.2)', () => {
   it('declares the routes, the /autorig gate and the per-route boundaries', () => {
     expect(ROUTES).toEqual(['editor', 'autorig', 'app']); // STUDIO-TOUCH-SPEC §20.6 (T2): + /app
-    expect([AUTORIG_GATE_BYTES, AUTORIG_TARGET_BYTES]).toEqual([660_000, 620_000]);
+    expect([AUTORIG_GATE_BYTES, AUTORIG_TARGET_BYTES]).toEqual([5_000_000, 620_000]); // SIZE-1
     expect(ROUTE_BOUNDARIES.editor?.map((b) => [b.id, b.markers])).toEqual([
       ['autorig-shell', ['ekza-autorig-shell']],
       ['halo-shell', ['ekza-halo-shell']], // STUDIO-TOUCH-SPEC §20.6 (T2)
@@ -105,7 +105,7 @@ describe('check:size per route (AUTORIG-SPEC §7.2)', () => {
     expect(autorig?.firstVisit).toEqual([]);
     expect(autorig?.lazy.map((g) => g.boundary)).toEqual(['rig-workspace', 'skin-worker']);
     expect(autorig?.gateEnforced).toBe(false);
-    expect([autorig?.gate, autorig?.target]).toEqual([660_000, 620_000]);
+    expect([autorig?.gate, autorig?.target]).toEqual([5_000_000, 620_000]);
     expect(autorig?.eagerDelta).toBeNull();
   });
 
@@ -205,10 +205,10 @@ describe('check:size per route (AUTORIG-SPEC §7.2)', () => {
 
   it('records and enforces the /autorig gate from the integration merge on (size-baseline.json routes.autorig, D7)', () => {
     const recorded = readBaseline(BASELINE_FILE);
-    expect(recorded?.routes?.['autorig']).toMatchObject({ gate: 660_000, target: 620_000, enforce: true });
+    expect(recorded?.routes?.['autorig']).toMatchObject({ gate: 5_000_000, target: 620_000, enforce: true });
     const total = recorded?.routes?.['autorig']?.total;
     expect(typeof total).toBe('number');
-    expect(total as number).toBeLessThanOrEqual(660_000);
+    expect(total as number).toBeLessThanOrEqual(5_000_000);
   });
 });
 

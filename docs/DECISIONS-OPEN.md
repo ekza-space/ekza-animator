@@ -1443,3 +1443,12 @@ stands.
 | GP-Q10 | **owner** — Who may create a Hub project for a third-party game | Curated by Ekza (operator CLI), self-serve later | Self-serve needs abuse controls and billing | GP8 |
 | GP-Q11 | **owner** — Register a glTF vendor prefix (`EKZA_`) and move the manifest into an extension | No for 1.0; `asset.extras` | A registered extension is more visible to other tools | 1.x |
 | GP-Q12 | **owner** — Store revenue shares now | Yes, `share_bps` per rights row, inactive until the commerce ledger pays out | Adding it later needs a migration and re-consent | C5 |
+
+## S. Owner decisions of 2026-10-24 (bundle size, contract licences, merges)
+
+| ID | Decision | Effect | Replaces |
+|---|---|---|---|
+| SIZE-1 | **One size gate of 5,000,000 B (gzip -9) on every route** (`/editor`, `/autorig`, `/app`), enforced. The owner: a 1 MB-class limit is meaningless for today's connections | `check:size` fails only above 5,000,000 B or when a lazy boundary breaks (the boundaries stay: they keep each shell's code out of the others). Targets (850,000 / 620,000 / 660,000 B) and the eager-delta allowance are reported only, never a reason to block or trim a package | The §14 budget 900,000 B, AR-B1 (+2,048 B), the `/autorig` gate 660,000 B, ST-19's 700,000 B, ST-B1 per-package shares; closes **OQ-3** |
+| LIC-1 | **CC0-1.0 for game contract data and the pinned protocol schemas** (CC-Q3, GP-Q2 as defaulted by C0) | Any game or tool may copy `ekza.game-contract.v1` documents and schemas without terms | — |
+| MERGE-1 | **Ready OMOBA work merges into `dev`** when it breaks nothing (green CI or local gate); `dev` is where the whole loop is tested before the RU and international releases | omoba-bevy PR #109 (contract exporter) and later contract PRs go to `dev` without waiting for a review round; `main`, releases and production stay the owner's | — |
+

@@ -73,13 +73,14 @@ describe('the recorded baseline (size-baseline.json)', () => {
     // AR-B1 (DECISIONS-OPEN §M): measured by D0 on autorig/mvp with the route-group-proof tooling (literal update)
     expect(recorded?.baseline.total).toBe(895_688);
     expect(recorded?.eagerDelta.allowance).toBe(2_048);
-    expect(recorded?.eagerDelta.enforce).toBe(true);
-    expect(recorded?.eagerDelta.pending).toBeUndefined();
+    // SIZE-1 (owner, 2026-10-24): the allowance is reported only; every route has the one 5,000,000 B gate
+    expect(recorded?.eagerDelta.enforce).toBe(false);
+    expect(recorded?.eagerDelta.pending).toMatch(/SIZE-1/);
     expect(recorded?.eagerDelta.packages).toEqual({ d0: 64, d1: 1408, d2: 448, d3: 128 });
     const packages = Object.values(recorded?.eagerDelta.packages ?? {});
     expect(packages.reduce((sum, bytes) => sum + bytes, 0)).toBe(recorded?.eagerDelta.allowance);
-    // the limit stays under the unchanged 900,000 B gate
-    expect((recorded?.baseline.total ?? 0) + (recorded?.eagerDelta.allowance ?? 0)).toBeLessThanOrEqual(900_000);
+    // the limit stays under the gate
+    expect((recorded?.baseline.total ?? 0) + (recorded?.eagerDelta.allowance ?? 0)).toBeLessThanOrEqual(5_000_000);
     expect(recorded?.modelChunk?.warnBytes).toBe(250_000);
     // the M6b record it replaced: 889,569 B + 6,144 B, measured 895,688 B at release (25 B left)
     expect(recorded?.previous).toMatchObject({

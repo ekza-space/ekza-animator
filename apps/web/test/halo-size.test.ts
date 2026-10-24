@@ -1,5 +1,5 @@
-// STUDIO-TOUCH-SPEC §20.6 (T2): check:size measures a third route, `/app` (Ekza Studio's Simple layout): gate
-// 700,000 B, target 660,000 B, reported and not enforced until T12 records it (`routes.app` in size-baseline.json);
+// STUDIO-TOUCH-SPEC §20.6 (T2): check:size measures a third route, `/app` (Ekza Studio's Simple layout): the shared
+// 5,000,000 B gate, enforced (SIZE-1; 700,000 B and unenforced before), target 660,000 B reported (`routes.app`);
 // its initial scripts are the host and the Halo shell entry (`ekza-halo-shell`), never dockview, the Studio or
 // Auto-Rig shell or the curve editor; the Halo shell is a banned boundary of `/editor` and `/autorig`; no First-run
 // dialog. Modelled on ar-size.test.ts (a synthetic three-route build).
@@ -76,8 +76,8 @@ function build(chunks: Readonly<Record<string, string>> = CHUNKS): string {
 describe('check:size on /app (STUDIO-TOUCH-SPEC §20.6, T2)', () => {
   it('declares the route, its gate and target, its initial markers and its boundaries', () => {
     expect(ROUTES).toEqual(['editor', 'autorig', 'app']);
-    expect([HALO_GATE_BYTES, HALO_TARGET_BYTES]).toEqual([700_000, 660_000]);
-    expect(ROUTE_LIMITS.app).toEqual({ gate: 700_000, target: 660_000, firstVisit: [] });
+    expect([HALO_GATE_BYTES, HALO_TARGET_BYTES]).toEqual([5_000_000, 660_000]); // SIZE-1
+    expect(ROUTE_LIMITS.app).toEqual({ gate: 5_000_000, target: 660_000, firstVisit: [] });
     expect(ROUTE_INITIAL_MARKERS['app']).toEqual(['ekza-studio-host', 'ekza-halo-shell']);
     expect(ROUTE_BOUNDARIES.app?.map((b) => b.id)).toEqual([
       'dockview',
@@ -114,7 +114,7 @@ describe('check:size on /app (STUDIO-TOUCH-SPEC §20.6, T2)', () => {
     expect(app?.firstVisit).toEqual([]);
     expect(app?.lazy.map((group) => group.boundary)).toEqual(['curve-editor', 'rig-workspace']);
     expect(app?.violations).toEqual([]);
-    expect([app?.gate, app?.target, app?.gateEnforced, app?.eagerDelta]).toEqual([700_000, 660_000, false, null]);
+    expect([app?.gate, app?.target, app?.gateEnforced, app?.eagerDelta]).toEqual([5_000_000, 660_000, false, null]);
     // the editor route's own report is unchanged by the third route
     expect(reports['editor']?.firstVisit.map((g) => g.boundary)).toEqual(['dialog-first-run']);
   });
@@ -168,10 +168,10 @@ describe('check:size on /app (STUDIO-TOUCH-SPEC §20.6, T2)', () => {
     expect(enforced.ok).toBe(false);
   });
 
-  it('requires /app in this app (the page is in the source) and records it unenforced in size-baseline.json', () => {
+  it('requires /app in this app (the page is in the source) and enforces its 5,000,000 B gate (SIZE-1)', () => {
     expect(hasSourcePage(join(__dirname, '..'), 'app')).toBe(true);
     const recorded = readBaseline(BASELINE_FILE);
-    expect(recorded?.routes?.['app']).toMatchObject({ gate: 700_000, target: 660_000, enforce: false });
-    expect(recorded?.routes?.['app']?.pending).toMatch(/T12/);
+    expect(recorded?.routes?.['app']).toMatchObject({ gate: 5_000_000, target: 660_000, enforce: true });
+    expect(recorded?.routes?.['app']?.pending).toBeUndefined();
   });
 });
