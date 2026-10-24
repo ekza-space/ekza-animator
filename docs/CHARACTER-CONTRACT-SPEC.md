@@ -1,10 +1,21 @@
-# Character Contract — Ekza Studio ↔ Ekza Hub ↔ OMOBA
+# Character Contract — the OMOBA profile of the Ekza Game Protocol
 
-Status: **v0.1 (2026-10-24), draft for the owner.** Normative once the owner accepts it and
-[ADR 0024](adr/0024-character-contract.md) moves to Accepted. The contract format (§3, Appendix A), the package format
-(§4, Appendix C) and the rule table (§5) freeze when work package C0 merges into `omoba-bevy` `dev`; after that a change
-needs a PR that updates this file first and bumps the contract schema if it breaks a reader. Defaults and owner
-questions: [DECISIONS-OPEN §Q](DECISIONS-OPEN.md#q-character-contract-defaults-chosen-2026-10-24) (`CC-*`).
+Status: **v0.2 (2026-10-24), draft for the owner.** v0.2 makes this document **the OMOBA profile**
+(`omoba.character.v1`) of the [Ekza Game Protocol](GAME-PROTOCOL-SPEC.md) v0.1 ([ADR 0025](adr/0025-game-protocol.md)):
+the contract is an `ekza.game-contract.v1` document with OMOBA's data under `ext["omoba.character.v1"]`, the package
+manifest is `ekza_package_v1`, four rule ids and the file names follow the protocol, and asset slots (the hero's gear)
+join the animation slots. Every decision of v0.1 stands in substance; §15 lists each change and why. Normative once the
+owner accepts it and [ADR 0024](adr/0024-character-contract.md) and ADR 0025 move to Accepted. The contract format (§3,
+Appendices A–B), the package format (§4, Appendix C) and the rule table (§5) freeze when work package C0 merges into
+`omoba-bevy` `dev`; after that a change needs a PR that updates this file and GAME-PROTOCOL-SPEC first. Defaults and
+owner questions: [DECISIONS-OPEN §Q](DECISIONS-OPEN.md#q-character-contract-defaults-chosen-2026-10-24) (`CC-*`) and
+§R (`GP-*`).
+
+**Reading guide (v0.2).** Where the sections below keep v0.1 wording, read: the contract → an `ekza.game-contract.v1`
+document with the profile `omoba.character.v1` (v0.1 called it `omoba.character-contract.v1`); a view → a target
+(v0.1 `heroes[]` entries are `targets[]`); a slot's `contact` →
+`animation.markers.contact`; the slot map's `contactSecs` → `markers.contact`; `package` → `packaging.character`.
+The names in code blocks, file lists and rule tables are already the v0.2 names.
 
 Owner request (2026-10-24, translated): *"OMOBA exports the specifications of its existing heroes — which animations
 each one needs. Ekza Studio reads them and gives the user a convenient UI to fill in the missing ones with their own
@@ -22,7 +33,8 @@ Inputs (read-only research of 2026-10-24; line references are to the branches na
 - Ekza Studio: `dev` @ `959c587b` (v0.6.0 + the TM-1 scrub); the touch shell draft
   [STUDIO-TOUCH-SPEC](STUDIO-TOUCH-SPEC.md) v0.2 on `design/studio-touch` (Halo, being implemented).
 - ADR 0010 (Ekza integration tiers; this spec realizes its tier **T2**, *avatar-owned animation sets*
-  `asset.extras.ekza_animation_set_v1` in `desktop / humanoid-glb-v2`, and replaces its tier **T3** plan), ADRs 0020,
+  `asset.extras.ekza_animation_set_v1` in `desktop / humanoid-glb-v2`, now `ekza_package_v1`, and replaces its tier
+  **T3** plan), ADRs 0020,
   0021, 0022, 0023 (on its branch).
 - A prototype of the contract exporter run on OMOBA `dev` data (§3.10, Appendix B): 107 slots, 101 of them
   custom-able in v1; every default row satisfies the contact rule; the longest default action plays 0.944 s.
@@ -53,7 +65,7 @@ document only through operators (ADR 0021 rule 2).
  └──────────────────────────────┬──────────────────────────────────────┘
                                 │  Submit to OMOBA (Hub tab, postMessage)
                                 ▼
- Ekza Hub: upload → check_animation_set → curator → builder humanoid-glb-v2
+ Ekza Hub: upload → check_package → curator → builder humanoid-glb-v2
           (Rust passport per slot) → rights holder countersign (collab)
           → OMOBA owner approves into TEST channel (OMOBA Dev builds, dev lobby)
           → Promote to LIVE → every client downloads the content-addressed file
@@ -70,18 +82,22 @@ package does not carry defaults; OMOBA plays its own library clip, tuned by its 
 
 | # | Decision |
 |---|---|
-| D1 | **OMOBA owns the contract** `omoba.character-contract.v1`, generated from its live data (Rust generator in the client crate, committed snapshot `shared/assets/catalog/character-contract.json`, `--check` in OMOBA's gate). Identity = `revision: sha256-<canonical JSON>`, as `omoba.asset-catalog.v1`. Data licence CC0-1.0. Hub serves it; Studio bundles a snapshot. |
+| D1 | **OMOBA owns the contract** — an `ekza.game-contract.v1` document with the profile `omoba.character.v1` (v0.1: `omoba.character-contract.v1`), generated from its live data (Rust generator in the client crate, committed snapshot `shared/assets/catalog/game-contract.json`, `--check` in OMOBA's gate). Identity = `revision: sha256-<canonical JSON>`, as `omoba.asset-catalog.v1`. Data licence CC0-1.0. Hub serves it; Studio bundles a snapshot. |
 | D2 | **Slots are keyed by gameplay identity, not by keys**: `base.<state>`, `basic.<class>.<n>` (`basic.wildspark.rockets.0` for the launcher mode), `skill.<skillId>.release\|recast\|windup`. Slot ids are stable; a retired id is never reused. 107 slots today. |
 | D3 | **Custom-able in v1: 101 of 107 slots** — `base.idle`, `base.run`, `base.death`, every basic attack, every skill `release` and `recast`. The 5 wind-up holds become custom-able in v1.1; `base.walk` is reserved (the game never selects it). Studio vocabulary slots that OMOBA has no state for (`walk`, `attack`, `cast`, `hit`, `jump`, `dance`, …) are ignored by OMOBA and left out of the package. |
 | D4 | **Defaults are not shipped.** The package's slot map lists every slot of the target hero as `custom` or `default`; `default` plays OMOBA's library clip with its tuned rate and start. Studio shows which is which everywhere. |
 | D5 | **A custom clip plays as authored** (rate 1, start 0). Studio shows the default's *effective* play and contact time as the target and offers *Fit timing*. The engine reads duration, loop and contact from the resolved clip, never from the default it replaced. |
-| D6 | **The package is one VRM 1.0** (VRM 0.x accepted) with the custom clips embedded, each named by its slot id, plus `asset.extras.ekza_animation_set_v1` {contract revision, target hero, mode per slot, contact}. One file, content-addressed, inside Hub's one-source-per-revision model; **no protocol change**. A dev zip (VRM + one `.vrma` per slot + manifest) is secondary, for local tests. |
+| D6 | **The package is one VRM 1.0** (VRM 0.x accepted) with the custom clips embedded, each named by its slot id, plus `asset.extras.ekza_package_v1` {contract revision, target hero, mode per slot, contact}. One file, content-addressed, inside Hub's one-source-per-revision model; **no protocol change**. A dev zip (VRM + one `.vrma` per slot + manifest) is secondary, for local tests. |
 | D7 | **One rule table, checked in three places, implemented twice.** Rule ids and parameters live in the contract; TypeScript (Studio) and Rust (OMOBA passport, also run by the builder in its sandbox) implement them; Hub's registry checks only the structural subset. OMOBA owns conformance fixtures that every implementation runs; an unknown rule id fails closed. **Strict at the gates** (Studio export error, builder rejects), **lenient at runtime** (a failing slot falls back to its default, never a partial clip). |
 | D8 | **Avatars stay hero-independent.** `base.*` slots apply on any hero, `basic.<class>.*` when the avatar is played as that class, `skill.<id>.*` whenever the avatar casts that skill (borrowed skills and the lab included). The target hero is a label ("Made for Wildspark") and the default pick when equipping. A hero lock for collab characters is an owner question. |
 | D9 | **Hub adds a contract registry and a v2 profile**: `project_contracts` + channels, per-hero requirements `character.<hero>`, profile `desktop/humanoid-glb-v2` with builder `omoba-humanoid-glb-v2` (keeps custom clips, runs the Rust passport, writes a per-slot report). The v1 rendition is still built for old clients. OMOBA's owner approves into a **test** channel, then promotes to **live**. |
 | D10 | **Submit = a Hub page driven by `postMessage`** (`ekza-studio-submit/v1`) for the MVP: no tokens in the editor, no CORS on write routes, consent captured on Hub. OAuth code + PKCE with a scoped token and CORS write routes follows later (agents, status in the editor). |
 | D11 | **Rights per revision.** Licence and attribution are snapshotted per revision; a collab character names its rights holder, who countersigns that exact revision on Hub before OMOBA's owner can approve it (SQL gate). |
 | D12 | **Studio: one binding, one status function, three shells.** The target lives in an extension table `ekza.targets` (no schema bump); one pure `slotStatuses()` feeds the Pro *Target* panel, Auto-Rig ④/⑤, Halo's slot chips and readiness, Validation rows and the agent tools. Everything is lazy (≤ 512 B eager per route). |
+
+v0.2 reshapes D1 (document and file names), D6 (the manifest is `ekza_package_v1`, contact as `markers.contact`)
+and D7 (rule ids `pack.manifest`, `pack.ref`, `clip.markers`, `clip.min-interval`) for the game protocol and adds
+asset slots (§15.3); the substance of every decision is unchanged.
 
 **Delivery**: eight work packages C0–C7 across three repositories, about **55 agent-days**; critical path
 C0 → C3 → C4 → C5 → C7, about **34 agent-days** (§10). Pre-existing problems the owner must clear for hosted runs (§11): P-1
@@ -94,13 +110,13 @@ mismatch (prod sign-in link hidden), P-7 the dev contour's builder pin and Hub n
 
 | Term | Meaning |
 |---|---|
-| **Contract** | `omoba.character-contract.v1`: OMOBA's machine-readable description of the clips its heroes play, the rules a custom clip must pass and the per-hero views. One JSON document per revision. |
+| **Contract** | `ekza.game-contract.v1` with the profile `omoba.character.v1` ([GAME-PROTOCOL-SPEC](GAME-PROTOCOL-SPEC.md)): OMOBA's machine-readable description of the clips its heroes play, the rules a custom clip must pass and the per-hero views. One JSON document per revision. |
 | **Revision** | `sha256-` + SHA-256 of the canonical JSON of the document without `revision`. Changes with any data change. |
 | **Schema version** | `schemaVersion` (1). Changes only for a breaking change to readers. |
 | **Slot** | A place where the game plays one clip, with a stable id (`skill.wild_zap.release`). |
 | **Default** | The clip OMOBA plays in a slot when the package has none: a motion of OMOBA's library, with the row's rate and start. |
 | **Custom clip** | A clip in the package assigned to a slot. |
-| **View** | `heroes[]` entry: the ordered slots of one hero class, or `any` (base slots only). |
+| **View** | a `targets[]` entry (v0.1: `heroes[]`): the ordered slots of one hero class, or `any` (base slots only). |
 | **Target** | In a Studio project: the binding of one character to (project, contract revision, view). |
 | **Package** | The file Studio exports for a target and Hub ingests: one VRM with custom clips and the slot map. |
 | **Rendition** | What Hub's builder makes from the package for a profile (`desktop/humanoid-glb-v2`): content-addressed, what clients download. |
@@ -164,30 +180,34 @@ false). The agent bridge has 37 tools, `library_use` without a slot argument.
 
 ---
 
-## 3. The contract `omoba.character-contract.v1`
+## 3. The contract: `ekza.game-contract.v1` with the profile `omoba.character.v1`
 
 ### 3.1 Ownership, file, identity
 
 - **Owner**: OMOBA. Generated, never hand-edited. Canonical file in `omoba-bevy`:
-  `shared/assets/catalog/character-contract.json` (committed, checked).
-- **Identity**: `schema: "omoba.character-contract.v1"`, `schemaVersion: 1`, `projectId: "omoba"`, `revision:
-  "sha256-<hex>"` over canonical JSON (recursively sorted keys, compact separators, integer-valued floats as integers,
+  `shared/assets/catalog/game-contract.json` (committed, checked).
+- **Identity**: `schema: "ekza.game-contract.v1"`, `schemaVersion: "1.0"`, `minReaderVersion: "1.0"`, `game: {id:
+  "omoba", name: "OMOBA"}`, `profiles: {used: ["omoba.character.v1"], required: []}`, `revision: "sha256-<hex>"` over
+  canonical JSON (recursively sorted keys, compact separators, integer-valued floats as integers,
   other numbers in ordinary decimal notation, magnitude ≥ 0.000001) without the `revision` key — the exact rule of
   `omoba.asset-catalog.v1` (`docs/asset-catalog.md:51-58`), so the same browser code reproduces both. Readers
   **recompute and reject a mismatch**.
 - **Licence**: `license: "CC0-1.0"`. The document is a description of game behaviour plus metadata of CC0-derived
   motions; CC0 lets Studio (MIT) bundle snapshots and Hub serve them without a licence boundary (`CC-Q3`).
-- **Size**: about 100 kB canonical today (107 slots, 18 views); readers cap at 1 MiB.
-- **Strict parsing**: unknown keys are errors at every level (`additionalProperties: false`), as Studio's library
-  manifest parser and OMOBA's `deny_unknown_fields` already do. A reader that meets a higher `schemaVersion` says
-  "This contract needs a newer Ekza Studio" and keeps the pinned copy.
+- **Size**: about 150 kB canonical in the v0.2 shape (prototype: 107 animation slots, Wildspark's 6 asset slots, 18
+  targets); readers cap at 1 MiB.
+- **Strict parsing**: unknown keys are errors at every level of the core (`additionalProperties: false`) and of the
+  profile's `ext` objects, as Studio's library manifest parser and OMOBA's `deny_unknown_fields` already do. A reader
+  that meets a higher `minReaderVersion` says "This contract needs a newer Ekza Studio" and keeps the pinned copy; one
+  that meets a higher `schemaVersion` with a `minReaderVersion` it implements ignores the newer keys (GAME-PROTOCOL-SPEC
+  §3.3).
 
 ### 3.2 Header and provenance
 
 | Field | Meaning |
 |---|---|
 | `source.commit` | `omoba-bevy` HEAD the exporter ran on |
-| `source.exporter` | `scripts/export_character_contract.py` |
+| `source.exporter` | `scripts/export_game_contract.py` |
 | `source.inputsSha256` | SHA-256 over the sorted map of every consumed path → byte hash (skills.skillfx, heroes.json, skills.json, the motion library, the exporter itself, the rule table source) |
 | `source.gameplayRevision` | the skill catalogue revision (`standard-kits-8`) |
 | `source.presentationSha256` | SHA-256 of `skills.skillfx` |
@@ -195,11 +215,14 @@ false). The agent bridge has 37 tools, `library_use` without a slot argument.
 | `source.protocolVersion` | the game protocol the snapshot was cut from (11) |
 | `previousRevision` | the revision this one replaced on `dev`, or null; lets readers show a diff (§8.12) |
 
-### 3.3 `package`
+### 3.3 `packaging` (v0.1: `package`)
 
-`extrasKey: "ekza_animation_set_v1"`, `sourceFormats: ["vrm1", "vrm0"]`, `rendition: {platform: "desktop", profile:
-"humanoid-glb-v2", version: 1}`, `slotNaming: "animation-name-equals-slot-id"`, `customPlayback: {rate: 1, start: 0}`
-(D5; a later schema may open it, `CC-Q11`).
+`packaging.character`: `containers: ["vrm1", "vrm0"]`, `manifestKey: "ekza_package_v1"`, `slotKinds: ["animation"]`,
+`maxBytes` 50 MiB, `maxJsonBytes` 4 MiB, `maxFills` 48, `binding: "manifest"` (animation names equal slot ids, checked
+by `pack.ref`), `rendition: {platform: "desktop", profile: "humanoid-glb-v2", version: 1}`. `customPlayback: {rate: 1,
+start: 0}` (D5; a later schema may open it, `CC-Q11`) sits in the document's `ext["omoba.character.v1"]`. GP5 adds
+`packaging.asset-pack` (GLB, 8 MiB, `slotKinds: ["asset"]`, `binding: "manifest-or-names"`, rendition
+`desktop/handheld-glb-v1`; §15.3).
 
 ### 3.4 `rig` — the "any humanoid" rules
 
@@ -238,6 +261,9 @@ skill    = "skill." skillId "." ("release" | "recast" | "windup")
 classId  = [a-z][a-z0-9_]{0,31}      skillId = [a-z][a-z0-9_]{0,47}      mode = [a-z][a-z0-9_]{0,15}
 ```
 
+Asset slots (GP5, §15.3) use `<classId>.(handheld|projectile|prop|effect).<name>` — the requirement ids of
+`omoba.asset-catalog.v1` (`wildspark.handheld.launcher`, `wildspark.prop.trap`).
+
 **Groups, kinds, phases**:
 
 | Group | Slots (today) | `kind` | `phase` | Edge-released | v1 |
@@ -259,6 +285,13 @@ slots whose default motion is `cast`. **Ignored by OMOBA**: Studio's vocabulary-
 `attack → basic.<class>.0`).
 
 ### 3.7 Per-slot fields
+
+v0.2: this table is OMOBA's view of a slot. In the document, `kind` (loop/action/hold) is `animation.playback` and the
+slot's `kind` is `"animation"`; `window`, `inPlace`, `loop`, `minIntervalSecs` are under `animation`; `contact` is
+`animation.markers.contact`; the release of a held-phase skill carries `animation.leadInSecs` = its telegraph; the
+generic `default` is `{name, playSecs, loop, markers, preview}`; `group`, `role`, `phase`, `edgeReleased`, the default's
+row playback (`ext.row`), `telegraph`, `handheld`, `skill`, `class`, `weaponMode` are in `ext["omoba.character.v1"]`
+(§15.2, GAME-PROTOCOL-SPEC §12.2).
 
 | Field | Type | Meaning |
 |---|---|---|
@@ -282,7 +315,7 @@ slots whose default motion is `cast`. **Ignored by OMOBA**: Studio's vocabulary-
 | `usedBy` | class ids or `*` | the views whose default kit contains the slot |
 | `skill` / `class`, `minIntervalSecs`, `weaponMode` | | basic slots: class, `cooldown ÷ attack-rate cap` (the shortest time between two basics: a longer clip is cut by the next), weapon mode |
 
-### 3.8 `heroes[]` — views
+### 3.8 `targets[]` — views (v0.1: `heroes[]`)
 
 One entry per class in catalogue order, plus `any` first:
 `{id, kind: "class"|"any", name, role, requirementId: "character.<id>", basicAttack: {rangeM, cooldownSecs,
@@ -290,7 +323,11 @@ attackRateCap, minIntervalSecs, slots}, kit: [{key: q|w|e|r, skill, name, slots}
 slots: [ordered slot ids]}`. `any` has only `base.idle`, `base.run`, `base.death`: a character for **any hero**.
 Views are the checklist order Studio shows: base, basic, then Q, W, E, R (each with its recast and, in v1.1, wind-up).
 Q/W/E/R placement belongs to the view, not to the slot — a slot is keyed by skill id, so a borrowed skill resolves
-whichever key it sits on.
+whichever key it sits on. v0.2: each view is a target `{id, kind: "character" | "any", name, subtitle: role, sections,
+slots, families: [], accepts, ext}`; `sections` are explicit (`base`, `basic`, `q`, `w`, `e`, `r`, and `gear` from GP5);
+`accepts[0]` = `{package: "character", requirementId: "character.<id>", listing: "every-customizable-slot"}`; Wildspark
+also offers `wildspark.handheld.set` (`asset-pack`); `role`, `basicAttack`, `kit` and `handheld` are in the target's
+`ext`.
 
 ### 3.9 Versioning and compatibility
 
@@ -338,32 +375,35 @@ both* (§8.7).
 - **Animations**: one glTF animation per **custom** clip. Its `name` is the slot id of its primary slot
   (`base.run`, `skill.wild_zap.release`). No other animations: Studio never writes extras into a package, and the
   builder drops unreferenced ones (`pack.unreferenced`, warning).
-- **Slot map**: `asset.extras.ekza_animation_set_v1` (the key ADR 0010 reserved for tier T2), covered by the content
-  hash:
+- **Slot map**: `asset.extras.ekza_package_v1` — the protocol's package manifest `ekza.package.v1` (v0.1:
+  `ekza_animation_set_v1`, the key ADR 0010 reserved for tier T2), covered by the content hash:
 
 ```jsonc
-"ekza_animation_set_v1": {
-  "schema": 1,
-  "contract": { "schema": "omoba.character-contract.v1", "projectId": "omoba", "revision": "sha256-…" },
-  "target": { "hero": "wildspark", "requirementId": "character.wildspark" },
+"ekza_package_v1": {
+  "schema": "ekza.package.v1", "schemaVersion": "1.0", "kind": "character",
+  "contract": { "schema": "ekza.game-contract.v1", "game": "omoba", "revision": "sha256-…" },
+  "target": { "id": "wildspark", "requirementId": "character.wildspark" },
   "slots": {
     "base.idle": { "mode": "default" },
-    "base.run": { "mode": "custom", "animation": 0, "contactSecs": null },
-    "basic.wildspark.0": { "mode": "custom", "animation": 1, "contactSecs": 0.067 },
-    "basic.wildspark.rockets.0": { "mode": "custom", "animation": 2, "contactSecs": 0.133 },
-    "skill.wild_rocket.release": { "mode": "custom", "animation": 2, "contactSecs": 0.133 }
+    "base.run": { "mode": "custom", "animation": 0, "markers": {} },
+    "basic.wildspark.0": { "mode": "custom", "animation": 1, "markers": { "contact": 0.067 } },
+    "basic.wildspark.rockets.0": { "mode": "custom", "animation": 2, "markers": { "contact": 0.133 } },
+    "skill.wild_rocket.release": { "mode": "custom", "animation": 2, "markers": { "contact": 0.133 } }
     // … every other slot of the view, { "mode": "default" } (full example: Appendix C)
   },
+  "requires": [],
   "provenance": { "tool": "ekza-studio", "toolVersion": "0.7.0" }
 }
 ```
 
-  Rules: every **custom-able slot of the target view appears exactly once** (custom or default — this is what makes
-  "which slots are mine" visible on Hub and in the owner's queue); `target.hero` is a view id of that revision; a custom
-  slot names an animation index; several slots may share one animation (`sharesDefaultWith`, alternation); the
-  animation's name equals one of the slot ids that reference it; `contactSecs` is required where the slot's `contact`
-  is required and must equal the clip's `contactSeconds` in `ekza_animation_v1` when both are present. No `uri` keys,
-  lowercase hex, deterministic key order, no timestamps (ADR 0010 §2 rules). JSON Schema: Appendix C.
+  Rules: every **custom-able slot of the target's character offer appears exactly once** (custom or default; offer
+  `listing: "every-customizable-slot"` — this is what makes "which slots are mine" visible on Hub and in the owner's
+  queue); `target.id` is a target of that revision and `requirementId` its character offer; a custom slot names an
+  animation index; several slots may share one animation (`sharesDefaultWith`, alternation); the animation's name
+  equals one of the slot ids that reference it; `markers.contact` is required where the slot's `contact` marker is
+  required and must equal the clip's `contactSeconds` in `ekza_animation_v1` when both are present. No `uri` keys,
+  lowercase hex, deterministic key order, no timestamps (ADR 0010 §2 rules). JSON Schema: GAME-PROTOCOL-SPEC
+  Appendix B.
 - **Per-clip metadata**: the existing `ekza_animation_v1` (ADR 0010 §2), with the additive `label` (§8.14).
 - **What is not in the package**: default clips, rates and starts of defaults, rights-holder data (Hub holds it), the
   Studio project.
@@ -389,10 +429,10 @@ at load, the builder in its sandbox, the CLI), `H` = Hub registry (Python, struc
 
 | Rule id | Severity | Check | Params (v1) | S | P | H |
 |---|---|---|---|---|---|---|
-| `pack.extras` | error | `asset.extras.ekza_animation_set_v1` present, `schema` 1, parses strictly | key, schema | ✓ | ✓ | ✓ |
+| `pack.manifest` | error | `asset.extras.ekza_package_v1` present, `schema` `ekza.package.v1`, parses strictly | key, schema | ✓ | ✓ | ✓ |
 | `pack.contract` | error | `contract.schema`/`projectId` match; `revision` known and not retired (Hub); known to the build or logged (engine) | — | ✓ | ✓ | ✓ |
 | `pack.slot-known` | error | every slot id is in the target view and `customizable` (custom) or in the view (default); every custom-able slot of the view listed once | — | ✓ | ✓ | ✓ |
-| `pack.animation-ref` | error | custom slot → existing animation index; the animation's name is one of its referencing slot ids; no two animations share a name | nameEqualsSlot | ✓ | ✓ | ✓ |
+| `pack.ref` | error | custom slot → existing animation index; the animation's name is one of its referencing slot ids; no two animations share a name | nameEqualsSlot | ✓ | ✓ | ✓ |
 | `pack.unreferenced` | warning | animations not referenced by any slot (the builder drops them) | — | ✓ | ✓ | ✓ |
 | `pack.bytes` | error | file ≤ 50 MiB, JSON ≤ 4 MiB, accessor bytes of custom clips ≤ 4 MiB, ≤ 48 custom slots | caps | ✓ | ✓ | ✓ |
 | `clip.channels` | error | rotation channels only on `drivenBones` mapped by the VRM humanoid; translation only on `hips`; no scale, no morph weights, no channels on any other node (root, spring bones, accessories) | — | ✓ | ✓ | — |
@@ -401,15 +441,20 @@ at load, the builder in its sandbox, the CLI), `H` = Hub registry (Python, struc
 | `clip.duration` | error | `minSecs ≤ duration ≤ maxSecs` of the slot's `window` | from slot | ✓ | ✓ | — |
 | `clip.in-place` | error | horizontal hips offset from the first key ≤ 0.15 × leg length (`hold`: 0.75); vertical ≤ 0.6 × leg length | units of `legLengthFrom` | ✓ | ✓ | — |
 | `clip.loop-closure` | error | loop slots: last pose equals the first within 2° per bone and 0.01 × leg length at the hips | eps | ✓ | ✓ | — |
-| `clip.contact` | error | where `contact.required`: `0 ≤ contact ≤ duration`; where edge-released: `(contact − start·duration)/rate ≤ 0.15 s` (+1e-4), with rate 1 and start 0 for custom clips | limit | ✓ | ✓ | — |
-| `clip.basic-interval` | warning | a basic clip longer than its `minIntervalSecs` is cut at the fastest attack speed | from slot | ✓ | ✓ | — |
-| `rig.*` | error | the existing runtime humanoid rules (passport `humanoid.rs`; Studio `vrm.*`), unchanged | — | ✓ | ✓ | (source check) |
+| `clip.markers` | error | the marker `contact`: where required, `0 ≤ contact ≤ duration`; where edge-released: `(contact − start·duration)/rate ≤ 0.15 s` (+1e-4), with rate 1 and start 0 for custom clips | limit | ✓ | ✓ | — |
+| `clip.min-interval` | warning | a basic clip longer than its `minIntervalSecs` is cut at the fastest attack speed | from slot | ✓ | ✓ | — |
+| `pack.target` | error | `target.id` exists; `requirementId` is its character offer; `kind` is `character` (v0.2) | — | ✓ | ✓ | ✓ |
+| `rig.humanoid` | error | the existing runtime humanoid rules (passport `humanoid.rs`; Studio `vrm.*`), unchanged | — | ✓ | ✓ | (source check) |
 
 Leg length = the rig's hips-to-feet height, so the limits do not depend on the model's scale. The suggested caps
 (0.15 leg length, 1.2 s, 4 MiB) are proposals from the research and are tuned in C0 against the shipped clips. By the
 numbers known today every default passes them: default actions play 0.21–0.94 s and every edge-released default
 reaches its contact within 0.15 s (prototype run); full-rate clips sway ≤ 0.09 m ≈ 0.11 leg length and the death clip
 drifts 0.51 m ≈ 0.63 leg length (research). C0 measures the drift of all 57 clips before freezing the caps.
+
+v0.2: rule entries carry `scope` (`package`, `animation`, `rig`, `asset`) and `checkedBy` (`tool`, `hub`, `builder`,
+`game`) — the S/P/H columns above as data; GP5 adds the `asset.*` rules and the profile rule `omoba.asset.grip`
+(§15.3). The semantics of every core id are GAME-PROTOCOL-SPEC §7.2.
 
 ### 5.2 Verdicts
 
@@ -428,7 +473,7 @@ drifts 0.51 m ≈ 0.63 leg length (research). C0 measures the drift of all 57 cl
 2. **Fail closed.** Each implementation declares the rule ids it implements; a contract that lists an id it does not
    know is refused ("needs a newer Studio / OMOBA build"). Adding a rule therefore forces both implementations to
    update before the contract can be published to `live`.
-3. **Conformance fixtures owned by OMOBA**: `omoba-bevy/shared/assets/catalog/character-contract-fixtures/v1/`
+3. **Conformance fixtures owned by OMOBA**: `omoba-bevy/shared/assets/catalog/game-contract-fixtures/v1/`
    holds small synthetic packages (a 15-bone rig, a few clips each) and an `expected/<case>.json` verdict per slot
    (`pass` or the rule ids that fail). At least one case per rule and per boundary (contact 0.149 / 0.151 s, scale
    channel, morph channel, root channel, NaN key, unsorted times, 4097 keys, non-closing loop, hips drift at the cap,
@@ -449,15 +494,15 @@ drifts 0.51 m ≈ 0.63 leg length (research). C0 measures the drift of all 57 cl
 ### 6.1 Exporter
 
 - **Generator in the client crate** (phase derivation, telegraph times, row parsing and the motion library live there):
-  `OMOBA_WRITE_CHARACTER_CONTRACT=1 cargo test -p client --lib character_contract_is_current` writes the body;
+  `OMOBA_WRITE_GAME_CONTRACT=1 cargo test -p client --lib game_contract_is_current` writes the body;
   without the variable the test fails when the committed file is stale (the `vocabulary_doc_is_current` pattern).
-- **Wrapper** `scripts/export_character_contract.py --output DIR [--check]` (stdlib Python, the
+- **Wrapper** `scripts/export_game_contract.py --output DIR [--check]` (stdlib Python, the
   `export_asset_catalog.py` pattern) adds `source`, `previousRevision`, the canonical revision and the JSON Schema
-  check, and writes `shared/assets/catalog/character-contract.json`.
-- The rule parameters live in `shared/assets/catalog/character-contract-rules.json` (data, reviewed like code); the
+  check, and writes `shared/assets/catalog/game-contract.json`.
+- The rule parameters live in `shared/assets/catalog/game-contract-rules.json` (data, reviewed like code); the
   generator copies them into the contract.
 - **Default preview pack** (optional, C0b): the exporter can also emit each default motion as a `.vrma` on a CC0
-  reference rig (`character-contract-defaults/<motion>.vrma` + an Ekza library manifest), so Studio can preview a
+  reference rig (`game-contract-defaults/<motion>.vrma` + an Ekza library manifest), so Studio can preview a
   default on the user's character and offer *Start from default* (`CC-Q3`). Without it Studio previews the 14 shared
   starter clips only and shows other defaults as timing ghosts.
 
@@ -467,7 +512,7 @@ drifts 0.51 m ≈ 0.63 leg length (research). C0 measures the drift of all 57 cl
    `Base(Idle|Run|Death)`, `Basic{class, index, mode}`, `Skill{id, part: Release|Recast|Windup}` — set where cues are
    built (skill rows, basic rows with the alternation parity and the weapon mode).
 2. **Loading a pack.** On the runtime humanoid path, after `HumanoidRuntimeLibrary::ensure`, the client reads
-   `asset.extras.ekza_animation_set_v1` from the retained glTF source (`include_source` is already on,
+   `asset.extras.ekza_package_v1` from the retained glTF source (`include_source` is already on,
    `client/src/world.rs:116-126`), validates it with the passport's `MotionPack` (the same Rust code the builder runs)
    against the compiled contract (`include_str!` of the committed snapshot), and for each passing custom slot calls
    `remap_embedded_clip` (`humanoid.rs:115-138`) to add a node: `slot_nodes: HashMap<SlotKey, (node, ClipMeta
@@ -554,13 +599,13 @@ sees test approvals.
 
 ### 6.9 Files that would be added or changed in `omoba-bevy` (not in this PR)
 
-`shared/assets/catalog/character-contract.json`, `character-contract.schema.json`, `character-contract-rules.json`,
-`character-contract-fixtures/v1/**`; `scripts/export_character_contract.py`; `client/src/character_contract.rs`
+`shared/assets/catalog/game-contract.json`, `ekza.game-contract.v1.schema.json` + `omoba.character.v1.schema.json`, `game-contract-rules.json`,
+`game-contract-fixtures/v1/**`; `scripts/export_game_contract.py`; `client/src/game_contract.rs`
 (generator test); `client/src/player/animation.rs`, `client/src/skill_presentation/{mod,schema}.rs`,
 `client/src/humanoid.rs`, `client/src/frontend/{preview,party_stage}.rs`, `client/src/held_weapons.rs`;
 `passport/src/{motion_pack.rs,lib.rs,store.rs}`, `passport/src/bin/validate-motion-pack.rs`;
 `scripts/ekza_build_rendition.py`, `scripts/retarget_animations.py`; `server/src/passport_admission.rs`;
-`docs/character-contract.md`, `docs/humanoid-motion.md` (the "versioned runtime-humanoid profile" section becomes
+`docs/game-contract.md`, `docs/humanoid-motion.md` (the "versioned runtime-humanoid profile" section becomes
 real), `docs/combat-cosmetics.md`.
 
 ---
@@ -569,7 +614,7 @@ real), `docs/combat-cosmetics.md`.
 
 ### 7.1 Contract registry
 
-Migration `…_character_contracts.sql`:
+Migration `…_game_contracts.sql`:
 
 - `studio.project_contracts(project_id, revision text check (revision ~ '^sha256-[0-9a-f]{64}$'), schema text,
   document jsonb, bytes int, previous_revision text null, compatibility text check in ('compatible','breaking',
@@ -580,9 +625,13 @@ Migration `…_character_contracts.sql`:
   updated, primary key (project_id, channel))`, audited in `submission_events` style.
 - `rendition_profiles.builder` check gains `omoba-humanoid-glb-v2`; insert `('desktop','humanoid-glb-v2',1,'omoba',
   'omoba-humanoid-glb-v2','glb', {"source":{"formats":["vrm1","vrm0"],"maxBytes":52428800,"humanoid":true,
-  "animationSet":"ekza_animation_set_v1"}, "rendition":{"format":"glb","selfContained":true,"maxBytes":52428800,
+  "manifest":"ekza_package_v1"}, "rendition":{"format":"glb","selfContained":true,"maxBytes":52428800,
   "animations":{"required":[],"slotMap":true,"report":true}}})`; `project_accepts` adds it for `omoba`.
-- **Requirements derived from the contract**: on publish, upsert one `project_requirements` row per view —
+- `project_contracts` also stores `profiles text[]` and refuses a revision that reuses an id in a previous revision's
+  `retired` (GAME-PROTOCOL-SPEC §3.3).
+- **Requirements derived from the contract**: on publish, upsert one `project_requirements` row per **offer** of every
+  target (`targets[].accepts[]`; for characters exactly the rows below, for gear `wildspark.handheld.set` and the other
+  gear offers of GP5) —
   `character.<hero>` (and `character.any`), `asset_kind 'avatar'`, profile `humanoid-glb-v2`, title "Character for
   <Hero>", description from the view; rows are never deleted, only deactivated.
 
@@ -608,9 +657,9 @@ A submission for a character carries `{projectId: "omoba", requirementId: "chara
 channel: "test"}`. `studio.submissions` gains `contract_revision text null` (checked against `project_contracts`,
 `active`). The requirement must match the slot map's `target`.
 
-### 7.3 `check_animation_set`
+### 7.3 `check_package` (v0.1: `check_animation_set`)
 
-`backend/app/services/animation_set.py`, run on source upload when the intent names a contract (independent of the
+`backend/app/services/package_check.py`, run on source upload when the intent names a contract (independent of the
 `EKZA_STUDIO_SOURCE_VALIDATION_ENABLED` flag, P-9) and again on the builder output in `check_rendition`: parse the GLB
 JSON chunk within the existing budgets; apply the `pack.*` rules of §5.1 (Appendix C schema, revision active, target
 view, listed slots, animation references, byte caps); for the rendition, require the builder report to pass every
@@ -680,7 +729,7 @@ hub    → opener {type, event:'submitted', nonce, assetId, revisionId, submissi
               | {type, event:'error', nonce, code, message} | {type, event:'cancelled', nonce}
 ```
 
-The Hub page re-hashes the bytes, re-runs `check_animation_set` client-side for an early message, shows the slot
+The Hub page re-hashes the bytes, re-runs `check_package` client-side for an early message, shows the slot
 table, licence and rights fields, and on **Submit** calls the existing BFF routes (create asset or new revision of
 `hubAssetId`, upload source and thumbnail, submit with the intent). Fallback when the window is blocked or closed:
 *Download package* and Hub's normal upload page, which reads the slot map from the file.
@@ -699,11 +748,11 @@ unsigned collab, a withdrawn consent. Evidence in `docs/evidence/cc-e2e/` of thi
 
 ### 7.9 Files that would be added in `ekza-registry` (not in this PR)
 
-`supabase/migrations/<date>_character_contracts.sql`, `<date>_release_channels.sql`, `<date>_revision_rights.sql`;
-`supabase/tests/character_contracts.sql`; `backend/app/api/contracts.py`, `backend/app/services/animation_set.py`,
+`supabase/migrations/<date>_game_contracts.sql`, `<date>_release_channels.sql`, `<date>_revision_rights.sql`;
+`supabase/tests/game_contracts.sql`; `backend/app/api/contracts.py`, `backend/app/services/package_check.py`,
 `backend/app/services/profile_checks.py` (v2), `backend/app/cli/project_contract.py`; `web/app/routes/studio.submit.tsx`
 and `web/app/lib/studio-submit-bridge.ts`, the owner queue's slot table, the rights-holder approval page;
-`deploy/worker` builder mode; `docs/character-contract.md`, `backend/STUDIO.md`.
+`deploy/worker` builder mode; `docs/game-contract.md`, `backend/STUDIO.md`.
 
 ---
 
@@ -736,10 +785,9 @@ older builds keep the rows untouched and `SCHEMA_VERSION` 4 stays:
 interface TargetRecord {
   readonly id: TargetId;
   readonly character: CharacterId;
-  readonly project: 'omoba';
-  readonly contract: { readonly schema: 'omoba.character-contract.v1'; readonly revision: string };
+  readonly contract: { readonly schema: 'ekza.game-contract.v1'; readonly game: string; readonly revision: string };
   readonly document: string;                      // the canonical contract JSON, pinned
-  readonly hero: string;                          // a view id ('wildspark' | 'any' | …)
+  readonly target: string;                        // a target id ('wildspark' | 'any' | …)
   readonly aliases: Readonly<Record<string, string>>;   // slot → slot whose clip it reuses
   readonly hub: { readonly assetId: string | null; readonly lastRevisionId: string | null };
   readonly deleted: Tombstone;
@@ -857,7 +905,7 @@ contact* (to `targetSecs`), *Use default* (clear). Foot slide, pops and contact 
 ### 8.10 Package export
 
 `file.exportCharacter` gains `profile: 'ekza/omoba-humanoid-v2'` and `clips: 'target'` (the custom slots of the bound
-target, aliases resolved); the writer names each animation by its primary slot, writes `ekza_animation_set_v1`
+target, aliases resolved); the writer names each animation by its primary slot, writes `ekza_package_v1`
 (Appendix C) and `ekza_animation_v1`, and runs the rule set on the written bytes. New built-in profile
 `ekza/omoba-humanoid-v2` — "OMOBA character (VRM 1.0 with your animations)", `requiredClips` = the view's required
 slots (none in v1), rules = the VRM rules + `contract.*`; `MODEL_CHARACTER_PROFILE_IDS` gains it (lifting the
@@ -894,7 +942,7 @@ export, one history group with *Undo all*. Submit is never an agent action (it n
 `EkzaClipMetaV1` gains `label: string | null` (ADR 0010 rev. 3), written only when non-null so the M1 golden bytes stay
 (`io/test/m1-bytes.test.ts`); `normalizeClipMeta` key order updated. Importers restore `slot`, `contactSeconds`,
 `rootMotion`, `tags` and `label` for Studio-written files (tool `ekza-animator`), and an imported package with
-`ekza_animation_set_v1` offers *Restore the OMOBA target* (needs the revision: pinned, bundled or fetched).
+`ekza_package_v1` offers *Restore the OMOBA target* (needs the revision: pinned, bundled or fetched).
 
 ### 8.15 Bundle
 
@@ -908,7 +956,7 @@ headroom ≈ 9 kB, `/autorig` ≈ 8 kB); no new dependencies (`fflate` exists). 
 schemaVersion); the conformance fixtures (§5.3) through the TypeScript rules; metadata determinism with goldens
 unchanged; package and dev-zip determinism; VRMA round-trip of label, slot, contact. `editor-core`: `slotStatuses`
 (each status, aliases, extras), `target.*` undo, contract diff v1→v2. `headless-tests`: sample rig → bind → fill three
-slots → export → read back → `ekza_animation_set_v1` equals expectation; `tooling/omoba-validate.mjs` (opt-in) runs
+slots → export → read back → `ekza_package_v1` equals expectation; `tooling/omoba-validate.mjs` (opt-in) runs
 `validate-motion-pack` on it. `agent-evals`: "fill the missing slots". Playwright: Pro Target panel, Auto-Rig ④
 contract mode, Halo chips and readiness (`webkit-ipad`), Submit with a mocked Hub window (`postMessage` both ways,
 origin rejection, blocked window fallback), offline contract (no network at all), the privacy test still passing on
@@ -988,11 +1036,11 @@ Sizes in agent-days (S ≤ 3, M 4–6, L 7–10). Each package is a branch and P
 
 | WP | Repo | Scope | Size | Depends | Owner OK needed |
 |---|---|---|---|---|---|
-| **C0** contract + exporter | omoba-bevy | Rust generator test + `export_character_contract.py` + committed snapshot, JSON Schema, rule table, conformance fixtures v1, `docs/character-contract.md`; C0b default preview VRMAs (optional) | M (5; +3 C0b) | — | no for `dev` (agents merge their own PRs after green tests); the contract licence CC0 (`CC-Q3`) |
+| **C0** contract + exporter | omoba-bevy | Rust generator test + `export_character_contract.py` + committed snapshot, JSON Schema, rule table, conformance fixtures v1, `docs/game-contract.md`; C0b default preview VRMAs (optional) | M (5; +3 C0b) | — | no for `dev` (agents merge their own PRs after green tests); the contract licence CC0 (`CC-Q3`) |
 | **C1** Studio read + checklist | ekza-studio | `io/src/contract` parser, `sync-contract.mjs`, bundled snapshot, `ekza.targets`, `target.*` operators, `slotStatuses`, open vocabulary, Pro Target panel (bind, assign, clear, alias, A/B), Validation area `animation` | M (6) | C0 (snapshot; a draft snapshot unblocks it) | — |
 | **C2** package + lints | ekza-studio | TypeScript rule set on document and bytes, fixtures runner, fixes, timeline markers, `target.slot.create`, `ekza/omoba-humanoid-v2`, package writer + slot map, dev zip with the −Z turn, `EkzaClipMetaV1.label` + round-trip, a package fixture for OMOBA | L (8) | C0, C1 | — |
 | **C3** engine slot resolution + passport | omoba-bevy | `SlotKey` on cues, pack loading, `resolve`, timing from the resolved clip, per-slot fallback, preview + party stage, `motion_pack.rs` + `validate-motion-pack`, v2 profile in `validate_humanoid_profile`, SDK v2 selector + merge, server admission, test channel flag, old-client check | L (9) | C0 | OMOBA `main` merge and release |
-| **C4** builder + profile + registry | omoba-bevy + ekza-registry | builder `omoba-humanoid-glb-v2` (Rust passport inside), v1 still built; migrations (contracts, channels, builder enum, profile row, accepts, requirements), public contract routes, owner routes, CLI, `check_animation_set`, `check_rendition` v2 | L (8) | C0, C3 (passport) | **prod migrations**, **prod worker update**, registry deploy |
+| **C4** builder + profile + registry | omoba-bevy + ekza-registry | builder `omoba-humanoid-glb-v2` (Rust passport inside), v1 still built; migrations (contracts, channels, builder enum, profile row, accepts, requirements), public contract routes, owner routes, CLI, `check_package`, `check_rendition` v2 | L (8) | C0, C3 (passport) | **prod migrations**, **prod worker update**, registry deploy |
 | **C5** submit + channels + rights | ekza-registry + ekza-studio | Hub submit page + `ekza-studio-submit/v1`, Studio Submit + `recordSubmission`, release channels test/live + promote, owner queue slot table, revision licence snapshots, `revision_rights`, rights-holder page + SQL gate; (C5b later: PKCE + `studio-upload` + `/v1/creator/*`) | L (8; C5b +9) | C2, C4 | **legal terms**, prod Hub deploy, prod editor-origin allow-list; C5b: prod PKCE/CORS |
 | **C6** Auto-Rig + Halo + agent UX | ekza-studio | Auto-Rig ④/⑤ contract mode, Halo destination from document, slot chips, readiness rows, *Fill for OMOBA* recipe, Thread markers, diff card, agent tools + prompt, docs (§8.17) | L (7) | C1, C2; Halo T6a/T11 | Studio release (as usual) |
 | **C7** end-to-end on the dev contour | all | §7.8 plan, four flows, negative cases, evidence | M (4) | C3, C4, C5 (C6 for the Halo flows) | dev DNS rename (`hub.dev`), editor dev origin; then prod rollout |
@@ -1017,7 +1065,7 @@ through Hub; C7 proves it hosted.
 | P-6 | Studio copy "OMOBA plays its own motion library on your VRM" (`io/src/profiles/character.ts:3-19`, banner, problem text; Auto-Rig ④ note). | Contradicts the contract once C3 ships; true until then. | Change with the profile's acceptance (`index.json` flag). | agent |
 | P-7 | Dev contour: the builder is pinned to `omoba-bevy` `07aa408` (pre-#106); the dev Hub sits at `studio.dev.ekza.io`, the name an editor dev origin would take. | Blocks C7. | `DEV_BEVY_REF`; rename the dev Hub to `hub.dev.ekza.io` and give the editor a dev origin. | owner (DNS) + agent |
 | P-8 | Ekza is off in OMOBA's ru/cn market builds (`feat/market-profiles`). | Collab characters are not available there. | Product decision; nothing to build. | owner |
-| P-9 | Registry source validation is behind `EKZA_STUDIO_SOURCE_VALIDATION_ENABLED` (default off). | `check_animation_set` must not depend on it. | Run it whenever the intent names a contract (§7.3). | agent |
+| P-9 | Registry source validation is behind `EKZA_STUDIO_SOURCE_VALIDATION_ENABLED` (default off). | `check_package` must not depend on it. | Run it whenever the intent names a contract (§7.3). | agent |
 | P-10 | `M-AI-INT-9`: the bridge's "hosted editor" origin `studio.ekza.io` vs NAME-2. | The submit allow-lists need the same answer. | One decision for both (`CC-Q12`). | owner |
 | P-11 | The v1 builder's Python check mirrors the Rust passport (`ARCHITECTURE.md:241-242`). | Drift risk for motion rules. | The v2 builder runs the Rust binary (§6.5). | agent |
 
@@ -1038,7 +1086,7 @@ through Hub; C7 proves it hosted.
 | R9 | Legal: collab terms, consent withdrawal, already-downloaded copies. | Per-revision rights rows, SQL gate, takedown; terms text by the owner (`CC-Q5`, `CC-Q13`). |
 | R10 | The Hub window is blocked or its opener severed (COOP). | Open synchronously on the tap; neither page sets COOP `same-origin` (Studio sets none today); *Download package* fallback. |
 | R11 | `hips` as a scene root breaks the −Z turn for embedded clips. | Builder inserts a parent; fixture case. |
-| R12 | A basic clip longer than the shortest attack interval is cut. | `clip.basic-interval` warning; target = default play time. |
+| R12 | A basic clip longer than the shortest attack interval is cut. | `clip.min-interval` warning; target = default play time. |
 | R13 | Mobile memory per avatar with up to 48 extra clips (unmeasured; cache never evicted). | Byte cap 4 MiB of animation data; measure in C3 on the Android build. |
 | R14 | Held weapons: a custom pose may not read as holding the class weapon (the handheld follows the hand socket; cast accents sit at fixed heights). | `handheld` per slot in the contract, shown in Studio with a weapon ghost (later); owner review. |
 
@@ -1053,6 +1101,7 @@ before live · `CC-Q6` one combined curator + owner step for OMOBA characters ·
 characters · `CC-Q10` multi-hero packages · `CC-Q11` declared playback rate/start per slot · `CC-Q12` final hosted
 origins (editor, Hub, dev) · `CC-Q13` withdrawal and takedown policy · `CC-Q14` hero roster changes (a removed
 skill's slots). Each has a default in [DECISIONS-OPEN §Q](DECISIONS-OPEN.md#q-character-contract-defaults-chosen-2026-10-24).
+The protocol's own questions (`GP-Q1` … `GP-Q12`) are in GAME-PROTOCOL-SPEC §15 and DECISIONS-OPEN §R.
 
 ---
 
@@ -1073,222 +1122,221 @@ skill's slots). Each has a default in [DECISIONS-OPEN §Q](DECISIONS-OPEN.md#q-c
 
 ---
 
-## Appendix A — JSON Schema `omoba.character-contract.v1`
+---
 
-Draft 2020-12. It lives in OMOBA as `shared/assets/catalog/character-contract.schema.json`; Studio's gate validates
-its bundled snapshot against a copy. The schema checks shape; cross-references (every view slot exists, aliases and
-`sharesDefaultWith` point at existing slots, the revision recomputes) are checked in code by every reader.
+## 15. Mapping to the game protocol (v0.2)
+
+v0.2 makes this document the **OMOBA profile** of the [Ekza Game Protocol](GAME-PROTOCOL-SPEC.md) (EGP 1.0,
+[ADR 0025](adr/0025-game-protocol.md)). The protocol owns the document shapes, the rule vocabulary, the messages and
+the conformance levels; this profile owns OMOBA's data, its `ext` shapes, its slot grammar, one namespaced rule and its
+fixtures.
+
+### 15.1 What changed from v0.1, and why
+
+| v0.1 | v0.2 | Why the protocol needs it |
+|---|---|---|
+| document `omoba.character-contract.v1`, `schemaVersion: 1`, `projectId` | `ekza.game-contract.v1`, `schemaVersion "1.0"`, `minReaderVersion "1.0"`, `game {id, name}`, `profiles {used: ["omoba.character.v1"], required: []}` | one document schema for every game; OMOBA's specifics move under `ext` so generic tools serve it (GP §3.2) |
+| `heroes[]` views | `targets[]` with `kind character \| any`, explicit `sections` (base, basic, Q, W, E, R, gear) and `accepts` offers | targets of any game; offers map 1:1 to Hub requirements |
+| slot `kind loop\|action\|hold`, `contact`, `telegraph.secs` | slot `kind: "animation"`; `animation.playback`, `animation.markers.contact`, `animation.leadInSecs` | slot kinds (animation, asset, socket); named markers instead of one contact field |
+| slot `default {motion, durationSecs, …}` | `default {name, playSecs, loop, markers, preview}` + `ext.row` | the generic default is what any tool shows; the row playback is OMOBA's |
+| `package` | `packaging.character` (+ `packaging.asset-pack` in GP5) | packaging per package kind |
+| `asset.extras.ekza_animation_set_v1` (`schema: 1`, `contactSecs`) | `asset.extras.ekza_package_v1` (`schema: "ekza.package.v1"`, `kind`, `markers.contact`, `requires`) | one manifest for every package kind (characters and gear) |
+| rules `pack.extras`, `pack.animation-ref`, `clip.contact`, `clip.basic-interval`; `scope pack\|clip` | `pack.manifest`, `pack.ref`, `clip.markers`, `clip.min-interval`; `scope package\|animation\|…`; `checkedBy`; new `pack.target`, `rig.humanoid` | one core vocabulary for every game; OMOBA's numbers become parameters |
+| files `character-contract*.json`, `export_character_contract.py`, `character_contract_is_current` | `game-contract*.json`, `export_game_contract.py`, `game_contract_is_current` (GP §12.3) | the document is the game's contract, not only characters' |
+| registry `check_animation_set`, profile key `animationSet` | `check_package`, `manifest: "ekza_package_v1"` | generic structural check |
+
+Unchanged: every decision D1–D12 of v0.1 in substance — OMOBA owns and generates the contract; slots keyed by
+gameplay identity; 101 custom-able slots; defaults never shipped; custom clips play as authored; one VRM per
+character package; one rule table implemented in TypeScript and Rust with shared fixtures; hero-independent avatars;
+Hub's contract registry, channels and v2 profile; the Hub submit page; rights per revision; Studio's one binding and
+one status function.
+
+### 15.2 Where each v0.1 field lives now
+
+The field-by-field table is GAME-PROTOCOL-SPEC §12.2. In short: generic fields (`label`, `customizable`,
+`customizableFrom`, `reserved`, `required`, `window`, `inPlace`, `loop`, `minIntervalSecs`, `sharesDefaultWith`,
+`alternatesWith`, `usedBy`, the `contact` requirement as `markers.contact`) sit on the slot; OMOBA fields (`group`,
+`role`, `phase`, `edgeReleased`, the default's `row` playback, `telegraph`, `handheld`, `skill`, `class`,
+`weaponMode`) sit in the slot's `ext["omoba.character.v1"]`; the engine `timing`, motion library and presentation
+hashes, the protocol version and `customPlayback` sit in the document's `ext`; `role`, `basicAttack`, `kit` and the
+default `handheld` sit in each target's `ext`. Appendix A is the profile schema for those `ext` objects; Appendix B is
+the Wildspark example in the new shape.
+
+### 15.3 Asset slots in the OMOBA profile (GP5)
+
+OMOBA's `omoba.asset-catalog.v1` requirements become asset slots of the same contract, keyed by the requirement ids
+the catalogue already publishes, so the owner sees a hero's whole kit — clips and objects — in one checklist:
+
+| Slot | Asset role | v1 | Binding | Offer |
+|---|---|---|---|---|
+| `wildspark.handheld.repeater` | handheld, socket `hand.right` | custom-able | root `WildsparkSetRepeater`, part `WildsparkRotor`, anchor `muzzle` | `wildspark.handheld.set` (`asset-pack`, `mustFill` both guns) |
+| `wildspark.handheld.launcher` | handheld | custom-able | root `WildsparkSetLauncher`, part `WildsparkSlide`, anchor `muzzle` | same |
+| `wildspark.projectile.basic-rocket` | projectile | fixed (engine-owned) | — | — |
+| `wildspark.projectile.ultimate` | projectile | planned (GP7) | anchor `trail` | the gear offer, when opened |
+| `wildspark.prop.trap` | deployable | planned (GP7) | parts `WildsparkTrapBase`, `WildsparkJawLeft`, `WildsparkJawRight` | the gear offer, when opened |
+| `wildspark.effect.shockline`, `wildspark.effect.explosion` | effect | fixed (procedural) | — | — |
+| `<class>.handheld.<item>` for warrior, adventurer, ranger, dawnweaver, riftshot | handheld | custom-able | the item's own root | one offer per class |
+
+Asset budgets come from `docs/handheld-weapons.md` and `docs/wildspark-skin-sets.md`: 8 MiB, ≤ 64 nodes, ≤ 16
+meshes, no skins, no animations (the game moves named parts), textures ≤ 4096² and ≤ 32 MP in total, PNG or JPEG,
+emissive strength ≤ 1, only `KHR_materials_unlit` and `KHR_texture_transform` required, bounds = the baseline ± 10 %.
+The grip stays `asset.extras.ekza_handheld_v1`, checked by the profile's one namespaced rule **`omoba.asset.grip`**
+(bone `rightHand | leftHand`, offset ≤ 0.3 m, rotation ≤ 360°, scale 0.25–2). Existing sets without an
+`ekza_package_v1` manifest stay valid: `packaging.asset-pack.binding` is `manifest-or-names`, so Hub and the game bind
+them by `rootName` and read the muzzle hint `omoba_wildspark_set_v1` as before. C0 emits animation slots only;
+GP5 adds these slots as a compatible revision (adding slots never breaks a reader).
+
+### 15.4 Profile identity
+
+| | |
+|---|---|
+| Profile id | `omoba.character.v1` (used, not required) |
+| Profile schema | `shared/assets/catalog/omoba.character.v1.schema.json` (Appendix A) |
+| Slot grammar | §3.6 for animations; `<classId>.(handheld\|projectile\|prop\|effect).<name>` for assets |
+| Namespaced rules | `omoba.asset.grip` (GP5) |
+| Fixtures | `shared/assets/catalog/game-contract-fixtures/v1/` (Appendix D) |
+| Conformance target | G2 with C3 + C4, G3 with the SDK `gp` (GP4) and usage reports |
+
+## Appendix A — JSON Schema of the profile `omoba.character.v1`
+
+Draft 2020-12. It lives in OMOBA as `shared/assets/catalog/omoba.character.v1.schema.json`, next to a pinned copy of the protocol's `ekza.game-contract.v1` schema (GAME-PROTOCOL-SPEC Appendix A). Readers apply `$defs/document` to the document's `ext["omoba.character.v1"]`, `$defs/target` to each target's, and `$defs/animationSlot` or `$defs/assetSlot` to each slot's by the slot's `kind`. Cross-references (every target slot exists, `sharesDefaultWith` and `alternatesWith` point at existing slots, `row.motion` names a motion of the library whose hash is in the document `ext`) are checked in code.
 
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://omoba.io/schemas/omoba.character-contract.v1.json",
-  "title": "omoba.character-contract.v1",
-  "type": "object",
-  "additionalProperties": false,
-  "required": ["schema", "schemaVersion", "projectId", "revision", "previousRevision", "license", "source",
-               "package", "rig", "timing", "rules", "slots", "heroes"],
-  "properties": {
-    "schema": { "const": "omoba.character-contract.v1" },
-    "schemaVersion": { "const": 1 },
-    "projectId": { "const": "omoba" },
-    "revision": { "$ref": "#/$defs/revision" },
-    "previousRevision": { "oneOf": [{ "$ref": "#/$defs/revision" }, { "type": "null" }] },
-    "license": { "type": "string", "minLength": 1, "maxLength": 64 },
-    "source": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["commit", "exporter", "inputsSha256", "gameplayRevision", "presentationSha256", "motionLibrary",
-                   "protocolVersion"],
+  "$id": "https://omoba.io/schemas/omoba.character.v1.json",
+  "title": "omoba.character.v1",
+  "description": "The OMOBA profile of the Ekza Game Protocol: the shape of `ext[\"omoba.character.v1\"]` at each position of an `ekza.game-contract.v1` document. Readers apply $defs/document to the document's ext, $defs/target to each target's, $defs/animationSlot and $defs/assetSlot to each slot's by its kind.",
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,47}$" },
+    "itemId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+    "range": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+    "secs": { "type": "number", "minimum": 0, "maximum": 60 },
+    "handheldRef": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object", "additionalProperties": false, "required": ["item", "byMode", "bone", "muzzleWindowSecs"],
+          "properties": {
+            "item": { "$ref": "#/$defs/itemId" },
+            "byMode": { "type": "object", "additionalProperties": { "$ref": "#/$defs/itemId" } },
+            "bone": { "enum": ["rightHand", "leftHand"] },
+            "muzzleWindowSecs": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/range" }] }
+          }
+        }
+      ]
+    },
+    "document": {
+      "type": "object", "additionalProperties": false,
+      "required": ["gameplayRevision", "presentationSha256", "motionLibrary", "protocolVersion", "timing", "customPlayback"],
       "properties": {
-        "commit": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
-        "exporter": { "type": "string", "maxLength": 200 },
-        "inputsSha256": { "$ref": "#/$defs/sha256" },
         "gameplayRevision": { "type": "string", "maxLength": 64 },
         "presentationSha256": { "$ref": "#/$defs/sha256" },
         "motionLibrary": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["schemaVersion", "sha256", "clips"],
+          "type": "object", "additionalProperties": false, "required": ["schemaVersion", "sha256", "clips"],
           "properties": {
             "schemaVersion": { "type": "integer", "minimum": 1 },
             "sha256": { "$ref": "#/$defs/sha256" },
             "clips": { "type": "integer", "minimum": 1, "maximum": 256 }
           }
         },
-        "protocolVersion": { "type": "integer", "minimum": 1 }
-      }
-    },
-    "package": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["extrasKey", "sourceFormats", "rendition", "slotNaming", "customPlayback"],
-      "properties": {
-        "extrasKey": { "const": "ekza_animation_set_v1" },
-        "sourceFormats": { "type": "array", "minItems": 1, "uniqueItems": true,
-                           "items": { "enum": ["vrm1", "vrm0"] } },
-        "rendition": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["platform", "profile", "version"],
+        "protocolVersion": { "type": "integer", "minimum": 1 },
+        "timing": {
+          "type": "object", "additionalProperties": false,
+          "required": ["blendSecs", "idleGraceSecs", "facingHoldSecs", "contactLimitSecs", "rowRate", "rowStart", "fitRate",
+                       "unseenHoldSecs", "freshSecs", "maxGapSecs", "deathCut", "movementInterruptsAction", "newActionRestarts"],
           "properties": {
-            "platform": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,62}$" },
-            "profile": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,62}$" },
-            "version": { "type": "integer", "minimum": 1 }
+            "blendSecs": { "$ref": "#/$defs/secs" },
+            "idleGraceSecs": { "$ref": "#/$defs/secs" },
+            "facingHoldSecs": {
+              "type": "object", "additionalProperties": false, "required": ["basic", "skill"],
+              "properties": { "basic": { "$ref": "#/$defs/secs" }, "skill": { "$ref": "#/$defs/secs" } }
+            },
+            "contactLimitSecs": { "$ref": "#/$defs/secs" },
+            "rowRate": { "$ref": "#/$defs/range" },
+            "rowStart": { "$ref": "#/$defs/range" },
+            "fitRate": { "$ref": "#/$defs/range" },
+            "unseenHoldSecs": { "$ref": "#/$defs/secs" },
+            "freshSecs": { "$ref": "#/$defs/secs" },
+            "maxGapSecs": { "$ref": "#/$defs/secs" },
+            "deathCut": { "const": "immediate" },
+            "movementInterruptsAction": { "type": "boolean" },
+            "newActionRestarts": { "type": "boolean" }
           }
         },
-        "slotNaming": { "const": "animation-name-equals-slot-id" },
         "customPlayback": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["rate", "start"],
+          "type": "object", "additionalProperties": false, "required": ["rate", "start"],
           "properties": { "rate": { "const": 1 }, "start": { "const": 0 } }
         }
       }
     },
-    "rig": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["kind", "restPose", "facing", "requiredBones", "requiredBonesVrm0", "drivenBones", "maxHumanoidBones",
-                   "maxNodes", "uniformScale", "fingers", "thumbsRecommended", "legLengthFrom", "referenceLegLengthM"],
+    "target": {
+      "type": "object", "additionalProperties": false, "required": ["heroKind", "role", "basicAttack", "kit", "handheld"],
       "properties": {
-        "kind": { "const": "vrm-humanoid" },
-        "restPose": { "const": "t-pose" },
-        "facing": { "const": "as-vrm-spec" },
-        "requiredBones": { "$ref": "#/$defs/boneList" },
-        "requiredBonesVrm0": { "$ref": "#/$defs/boneList" },
-        "drivenBones": { "$ref": "#/$defs/boneList" },
-        "maxHumanoidBones": { "type": "integer", "minimum": 15, "maximum": 64 },
-        "maxNodes": { "type": "integer", "minimum": 1, "maximum": 4096 },
-        "uniformScale": { "enum": ["humanoid-bones-and-ancestors", "none"] },
-        "fingers": { "enum": ["optional", "required"] },
-        "thumbsRecommended": { "type": "boolean" },
-        "legLengthFrom": { "const": "hips-to-feet" },
-        "referenceLegLengthM": { "type": "number", "exclusiveMinimum": 0 }
-      }
-    },
-    "timing": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["blendSecs", "idleGraceSecs", "facingHoldSecs", "contactLimitSecs", "rowRate", "rowStart", "fitRate",
-                   "unseenHoldSecs", "freshSecs", "maxGapSecs", "deathCut", "movementInterruptsAction",
-                   "newActionRestarts"],
-      "properties": {
-        "blendSecs": { "$ref": "#/$defs/secs" },
-        "idleGraceSecs": { "$ref": "#/$defs/secs" },
-        "facingHoldSecs": {
-          "type": "object", "additionalProperties": false, "required": ["basic", "skill"],
-          "properties": { "basic": { "$ref": "#/$defs/secs" }, "skill": { "$ref": "#/$defs/secs" } }
-        },
-        "contactLimitSecs": { "$ref": "#/$defs/secs" },
-        "rowRate": { "$ref": "#/$defs/range" },
-        "rowStart": { "$ref": "#/$defs/range" },
-        "fitRate": { "$ref": "#/$defs/range" },
-        "unseenHoldSecs": { "$ref": "#/$defs/secs" },
-        "freshSecs": { "$ref": "#/$defs/secs" },
-        "maxGapSecs": { "$ref": "#/$defs/secs" },
-        "deathCut": { "enum": ["immediate"] },
-        "movementInterruptsAction": { "type": "boolean" },
-        "newActionRestarts": { "type": "boolean" }
-      }
-    },
-    "rules": {
-      "type": "array",
-      "minItems": 1,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["id", "severity", "scope", "params"],
-        "properties": {
-          "id": { "type": "string", "pattern": "^(pack|clip)\\.[a-z][a-z0-9-]{1,40}$" },
-          "severity": { "enum": ["error", "warning"] },
-          "scope": { "enum": ["pack", "clip"] },
-          "params": { "type": "object" }
-        }
-      }
-    },
-    "slots": {
-      "type": "object",
-      "minProperties": 3,
-      "propertyNames": { "$ref": "#/$defs/slotId" },
-      "additionalProperties": { "$ref": "#/$defs/slot" }
-    },
-    "heroes": {
-      "type": "array",
-      "minItems": 1,
-      "items": { "$ref": "#/$defs/hero" }
-    }
-  },
-  "$defs": {
-    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-    "revision": { "type": "string", "pattern": "^sha256-[0-9a-f]{64}$" },
-    "secs": { "type": "number", "minimum": 0, "maximum": 60 },
-    "range": { "type": "array", "prefixItems": [{ "type": "number" }, { "type": "number" }], "minItems": 2, "maxItems": 2 },
-    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,47}$" },
-    "slotId": {
-      "type": "string",
-      "maxLength": 64,
-      "pattern": "^(base\\.(idle|run|walk|death)|basic\\.[a-z][a-z0-9_]{0,31}\\.([0-9]|[a-z][a-z0-9_]{0,15}\\.[0-9])|skill\\.[a-z][a-z0-9_]{0,47}\\.(release|recast|windup))$"
-    },
-    "boneList": { "type": "array", "uniqueItems": true, "maxItems": 64,
-                  "items": { "type": "string", "pattern": "^[a-z][A-Za-z]{1,31}$" } },
-    "default": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["motion", "durationSecs", "looping", "contactSecs", "rate", "start", "playSecs",
-                   "effectiveContactSecs", "standInFor"],
-      "properties": {
-        "motion": { "$ref": "#/$defs/id" },
-        "durationSecs": { "type": "number", "exclusiveMinimum": 0, "maximum": 10 },
-        "looping": { "type": "boolean" },
-        "contactSecs": { "type": ["number", "null"], "minimum": 0 },
-        "rate": { "type": "number", "minimum": 0.5, "maximum": 2 },
-        "start": { "type": "number", "minimum": 0, "maximum": 0.8 },
-        "playSecs": { "type": "number", "exclusiveMinimum": 0 },
-        "effectiveContactSecs": { "type": ["number", "null"] },
-        "standInFor": { "type": ["string", "null"], "maxLength": 64 }
-      }
-    },
-    "slot": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["group", "role", "label", "kind", "phase", "edgeReleased", "customizable", "customizableFrom",
-                   "reserved", "required", "default", "window", "inPlace", "loop", "contact", "telegraph", "handheld",
-                   "sharesDefaultWith", "alternatesWith", "usedBy"],
-      "properties": {
-        "group": { "enum": ["base", "basic", "skill"] },
-        "role": { "enum": ["idle", "run", "walk", "death", "basic", "release", "recast", "windup"] },
-        "label": { "type": "string", "minLength": 1, "maxLength": 80 },
-        "kind": { "enum": ["loop", "action", "hold"] },
-        "phase": { "enum": ["locomotion", "state", "instant", "warn_fire", "fuse", "parry"] },
-        "edgeReleased": { "type": "boolean" },
-        "customizable": { "type": "boolean" },
-        "customizableFrom": { "type": ["string", "null"], "pattern": "^[0-9]+(\\.[0-9]+)?$" },
-        "reserved": { "type": "boolean" },
-        "required": { "type": "boolean" },
-        "default": { "$ref": "#/$defs/default" },
-        "window": {
-          "type": "object", "additionalProperties": false, "required": ["minSecs", "targetSecs", "maxSecs"],
-          "properties": {
-            "minSecs": { "type": "number", "exclusiveMinimum": 0 },
-            "targetSecs": { "type": "number", "exclusiveMinimum": 0 },
-            "maxSecs": { "type": "number", "exclusiveMinimum": 0, "maximum": 10 }
-          }
-        },
-        "inPlace": { "type": "boolean" },
-        "loop": { "type": "boolean" },
-        "contact": {
+        "heroKind": { "enum": ["class", "any"] },
+        "role": { "type": ["string", "null"], "maxLength": 32 },
+        "basicAttack": {
           "oneOf": [
             { "type": "null" },
             {
-              "type": "object", "additionalProperties": false, "required": ["required", "maxSecs", "targetSecs"],
+              "type": "object", "additionalProperties": false,
+              "required": ["rangeM", "cooldownSecs", "attackRateCap", "minIntervalSecs"],
               "properties": {
-                "required": { "type": "boolean" },
-                "maxSecs": { "type": ["number", "null"], "minimum": 0 },
-                "targetSecs": { "type": ["number", "null"], "minimum": 0 }
+                "rangeM": { "type": "number", "exclusiveMinimum": 0 },
+                "cooldownSecs": { "type": "number", "exclusiveMinimum": 0 },
+                "attackRateCap": { "type": "number", "minimum": 1 },
+                "minIntervalSecs": { "type": "number", "exclusiveMinimum": 0 }
               }
             }
           ]
+        },
+        "kit": {
+          "type": "array", "maxItems": 4,
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["key", "skill", "name"],
+            "properties": {
+              "key": { "enum": ["q", "w", "e", "r"] },
+              "skill": { "$ref": "#/$defs/id" },
+              "name": { "type": "string", "minLength": 1, "maxLength": 64 }
+            }
+          }
+        },
+        "handheld": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object", "additionalProperties": false, "required": ["default", "byMode", "bone"],
+              "properties": {
+                "default": { "$ref": "#/$defs/itemId" },
+                "byMode": { "type": "object", "additionalProperties": { "$ref": "#/$defs/itemId" } },
+                "bone": { "enum": ["rightHand", "leftHand"] }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "animationSlot": {
+      "type": "object", "additionalProperties": false,
+      "required": ["group", "role", "phase", "edgeReleased", "row", "telegraph", "handheld"],
+      "properties": {
+        "group": { "enum": ["base", "basic", "skill"] },
+        "role": { "enum": ["idle", "run", "walk", "death", "basic", "release", "recast", "windup"] },
+        "phase": { "enum": ["locomotion", "state", "instant", "warn_fire", "fuse", "parry"] },
+        "edgeReleased": { "type": "boolean" },
+        "row": {
+          "type": "object", "additionalProperties": false,
+          "required": ["motion", "durationSecs", "contactSecs", "rate", "start", "effectiveContactSecs", "standInFor"],
+          "properties": {
+            "motion": { "$ref": "#/$defs/id" },
+            "durationSecs": { "type": "number", "exclusiveMinimum": 0, "maximum": 10 },
+            "contactSecs": { "type": ["number", "null"], "minimum": 0 },
+            "rate": { "type": "number", "minimum": 0.5, "maximum": 2 },
+            "start": { "type": "number", "minimum": 0, "maximum": 0.8 },
+            "effectiveContactSecs": { "type": ["number", "null"] },
+            "standInFor": { "type": ["string", "null"], "maxLength": 64 }
+          }
         },
         "telegraph": {
           "oneOf": [
@@ -1303,89 +1351,45 @@ its bundled snapshot against a copy. The schema checks shape; cross-references (
             }
           ]
         },
-        "handheld": {
-          "oneOf": [
-            { "type": "null" },
-            {
-              "type": "object", "additionalProperties": false, "required": ["item", "byMode", "bone", "muzzleWindowSecs"],
-              "properties": {
-                "item": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
-                "byMode": { "type": "object", "additionalProperties": { "type": "string" } },
-                "bone": { "type": "string" },
-                "muzzleWindowSecs": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/range" }] }
-              }
-            }
-          ]
-        },
-        "sharesDefaultWith": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/slotId" } },
-        "alternatesWith": { "type": "array", "uniqueItems": true, "maxItems": 1, "items": { "$ref": "#/$defs/slotId" } },
-        "usedBy": { "type": "array", "minItems": 1, "uniqueItems": true,
-                    "items": { "type": "string", "pattern": "^(\\*|[a-z][a-z0-9_]{0,31})$" } },
+        "handheld": { "$ref": "#/$defs/handheldRef" },
         "skill": { "$ref": "#/$defs/id" },
         "class": { "$ref": "#/$defs/id" },
-        "minIntervalSecs": { "type": "number", "exclusiveMinimum": 0 },
         "weaponMode": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,15}$" }
       },
       "allOf": [
         { "if": { "properties": { "group": { "const": "skill" } } }, "then": { "required": ["skill"] } },
-        { "if": { "properties": { "group": { "const": "basic" } } }, "then": { "required": ["class", "minIntervalSecs"] } },
-        { "if": { "properties": { "kind": { "const": "loop" } } }, "then": { "properties": { "loop": { "const": true } } } },
-        { "if": { "properties": { "customizable": { "const": true } } },
-          "then": { "properties": { "customizableFrom": { "type": "string" } } } }
+        { "if": { "properties": { "group": { "const": "basic" } } }, "then": { "required": ["class"] } }
       ]
     },
-    "hero": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "kind", "name", "role", "requirementId", "basicAttack", "kit", "handheld", "slots"],
+    "assetSlot": {
+      "type": "object", "additionalProperties": false,
+      "required": ["catalogRole", "status", "item", "model", "uses", "baseline", "gripMetadata"],
       "properties": {
-        "id": { "$ref": "#/$defs/id" },
-        "kind": { "enum": ["class", "any"] },
-        "name": { "type": "string", "minLength": 1, "maxLength": 64 },
-        "role": { "type": ["string", "null"], "maxLength": 32 },
-        "requirementId": { "type": "string", "maxLength": 128, "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)*$" },
-        "basicAttack": {
-          "oneOf": [
-            { "type": "null" },
-            {
-              "type": "object", "additionalProperties": false,
-              "required": ["rangeM", "cooldownSecs", "attackRateCap", "minIntervalSecs", "slots"],
-              "properties": {
-                "rangeM": { "type": "number", "exclusiveMinimum": 0 },
-                "cooldownSecs": { "type": "number", "exclusiveMinimum": 0 },
-                "attackRateCap": { "type": "number", "minimum": 1 },
-                "minIntervalSecs": { "type": "number", "exclusiveMinimum": 0 },
-                "slots": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/slotId" } }
-              }
-            }
-          ]
-        },
-        "kit": {
-          "type": "array", "maxItems": 4,
+        "catalogRole": { "enum": ["held_weapon", "projectile", "world_prop", "engine_effect"] },
+        "status": { "enum": ["supported", "planned", "engine_owned"] },
+        "item": { "oneOf": [{ "$ref": "#/$defs/itemId" }, { "type": "null" }] },
+        "model": { "oneOf": [{ "enum": ["rocket", "trap", "hook", "lantern", "orb"] }, { "type": "null" }] },
+        "uses": {
+          "type": "array", "minItems": 1, "maxItems": 16,
           "items": {
-            "type": "object", "additionalProperties": false, "required": ["key", "skill", "name", "slots"],
+            "type": "object", "additionalProperties": false,
             "properties": {
-              "key": { "enum": ["q", "w", "e", "r"] },
-              "skill": { "$ref": "#/$defs/id" },
-              "name": { "type": "string", "minLength": 1, "maxLength": 64 },
-              "slots": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/slotId" } }
-            }
+              "skillId": { "$ref": "#/$defs/id" },
+              "basicAttackId": { "$ref": "#/$defs/id" },
+              "phase": { "type": "string", "pattern": "^[a-z][a-z_]{0,31}$" },
+              "state": { "type": "string", "pattern": "^[a-z][a-z_]{0,31}$" }
+            },
+            "oneOf": [{ "required": ["skillId"] }, { "required": ["basicAttackId"] }]
           }
         },
-        "handheld": {
-          "oneOf": [
-            { "type": "null" },
-            {
-              "type": "object", "additionalProperties": false, "required": ["default", "byMode", "bone"],
-              "properties": {
-                "default": { "type": "string" },
-                "byMode": { "type": "object", "additionalProperties": { "type": "string" } },
-                "bone": { "type": "string" }
-              }
-            }
-          ]
+        "baseline": {
+          "type": "object", "additionalProperties": false, "required": ["kind", "path"],
+          "properties": {
+            "kind": { "enum": ["model", "reference", "procedural"] },
+            "path": { "type": ["string", "null"], "maxLength": 200 }
+          }
         },
-        "slots": { "type": "array", "minItems": 3, "uniqueItems": true, "items": { "$ref": "#/$defs/slotId" } }
+        "gripMetadata": { "oneOf": [{ "const": "ekza_handheld_v1" }, { "type": "null" }] }
       }
     }
   }
@@ -1394,282 +1398,295 @@ its bundled snapshot against a copy. The schema checks shape; cross-references (
 
 ## Appendix B — Worked example: Wildspark and "any hero"
 
-Output of the prototype exporter on `omoba-bevy@dev` data, trimmed to the `any` and `wildspark` views (and the
-reserved `base.walk`). It validates against Appendix A. The full roster (107 slots, 18 views, about 100 kB) has the
-same shape. `revision` and `inputsSha256` are illustrative.
+The prototype exporter's output on `omoba-bevy@dev` data, reshaped to `ekza.game-contract.v1` (GAME-PROTOCOL-SPEC §12.2) and trimmed to the `any` and `wildspark` targets (and the reserved `base.walk`); Wildspark's asset slots are those of §15.3 (GP5), shown here so the whole kit is in one place. It validates against the protocol schema and Appendix A. The full roster has the same shape (113 slots, 18 targets, about 150 kB canonical). `revision` is recomputed for this trimmed document; `inputsSha256` is illustrative.
 
 ```json
 {
-  "schema": "omoba.character-contract.v1",
-  "schemaVersion": 1,
-  "projectId": "omoba",
-  "revision": "sha256-89fd2e42b41fb844dada4c48c028f8e1523dfc9f6a1ebc977efb5c636f7782cb",
+  "schema": "ekza.game-contract.v1",
+  "schemaVersion": "1.0",
+  "minReaderVersion": "1.0",
+  "game": {"id": "omoba", "name": "OMOBA"},
+  "revision": "sha256-ca27905176c053491a6e9974c31fd0022ce5c5ea2adea066e4b77f07173ffea7",
   "previousRevision": null,
   "license": "CC0-1.0",
-  "source": {"commit": "6d34f98", "exporter": "scripts/export_character_contract.py", "inputsSha256": "db0e37eec0499b593d08965e342ea0a69699ff7007af41a6f8e3eee05c300d03", "gameplayRevision": "standard-kits-8", "presentationSha256": "fe544cd0df722b9dd21753804c77091e3d8ddb64e863aebbfcfb3f0db4958ae4", "motionLibrary": {"schemaVersion": 1, "sha256": "2af1a6a0332bee5a840554efd7f4efdbf85941efe744c4b03df7fad382879a9a", "clips": 57}, "protocolVersion": 11},
-  "package": {"extrasKey": "ekza_animation_set_v1", "sourceFormats": ["vrm1", "vrm0"], "rendition": {"platform": "desktop", "profile": "humanoid-glb-v2", "version": 1}, "slotNaming": "animation-name-equals-slot-id", "customPlayback": {"rate": 1.0, "start": 0.0}},
-  "rig": {
-    "kind": "vrm-humanoid",
-    "restPose": "t-pose",
-    "facing": "as-vrm-spec",
-    "requiredBones": ["hips", "spine", "head", "leftUpperArm", "leftLowerArm", "leftHand", "rightUpperArm", "rightLowerArm", "rightHand", "leftUpperLeg", "leftLowerLeg", "leftFoot", "rightUpperLeg", "rightLowerLeg", "rightFoot"],
-    "requiredBonesVrm0": ["chest", "neck"],
-    "drivenBones": ["chest", "head", "hips", "leftFoot", "leftHand", "leftIndexDistal", "leftIndexIntermediate", "leftIndexProximal", "leftLittleDistal", "leftLittleIntermediate", "leftLittleProximal", "leftLowerArm", "leftLowerLeg", "leftMiddleDistal", "leftMiddleIntermediate", "leftMiddleProximal", "leftRingDistal", "leftRingIntermediate", "leftRingProximal", "leftShoulder", "leftThumbDistal", "leftThumbIntermediate", "leftThumbProximal", "leftToes", "leftUpperArm", "leftUpperLeg", "neck", "rightFoot", "rightHand", "rightIndexDistal", "rightIndexIntermediate", "rightIndexProximal", "rightLittleDistal", "rightLittleIntermediate", "rightLittleProximal", "rightLowerArm", "rightLowerLeg", "rightMiddleDistal", "rightMiddleIntermediate", "rightMiddleProximal", "rightRingDistal", "rightRingIntermediate", "rightRingProximal", "rightShoulder", "rightThumbDistal", "rightThumbIntermediate", "rightThumbProximal", "rightToes", "rightUpperArm", "rightUpperLeg", "spine", "upperChest"],
-    "maxHumanoidBones": 64,
-    "maxNodes": 4096,
-    "uniformScale": "humanoid-bones-and-ancestors",
-    "fingers": "optional",
-    "thumbsRecommended": true,
-    "legLengthFrom": "hips-to-feet",
-    "referenceLegLengthM": 0.813
+  "source": {"commit": "6d34f98", "exporter": "scripts/export_game_contract.py", "inputsSha256": "db0e37eec0499b593d08965e342ea0a69699ff7007af41a6f8e3eee05c300d03"},
+  "profiles": {"used": ["omoba.character.v1"], "required": []},
+  "rigs": {
+    "humanoid": {
+      "kind": "vrm-humanoid",
+      "sourceFormats": ["vrm1", "vrm0"],
+      "restPose": "t-pose",
+      "facing": "as-vrm-spec",
+      "requiredBones": ["hips", "spine", "head", "leftUpperArm", "leftLowerArm", "leftHand", "rightUpperArm", "rightLowerArm", "rightHand", "leftUpperLeg", "leftLowerLeg", "leftFoot", "rightUpperLeg", "rightLowerLeg", "rightFoot"],
+      "requiredBonesVrm0": ["chest", "neck"],
+      "drivenBones": ["chest", "head", "hips", "leftFoot", "leftHand", "leftIndexDistal", "leftIndexIntermediate", "leftIndexProximal", "leftLittleDistal", "leftLittleIntermediate", "leftLittleProximal", "leftLowerArm", "leftLowerLeg", "leftMiddleDistal", "leftMiddleIntermediate", "leftMiddleProximal", "leftRingDistal", "leftRingIntermediate", "leftRingProximal", "leftShoulder", "leftThumbDistal", "leftThumbIntermediate", "leftThumbProximal", "leftToes", "leftUpperArm", "leftUpperLeg", "neck", "rightFoot", "rightHand", "rightIndexDistal", "rightIndexIntermediate", "rightIndexProximal", "rightLittleDistal", "rightLittleIntermediate", "rightLittleProximal", "rightLowerArm", "rightLowerLeg", "rightMiddleDistal", "rightMiddleIntermediate", "rightMiddleProximal", "rightRingDistal", "rightRingIntermediate", "rightRingProximal", "rightShoulder", "rightThumbDistal", "rightThumbIntermediate", "rightThumbProximal", "rightToes", "rightUpperArm", "rightUpperLeg", "spine", "upperChest"],
+      "maxHumanoidBones": 64,
+      "maxNodes": 4096,
+      "uniformScale": "humanoid-bones-and-ancestors",
+      "fingers": "optional",
+      "thumbsRecommended": true,
+      "lengthUnit": {"name": "legLength", "from": "hips-to-feet", "referenceM": 0.813},
+      "ext": {}
+    }
   },
-  "timing": {"blendSecs": 0.12, "idleGraceSecs": 0.25, "facingHoldSecs": {"basic": 0.45, "skill": 0.7}, "contactLimitSecs": 0.15, "rowRate": [0.5, 2.0], "rowStart": [0.0, 0.8], "fitRate": [0.5, 2.0], "unseenHoldSecs": 1.2, "freshSecs": 0.15, "maxGapSecs": 0.25, "deathCut": "immediate", "movementInterruptsAction": false, "newActionRestarts": true},
+  "sockets": {
+    "hand.left": {"label": "Left hand (palm)", "rig": "humanoid", "bone": "leftHand", "frame": "palm", "fillable": false, "ext": {}},
+    "hand.right": {"label": "Right hand (palm)", "rig": "humanoid", "bone": "rightHand", "frame": "palm", "fillable": false, "ext": {}}
+  },
+  "packaging": {
+    "character": {"containers": ["vrm1", "vrm0"], "manifestKey": "ekza_package_v1", "slotKinds": ["animation"], "maxBytes": 52428800, "maxJsonBytes": 4194304, "maxFills": 48, "binding": "manifest", "rendition": {"platform": "desktop", "profile": "humanoid-glb-v2", "version": 1}, "ext": {}},
+    "asset-pack": {"containers": ["glb"], "manifestKey": "ekza_package_v1", "slotKinds": ["asset"], "maxBytes": 8388608, "maxJsonBytes": 1048576, "maxFills": 8, "binding": "manifest-or-names", "rendition": {"platform": "desktop", "profile": "handheld-glb-v1", "version": 1}, "ext": {}}
+  },
   "rules": [
-    {"id": "pack.extras", "severity": "error", "scope": "pack", "params": {"key": "ekza_animation_set_v1", "schema": 1}},
-    {"id": "pack.contract", "severity": "error", "scope": "pack", "params": {}},
-    {"id": "pack.slot-known", "severity": "error", "scope": "pack", "params": {}},
-    {"id": "pack.animation-ref", "severity": "error", "scope": "pack", "params": {"nameEqualsSlot": true}},
-    {"id": "pack.unreferenced", "severity": "warning", "scope": "pack", "params": {}},
-    {"id": "pack.bytes", "severity": "error", "scope": "pack", "params": {"maxFileBytes": 52428800, "maxJsonBytes": 4194304, "maxAnimationBytes": 4194304, "maxCustomSlots": 48}},
-    {"id": "clip.channels", "severity": "error", "scope": "clip", "params": {"rotation": "humanoid-bones", "translation": ["hips"], "scale": false, "weights": false}},
-    {"id": "clip.sampler", "severity": "error", "scope": "clip", "params": {"interpolation": ["LINEAR", "STEP"], "startsAtSecs": 0.0, "timeEpsilonSecs": 0.0001, "unitQuatEpsilon": 0.001}},
-    {"id": "clip.keys", "severity": "error", "scope": "clip", "params": {"maxKeysPerChannel": 4096, "maxSampleRateHz": 60}},
-    {"id": "clip.duration", "severity": "error", "scope": "clip", "params": {"source": "slot.window"}},
-    {"id": "clip.in-place", "severity": "error", "scope": "clip", "params": {"unit": "legLength", "maxHorizontal": 0.15, "maxHorizontalHold": 0.75, "maxVertical": 0.6}},
-    {"id": "clip.loop-closure", "severity": "error", "scope": "clip", "params": {"maxBoneDegrees": 2.0, "maxHipsOffset": 0.01, "unit": "legLength"}},
-    {"id": "clip.contact", "severity": "error", "scope": "clip", "params": {"formula": "(contact - start * duration) / rate", "limitSecs": 0.15, "toleranceSecs": 0.0001}},
-    {"id": "clip.basic-interval", "severity": "warning", "scope": "clip", "params": {"source": "slot.minIntervalSecs"}}
+    {"id": "pack.manifest", "severity": "error", "scope": "package", "params": {"key": "ekza_package_v1", "schema": "ekza.package.v1"}, "checkedBy": ["tool", "hub", "builder", "game"]},
+    {"id": "pack.contract", "severity": "error", "scope": "package", "params": {}, "checkedBy": ["tool", "hub", "builder", "game"]},
+    {"id": "pack.target", "severity": "error", "scope": "package", "params": {}, "checkedBy": ["tool", "hub", "builder", "game"]},
+    {"id": "pack.slot-known", "severity": "error", "scope": "package", "params": {}, "checkedBy": ["tool", "hub", "builder", "game"]},
+    {"id": "pack.ref", "severity": "error", "scope": "package", "params": {"animationNameEqualsSlot": true, "nodeNameEqualsRootName": true}, "checkedBy": ["tool", "hub", "builder", "game"]},
+    {"id": "pack.unreferenced", "severity": "warning", "scope": "package", "params": {}, "checkedBy": ["tool", "hub", "builder", "game"]},
+    {"id": "pack.bytes", "severity": "error", "scope": "package", "params": {"from": "packaging", "maxAnimationBytes": 4194304}, "checkedBy": ["tool", "hub", "builder", "game"]},
+    {"id": "rig.humanoid", "severity": "error", "scope": "rig", "params": {"from": "rigs"}, "checkedBy": ["tool", "hub", "builder", "game"]},
+    {"id": "clip.channels", "severity": "error", "scope": "animation", "params": {"rotation": "driven-bones", "translation": ["hips"], "scale": false, "weights": false}, "checkedBy": ["tool", "builder", "game"]},
+    {"id": "clip.sampler", "severity": "error", "scope": "animation", "params": {"interpolation": ["LINEAR", "STEP"], "startsAtSecs": 0.0, "timeEpsilonSecs": 0.0001, "unitQuatEpsilon": 0.001}, "checkedBy": ["tool", "builder", "game"]},
+    {"id": "clip.keys", "severity": "error", "scope": "animation", "params": {"maxKeysPerChannel": 4096, "maxSampleRateHz": 60}, "checkedBy": ["tool", "builder", "game"]},
+    {"id": "clip.duration", "severity": "error", "scope": "animation", "params": {"from": "slot.animation.window"}, "checkedBy": ["tool", "builder", "game"]},
+    {"id": "clip.in-place", "severity": "error", "scope": "animation", "params": {"unit": "legLength", "maxHorizontal": 0.15, "maxHorizontalHold": 0.75, "maxVertical": 0.6}, "checkedBy": ["tool", "builder", "game"]},
+    {"id": "clip.loop-closure", "severity": "error", "scope": "animation", "params": {"maxBoneDegrees": 2.0, "maxHipsOffset": 0.01, "unit": "legLength"}, "checkedBy": ["tool", "builder", "game"]},
+    {"id": "clip.markers", "severity": "error", "scope": "animation", "params": {"from": "slot.animation.markers", "toleranceSecs": 0.0001}, "checkedBy": ["tool", "builder", "game"]},
+    {"id": "clip.min-interval", "severity": "warning", "scope": "animation", "params": {"from": "slot.animation.minIntervalSecs"}, "checkedBy": ["tool", "builder", "game"]},
+    {"id": "asset.container", "severity": "error", "scope": "asset", "params": {"gltfVersion": "2.0", "embeddedOnly": true, "maxBuffers": 1, "scenes": 1, "noMatrixAndTrs": true}, "checkedBy": ["tool", "hub", "builder", "game"]},
+    {"id": "asset.nodes", "severity": "error", "scope": "asset", "params": {"from": "slot.asset", "uniqueRequiredNames": true}, "checkedBy": ["tool", "hub", "builder", "game"]},
+    {"id": "asset.budget", "severity": "error", "scope": "asset", "params": {"from": "slot.asset.budget"}, "checkedBy": ["tool", "hub", "builder", "game"]},
+    {"id": "asset.bounds", "severity": "error", "scope": "asset", "params": {"from": "slot.asset.sizeM"}, "checkedBy": ["tool", "hub", "builder"]},
+    {"id": "asset.anchors", "severity": "warning", "scope": "asset", "params": {"from": "slot.asset.anchors", "ignoreOutside": true}, "checkedBy": ["tool", "hub", "builder", "game"]},
+    {"id": "asset.materials", "severity": "error", "scope": "asset", "params": {"from": "slot.asset.materials"}, "checkedBy": ["tool", "hub", "builder"]},
+    {"id": "asset.motion", "severity": "error", "scope": "asset", "params": {"from": "slot.asset.motion"}, "checkedBy": ["tool", "hub", "builder", "game"]},
+    {"id": "omoba.asset.grip", "severity": "error", "scope": "asset", "params": {"metadata": "ekza_handheld_v1", "bones": ["rightHand", "leftHand"], "maxOffsetM": 0.3, "maxRotationDeg": 360, "scale": [0.25, 2]}, "checkedBy": ["tool", "hub", "builder", "game"]}
   ],
   "slots": {
     "base.death": {
-      "group": "base", "role": "death", "label": "Death", "kind": "hold", "phase": "state", "edgeReleased": false,
-      "customizable": true, "customizableFrom": "1", "reserved": false, "required": false,
-      "default": {"motion": "death", "durationSecs": 2.375, "looping": false, "contactSecs": null, "rate": 1.0, "start": 0.0, "playSecs": 2.375, "effectiveContactSecs": null, "standInFor": null},
-      "window": {"minSecs": 0.5, "targetSecs": 2.375, "maxSecs": 3.0},
-      "inPlace": true, "loop": false,
-      "contact": null,
-      "telegraph": null,
-      "handheld": null,
-      "sharesDefaultWith": [], "alternatesWith": [], "usedBy": ["*"]
+      "kind": "animation", "label": "Death", "description": null, "customizable": true, "customizableFrom": "1", "reserved": false, "required": false,
+      "default": {"name": "death", "playSecs": 2.375, "loop": false, "markers": {}, "preview": null},
+      "animation": {"rig": "humanoid", "playback": "hold", "loop": false, "inPlace": true, "window": {"minSecs": 0.5, "targetSecs": 2.375, "maxSecs": 3.0}, "markers": {}, "minIntervalSecs": null, "leadInSecs": null},
+      "asset": null,
+      "socket": null,
+      "sharesDefaultWith": [], "alternatesWith": [], "usedBy": ["*"],
+      "ext": {"omoba.character.v1": {"group": "base", "role": "death", "phase": "state", "edgeReleased": false, "row": {"motion": "death", "durationSecs": 2.375, "contactSecs": null, "rate": 1.0, "start": 0.0, "effectiveContactSecs": null, "standInFor": null}, "telegraph": null, "handheld": null}}
     },
     "base.idle": {
-      "group": "base", "role": "idle", "label": "Idle", "kind": "loop", "phase": "locomotion", "edgeReleased": false,
-      "customizable": true, "customizableFrom": "1", "reserved": false, "required": false,
-      "default": {"motion": "idle", "durationSecs": 2.5, "looping": true, "contactSecs": null, "rate": 1.0, "start": 0.0, "playSecs": 2.5, "effectiveContactSecs": null, "standInFor": null},
-      "window": {"minSecs": 1.0, "targetSecs": 2.5, "maxSecs": 4.0},
-      "inPlace": true, "loop": true,
-      "contact": null,
-      "telegraph": null,
-      "handheld": null,
-      "sharesDefaultWith": [], "alternatesWith": [], "usedBy": ["*"]
+      "kind": "animation", "label": "Idle", "description": null, "customizable": true, "customizableFrom": "1", "reserved": false, "required": false,
+      "default": {"name": "idle", "playSecs": 2.5, "loop": true, "markers": {}, "preview": null},
+      "animation": {"rig": "humanoid", "playback": "loop", "loop": true, "inPlace": true, "window": {"minSecs": 1.0, "targetSecs": 2.5, "maxSecs": 4.0}, "markers": {}, "minIntervalSecs": null, "leadInSecs": null},
+      "asset": null,
+      "socket": null,
+      "sharesDefaultWith": [], "alternatesWith": [], "usedBy": ["*"],
+      "ext": {"omoba.character.v1": {"group": "base", "role": "idle", "phase": "locomotion", "edgeReleased": false, "row": {"motion": "idle", "durationSecs": 2.5, "contactSecs": null, "rate": 1.0, "start": 0.0, "effectiveContactSecs": null, "standInFor": null}, "telegraph": null, "handheld": null}}
     },
     "base.run": {
-      "group": "base", "role": "run", "label": "Run (all movement)", "kind": "loop", "phase": "locomotion", "edgeReleased": false,
-      "customizable": true, "customizableFrom": "1", "reserved": false, "required": false,
-      "default": {"motion": "run", "durationSecs": 0.6667, "looping": true, "contactSecs": null, "rate": 1.0, "start": 0.0, "playSecs": 0.6667, "effectiveContactSecs": null, "standInFor": null},
-      "window": {"minSecs": 0.4, "targetSecs": 0.6667, "maxSecs": 1.2},
-      "inPlace": true, "loop": true,
-      "contact": null,
-      "telegraph": null,
-      "handheld": null,
-      "sharesDefaultWith": [], "alternatesWith": [], "usedBy": ["*"]
+      "kind": "animation", "label": "Run (all movement)", "description": null, "customizable": true, "customizableFrom": "1", "reserved": false, "required": false,
+      "default": {"name": "run", "playSecs": 0.6667, "loop": true, "markers": {}, "preview": null},
+      "animation": {"rig": "humanoid", "playback": "loop", "loop": true, "inPlace": true, "window": {"minSecs": 0.4, "targetSecs": 0.6667, "maxSecs": 1.2}, "markers": {}, "minIntervalSecs": null, "leadInSecs": null},
+      "asset": null,
+      "socket": null,
+      "sharesDefaultWith": [], "alternatesWith": [], "usedBy": ["*"],
+      "ext": {"omoba.character.v1": {"group": "base", "role": "run", "phase": "locomotion", "edgeReleased": false, "row": {"motion": "run", "durationSecs": 0.6667, "contactSecs": null, "rate": 1.0, "start": 0.0, "effectiveContactSecs": null, "standInFor": null}, "telegraph": null, "handheld": null}}
     },
     "base.walk": {
-      "group": "base", "role": "walk", "label": "Walk (reserved; not played yet)", "kind": "loop", "phase": "locomotion",
-      "edgeReleased": false, "customizable": false, "customizableFrom": null, "reserved": true, "required": false,
-      "default": {"motion": "walk", "durationSecs": 1.3333, "looping": true, "contactSecs": null, "rate": 1.0, "start": 0.0, "playSecs": 1.3333, "effectiveContactSecs": null, "standInFor": null},
-      "window": {"minSecs": 0.8, "targetSecs": 1.3333, "maxSecs": 2.0},
-      "inPlace": true, "loop": true,
-      "contact": null,
-      "telegraph": null,
-      "handheld": null,
-      "sharesDefaultWith": [], "alternatesWith": [], "usedBy": ["*"]
+      "kind": "animation", "label": "Walk (reserved; not played yet)", "description": null, "customizable": false, "customizableFrom": null, "reserved": true, "required": false,
+      "default": {"name": "walk", "playSecs": 1.3333, "loop": true, "markers": {}, "preview": null},
+      "animation": {"rig": "humanoid", "playback": "loop", "loop": true, "inPlace": true, "window": {"minSecs": 0.8, "targetSecs": 1.3333, "maxSecs": 2.0}, "markers": {}, "minIntervalSecs": null, "leadInSecs": null},
+      "asset": null,
+      "socket": null,
+      "sharesDefaultWith": [], "alternatesWith": [], "usedBy": ["*"],
+      "ext": {"omoba.character.v1": {"group": "base", "role": "walk", "phase": "locomotion", "edgeReleased": false, "row": {"motion": "walk", "durationSecs": 1.3333, "contactSecs": null, "rate": 1.0, "start": 0.0, "effectiveContactSecs": null, "standInFor": null}, "telegraph": null, "handheld": null}}
     },
     "basic.wildspark.0": {
-      "group": "basic", "role": "basic", "label": "Basic attack", "kind": "action", "phase": "instant", "edgeReleased": true,
-      "customizable": true, "customizableFrom": "1", "reserved": false, "required": false,
-      "default": {"motion": "burst_fire", "durationSecs": 0.45, "looping": false, "contactSecs": 0.075, "rate": 1.65, "start": 0.0, "playSecs": 0.2727, "effectiveContactSecs": 0.0455, "standInFor": null},
-      "window": {"minSecs": 0.15, "targetSecs": 0.2727, "maxSecs": 1.2},
-      "inPlace": true, "loop": false,
-      "contact": {"required": true, "maxSecs": 0.15, "targetSecs": 0.0455},
-      "telegraph": null,
-      "handheld": {"item": "wild-repeater", "byMode": {"rockets": "wild-launcher"}, "bone": "rightHand", "muzzleWindowSecs": [0.08, 0.25]},
-      "sharesDefaultWith": [], "alternatesWith": [], "usedBy": ["wildspark"], "class": "wildspark", "minIntervalSecs": 0.4375
+      "kind": "animation", "label": "Basic attack", "description": null, "customizable": true, "customizableFrom": "1", "reserved": false, "required": false,
+      "default": {"name": "burst_fire", "playSecs": 0.2727, "loop": false, "markers": {"contact": 0.0455}, "preview": null},
+      "animation": {"rig": "humanoid", "playback": "action", "loop": false, "inPlace": true, "window": {"minSecs": 0.15, "targetSecs": 0.2727, "maxSecs": 1.2}, "markers": {"contact": {"required": true, "maxSecs": 0.15, "targetSecs": 0.0455}}, "minIntervalSecs": 0.4375, "leadInSecs": null},
+      "asset": null,
+      "socket": null,
+      "sharesDefaultWith": ["skill.quick_shot.release", "skill.rift_needle.release"], "alternatesWith": [], "usedBy": ["wildspark"],
+      "ext": {"omoba.character.v1": {"group": "basic", "role": "basic", "phase": "instant", "edgeReleased": true, "row": {"motion": "burst_fire", "durationSecs": 0.45, "contactSecs": 0.075, "rate": 1.65, "start": 0.0, "effectiveContactSecs": 0.0455, "standInFor": null}, "telegraph": null, "handheld": {"item": "wild-repeater", "byMode": {"rockets": "wild-launcher"}, "bone": "rightHand", "muzzleWindowSecs": [0.08, 0.25]}, "class": "wildspark"}}
     },
     "basic.wildspark.rockets.0": {
-      "group": "basic", "role": "basic", "label": "Basic attack (rocket mode)", "kind": "action", "phase": "instant",
-      "edgeReleased": true, "customizable": true, "customizableFrom": "1", "reserved": false, "required": false,
-      "default": {"motion": "shot_heavy", "durationSecs": 0.8, "looping": false, "contactSecs": 0.17, "rate": 1.15, "start": 0.0, "playSecs": 0.6957, "effectiveContactSecs": 0.1478, "standInFor": null},
-      "window": {"minSecs": 0.15, "targetSecs": 0.6957, "maxSecs": 1.2},
-      "inPlace": true, "loop": false,
-      "contact": {"required": true, "maxSecs": 0.15, "targetSecs": 0.1478},
-      "telegraph": null,
-      "handheld": {"item": "wild-repeater", "byMode": {"rockets": "wild-launcher"}, "bone": "rightHand", "muzzleWindowSecs": [0.08, 0.25]},
-      "sharesDefaultWith": ["skill.wild_rocket.release"], "alternatesWith": [], "usedBy": ["wildspark"], "class": "wildspark",
-      "minIntervalSecs": 0.4375, "weaponMode": "rockets"
+      "kind": "animation", "label": "Basic attack (rocket mode)", "description": null, "customizable": true, "customizableFrom": "1", "reserved": false, "required": false,
+      "default": {"name": "shot_heavy", "playSecs": 0.6957, "loop": false, "markers": {"contact": 0.1478}, "preview": null},
+      "animation": {"rig": "humanoid", "playback": "action", "loop": false, "inPlace": true, "window": {"minSecs": 0.15, "targetSecs": 0.6957, "maxSecs": 1.2}, "markers": {"contact": {"required": true, "maxSecs": 0.15, "targetSecs": 0.1478}}, "minIntervalSecs": 0.4375, "leadInSecs": null},
+      "asset": null,
+      "socket": null,
+      "sharesDefaultWith": ["skill.horizon_wave.release", "skill.longshot.release", "skill.wild_rocket.release"], "alternatesWith": [], "usedBy": ["wildspark"],
+      "ext": {"omoba.character.v1": {"group": "basic", "role": "basic", "phase": "instant", "edgeReleased": true, "row": {"motion": "shot_heavy", "durationSecs": 0.8, "contactSecs": 0.17, "rate": 1.15, "start": 0.0, "effectiveContactSecs": 0.1478, "standInFor": null}, "telegraph": null, "handheld": {"item": "wild-repeater", "byMode": {"rockets": "wild-launcher"}, "bone": "rightHand", "muzzleWindowSecs": [0.08, 0.25]}, "class": "wildspark", "weaponMode": "rockets"}}
     },
     "skill.wild_rocket.release": {
-      "group": "skill", "role": "release", "label": "Last Spark (R) — release", "kind": "action", "phase": "instant",
-      "edgeReleased": true, "customizable": true, "customizableFrom": "1", "reserved": false, "required": false,
-      "default": {"motion": "shot_heavy", "durationSecs": 0.8, "looping": false, "contactSecs": 0.17, "rate": 1.0, "start": 0.05, "playSecs": 0.76, "effectiveContactSecs": 0.13, "standInFor": null},
-      "window": {"minSecs": 0.15, "targetSecs": 0.76, "maxSecs": 1.2},
-      "inPlace": true, "loop": false,
-      "contact": {"required": true, "maxSecs": 0.15, "targetSecs": 0.13},
-      "telegraph": null,
-      "handheld": {"item": "wild-repeater", "byMode": {"rockets": "wild-launcher"}, "bone": "rightHand", "muzzleWindowSecs": [0.08, 0.25]},
-      "sharesDefaultWith": ["basic.wildspark.rockets.0"], "alternatesWith": [], "usedBy": ["wildspark"], "skill": "wild_rocket"
+      "kind": "animation", "label": "Last Spark (R) — release", "description": null, "customizable": true, "customizableFrom": "1", "reserved": false, "required": false,
+      "default": {"name": "shot_heavy", "playSecs": 0.76, "loop": false, "markers": {"contact": 0.13}, "preview": null},
+      "animation": {"rig": "humanoid", "playback": "action", "loop": false, "inPlace": true, "window": {"minSecs": 0.15, "targetSecs": 0.76, "maxSecs": 1.2}, "markers": {"contact": {"required": true, "maxSecs": 0.15, "targetSecs": 0.13}}, "minIntervalSecs": null, "leadInSecs": null},
+      "asset": null,
+      "socket": null,
+      "sharesDefaultWith": ["basic.wildspark.rockets.0", "skill.horizon_wave.release", "skill.longshot.release"], "alternatesWith": [], "usedBy": ["wildspark"],
+      "ext": {"omoba.character.v1": {"group": "skill", "role": "release", "phase": "instant", "edgeReleased": true, "row": {"motion": "shot_heavy", "durationSecs": 0.8, "contactSecs": 0.17, "rate": 1.0, "start": 0.05, "effectiveContactSecs": 0.13, "standInFor": null}, "telegraph": null, "handheld": {"item": "wild-repeater", "byMode": {"rockets": "wild-launcher"}, "bone": "rightHand", "muzzleWindowSecs": [0.08, 0.25]}, "skill": "wild_rocket"}}
     },
     "skill.wild_switch.release": {
-      "group": "skill", "role": "release", "label": "Switchfire (Q) — release", "kind": "action", "phase": "instant",
-      "edgeReleased": true, "customizable": true, "customizableFrom": "1", "reserved": false, "required": false,
-      "default": {"motion": "reload_snap", "durationSecs": 0.6, "looping": false, "contactSecs": 0.34, "rate": 1.5, "start": 0.25, "playSecs": 0.3, "effectiveContactSecs": 0.1267, "standInFor": null},
-      "window": {"minSecs": 0.15, "targetSecs": 0.3, "maxSecs": 1.2},
-      "inPlace": true, "loop": false,
-      "contact": {"required": true, "maxSecs": 0.15, "targetSecs": 0.1267},
-      "telegraph": null,
-      "handheld": {"item": "wild-repeater", "byMode": {"rockets": "wild-launcher"}, "bone": "rightHand", "muzzleWindowSecs": null},
-      "sharesDefaultWith": [], "alternatesWith": [], "usedBy": ["wildspark"], "skill": "wild_switch"
+      "kind": "animation", "label": "Switchfire (Q) — release", "description": null, "customizable": true, "customizableFrom": "1", "reserved": false, "required": false,
+      "default": {"name": "reload_snap", "playSecs": 0.3, "loop": false, "markers": {"contact": 0.1267}, "preview": null},
+      "animation": {"rig": "humanoid", "playback": "action", "loop": false, "inPlace": true, "window": {"minSecs": 0.15, "targetSecs": 0.3, "maxSecs": 1.2}, "markers": {"contact": {"required": true, "maxSecs": 0.15, "targetSecs": 0.1267}}, "minIntervalSecs": null, "leadInSecs": null},
+      "asset": null,
+      "socket": null,
+      "sharesDefaultWith": [], "alternatesWith": [], "usedBy": ["wildspark"],
+      "ext": {"omoba.character.v1": {"group": "skill", "role": "release", "phase": "instant", "edgeReleased": true, "row": {"motion": "reload_snap", "durationSecs": 0.6, "contactSecs": 0.34, "rate": 1.5, "start": 0.25, "effectiveContactSecs": 0.1267, "standInFor": null}, "telegraph": null, "handheld": {"item": "wild-repeater", "byMode": {"rockets": "wild-launcher"}, "bone": "rightHand", "muzzleWindowSecs": null}, "skill": "wild_switch"}}
     },
     "skill.wild_traps.release": {
-      "group": "skill", "role": "release", "label": "Snapline (E) — release", "kind": "action", "phase": "instant",
-      "edgeReleased": true, "customizable": true, "customizableFrom": "1", "reserved": false, "required": false,
-      "default": {"motion": "toss_underhand", "durationSecs": 0.4, "looping": false, "contactSecs": 0.13, "rate": 1.3, "start": 0.0, "playSecs": 0.3077, "effectiveContactSecs": 0.1, "standInFor": null},
-      "window": {"minSecs": 0.15, "targetSecs": 0.3077, "maxSecs": 1.2},
-      "inPlace": true, "loop": false,
-      "contact": {"required": true, "maxSecs": 0.15, "targetSecs": 0.1},
-      "telegraph": null,
-      "handheld": {"item": "wild-repeater", "byMode": {"rockets": "wild-launcher"}, "bone": "rightHand", "muzzleWindowSecs": null},
-      "sharesDefaultWith": [], "alternatesWith": [], "usedBy": ["wildspark"], "skill": "wild_traps"
+      "kind": "animation", "label": "Snapline (E) — release", "description": null, "customizable": true, "customizableFrom": "1", "reserved": false, "required": false,
+      "default": {"name": "toss_underhand", "playSecs": 0.3077, "loop": false, "markers": {"contact": 0.1}, "preview": null},
+      "animation": {"rig": "humanoid", "playback": "action", "loop": false, "inPlace": true, "window": {"minSecs": 0.15, "targetSecs": 0.3077, "maxSecs": 1.2}, "markers": {"contact": {"required": true, "maxSecs": 0.15, "targetSecs": 0.1}}, "minIntervalSecs": null, "leadInSecs": null},
+      "asset": null,
+      "socket": null,
+      "sharesDefaultWith": ["basic.chainkeeper.0", "basic.mage.0", "skill.dawn_barrier.release", "skill.wandering_ember.release"], "alternatesWith": [], "usedBy": ["wildspark"],
+      "ext": {"omoba.character.v1": {"group": "skill", "role": "release", "phase": "instant", "edgeReleased": true, "row": {"motion": "toss_underhand", "durationSecs": 0.4, "contactSecs": 0.13, "rate": 1.3, "start": 0.0, "effectiveContactSecs": 0.1, "standInFor": null}, "telegraph": null, "handheld": {"item": "wild-repeater", "byMode": {"rockets": "wild-launcher"}, "bone": "rightHand", "muzzleWindowSecs": null}, "skill": "wild_traps"}}
     },
     "skill.wild_zap.release": {
-      "group": "skill", "role": "release", "label": "Shockline (W) — release", "kind": "action", "phase": "instant",
-      "edgeReleased": true, "customizable": true, "customizableFrom": "1", "reserved": false, "required": false,
-      "default": {"motion": "pistol_shoot", "durationSecs": 0.625, "looping": false, "contactSecs": 0.0417, "rate": 1.1, "start": 0.0, "playSecs": 0.5682, "effectiveContactSecs": 0.0379, "standInFor": null},
-      "window": {"minSecs": 0.15, "targetSecs": 0.5682, "maxSecs": 1.2},
-      "inPlace": true, "loop": false,
-      "contact": {"required": true, "maxSecs": 0.15, "targetSecs": 0.0379},
-      "telegraph": null,
-      "handheld": {"item": "wild-repeater", "byMode": {"rockets": "wild-launcher"}, "bone": "rightHand", "muzzleWindowSecs": [0.08, 0.25]},
-      "sharesDefaultWith": [], "alternatesWith": [], "usedBy": ["wildspark"], "skill": "wild_zap"
+      "kind": "animation", "label": "Shockline (W) — release", "description": null, "customizable": true, "customizableFrom": "1", "reserved": false, "required": false,
+      "default": {"name": "pistol_shoot", "playSecs": 0.5682, "loop": false, "markers": {"contact": 0.0379}, "preview": null},
+      "animation": {"rig": "humanoid", "playback": "action", "loop": false, "inPlace": true, "window": {"minSecs": 0.15, "targetSecs": 0.5682, "maxSecs": 1.2}, "markers": {"contact": {"required": true, "maxSecs": 0.15, "targetSecs": 0.0379}}, "minIntervalSecs": null, "leadInSecs": null},
+      "asset": null,
+      "socket": null,
+      "sharesDefaultWith": [], "alternatesWith": [], "usedBy": ["wildspark"],
+      "ext": {"omoba.character.v1": {"group": "skill", "role": "release", "phase": "instant", "edgeReleased": true, "row": {"motion": "pistol_shoot", "durationSecs": 0.625, "contactSecs": 0.0417, "rate": 1.1, "start": 0.0, "effectiveContactSecs": 0.0379, "standInFor": null}, "telegraph": null, "handheld": {"item": "wild-repeater", "byMode": {"rockets": "wild-launcher"}, "bone": "rightHand", "muzzleWindowSecs": [0.08, 0.25]}, "skill": "wild_zap"}}
+    },
+    "wildspark.effect.shockline": {
+      "kind": "asset", "label": "Shockline bolt", "description": "Procedural; drawn by the game (engine-owned).", "customizable": false, "customizableFrom": null, "reserved": false, "required": false,
+      "default": {"name": "shockline", "playSecs": null, "loop": null, "markers": {}, "preview": null},
+      "animation": null,
+      "asset": {"role": "effect", "socket": null, "rootName": null, "nodes": {"required": [], "optional": []}, "anchors": {}, "axes": {"origin": "center", "up": "+Y", "forward": "+Z"}, "sizeM": {"boxMin": null, "boxMax": null}, "budget": {"maxTriangles": 20000, "maxNodes": 64, "maxMeshes": 16, "maxMaterials": 16, "maxImages": 8, "maxTextureSize": 2048, "maxTexturePixels": 8388608}, "materials": {"extensionsAllowed": ["KHR_materials_unlit", "KHR_texture_transform"], "imageFormats": ["png", "jpeg"], "maxEmissiveStrength": 1}, "motion": "static"},
+      "socket": null,
+      "sharesDefaultWith": [], "alternatesWith": [], "usedBy": ["wildspark"],
+      "ext": {"omoba.character.v1": {"catalogRole": "engine_effect", "status": "engine_owned", "item": null, "model": null, "uses": [{"skillId": "wild_zap", "phase": "flight"}], "baseline": {"kind": "procedural", "path": null}, "gripMetadata": null}}
+    },
+    "wildspark.handheld.launcher": {
+      "kind": "asset", "label": "Launcher (rocket mode)", "description": "Held in rocket mode and for 1.1 s after Shockline and Last Spark; Slide recoils.", "customizable": true, "customizableFrom": "1", "reserved": false, "required": false,
+      "default": {"name": "wild-launcher", "playSecs": null, "loop": null, "markers": {}, "preview": null},
+      "animation": null,
+      "asset": {"role": "handheld", "socket": "hand.right", "rootName": "WildsparkSetLauncher", "nodes": {"required": ["WildsparkSlide"], "optional": []}, "anchors": {"muzzle": {"required": false, "default": [0, 0.13, 0.81], "boxM": null}}, "axes": {"origin": "grip", "up": "+Y", "forward": "+Z"}, "sizeM": {"boxMin": [-0.219, -0.207, -0.452], "boxMax": [0.219, 0.423, 0.924]}, "budget": {"maxTriangles": null, "maxNodes": 64, "maxMeshes": 16, "maxMaterials": null, "maxImages": 64, "maxTextureSize": 4096, "maxTexturePixels": 33554432}, "materials": {"extensionsAllowed": ["KHR_materials_unlit", "KHR_texture_transform"], "imageFormats": ["png", "jpeg"], "maxEmissiveStrength": 1}, "motion": "named-parts"},
+      "socket": null,
+      "sharesDefaultWith": [], "alternatesWith": [], "usedBy": ["wildspark"],
+      "ext": {"omoba.character.v1": {"catalogRole": "held_weapon", "status": "supported", "item": "wild-launcher", "model": null, "uses": [{"basicAttackId": "wildspark", "state": "rockets"}, {"skillId": "wild_switch", "phase": "equipped"}, {"skillId": "wild_zap", "phase": "release"}, {"skillId": "wild_rocket", "phase": "release"}], "baseline": {"kind": "model", "path": "client/assets/weapons/wild-launcher.glb"}, "gripMetadata": "ekza_handheld_v1"}}
+    },
+    "wildspark.handheld.repeater": {
+      "kind": "asset", "label": "Repeater (held)", "description": "The default gun; Rotor spins on basic attacks.", "customizable": true, "customizableFrom": "1", "reserved": false, "required": false,
+      "default": {"name": "wildspark-repeater", "playSecs": null, "loop": null, "markers": {}, "preview": null},
+      "animation": null,
+      "asset": {"role": "handheld", "socket": "hand.right", "rootName": "WildsparkSetRepeater", "nodes": {"required": ["WildsparkRotor"], "optional": []}, "anchors": {"muzzle": {"required": false, "default": [0, 0.12, 0.735], "boxM": null}}, "axes": {"origin": "grip", "up": "+Y", "forward": "+Z"}, "sizeM": {"boxMin": [-0.204, -0.196, -0.444], "boxMax": [0.204, 0.298, 0.842]}, "budget": {"maxTriangles": null, "maxNodes": 64, "maxMeshes": 16, "maxMaterials": null, "maxImages": 64, "maxTextureSize": 4096, "maxTexturePixels": 33554432}, "materials": {"extensionsAllowed": ["KHR_materials_unlit", "KHR_texture_transform"], "imageFormats": ["png", "jpeg"], "maxEmissiveStrength": 1}, "motion": "named-parts"},
+      "socket": null,
+      "sharesDefaultWith": [], "alternatesWith": [], "usedBy": ["wildspark"],
+      "ext": {"omoba.character.v1": {"catalogRole": "held_weapon", "status": "supported", "item": "wild-repeater", "model": null, "uses": [{"basicAttackId": "wildspark", "state": "repeater"}, {"skillId": "wild_switch", "phase": "equipped"}], "baseline": {"kind": "model", "path": "client/assets/weapons/wildspark-repeater.glb"}, "gripMetadata": "ekza_handheld_v1"}}
+    },
+    "wildspark.projectile.basic-rocket": {
+      "kind": "asset", "label": "Rocket-mode shot", "description": "Drawn by the game (engine-owned).", "customizable": false, "customizableFrom": null, "reserved": false, "required": false,
+      "default": {"name": "wild-rocket", "playSecs": null, "loop": null, "markers": {}, "preview": null},
+      "animation": null,
+      "asset": {"role": "projectile", "socket": null, "rootName": null, "nodes": {"required": [], "optional": []}, "anchors": {}, "axes": {"origin": "center", "up": "+Y", "forward": "+Z"}, "sizeM": {"boxMin": null, "boxMax": null}, "budget": {"maxTriangles": 20000, "maxNodes": 64, "maxMeshes": 16, "maxMaterials": 16, "maxImages": 8, "maxTextureSize": 2048, "maxTexturePixels": 8388608}, "materials": {"extensionsAllowed": ["KHR_materials_unlit", "KHR_texture_transform"], "imageFormats": ["png", "jpeg"], "maxEmissiveStrength": 1}, "motion": "static"},
+      "socket": null,
+      "sharesDefaultWith": [], "alternatesWith": [], "usedBy": ["wildspark"],
+      "ext": {"omoba.character.v1": {"catalogRole": "projectile", "status": "engine_owned", "item": null, "model": null, "uses": [{"basicAttackId": "wildspark", "phase": "flight", "state": "rockets"}], "baseline": {"kind": "model", "path": "client/assets/weapons/wild-rocket.glb"}, "gripMetadata": null}}
+    },
+    "wildspark.projectile.ultimate": {
+      "kind": "asset", "label": "Last Spark rocket", "description": "Planned: opens when the game has a projectile profile.", "customizable": false, "customizableFrom": null, "reserved": false, "required": false,
+      "default": {"name": "rocket", "playSecs": null, "loop": null, "markers": {}, "preview": null},
+      "animation": null,
+      "asset": {"role": "projectile", "socket": null, "rootName": null, "nodes": {"required": [], "optional": []}, "anchors": {"trail": {"required": false, "default": [0, 0, -0.4], "boxM": null}}, "axes": {"origin": "center", "up": "+Y", "forward": "+Z"}, "sizeM": {"boxMin": null, "boxMax": null}, "budget": {"maxTriangles": 20000, "maxNodes": 64, "maxMeshes": 16, "maxMaterials": 16, "maxImages": 8, "maxTextureSize": 2048, "maxTexturePixels": 8388608}, "materials": {"extensionsAllowed": ["KHR_materials_unlit", "KHR_texture_transform"], "imageFormats": ["png", "jpeg"], "maxEmissiveStrength": 1}, "motion": "static"},
+      "socket": null,
+      "sharesDefaultWith": [], "alternatesWith": [], "usedBy": ["wildspark"],
+      "ext": {"omoba.character.v1": {"catalogRole": "projectile", "status": "planned", "item": null, "model": "rocket", "uses": [{"skillId": "wild_rocket", "phase": "flight"}], "baseline": {"kind": "model", "path": "client/assets/cosmetics/standard/rocket.glb"}, "gripMetadata": null}}
+    },
+    "wildspark.prop.trap": {
+      "kind": "asset", "label": "Snapline trap", "description": "Planned: three are placed per cast; the jaws close when armed.", "customizable": false, "customizableFrom": null, "reserved": false, "required": false,
+      "default": {"name": "trap", "playSecs": null, "loop": null, "markers": {}, "preview": null},
+      "animation": null,
+      "asset": {"role": "deployable", "socket": null, "rootName": null, "nodes": {"required": ["WildsparkTrapBase", "WildsparkJawLeft", "WildsparkJawRight"], "optional": []}, "anchors": {}, "axes": {"origin": "base", "up": "+Y", "forward": "+Z"}, "sizeM": {"boxMin": null, "boxMax": null}, "budget": {"maxTriangles": 20000, "maxNodes": 64, "maxMeshes": 16, "maxMaterials": 16, "maxImages": 8, "maxTextureSize": 2048, "maxTexturePixels": 8388608}, "materials": {"extensionsAllowed": ["KHR_materials_unlit", "KHR_texture_transform"], "imageFormats": ["png", "jpeg"], "maxEmissiveStrength": 1}, "motion": "named-parts"},
+      "socket": null,
+      "sharesDefaultWith": [], "alternatesWith": [], "usedBy": ["wildspark"],
+      "ext": {"omoba.character.v1": {"catalogRole": "world_prop", "status": "planned", "item": null, "model": "trap", "uses": [{"skillId": "wild_traps", "phase": "placed"}], "baseline": {"kind": "model", "path": "client/assets/cosmetics/standard/trap.glb"}, "gripMetadata": null}}
     }
   },
-  "heroes": [
+  "families": {},
+  "targets": [
     {
-      "id": "any",
-      "kind": "any",
-      "name": "Any hero",
-      "role": null,
-      "requirementId": "character.any",
-      "basicAttack": null,
-      "kit": [],
-      "handheld": null,
-      "slots": ["base.idle", "base.run", "base.death"]
-    },
-    {
-      "id": "wildspark",
-      "kind": "class",
-      "name": "Wildspark",
-      "role": "carry",
-      "requirementId": "character.wildspark",
-      "basicAttack": {"rangeM": 11.5, "cooldownSecs": 0.7, "attackRateCap": 1.6, "minIntervalSecs": 0.4375, "slots": ["basic.wildspark.0", "basic.wildspark.rockets.0"]},
-      "kit": [
-        {"key": "q", "skill": "wild_switch", "name": "Switchfire", "slots": ["skill.wild_switch.release"]},
-        {"key": "w", "skill": "wild_zap", "name": "Shockline", "slots": ["skill.wild_zap.release"]},
-        {"key": "e", "skill": "wild_traps", "name": "Snapline", "slots": ["skill.wild_traps.release"]},
-        {"key": "r", "skill": "wild_rocket", "name": "Last Spark", "slots": ["skill.wild_rocket.release"]}
+      "id": "any", "kind": "any", "name": "Any hero", "subtitle": null,
+      "sections": [
+        {"id": "base", "label": "Base", "key": null, "slots": ["base.idle", "base.run", "base.death"]}
       ],
-      "handheld": {"default": "wild-repeater", "byMode": {"rockets": "wild-launcher"}, "bone": "rightHand"},
-      "slots": ["base.idle", "base.run", "base.death", "basic.wildspark.0", "basic.wildspark.rockets.0", "skill.wild_switch.release", "skill.wild_zap.release", "skill.wild_traps.release", "skill.wild_rocket.release"]
+      "slots": ["base.idle", "base.run", "base.death"],
+      "families": [],
+      "accepts": [
+        {"package": "character", "requirementId": "character.any", "label": "Character for any hero", "slots": ["base.idle", "base.run", "base.death"], "families": [], "listing": "every-customizable-slot", "mustFill": []}
+      ],
+      "ext": {"omoba.character.v1": {"heroKind": "any", "role": null, "basicAttack": null, "kit": [], "handheld": null}}
+    },
+    {
+      "id": "wildspark", "kind": "character", "name": "Wildspark", "subtitle": "carry",
+      "sections": [
+        {"id": "base", "label": "Base", "key": null, "slots": ["base.idle", "base.run", "base.death"]},
+        {"id": "basic", "label": "Basic attack", "key": null, "slots": ["basic.wildspark.0", "basic.wildspark.rockets.0", "wildspark.projectile.basic-rocket"]},
+        {"id": "q", "label": "Switchfire", "key": "Q", "slots": ["skill.wild_switch.release"]},
+        {"id": "w", "label": "Shockline", "key": "W", "slots": ["skill.wild_zap.release", "wildspark.effect.shockline"]},
+        {"id": "e", "label": "Snapline", "key": "E", "slots": ["skill.wild_traps.release", "wildspark.prop.trap"]},
+        {"id": "r", "label": "Last Spark", "key": "R", "slots": ["skill.wild_rocket.release", "wildspark.projectile.ultimate"]},
+        {"id": "gear", "label": "Gear", "key": null, "slots": ["wildspark.handheld.repeater", "wildspark.handheld.launcher"]}
+      ],
+      "slots": ["base.idle", "base.run", "base.death", "basic.wildspark.0", "basic.wildspark.rockets.0", "wildspark.projectile.basic-rocket", "skill.wild_switch.release", "skill.wild_zap.release", "wildspark.effect.shockline", "skill.wild_traps.release", "wildspark.prop.trap", "skill.wild_rocket.release", "wildspark.projectile.ultimate", "wildspark.handheld.repeater", "wildspark.handheld.launcher"],
+      "families": [],
+      "accepts": [
+        {"package": "character", "requirementId": "character.wildspark", "label": "Character for Wildspark", "slots": ["base.idle", "base.run", "base.death", "basic.wildspark.0", "basic.wildspark.rockets.0", "skill.wild_switch.release", "skill.wild_zap.release", "skill.wild_traps.release", "skill.wild_rocket.release"], "families": [], "listing": "every-customizable-slot", "mustFill": []},
+        {"package": "asset-pack", "requirementId": "wildspark.handheld.set", "label": "Wildspark gear set", "slots": ["wildspark.handheld.repeater", "wildspark.handheld.launcher"], "families": [], "listing": "filled-slots-only", "mustFill": ["wildspark.handheld.repeater", "wildspark.handheld.launcher"]}
+      ],
+      "ext": {"omoba.character.v1": {"heroKind": "class", "role": "carry", "basicAttack": {"rangeM": 11.5, "cooldownSecs": 0.7, "attackRateCap": 1.6, "minIntervalSecs": 0.4375}, "kit": [{"key": "q", "skill": "wild_switch", "name": "Switchfire"}, {"key": "w", "skill": "wild_zap", "name": "Shockline"}, {"key": "e", "skill": "wild_traps", "name": "Snapline"}, {"key": "r", "skill": "wild_rocket", "name": "Last Spark"}], "handheld": {"default": "wild-repeater", "byMode": {"rockets": "wild-launcher"}, "bone": "rightHand"}}}
     }
-  ]
-}
-```
-
-## Appendix C — `asset.extras.ekza_animation_set_v1`
-
-JSON Schema (draft 2020-12). Cross-checks against the contract (`pack.*` rules, §5.1) are code.
-
-```json
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://ekza.io/schemas/ekza_animation_set_v1.json",
-  "title": "asset.extras.ekza_animation_set_v1",
-  "type": "object",
-  "additionalProperties": false,
-  "required": ["schema", "contract", "target", "slots", "provenance"],
-  "properties": {
-    "schema": { "const": 1 },
-    "contract": {
-      "type": "object", "additionalProperties": false, "required": ["schema", "projectId", "revision"],
-      "properties": {
-        "schema": { "type": "string", "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)*\\.v[0-9]+$" },
-        "projectId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,62}$" },
-        "revision": { "type": "string", "pattern": "^sha256-[0-9a-f]{64}$" }
-      }
-    },
-    "target": {
-      "type": "object", "additionalProperties": false, "required": ["hero", "requirementId"],
-      "properties": {
-        "hero": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,47}$" },
-        "requirementId": { "type": "string", "maxLength": 128, "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)*$" }
-      }
-    },
-    "slots": {
-      "type": "object",
-      "minProperties": 1,
-      "maxProperties": 128,
-      "propertyNames": { "type": "string", "maxLength": 64, "pattern": "^(base|basic|skill)\\.[a-z0-9_.]{1,60}$" },
-      "additionalProperties": {
-        "oneOf": [
-          { "type": "object", "additionalProperties": false, "required": ["mode"],
-            "properties": { "mode": { "const": "default" } } },
-          { "type": "object", "additionalProperties": false, "required": ["mode", "animation", "contactSecs"],
-            "properties": {
-              "mode": { "const": "custom" },
-              "animation": { "type": "integer", "minimum": 0, "maximum": 255 },
-              "contactSecs": { "type": ["number", "null"], "minimum": 0, "maximum": 10 }
-            } }
-        ]
-      }
-    },
-    "provenance": {
-      "type": "object", "additionalProperties": false, "required": ["tool", "toolVersion"],
-      "properties": {
-        "tool": { "type": "string", "maxLength": 64 },
-        "toolVersion": { "type": "string", "maxLength": 32 }
-      }
+  ],
+  "retired": {"slots": {}, "targets": {}, "families": {}},
+  "ext": {
+    "omoba.character.v1": {
+      "gameplayRevision": "standard-kits-8",
+      "presentationSha256": "fe544cd0df722b9dd21753804c77091e3d8ddb64e863aebbfcfb3f0db4958ae4",
+      "motionLibrary": {"schemaVersion": 1, "sha256": "2af1a6a0332bee5a840554efd7f4efdbf85941efe744c4b03df7fad382879a9a", "clips": 57},
+      "protocolVersion": 11,
+      "timing": {"blendSecs": 0.12, "idleGraceSecs": 0.25, "facingHoldSecs": {"basic": 0.45, "skill": 0.7}, "contactLimitSecs": 0.15, "rowRate": [0.5, 2.0], "rowStart": [0.0, 0.8], "fitRate": [0.5, 2.0], "unseenHoldSecs": 1.2, "freshSecs": 0.15, "maxGapSecs": 0.25, "deathCut": "immediate", "movementInterruptsAction": false, "newActionRestarts": true},
+      "customPlayback": {"rate": 1, "start": 0}
     }
   }
 }
 ```
 
-Example: a Wildspark character with a custom run, a custom repeater basic attack and one clip shared by the rocket
-basic attack and Last Spark (the animation is named `basic.wildspark.rockets.0`, its primary slot).
+## Appendix C — `asset.extras.ekza_package_v1` for a character
+
+The manifest is the protocol's `ekza.package.v1` (JSON Schema: GAME-PROTOCOL-SPEC Appendix B); cross-checks against the contract are the `pack.*` rules (§5.1). Example: a Wildspark character with a custom run, a custom repeater basic attack, one clip shared by the rocket basic attack and Last Spark (the animation is named `basic.wildspark.rockets.0`, its primary slot) and a custom trap toss.
 
 ```json
 {
-  "schema": 1,
-  "contract": { "schema": "omoba.character-contract.v1", "projectId": "omoba",
-                "revision": "sha256-89fd2e42b41fb844dada4c48c028f8e1523dfc9f6a1ebc977efb5c636f7782cb" },
-  "target": { "hero": "wildspark", "requirementId": "character.wildspark" },
+  "schema": "ekza.package.v1",
+  "schemaVersion": "1.0",
+  "kind": "character",
+  "contract": {"schema": "ekza.game-contract.v1", "game": "omoba", "revision": "sha256-ca27905176c053491a6e9974c31fd0022ce5c5ea2adea066e4b77f07173ffea7"},
+  "target": {"id": "wildspark", "requirementId": "character.wildspark"},
   "slots": {
-    "base.idle": { "mode": "default" },
-    "base.run": { "mode": "custom", "animation": 0, "contactSecs": null },
-    "base.death": { "mode": "default" },
-    "basic.wildspark.0": { "mode": "custom", "animation": 1, "contactSecs": 0.067 },
-    "basic.wildspark.rockets.0": { "mode": "custom", "animation": 2, "contactSecs": 0.133 },
-    "skill.wild_switch.release": { "mode": "default" },
-    "skill.wild_zap.release": { "mode": "default" },
-    "skill.wild_traps.release": { "mode": "default" },
-    "skill.wild_rocket.release": { "mode": "custom", "animation": 2, "contactSecs": 0.133 }
+    "base.idle": {"mode": "default"},
+    "base.run": {"mode": "custom", "animation": 0, "markers": {}},
+    "base.death": {"mode": "default"},
+    "basic.wildspark.0": {"mode": "custom", "animation": 1, "markers": {"contact": 0.067}},
+    "basic.wildspark.rockets.0": {"mode": "custom", "animation": 2, "markers": {"contact": 0.133}},
+    "skill.wild_switch.release": {"mode": "default"},
+    "skill.wild_zap.release": {"mode": "default"},
+    "skill.wild_traps.release": {"mode": "custom", "animation": 3, "markers": {"contact": 0.1}},
+    "skill.wild_rocket.release": {"mode": "custom", "animation": 2, "markers": {"contact": 0.133}}
   },
-  "provenance": { "tool": "ekza-studio", "toolVersion": "0.7.0" }
+  "requires": [],
+  "provenance": {"tool": "ekza-studio", "toolVersion": "0.7.0"}
 }
 ```
 
 ## Appendix D — Conformance fixtures v1 (minimum set)
 
-Owned by OMOBA (`shared/assets/catalog/character-contract-fixtures/v1/`), each a small package plus
+Owned by OMOBA (`shared/assets/catalog/game-contract-fixtures/v1/`; the protocol's core fixtures are GAME-PROTOCOL-SPEC Appendix E), each a small package plus
 `expected/<case>.json` (`{pack: "ok" | ["rule ids"], slots: {"<slot>": "pass" | ["rule ids"]}}`). Studio copies them
 with SHA-256 pinning; the registry runs the `pack.*` subset.
 
@@ -1678,9 +1695,10 @@ with SHA-256 pinning; the registry runs the `pack.*` subset.
 | `ok-vrm1-three-slots`, `ok-vrm0-three-slots` | pass (VRM 1.0 and 0.x rigs, run + basic + release) |
 | `ok-shared-animation` | pass (two slots → one animation named after one of them) |
 | `ok-all-default` | pass (slot map only, no animations) |
-| `pack-missing-extras`, `pack-bad-schema`, `pack-unknown-revision`, `pack-retired-revision` | `pack.extras` / `pack.contract` |
+| `pack-missing-manifest`, `pack-bad-schema`, `pack-unknown-revision`, `pack-retired-revision` | `pack.manifest` / `pack.contract` |
 | `pack-unknown-slot`, `pack-slot-not-listed`, `pack-windup-custom` | `pack.slot-known` |
-| `pack-bad-index`, `pack-name-mismatch`, `pack-duplicate-names` | `pack.animation-ref` |
+| `pack-unknown-target`, `pack-gear-requirement-on-character` | `pack.target` |
+| `pack-bad-index`, `pack-name-mismatch`, `pack-duplicate-names` | `pack.ref` |
 | `pack-unreferenced-animation` | warning `pack.unreferenced` |
 | `pack-49-custom-slots`, `pack-animation-bytes-over` | `pack.bytes` |
 | `clip-scale-channel`, `clip-morph-weights`, `clip-root-node`, `clip-accessory-node`, `clip-translation-on-spine` | `clip.channels` |
@@ -1689,6 +1707,6 @@ with SHA-256 pinning; the registry runs the `pack.*` subset.
 | `clip-too-short`, `clip-too-long`, `clip-run-cycle-1.3s` | `clip.duration` |
 | `clip-hips-drift-at-cap` (pass), `clip-hips-drift-over` | `clip.in-place` |
 | `clip-loop-open-3deg`, `clip-loop-closed-1deg` (pass) | `clip.loop-closure` |
-| `clip-contact-0.149` (pass), `clip-contact-0.151`, `clip-contact-missing`, `clip-contact-after-end`, `clip-contact-mismatch-meta` | `clip.contact` |
-| `clip-basic-longer-than-interval` | warning `clip.basic-interval` |
+| `clip-contact-0.149` (pass), `clip-contact-0.151`, `clip-contact-missing`, `clip-contact-after-end`, `clip-contact-mismatch-meta` | `clip.markers` |
+| `clip-basic-longer-than-interval` | warning `clip.min-interval` |
 | `rig-hips-scene-root-vrm1` | pass after the builder's parent insertion; the engine plays it facing −Z |
