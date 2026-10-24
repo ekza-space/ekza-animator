@@ -19,7 +19,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { DEFAULT_DESTINATION, type DestinationId, STAGE_WORKSPACE } from '../../path/destinations';
+import { DEFAULT_DESTINATION, DESTINATIONS, type DestinationId, STAGE_WORKSPACE } from '../../path/destinations';
 import { nextChip } from '../../path/nextChip';
 import { Path, stageSwitch } from '../../path/Path';
 import { readiness } from '../../path/readiness';
@@ -215,6 +215,16 @@ export function HaloT6bHarness(): JSX.Element {
           {launch('health', 'Health')}
           {launch('help', 'Help')}
           {launch('about', 'About')}
+          {DESTINATIONS.map((d) => (
+            <TouchButton
+              key={d.id}
+              variant={d.id === destination ? 'primary' : 'ghost'}
+              onClick={() => setDestination(d.id)}
+              data-testid={`harness-destination-${d.id}`}
+            >
+              {d.badge ?? 'Explore'}
+            </TouchButton>
+          ))}
         </Cluster>
         {Open === null || sheet === null ? null : (
           <div className="absolute inset-0 top-14" data-testid="halo-sheet-host">

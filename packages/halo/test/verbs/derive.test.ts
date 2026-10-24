@@ -70,7 +70,7 @@ describe('search (§8, §20.5 test 10)', () => {
   it('lists every operator that has a non-plumbing entry, with the stages that show it', async () => {
     const app = await everyOperator();
     const entries = searchEntries(app);
-    const listed = new Set(entries.map((e) => e.op));
+    const listed = new Set<string>(entries.map((e) => e.op));
     const expected = Object.entries(DISCLOSURE)
       .filter(([, value]) =>
         (Array.isArray(value) ? value : [value]).some((entry) => !('plumbing' in entry) && !('wraps' in entry)),
