@@ -11,6 +11,7 @@ import {
   type PrefsStorage,
   provideNavigation,
   provideShellOverlays,
+  registerShellNavigate,
   type RunContext,
 } from '@ekza-studio/editor-core';
 import { createStore, type StoreApi } from 'zustand/vanilla';
@@ -253,6 +254,8 @@ export function createHostShell(opts: CreateHostOptions): HostShell {
 
   // The host's operators (§4.4): dialogs and preferences exist on every route.
   disposers.push(registerHostOperators(app, { onImportClosed: () => files.cancelImport() }));
+  // ST-T2 P1: `shell.navigate` (Halo ⇄ Pro ⇄ Auto-Rig) is a host operator on every route.
+  disposers.push(registerShellNavigate(app));
 
   // M6A-SPEC §5.18 (B9): the command palette (`Mod+K`); AUTORIG-SPEC §4.4: the overlay port is the host's on every
   // route (its chunk loads on first use); marking menus come from the mounted shell (Studio).

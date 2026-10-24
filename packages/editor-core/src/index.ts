@@ -558,3 +558,6 @@ export {
   rebindRequest,
   unbindRequest,
 } from './operators/builtin/rig/bind';
+
+// Halo (STUDIO-TOUCH-SPEC §20.4, ST-T2 P1): shell.navigate, registered by the host on every route.
+export { NO_SHELL_NAVIGATION, registerShellNavigate, SHELL_ROUTES } from './operators/builtin/shellNavigate';
