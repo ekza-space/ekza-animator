@@ -3,7 +3,15 @@
 // the legacy id migration keeps working, and a store without overrides is untouched.
 import { describe, expect, it, vi } from 'vitest';
 import { createStore } from 'zustand/vanilla';
-import { basePrefs, defaultPrefs, overridePrefs, type Prefs, type PrefsStorage, prefsOverrideLayers } from '../../src';
+import {
+  basePrefs,
+  defaultPrefs,
+  LEGACY_IDS,
+  overridePrefs,
+  type Prefs,
+  type PrefsStorage,
+  prefsOverrideLayers,
+} from '../../src';
 import { PREFS_STORAGE_KEY } from '../../src/prefs/persist';
 import { createFakeEditorApp, createFakeServices } from '../../src/testing';
 
@@ -148,7 +156,9 @@ describe('the override layer on the kernel (persistence writes only the base)', 
   });
 
   it('legacy ids load migrated under an override, and the next save writes the current ids without it', () => {
-    const legacy = { ...defaultPrefs('other'), navProfile: 'maya', modeling: { undoBudgetMB: 300 } };
+    // An old navigation id, spelled only in the legacy table (DECISIONS-OPEN TM-1).
+    const oldNav = Object.keys(LEGACY_IDS.navProfile)[0];
+    const legacy = { ...defaultPrefs('other'), navProfile: oldNav, modeling: { undoBudgetMB: 300 } };
     const storage = memoryStorage({ [PREFS_STORAGE_KEY]: JSON.stringify(legacy) });
     const app = appWith(storage);
     expect(app.prefs.getState().navProfile).toBe('dcc');
