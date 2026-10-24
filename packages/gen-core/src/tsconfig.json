@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../../tooling/tsconfig/browser.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "../.tsbuild/src",
+    "allowImportingTsExtensions": true
+  },
+  "include": ["./**/*"]
+}

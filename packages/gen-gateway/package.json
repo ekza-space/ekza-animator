@@ -1,0 +1,34 @@
+{
+  "name": "@ekza-studio/gen-gateway",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Server-side AI 3D generation gateway (ekza-gen/v1): default-deny Fetch handler, job engine, Tripo and Meshy adapters, mock provider server. Server only; never in a browser bundle.",
+  "license": "MIT",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=24.11.0"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./next": "./src/next.ts",
+    "./node": "./src/node/index.ts",
+    "./testing": "./src/testing/index.ts"
+  },
+  "bin": {
+    "ekza-gen-gateway": "src/node/main.ts"
+  },
+  "scripts": {
+    "start": "node src/node/main.ts",
+    "smoke:real": "node scripts/smoke-real.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@ekza-studio/gen-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}
