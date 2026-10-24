@@ -17,8 +17,8 @@
 
 ## Context
 
-Studio is a Maya-style power shell: docked panels, 18 menus, marking menus, a Maya keymap and about 328 live operators
-over one document and one undo history. On an iPad it is not usable:
+Studio is a desktop-DCC-style power shell: docked panels, 18 menus, marking menus, industry-standard DCC hotkeys and
+about 328 live operators over one document and one undo history. On an iPad it is not usable:
 - camera navigation needs Alt chords or a wheel, and the viewport commits every press on `pointerdown`;
 - about 30 capabilities need a modifier, a held key, a right or middle click, or hover;
 - hit targets are 2–8 px and drag thresholds 2–3 px;
@@ -64,8 +64,8 @@ Options considered:
      data and controller geometry.
    - Verbs that need a second thing use *verb → target*. Questions the kernel asks (`UiDialog`) become inline cards or
      sheets.
-   - The breadcrumb replaces pick-walk and the Outliner hierarchy; the *Numbers* sheet replaces the Channel Box and
-     Attributes, with Pro's numbers, units and signs.
+   - The breadcrumb replaces pick-walk and the Outliner hierarchy; the *Numbers* sheet replaces the Channels and
+     Attributes panels, with Pro's numbers, units and signs.
 4. **One canvas, a thin Path.**
    - *Make · Paint · Rig · Animate* switch workspace, tools and a non-persisted display overlay, never the layout. They
      never gate anything.

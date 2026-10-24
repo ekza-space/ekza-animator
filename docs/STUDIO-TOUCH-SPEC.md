@@ -95,8 +95,8 @@ a real iPad in Safari.
 
 | | **Simple layout** (new) | **Pro layout** (today's Studio) | **Auto-Rig** |
 |---|---|---|---|
-| Who | Everyone, and the default front door. Touch and Pencil first; also good with a mouse and keyboard. | Animators and modelers who want the Maya-style power shell: docked panels, many editors at once, hotkeys. | People who only want "rig my model and get a file", step by step. |
-| What | Everything Pro can do (§15), one layer at a time. | Unchanged: menus, docks, workspaces, marking menus, Maya keymap. | The five-step wizard, unchanged. |
+| Who | Everyone, and the default front door. Touch and Pencil first; also good with a mouse and keyboard. | Animators and modelers who want the desktop-DCC-style power shell: docked panels, many editors at once, hotkeys. | People who only want "rig my model and get a file", step by step. |
+| What | Everything Pro can do (§15), one layer at a time. | Unchanged: menus, docks, workspaces, marking menus, the industry-standard DCC keymap. | The five-step wizard, unchanged. |
 | Route / internal id | `/app` / `halo` | `/editor` / `studio` (unchanged) | `/autorig` / `autorig` (unchanged) |
 | Title in the UI | "Ekza Studio" | "Ekza Studio Pro" | "Rig a model for me" |
 | Switch shown as | ▤ *Pro layout* | ▤ *Simple layout* | *Back to Studio ▸* when entered from Halo |
@@ -148,7 +148,7 @@ and a lint fails when one word labels two kinds of noun or verb:
 | **Select more / Pick or unpick / Unselect** | the Thumb key's selection meanings | — |
 | **New shape** | a primitive (Make tray *New shape ▾*) | — |
 | **Key** | a keyframe, and the verb that sets one | — |
-| **Numbers** | the Inspector (Channel Box, Attributes and Rig Toolkit fields) | — |
+| **Numbers** | the Inspector (Channels, Attributes and Rig Toolkit fields) | — |
 | **Other side** | the mirrored part (`select.mirror`) | — |
 | **Export … to Files** | writing a baked file for a destination (VRM, GLB, VRMA, zip) | saving the project |
 | **Save project** | writing the editable `.ekzanim` | exports |
@@ -204,12 +204,12 @@ and a lint fails when one word labels two kinds of noun or verb:
 
 ### 2.3 What the research says (digest)
 
-- **Same core, different lens.** Shapr3D is identical across Mac, iPad and Windows, with one licence. Blender's tablet
-  project is explicitly "not Blender Lite". Cascadeur Mobile keeps the timeline, ghosts, trajectories and IK/FK. Forks
-  died: Gravity Sketch's cut-down iPad app was unlisted.
-- **Selection drives the UI** (Shapr3D's Adaptive UI, Valence 3D). **Search guarantees reachability** (Linear, Blender's
-  helper overlay). **A radial menu becomes flicks** with practice: with a mouse, the mark is about 3.5× faster than
-  picking from the menu (Kurtenbach & Buxton). On touch the ring waits for the 450 ms long-press, so that speed-up
+- **Same core, different lens.** Shapr3D is identical across Mac, iPad and Windows, with one licence. A popular
+  open-source DCC's tablet project is explicitly not a "Lite" edition. Cascadeur Mobile keeps the timeline, ghosts,
+  trajectories and IK/FK. Forks died: Gravity Sketch's cut-down iPad app was unlisted.
+- **Selection drives the UI** (Shapr3D's Adaptive UI, Valence 3D). **Search guarantees reachability** (Linear, an
+  open-source DCC's helper overlay). **A radial menu becomes flicks** with practice: with a mouse, the mark is about
+  3.5× faster than picking from the menu (Kurtenbach & Buxton). On touch the ring waits for the 450 ms long-press, so that speed-up
   applies to right-drag with a mouse, not to the long-press. **The Pencil writes and touch manipulates** (Hinckley,
   "Pen + Touch = New Tools").
 - **A shared gesture set.** Procreate and Nomad use the same one: two-finger tap undo, three-finger tap redo, four-finger
@@ -493,19 +493,19 @@ and a smoke test, nothing more, until the owner decides otherwise.
   verbs that do not fit fold into it. ▤ Pro layout moves into the project menu. *Share* keeps its word.
 - Sheets open at full height. One pane is shown, and a two-pane step (the rig dots) becomes a Front | Side toggle.
 - The weights influence card becomes a tray row. Weight and colour painting work with a 40 pt finger offset: the brush
-  sits above the fingertip, as in Nomad. A hint says a bigger screen is easier.
+  sits above the fingertip, as in tablet sculpting apps. A hint says a bigger screen is easier.
 
 ### 4.5 Desktop (mouse, trackpad, keyboard)
 
 The same anatomy as iPad landscape, with these differences:
 - **With a fine pointer and a keyboard**, Settings › Input › *Halo opens on* defaults to **right-click or hold**: a click
   selects, the breadcrumb shows `⋯ Verbs` as the visible way in, and right-click opens the Halo as a flick ring at the
-  cursor, like a Maya marking menu. *Every click* is the alternative. A touch-first device keeps *every tap*.
+  cursor, like a desktop DCC's marking menu. *Every click* is the alternative. A touch-first device keeps *every tap*.
 - **Hover** pre-highlights and shows tooltips with the Pro name and hotkey. No feature depends on hover.
-- **Navigation** follows the user's own Pro `navProfile`: Maya Alt-drag, trackpad or one-button. Left-drag on empty
-  space also orbits; Alt falls through to the profile, as in Auto-Rig's Simple navigation.
-- **Keyboard**: the Maya keymap works through the host `KeyboardAdapter`, except the chords that arrange Pro's window
-  (§5.8); Mod+K or `/` focuses the search pill.
+- **Navigation** follows the user's own Pro `navProfile`: Alt-drag navigation (`dcc`), trackpad or one-button.
+  Left-drag on empty space also orbits; Alt falls through to the profile, as in Auto-Rig's Simple navigation.
+- **Keyboard**: the industry-standard DCC keymap (`dcc` preset) works through the host `KeyboardAdapter`, except the
+  chords that arrange Pro's window (§5.8); Mod+K or `/` focuses the search pill.
 - **The Thumb key hides** after the first hardware Shift, Cmd or Alt press (Settings › Input › Thumb key: Auto · Always
   · Never).
 - Numbers can be pinned as a column on any container of at least 1180 pt while the Thread shows Curves, and on any
@@ -584,8 +584,8 @@ The rules that keep it there:
 - **Pressure** is read only when `pointerType === 'pen'`. Finger strokes use the Strength chip as it is (touch pressure
   reads 0.5 and would halve every stroke).
 - **Mouse and trackpad** keep the user's Pro profile (§4.5). The trackpad's secondary click opens the Halo ring.
-- The Settings table lists each action by input (Finger / Pencil / Mouse), and each cell can be remapped as in Nomad.
-  Mappings are a Halo preference (`halo.input`) and never touch Pro's `navProfile`.
+- The Settings table lists each action by input (Finger / Pencil / Mouse), and each cell can be remapped, as tablet
+  sculpting apps allow. Mappings are a Halo preference (`halo.input`) and never touch Pro's `navProfile`.
 
 ### 5.2 Gesture vocabulary
 
@@ -772,7 +772,7 @@ and the tool's chips (Snap, Loop).
 
 ### 5.8 Keyboard and mouse
 
-- Halo adds a small keymap scope `halo` on top of the Maya preset:
+- Halo adds a small keymap scope `halo` on top of the `dcc` preset:
   - Space = play (Halo always plays; Pro's `spaceBehaviour` pref is untouched);
   - Mod+K or `/` focuses search;
   - Ctrl+1–4 switch Path stages (checked against keys Safari reserves; dropped where they collide);
@@ -782,7 +782,7 @@ and the tool's chips (Snap, Loop).
   (`workspace.toggleFocus`) and the other `PRO_CHROME` chords run a poll-failing operator in the `halo` scope (as
   `model.animateOnly` does for Animate-only keys), whose reason reads *"That shortcut arranges Studio Pro's panels ·
   Pro layout ▸"*. They never write Pro's layout state from Halo.
-- Every other Maya binding works as in Pro. A selection made in Halo is the one Pro's hotkeys act on.
+- Every other `dcc` binding works as in Pro. A selection made in Halo is the one Pro's hotkeys act on.
 
 ---
 
@@ -908,13 +908,13 @@ two objects.
 
 ### 6.6 Numbers (the Inspector)
 
-One sheet shows the selected noun's full properties, by section. It is the touch Channel Box, Attributes and Rig
+One sheet shows the selected noun's full properties, by section. It is the touch Channels, Attributes and Rig
 Toolkit fields together, built over the React-free view models (`@ekza-studio/editor/models`, §20.3 item 9).
 
 - **Transform**: translate, rotate and scale as chips (`scene.object.transform`), with − / + steppers.
 - **Pivot**: numeric pivot (`mesh.pivot.set`), plus centre, bottom, reset and bake.
 - **Shape inputs** (primitives): the live inputs of a primitive, at any later time (`mesh.primitive.set`), as Pro's
-  Channel Box INPUTS show them; not only right after the last operation.
+  Channels INPUTS show them; not only right after the last operation.
 - **Mesh**: name, faceted, material preset, triangle target, budget preset, handheld grip, colour output.
 - **Character**: format, source file, height, licence and credits (read-only here; edited in About this character,
   §6.8).
@@ -1248,7 +1248,7 @@ waits for motion-analysis P4.
 
   | Plain label | Pro channel | Unit | Sign and value |
   |---|---|---|---|
-  | Bend | Rotate X | ° | identical to the Channel Box |
+  | Bend | Rotate X | ° | identical to Pro's Channels |
   | Twist | Rotate Y | ° | identical |
   | Side | Rotate Z | ° | identical; the right side is **not** flipped to read "outward" (v0.1's prototype did) |
   | Move X / Y / Z | Translate X / Y / Z | m | identical |
@@ -1258,7 +1258,7 @@ waits for motion-analysis P4.
 
   A control role may rename a label (`halo/src/i18n/channels.ts`), never change a value. The numpad and Numbers show
   the Pro name in grey (*"Side · Rotate Z"*), and the Curves axis uses the same numbers. A unit test checks that every
-  chip value equals the Channel Box readout for every control on Polybot and Seed-san (AS-ST-19).
+  chip value equals the Channels readout for every control on Polybot and Seed-san (AS-ST-19).
 - **Pose verbs**: Copy pose (then Paste ▾ in the same slot), Paste mirrored, Mirror ▾ (flip / L→R / R→L), Reset, Reset to
   rest; for feet, Pin, Plant and Unpin; Look at… and Place goal (verb → target, v1).
 - **Hand leads / Foot leads** is the IK/FK petal on limb controls: `rig.ikFk.switch` with matching. Its long-press holds
@@ -1564,8 +1564,8 @@ Share is a sheet over any stage (wireframe F).
     promise;
   - desktop-only AI.
 - **What the agent can do** is unchanged: the 37 MCP tools and the prompts. Halo's wrappers and `shell.navigate` are
-  denied to agents by default, so the toolset `1.0.0-mvp.1` and the generated reference do not change (§20.3 items 7
-  and 11). Recipes share the prompts' registry (§9.11).
+  denied to agents by default, so the toolset `1.0.0-mvp.2` (TM-3) and the generated reference do not change (§20.3
+  items 7 and 11). Recipes share the prompts' registry (§9.11).
 
 ---
 
@@ -1853,7 +1853,7 @@ needs a row here and a reason.
 | # | Capability | Ekza Studio surface | Depth | Pro gap closed / notes |
 |---|---|---|---|---|
 | 14.1 | Start in | Settings › Start in: Ekza Studio / Studio Pro / Auto-Rig / Ask; the layout switch updates it | L2 | — |
-| 14.2 | Navigation profile | Settings › Input: the touch / Pencil routing table; mouse profile (Maya / trackpad / one-button) | L2 | — |
+| 14.2 | Navigation profile | Settings › Input: the touch / Pencil routing table; mouse profile (Alt-drag / trackpad / one-button) | L2 | — |
 | 14.3 | Space key behaviour | Settings › Keyboard › "In Studio Pro, Space…" (Halo always plays) | L2 | Edits Pro's pref explicitly |
 | 14.4 | Auto-key mode | Settings › Animation (Pro's Auto Key mode); Halo's Rec is its own setting (`halo.rec`) | L2 | — |
 | 14.5 | Reduce keys on import | Settings › Import | L2 | — |
@@ -1869,7 +1869,7 @@ a. **Pro's window chrome**: dockview panels (drag, split, float, reset), layout 
    docking window, not the document. Ekza Studio has its own fixed layout, sheets and Hide UI. In the parity test they
    are the `PRO_CHROME` list.
 
-b. **Seeing many editors at once**: the Graph Editor, Dope Sheet, Channel Box, Outliner and Attributes side by side for
+b. **Seeing many editors at once**: the Graph Editor, Dope Sheet, Channels, Outliner and Attributes side by side for
    long polish sessions. Every capability of each is in Ekza Studio, one deep layer at a time. Showing them together
    is what Pro is for. *Open in the Pro layout ▸* on the Curves layer is a convenience only. On touch-only devices the Pro layout is not touch-ready (§15.0), so these are presentations, never the only path.
 
@@ -2161,9 +2161,9 @@ packages/halo/test/     parity helpers, manifest lints, vocabulary lint, modifie
 | 4 | **Tolerances by pointer type**: `theme.ts` PICK (including `cycleRadiusPx`), `ComponentPicker`, manipulator and extrude handle geometry, `MARKER_PICK_PX` (`viewport/src/tools/rig/quickRig/rules.ts`), the curve painters' theme, `DRAG_THRESHOLD_PX`, `DOUBLE_CLICK_MS` / `DOUBLE_CLICK_PX` (model select runtime), multi-tap windows. Manipulators scale by pointer type at render time with hysteresis, never through `tools.manipulatorSize`. Mouse values stay as today. | viewport, mesh-view, curve-editor | every shell on touch | T1 |
 | 5 | **`ToolPointerEvent` additive fields**: `pressure`, `tiltX` / `tiltY`, `altitude`, `azimuth`, `pointerId`, `isPrimary`, `coalesced[]`, `virtual`. | editor-core `types.ts` (owned by T2; T1 sends line patches) | paint tools | T2 |
 | 6 | **Halo-only forms.** `editor-core/src/forms/**`, exported as `@ekza-studio/editor-core/forms` and imported only by Halo: a `FormDef` per operator (ParamDefs, plus the session values it reads), typed against `OperatorMap` with `satisfies`. Pro, `LastRun` and the MCP schema generator never read it, so no operator becomes repeatable or adjustable and Pro's behaviour does not depend on load order. `tooling/param-lint.mjs` checks §20.5 test 9. There is no `addParams`. Making an operator adjustable in Pro is a separate change per operator, with tests and an owner decision (OQ-15). | editor-core, tooling | Echo chips, forms, Options | T5a |
-| 7 | **Public wrappers for AI-only operators.** In a lazy chunk registered for every shell: `pose.hold` (→ `pose.transfer`), `pose.pasteAt` (→ `pose.setAt`), `pose.placeGoal`, `pose.lookAt` and `pose.reach` (→ `pose.goals`), `clip.loop` (→ `clip.makeLoop`), `key.scaleValues` / `key.offsetValues` (→ `key.adjust`), `key.offsetInLoop` (→ `key.retime {wrap}`), `imagePlane.replace` (delete then import, one step). Each has an undo label, argument validation and a form. **Agent policy: denied** by default, so the MCP toolset (`1.0.0-mvp.1`) and the generated agent reference do not change; agents keep `pose.setAt`, `pose.goals` and the rest. Final names are fixed in T5a. | editor-core, agent-tools policy | Halo, Pro search | T5a |
+| 7 | **Public wrappers for AI-only operators.** In a lazy chunk registered for every shell: `pose.hold` (→ `pose.transfer`), `pose.pasteAt` (→ `pose.setAt`), `pose.placeGoal`, `pose.lookAt` and `pose.reach` (→ `pose.goals`), `clip.loop` (→ `clip.makeLoop`), `key.scaleValues` / `key.offsetValues` (→ `key.adjust`), `key.offsetInLoop` (→ `key.retime {wrap}`), `imagePlane.replace` (delete then import, one step). Each has an undo label, argument validation and a form. **Agent policy: denied** by default, so the MCP toolset (`1.0.0-mvp.2`, TM-3) and the generated agent reference do not change; agents keep `pose.setAt`, `pose.goals` and the rest. Final names are fixed in T5a. | editor-core, agent-tools policy | Halo, Pro search | T5a |
 | 8 | **Curve-editor touch adapters**: `curve-editor/src/adapters/{dopesheet,graph}.ts`. React-free glue: arbiter → controller pointer events (merging the Thumb flags); two-finger pan / pinch → `setView` / `panView` / `zoomView`; view state persisted through a callback. Pro's `GraphCanvas` and `DopeSheetView` are untouched. | curve-editor | Halo | T7 (dopesheet), T10 (graph) |
-| 9 | **`@ekza-studio/editor/models`**, a subpath that re-exports the React-free view models: outliner (`model`, `modelTree`, `sceneSelection`), channel box (`readout`, `states`, `nudge`, `kit/kernel`), graph `model`, clips `settings`, palette `model`, toolkit `slider`, the VRM Meta dialog model. Not `timeline/state.ts` or `placement.ts`, which are React hooks. Measured against `/editor` after each; the T1a spike decides between re-export and a React-free package (§20.6). | editor | Halo | T5c |
+| 9 | **`@ekza-studio/editor/models`**, a subpath that re-exports the React-free view models: outliner (`model`, `modelTree`, `sceneSelection`), the Channels panel (`readout`, `states`, `nudge`, `kit/kernel`), graph `model`, clips `settings`, palette `model`, toolkit `slider`, the VRM Meta dialog model. Not `timeline/state.ts` or `placement.ts`, which are React hooks. Measured against `/editor` after each; the T1a spike decides between re-export and a React-free package (§20.6). | editor | Halo | T5c |
 | 10 | **Auto-Rig's orchestration and progress into `editor-core`.** `editor-core/src/autorigFlow`: intake routing and the first-fix order (stand up → scale → freeze → centre → face), the `runAutoRig` argument rules (straighten from the recorded start pose, rigid parts, the rebind confirm, busy and progress), the motion-test driver, and export target naming (from `autorig/src/steps/{model,rig,motion,export}`). `autorig/src/progress` moves to `editor-core/src/progress`. Auto-Rig re-imports both (AS-ST-15). | editor-core, autorig | Halo readiness, recipes, Auto-Rig | T5b (flow), T5c (progress) |
 | 11 | **Route unions and navigation** (§20.4): `ShellRoute` + `'halo'`; `NavigationRequest.from`, `then?`; `HandoffInfo.halo`; `MountedShell.kind`. `routeHref` maps every route explicitly (today any non-`studio` route goes to `/autorig`). `handoff.ts`, test-api params, `DialogHost`, the `EditorShell` first-run suppression, the entry-choice unions, `entry-contract.test`. A host-level `shell.navigate` operator, agent-denied; `autorig.navigate` stays with its agent schema unchanged. | editor-core, editor, apps/web | all shells | T2 |
 | 12 | **Host re-homing** of shell-neutral registrations that only Pro makes today: the marking-menu definitions; rig menu items and `rig.snap.projectedCenter` / `rig.jointSize.set`; the data parts of `registerModelSelectUi` / `registerModelTransformUi`; agent UI hooks; `view.selectionMask`, `view.toggleFullscreen`. `promptRecovery` moves to the host with a hook each shell provides (Pro: its Recovery dialog; Halo: Home › Continue; Auto-Rig: as today). `watchRigViewOnly` stays Pro-only. They become idempotent, lazy, host-level registrations. | editor | Halo, Auto-Rig | T3 |
@@ -2371,7 +2371,7 @@ Studio path (manifest entry) added or not needed"*.
 - nouns and verbs on fixture apps (Polybot, Seed-san, Cube Lad), with poll filtering;
 - manifest lints, the vocabulary lint (one word, one kind) and the dialog map (every `UiDialog`);
 - readiness (one list; the status pill's count equals Share's);
-- channel labels: every chip value equals the Channel Box readout (AS-ST-19);
+- channel labels: every chip value equals the Channels readout (AS-ST-19);
 - sniffing; `SaveTicket` on the iOS and non-iOS paths, with the fallback timer;
 - route unions and `routeHref`; the entry contract;
 - the memory profile and the preference override layer;
@@ -2535,7 +2535,7 @@ and overloaded packages. v0.2 re-plans at about **100 agent-days**.
 | AS-ST-16 | Weight-paint strokes with pressure replay identically headless and through MCP | headless-tests |
 | AS-ST-17 | The visible-target budget of §4.8 holds in every stage (≤ 22 at rest, ≤ 36 with a Halo) | ha-05 |
 | AS-ST-18 | No floating item intersects the selection's on-screen box; every surface's ⋯ and primary actions are inside the viewport at 1194, 834 and 390 pt | ha-15 |
-| AS-ST-19 | Every chip value equals the Channel Box readout, sign included, for every control on Polybot and Seed-san | unit |
+| AS-ST-19 | Every chip value equals the Channels readout, sign included, for every control on Polybot and Seed-san | unit |
 | AS-ST-20 | Every `UiDialog` value has a Halo handler or is listed as deferred | unit |
 | AS-ST-21 | The real-device run (AS-ST-1, 11, 12, 13 and the D-list) is done by its named owner and its evidence is in `docs/evidence/halo/` | T12 checklist |
 
@@ -2608,7 +2608,7 @@ Market and research:
 - Shapr3D Adaptive UI, the UI refresh and the 5.300 discussion: <https://support.shapr3d.com/hc/en-us/articles/7644593398172>, <https://www.shapr3d.com/blog/refreshing-the-shapr3d-user-interface>, <https://discourse.shapr3d.com/t/5-300-maximize-your-efficiency-with-the-new-context-menus/23668?page=2>
 - Feather 1.1: <https://www.cgchannel.com/?p=165635>
 - Cascadeur Mobile: <https://www.cgchannel.com/2024/12/nekki-releases-cascadeur-mobile/>
-- Blender, "Beyond mouse and keyboard": <https://code.blender.org/2025/07/beyond-mouse-keyboard/>
+- A popular open-source DCC's tablet design note, "Beyond mouse and keyboard" (2025-07)
 - Gravity Sketch iPad support changes: <https://help.gravitysketch.com/hc/en-us/articles/19076757067037-Changes-to-iPad-app-support>
 - Figma UI3: <https://www.figma.com/blog/our-approach-to-designing-ui3/>
 - Rive animate mode: <https://rive.app/docs/editor/animate-mode/animate-mode-overview>
@@ -2703,4 +2703,4 @@ accepted. Minors: 27, of which 26 accepted and 1 partly accepted.
 | R72 | minor | UX | Swatch and clip chips needed two taps; the *Use* petal did nothing | **Accepted.** The first tap activates and opens the Halo; *Use* removed | §6.1, §13.1 |
 | R73 | minor | UX | Paint showed "in progress" untouched; glyphs unexplained; no next step after the starter set; Home's primary door unusable without a file | **Accepted.** Paint `○` until coloured; a glyph legend; one Next chip from readiness; *Try a sample* primary without Continue cards | §4.2 A, §7.2, §17 |
 | R74 | minor | UX | Double-tap meant different things by input | **Partly accepted.** Double-tap frames for every input; grow and fill moved to chips. Rejected: a Pencil press-and-hold for grow, because press-and-hold is already the Halo ring for every input | §5.2, §5.3 C2 |
-| R75 | minor | UX | Halo-on-click noisy for Maya users; the Thumb key redundant with a keyboard | **Accepted.** With a fine pointer and a keyboard the Halo opens on right-click or hold, with ⋯ Verbs on the breadcrumb; the Thumb key hides after a hardware modifier | §4.5 |
+| R75 | minor | UX | Halo-on-click noisy for desktop-DCC users; the Thumb key redundant with a keyboard | **Accepted.** With a fine pointer and a keyboard the Halo opens on right-click or hold, with ⋯ Verbs on the breadcrumb; the Thumb key hides after a hardware modifier | §4.5 |
