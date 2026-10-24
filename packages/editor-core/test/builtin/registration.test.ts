@@ -161,6 +161,15 @@ const M2A_OPERATORS: Readonly<Record<string, boolean>> = {
  * M6A-SPEC §6 operators registered by the built-ins from B0a on (stubs until their owners land them), with the U
  * column (§3 rule 9 literal update): every §6.1 kernel op (undoable) and the §6.2 editor operators.
  */
+/** M7 G-a (MODELING-PLAN §7.2; DECISIONS M7-GA-CONTRACT-*): the AI intake operators, undoable, in the 'model' scope. */
+const M7_OPERATORS: Readonly<Record<string, boolean>> = {
+  'mesh.normalize': true,
+  'mesh.reduce': true,
+  'mesh.paletteBake': true,
+  'mesh.textureDownsize': true,
+  'mesh.intake': true,
+};
+
 const M6A_OPERATORS: Readonly<Record<string, boolean>> = {
   ...Object.fromEntries(
     [...Object.keys(MESH_OP_DESCRIPTORS), ...Object.keys(MESH_SET_OP_DESCRIPTORS)].map((id) => [id, true]),
@@ -299,10 +308,17 @@ describe('built-in operators', () => {
         ...Object.keys(ADDITIONS),
         ...Object.keys(M2A_OPERATORS),
         ...Object.keys(M6A_OPERATORS),
+        ...Object.keys(M7_OPERATORS),
         ...Object.keys(MAI_OPERATORS),
       ].sort(),
     );
-    for (const [id, undo] of Object.entries({ ...ADDITIONS, ...M2A_OPERATORS, ...M6A_OPERATORS, ...MAI_OPERATORS })) {
+    for (const [id, undo] of Object.entries({
+      ...ADDITIONS,
+      ...M2A_OPERATORS,
+      ...M6A_OPERATORS,
+      ...M7_OPERATORS,
+      ...MAI_OPERATORS,
+    })) {
       expect([id, app.operators.get(id)?.flags?.undo === true]).toEqual([id, undo]);
     }
     for (const [id, undo] of Object.entries(CATALOG)) {
@@ -326,7 +342,7 @@ describe('built-in operators', () => {
         label: true,
         description: true,
         category: def.id.split('.')[0],
-        scope: def.id in M6A_OPERATORS && !M6A_GLOBAL.has(def.id) ? 'model' : 'global',
+        scope: (def.id in M6A_OPERATORS || def.id in M7_OPERATORS) && !M6A_GLOBAL.has(def.id) ? 'model' : 'global',
       });
     }
   });

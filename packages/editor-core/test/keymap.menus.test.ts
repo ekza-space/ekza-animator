@@ -134,6 +134,12 @@ describe('Model menus (§8.3)', () => {
         'Triangulate',
         'Quadrangulate',
         'Cleanup…',
+        // M7 G-a: the intake operators.
+        'Intake…',
+        'Normalize…',
+        'Reduce…',
+        'Palette Bake…',
+        'Downsize Textures…',
         'Make Editable',
       ],
     ],

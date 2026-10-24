@@ -23,6 +23,10 @@ export { assetMaterialCarriesColour, characterAssetMaterials } from './character
 export { exportCharacterArtifact, readBackCharacter } from './character/artifact';
 export { renderCharacterThumbnail } from './vrm/thumbnail';
 export { rebuildContainer, replacePrimitives } from './surgeon/replacePrimitives';
+// M7 G-a (MODELING-PLAN §7.2): the intake's texture reading and the texture downsize's image rewrite.
+export { type GlbImage, rewriteImages } from './glb/rewriteImages';
+export { type DecodedImage, decodePng, isPng } from './png/decode';
+export { encodePng } from './png/encode';
 
 /** The `io/mesh` module type (for callers of `loadMeshIo`). */
 export type MeshIoModule = typeof MeshIo;

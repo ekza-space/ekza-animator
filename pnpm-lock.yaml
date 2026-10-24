@@ -392,6 +392,9 @@ importers:
       '@ekza-studio/mesh-core':
         specifier: workspace:*
         version: link:../mesh-core
+      '@ekza-studio/mesh-wasm':
+        specifier: workspace:*
+        version: link:../mesh-wasm
       '@ekza-studio/rig':
         specifier: workspace:*
         version: link:../rig
@@ -471,6 +474,9 @@ importers:
       '@ekza-studio/mesh-core':
         specifier: workspace:*
         version: link:../mesh-core
+      '@ekza-studio/mesh-wasm':
+        specifier: workspace:*
+        version: link:../mesh-wasm
       '@ekza-studio/rig':
         specifier: workspace:*
         version: link:../rig
@@ -573,6 +579,9 @@ importers:
       '@ekza-studio/mesh-view':
         specifier: workspace:*
         version: link:../mesh-view
+      '@ekza-studio/mesh-wasm':
+        specifier: workspace:*
+        version: link:../mesh-wasm
       '@ekza-studio/rig':
         specifier: workspace:*
         version: link:../rig
@@ -768,6 +777,25 @@ importers:
       playwright:
         specifier: 1.63.0
         version: 1.63.0
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@types/node@24.19.1)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@24.19.1)(jiti@2.7.0))
+
+  packages/mesh-wasm:
+    dependencies:
+      '@ekza-studio/anim-core':
+        specifier: workspace:*
+        version: link:../anim-core
+      '@ekza-studio/mesh-core':
+        specifier: workspace:*
+        version: link:../mesh-core
+      meshoptimizer:
+        specifier: 1.3.0
+        version: 1.3.0
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.1
       vitest:
         specifier: 'catalog:'
         version: 4.1.11(@types/node@24.19.1)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@24.19.1)(jiti@2.7.0))

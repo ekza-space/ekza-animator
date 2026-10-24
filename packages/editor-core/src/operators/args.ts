@@ -17,6 +17,7 @@ import type { BrushSettings, PaintMode, PoseView, RigMode } from '../types';
 import type { AutoRigExportResult, AutoRigExportTarget, AutoRigFix, AutoRigRigResult, AutoRigSampleId, ClipParams,
   IntakeReport, ShellRoute } from '../types';
 import type { ArrivalAction, ShellKind } from '../types';   // STUDIO-TOUCH-SPEC §20.4 (T2)
+import type { IntakeArgs, IntakeOutcome } from '../intake/types';   // M7 G-a (MODELING-PLAN §7.2; DECISIONS M7-GA-CONTRACT-*)
 
 export type SampleId = 'seed-san' | 'polybot' | 'quaternius-ual';
 export interface FileArgs { readonly name: string; readonly bytes: Uint8Array }
@@ -392,6 +393,12 @@ export interface OperatorMap {
 
   // ===================== M6b (M6B-SPEC §6, §0.6; C0 registers every id from its owner's stub file) =====================
   // ---------- §6.1 characters and skeletons ----------
+  // ===================== M7 G-a (MODELING-PLAN §7.2; DECISIONS M7-GA-CONTRACT-1…6): the AI intake operators =====================
+  'mesh.normalize': { args: IntakeArgs | void; result: IntakeOutcome };
+  'mesh.reduce': { args: IntakeArgs | void; result: IntakeOutcome };
+  'mesh.paletteBake': { args: IntakeArgs | void; result: IntakeOutcome };
+  'mesh.textureDownsize': { args: IntakeArgs | void; result: IntakeOutcome };
+  'mesh.intake': { args: IntakeArgs | void; result: IntakeOutcome };
   'mesh.importStatic': { args: { readonly bytes: Uint8Array; readonly name: string;
     readonly dropSkin?: boolean };                                // AUTORIG D0 (CR-AR-6, typed): import a skinned GLB's meshes at the bind pose
     result: { readonly meshes: readonly MeshId[] } };

@@ -7,6 +7,8 @@ export {
   checkMesh,
   computeNormals,
   EDGE_HARD,
+  // M7 G-a: the AI-like test model of `io/testing` (aiModel.ts) is built on the template.
+  humanoidBody,
   morphLayer,
   triangulate,
 } from '@ekza-studio/mesh-core';
