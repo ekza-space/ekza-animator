@@ -110,3 +110,5 @@ export {
 } from './skeleton/fromDoc';
 // Auto-Rig D6 (AUTORIG-SPEC §5.6.4): the OMOBA local test kit packer and the deterministic zip of the VRMA bundle.
 export * from './omoba';
+// CHARACTER-CONTRACT-SPEC §8.1 (C1): the `omoba.character-contract.v1` parser, canonical JSON and the snapshot index.
+export * from './contract';

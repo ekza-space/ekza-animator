@@ -1,0 +1,6517 @@
+{
+ "schema": "omoba.character-contract.v1",
+ "schemaVersion": 1,
+ "projectId": "omoba",
+ "revision": "sha256-b4029806322eac361e44458ba73e8570efbe016e7980a77b3f78c08517fc5f26",
+ "previousRevision": null,
+ "license": "CC0-1.0",
+ "source": {
+  "commit": "6d34f98",
+  "exporter": "scripts/export_character_contract.py",
+  "inputsSha256": "db0e37eec0499b593d08965e342ea0a69699ff7007af41a6f8e3eee05c300d03",
+  "gameplayRevision": "standard-kits-8",
+  "presentationSha256": "fe544cd0df722b9dd21753804c77091e3d8ddb64e863aebbfcfb3f0db4958ae4",
+  "motionLibrary": {
+   "schemaVersion": 1,
+   "sha256": "2af1a6a0332bee5a840554efd7f4efdbf85941efe744c4b03df7fad382879a9a",
+   "clips": 57
+  },
+  "protocolVersion": 11
+ },
+ "package": {
+  "extrasKey": "ekza_animation_set_v1",
+  "sourceFormats": [
+   "vrm1",
+   "vrm0"
+  ],
+  "rendition": {
+   "platform": "desktop",
+   "profile": "humanoid-glb-v2",
+   "version": 1
+  },
+  "slotNaming": "animation-name-equals-slot-id",
+  "customPlayback": {
+   "rate": 1,
+   "start": 0
+  }
+ },
+ "rig": {
+  "kind": "vrm-humanoid",
+  "restPose": "t-pose",
+  "facing": "as-vrm-spec",
+  "requiredBones": [
+   "hips",
+   "spine",
+   "head",
+   "leftUpperArm",
+   "leftLowerArm",
+   "leftHand",
+   "rightUpperArm",
+   "rightLowerArm",
+   "rightHand",
+   "leftUpperLeg",
+   "leftLowerLeg",
+   "leftFoot",
+   "rightUpperLeg",
+   "rightLowerLeg",
+   "rightFoot"
+  ],
+  "requiredBonesVrm0": [
+   "chest",
+   "neck"
+  ],
+  "drivenBones": [
+   "chest",
+   "head",
+   "hips",
+   "leftFoot",
+   "leftHand",
+   "leftIndexDistal",
+   "leftIndexIntermediate",
+   "leftIndexProximal",
+   "leftLittleDistal",
+   "leftLittleIntermediate",
+   "leftLittleProximal",
+   "leftLowerArm",
+   "leftLowerLeg",
+   "leftMiddleDistal",
+   "leftMiddleIntermediate",
+   "leftMiddleProximal",
+   "leftRingDistal",
+   "leftRingIntermediate",
+   "leftRingProximal",
+   "leftShoulder",
+   "leftThumbDistal",
+   "leftThumbIntermediate",
+   "leftThumbProximal",
+   "leftToes",
+   "leftUpperArm",
+   "leftUpperLeg",
+   "neck",
+   "rightFoot",
+   "rightHand",
+   "rightIndexDistal",
+   "rightIndexIntermediate",
+   "rightIndexProximal",
+   "rightLittleDistal",
+   "rightLittleIntermediate",
+   "rightLittleProximal",
+   "rightLowerArm",
+   "rightLowerLeg",
+   "rightMiddleDistal",
+   "rightMiddleIntermediate",
+   "rightMiddleProximal",
+   "rightRingDistal",
+   "rightRingIntermediate",
+   "rightRingProximal",
+   "rightShoulder",
+   "rightThumbDistal",
+   "rightThumbIntermediate",
+   "rightThumbProximal",
+   "rightToes",
+   "rightUpperArm",
+   "rightUpperLeg",
+   "spine",
+   "upperChest"
+  ],
+  "maxHumanoidBones": 64,
+  "maxNodes": 4096,
+  "uniformScale": "humanoid-bones-and-ancestors",
+  "fingers": "optional",
+  "thumbsRecommended": true,
+  "legLengthFrom": "hips-to-feet",
+  "referenceLegLengthM": 0.813
+ },
+ "timing": {
+  "blendSecs": 0.12,
+  "idleGraceSecs": 0.25,
+  "facingHoldSecs": {
+   "basic": 0.45,
+   "skill": 0.7
+  },
+  "contactLimitSecs": 0.15,
+  "rowRate": [
+   0.5,
+   2
+  ],
+  "rowStart": [
+   0,
+   0.8
+  ],
+  "fitRate": [
+   0.5,
+   2
+  ],
+  "unseenHoldSecs": 1.2,
+  "freshSecs": 0.15,
+  "maxGapSecs": 0.25,
+  "deathCut": "immediate",
+  "movementInterruptsAction": false,
+  "newActionRestarts": true
+ },
+ "rules": [
+  {
+   "id": "pack.extras",
+   "severity": "error",
+   "scope": "pack",
+   "params": {
+    "key": "ekza_animation_set_v1",
+    "schema": 1
+   }
+  },
+  {
+   "id": "pack.contract",
+   "severity": "error",
+   "scope": "pack",
+   "params": {}
+  },
+  {
+   "id": "pack.slot-known",
+   "severity": "error",
+   "scope": "pack",
+   "params": {}
+  },
+  {
+   "id": "pack.animation-ref",
+   "severity": "error",
+   "scope": "pack",
+   "params": {
+    "nameEqualsSlot": true
+   }
+  },
+  {
+   "id": "pack.unreferenced",
+   "severity": "warning",
+   "scope": "pack",
+   "params": {}
+  },
+  {
+   "id": "pack.bytes",
+   "severity": "error",
+   "scope": "pack",
+   "params": {
+    "maxFileBytes": 52428800,
+    "maxJsonBytes": 4194304,
+    "maxAnimationBytes": 4194304,
+    "maxCustomSlots": 48
+   }
+  },
+  {
+   "id": "clip.channels",
+   "severity": "error",
+   "scope": "clip",
+   "params": {
+    "rotation": "humanoid-bones",
+    "translation": [
+     "hips"
+    ],
+    "scale": false,
+    "weights": false
+   }
+  },
+  {
+   "id": "clip.sampler",
+   "severity": "error",
+   "scope": "clip",
+   "params": {
+    "interpolation": [
+     "LINEAR",
+     "STEP"
+    ],
+    "startsAtSecs": 0,
+    "timeEpsilonSecs": 0.0001,
+    "unitQuatEpsilon": 0.001
+   }
+  },
+  {
+   "id": "clip.keys",
+   "severity": "error",
+   "scope": "clip",
+   "params": {
+    "maxKeysPerChannel": 4096,
+    "maxSampleRateHz": 60
+   }
+  },
+  {
+   "id": "clip.duration",
+   "severity": "error",
+   "scope": "clip",
+   "params": {
+    "source": "slot.window"
+   }
+  },
+  {
+   "id": "clip.in-place",
+   "severity": "error",
+   "scope": "clip",
+   "params": {
+    "unit": "legLength",
+    "maxHorizontal": 0.15,
+    "maxHorizontalHold": 0.75,
+    "maxVertical": 0.6
+   }
+  },
+  {
+   "id": "clip.loop-closure",
+   "severity": "error",
+   "scope": "clip",
+   "params": {
+    "maxBoneDegrees": 2,
+    "maxHipsOffset": 0.01,
+    "unit": "legLength"
+   }
+  },
+  {
+   "id": "clip.contact",
+   "severity": "error",
+   "scope": "clip",
+   "params": {
+    "formula": "(contact - start * duration) / rate",
+    "limitSecs": 0.15,
+    "toleranceSecs": 0.0001
+   }
+  },
+  {
+   "id": "clip.basic-interval",
+   "severity": "warning",
+   "scope": "clip",
+   "params": {
+    "source": "slot.minIntervalSecs"
+   }
+  }
+ ],
+ "slots": {
+  "base.death": {
+   "group": "base",
+   "role": "death",
+   "label": "Death",
+   "kind": "hold",
+   "phase": "state",
+   "edgeReleased": false,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "death",
+    "durationSecs": 2.375,
+    "looping": false,
+    "contactSecs": null,
+    "rate": 1,
+    "start": 0,
+    "playSecs": 2.375,
+    "effectiveContactSecs": null,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.5,
+    "targetSecs": 2.375,
+    "maxSecs": 3
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": null,
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "*"
+   ]
+  },
+  "base.idle": {
+   "group": "base",
+   "role": "idle",
+   "label": "Idle",
+   "kind": "loop",
+   "phase": "locomotion",
+   "edgeReleased": false,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "idle",
+    "durationSecs": 2.5,
+    "looping": true,
+    "contactSecs": null,
+    "rate": 1,
+    "start": 0,
+    "playSecs": 2.5,
+    "effectiveContactSecs": null,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 1,
+    "targetSecs": 2.5,
+    "maxSecs": 4
+   },
+   "inPlace": true,
+   "loop": true,
+   "contact": null,
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "*"
+   ]
+  },
+  "base.run": {
+   "group": "base",
+   "role": "run",
+   "label": "Run (all movement)",
+   "kind": "loop",
+   "phase": "locomotion",
+   "edgeReleased": false,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "run",
+    "durationSecs": 0.6667,
+    "looping": true,
+    "contactSecs": null,
+    "rate": 1,
+    "start": 0,
+    "playSecs": 0.6667,
+    "effectiveContactSecs": null,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.4,
+    "targetSecs": 0.6667,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": true,
+   "contact": null,
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "*"
+   ]
+  },
+  "base.walk": {
+   "group": "base",
+   "role": "walk",
+   "label": "Walk (reserved; not played yet)",
+   "kind": "loop",
+   "phase": "locomotion",
+   "edgeReleased": false,
+   "customizable": false,
+   "customizableFrom": null,
+   "reserved": true,
+   "required": false,
+   "default": {
+    "motion": "walk",
+    "durationSecs": 1.3333,
+    "looping": true,
+    "contactSecs": null,
+    "rate": 1,
+    "start": 0,
+    "playSecs": 1.3333,
+    "effectiveContactSecs": null,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.8,
+    "targetSecs": 1.3333,
+    "maxSecs": 2
+   },
+   "inPlace": true,
+   "loop": true,
+   "contact": null,
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "*"
+   ]
+  },
+  "basic.adventurer.0": {
+   "group": "basic",
+   "role": "basic",
+   "label": "Basic attack",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "dagger_stab",
+    "durationSecs": 0.44,
+    "looping": false,
+    "contactSecs": 0.22,
+    "rate": 1.6,
+    "start": 0,
+    "playSecs": 0.275,
+    "effectiveContactSecs": 0.1375,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.275,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1375
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "dagger",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [
+    "skill.dagger_deadly_blow.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "adventurer"
+   ],
+   "class": "adventurer",
+   "minIntervalSecs": 0.3889
+  },
+  "basic.chainkeeper.0": {
+   "group": "basic",
+   "role": "basic",
+   "label": "Basic attack",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "toss_underhand",
+    "durationSecs": 0.4,
+    "looping": false,
+    "contactSecs": 0.13,
+    "rate": 0.9,
+    "start": 0,
+    "playSecs": 0.4444,
+    "effectiveContactSecs": 0.1444,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.4444,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1444
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.mage.0",
+    "skill.dawn_barrier.release",
+    "skill.wandering_ember.release",
+    "skill.wild_traps.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "chainkeeper"
+   ],
+   "class": "chainkeeper",
+   "minIntervalSecs": 0.7187
+  },
+  "basic.cinderforge.0": {
+   "group": "basic",
+   "role": "basic",
+   "label": "Basic attack",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "cleave_slam",
+    "durationSecs": 0.9,
+    "looping": false,
+    "contactSecs": 0.3,
+    "rate": 0.85,
+    "start": 0.3,
+    "playSecs": 0.7412,
+    "effectiveContactSecs": 0.0353,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.7412,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.0353
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.primal_maul.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "cinderforge"
+   ],
+   "class": "cinderforge",
+   "minIntervalSecs": 0.75
+  },
+  "basic.cleric.0": {
+   "group": "basic",
+   "role": "basic",
+   "label": "Basic attack",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "cast",
+    "durationSecs": 0.5,
+    "looping": false,
+    "contactSecs": 0.0833,
+    "rate": 1.15,
+    "start": 0,
+    "playSecs": 0.4348,
+    "effectiveContactSecs": 0.0725,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.4348,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.0725
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.orbitwright.0",
+    "skill.frost_lance.release",
+    "skill.patient_curse.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "cleric"
+   ],
+   "class": "cleric",
+   "minIntervalSecs": 0.6452
+  },
+  "basic.dawnweaver.0": {
+   "group": "basic",
+   "role": "basic",
+   "label": "Basic attack 1",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "point_command",
+    "durationSecs": 0.5,
+    "looping": false,
+    "contactSecs": 0.16,
+    "rate": 1.4,
+    "start": 0.2,
+    "playSecs": 0.2857,
+    "effectiveContactSecs": 0.0429,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.2857,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.0429
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "dawn-scepter",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [
+    "skill.divine_favor.release",
+    "skill.orbital_command.release",
+    "skill.thunder_pulse.recast"
+   ],
+   "alternatesWith": [
+    "basic.dawnweaver.1"
+   ],
+   "usedBy": [
+    "dawnweaver"
+   ],
+   "class": "dawnweaver",
+   "minIntervalSecs": 0.75
+  },
+  "basic.dawnweaver.1": {
+   "group": "basic",
+   "role": "basic",
+   "label": "Basic attack 2",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "spell_finish",
+    "durationSecs": 0.4167,
+    "looping": false,
+    "contactSecs": 0.25,
+    "rate": 1.4,
+    "start": 0.2,
+    "playSecs": 0.2381,
+    "effectiveContactSecs": 0.119,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.2381,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.119
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "dawn-scepter",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [
+    "basic.emberveil.0",
+    "skill.orbital_field.release",
+    "skill.renew.release",
+    "skill.thorn_volley.recast"
+   ],
+   "alternatesWith": [
+    "basic.dawnweaver.0"
+   ],
+   "usedBy": [
+    "dawnweaver"
+   ],
+   "class": "dawnweaver",
+   "minIntervalSecs": 0.75
+  },
+  "basic.edgeweaver.0": {
+   "group": "basic",
+   "role": "basic",
+   "label": "Basic attack",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "cast_thrust_r",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.24,
+    "rate": 1.5,
+    "start": 0.2,
+    "playSecs": 0.32,
+    "effectiveContactSecs": 0.08,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.32,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.08
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.riftshot.0",
+    "skill.arc_bolt.release",
+    "skill.dawn_bind.release",
+    "skill.orbital_guard.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "edgeweaver"
+   ],
+   "class": "edgeweaver",
+   "minIntervalSecs": 0.6562
+  },
+  "basic.emberveil.0": {
+   "group": "basic",
+   "role": "basic",
+   "label": "Basic attack",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "spell_finish",
+    "durationSecs": 0.4167,
+    "looping": false,
+    "contactSecs": 0.25,
+    "rate": 1.2,
+    "start": 0.25,
+    "playSecs": 0.2604,
+    "effectiveContactSecs": 0.1215,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.2604,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1215
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.dawnweaver.1",
+    "skill.orbital_field.release",
+    "skill.renew.release",
+    "skill.thorn_volley.recast"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "emberveil"
+   ],
+   "class": "emberveil",
+   "minIntervalSecs": 0.7187
+  },
+  "basic.frostguard.0": {
+   "group": "basic",
+   "role": "basic",
+   "label": "Basic attack",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "two_hand_push",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.1,
+    "rate": 0.9,
+    "start": 0,
+    "playSecs": 0.6667,
+    "effectiveContactSecs": 0.1111,
+    "standInFor": "shield bash"
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.6667,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1111
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.furnace_breath.release",
+    "skill.pyroblast.release",
+    "skill.shield_bash.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "frostguard"
+   ],
+   "class": "frostguard",
+   "minIntervalSecs": 0.7187
+  },
+  "basic.mage.0": {
+   "group": "basic",
+   "role": "basic",
+   "label": "Basic attack",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "toss_underhand",
+    "durationSecs": 0.4,
+    "looping": false,
+    "contactSecs": 0.13,
+    "rate": 1.2,
+    "start": 0,
+    "playSecs": 0.3333,
+    "effectiveContactSecs": 0.1083,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.3333,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1083
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.chainkeeper.0",
+    "skill.dawn_barrier.release",
+    "skill.wandering_ember.release",
+    "skill.wild_traps.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "mage"
+   ],
+   "class": "mage",
+   "minIntervalSecs": 0.7333
+  },
+  "basic.orbitwright.0": {
+   "group": "basic",
+   "role": "basic",
+   "label": "Basic attack",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "cast",
+    "durationSecs": 0.5,
+    "looping": false,
+    "contactSecs": 0.0833,
+    "rate": 1.3,
+    "start": 0,
+    "playSecs": 0.3846,
+    "effectiveContactSecs": 0.0641,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.3846,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.0641
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.cleric.0",
+    "skill.frost_lance.release",
+    "skill.patient_curse.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "orbitwright"
+   ],
+   "class": "orbitwright",
+   "minIntervalSecs": 0.7187
+  },
+  "basic.ranger.0": {
+   "group": "basic",
+   "role": "basic",
+   "label": "Basic attack",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "aim_loose_r",
+    "durationSecs": 0.55,
+    "looping": false,
+    "contactSecs": 0.14,
+    "rate": 1.5,
+    "start": 0,
+    "playSecs": 0.3667,
+    "effectiveContactSecs": 0.0933,
+    "standInFor": "bow release"
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.3667,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.0933
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "verdant-bow",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "ranger"
+   ],
+   "class": "ranger",
+   "minIntervalSecs": 0.4722
+  },
+  "basic.riftshot.0": {
+   "group": "basic",
+   "role": "basic",
+   "label": "Basic attack",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "cast_thrust_r",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.24,
+    "rate": 0.8,
+    "start": 0.3,
+    "playSecs": 0.525,
+    "effectiveContactSecs": 0.075,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.525,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.075
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "wild-repeater",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [
+    "basic.edgeweaver.0",
+    "skill.arc_bolt.release",
+    "skill.dawn_bind.release",
+    "skill.orbital_guard.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "riftshot"
+   ],
+   "class": "riftshot",
+   "minIntervalSecs": 0.6875
+  },
+  "basic.stormfist.0": {
+   "group": "basic",
+   "role": "basic",
+   "label": "Basic attack 1",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "shoulder_drive",
+    "durationSecs": 0.8333,
+    "looping": false,
+    "contactSecs": 0.2083,
+    "rate": 1.5,
+    "start": 0,
+    "playSecs": 0.5556,
+    "effectiveContactSecs": 0.1389,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.5556,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1389
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.northwall.release"
+   ],
+   "alternatesWith": [
+    "basic.stormfist.1"
+   ],
+   "usedBy": [
+    "stormfist"
+   ],
+   "class": "stormfist",
+   "minIntervalSecs": 0.625
+  },
+  "basic.stormfist.1": {
+   "group": "basic",
+   "role": "basic",
+   "label": "Basic attack 2",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "thrust_lunge",
+    "durationSecs": 0.45,
+    "looping": false,
+    "contactSecs": 0.1125,
+    "rate": 1.5,
+    "start": 0,
+    "playSecs": 0.3,
+    "effectiveContactSecs": 0.075,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.3,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.075
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.edge_lunge.release",
+    "skill.mountain_echo.recast"
+   ],
+   "alternatesWith": [
+    "basic.stormfist.0"
+   ],
+   "usedBy": [
+    "stormfist"
+   ],
+   "class": "stormfist",
+   "minIntervalSecs": 0.625
+  },
+  "basic.veilstalker.0": {
+   "group": "basic",
+   "role": "basic",
+   "label": "Basic attack 1",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "slash_rising_m",
+    "durationSecs": 0.5,
+    "looping": false,
+    "contactSecs": 0.125,
+    "rate": 1.4,
+    "start": 0.1,
+    "playSecs": 0.3214,
+    "effectiveContactSecs": 0.0536,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.3214,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.0536
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.shadow_lash.release"
+   ],
+   "alternatesWith": [
+    "basic.veilstalker.1"
+   ],
+   "usedBy": [
+    "veilstalker"
+   ],
+   "class": "veilstalker",
+   "minIntervalSecs": 0.625
+  },
+  "basic.veilstalker.1": {
+   "group": "basic",
+   "role": "basic",
+   "label": "Basic attack 2",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "slash_down",
+    "durationSecs": 0.55,
+    "looping": false,
+    "contactSecs": 0.165,
+    "rate": 1.4,
+    "start": 0.1,
+    "playSecs": 0.3536,
+    "effectiveContactSecs": 0.0786,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.3536,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.0786
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.warden.0",
+    "skill.fourfold_duel.release",
+    "skill.heroic_strike.release"
+   ],
+   "alternatesWith": [
+    "basic.veilstalker.0"
+   ],
+   "usedBy": [
+    "veilstalker"
+   ],
+   "class": "veilstalker",
+   "minIntervalSecs": 0.625
+  },
+  "basic.warden.0": {
+   "group": "basic",
+   "role": "basic",
+   "label": "Basic attack 1",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "slash_down",
+    "durationSecs": 0.55,
+    "looping": false,
+    "contactSecs": 0.165,
+    "rate": 1.3,
+    "start": 0,
+    "playSecs": 0.4231,
+    "effectiveContactSecs": 0.1269,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.4231,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1269
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.veilstalker.1",
+    "skill.fourfold_duel.release",
+    "skill.heroic_strike.release"
+   ],
+   "alternatesWith": [
+    "basic.warden.1"
+   ],
+   "usedBy": [
+    "warden"
+   ],
+   "class": "warden",
+   "minIntervalSecs": 0.5152
+  },
+  "basic.warden.1": {
+   "group": "basic",
+   "role": "basic",
+   "label": "Basic attack 2",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "slash_down_m",
+    "durationSecs": 0.55,
+    "looping": false,
+    "contactSecs": 0.165,
+    "rate": 1.3,
+    "start": 0,
+    "playSecs": 0.4231,
+    "effectiveContactSecs": 0.1269,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.4231,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1269
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [],
+   "alternatesWith": [
+    "basic.warden.0"
+   ],
+   "usedBy": [
+    "warden"
+   ],
+   "class": "warden",
+   "minIntervalSecs": 0.5152
+  },
+  "basic.warrior.0": {
+   "group": "basic",
+   "role": "basic",
+   "label": "Basic attack",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "slash_rising",
+    "durationSecs": 0.5,
+    "looping": false,
+    "contactSecs": 0.125,
+    "rate": 1.2,
+    "start": 0,
+    "playSecs": 0.4167,
+    "effectiveContactSecs": 0.1042,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.4167,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1042
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "forge-sword",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [
+    "skill.mirror_guard.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "warrior"
+   ],
+   "class": "warrior",
+   "minIntervalSecs": 0.5625
+  },
+  "basic.wildspark.0": {
+   "group": "basic",
+   "role": "basic",
+   "label": "Basic attack",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "burst_fire",
+    "durationSecs": 0.45,
+    "looping": false,
+    "contactSecs": 0.075,
+    "rate": 1.65,
+    "start": 0,
+    "playSecs": 0.2727,
+    "effectiveContactSecs": 0.0455,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.2727,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.0455
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "wild-repeater",
+    "byMode": {
+     "rockets": "wild-launcher"
+    },
+    "bone": "rightHand",
+    "muzzleWindowSecs": [
+     0.08,
+     0.25
+    ]
+   },
+   "sharesDefaultWith": [
+    "skill.quick_shot.release",
+    "skill.rift_needle.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "wildspark"
+   ],
+   "class": "wildspark",
+   "minIntervalSecs": 0.4375
+  },
+  "basic.wildspark.rockets.0": {
+   "group": "basic",
+   "role": "basic",
+   "label": "Basic attack (rocket mode)",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "shot_heavy",
+    "durationSecs": 0.8,
+    "looping": false,
+    "contactSecs": 0.17,
+    "rate": 1.15,
+    "start": 0,
+    "playSecs": 0.6957,
+    "effectiveContactSecs": 0.1478,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.6957,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1478
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "wild-repeater",
+    "byMode": {
+     "rockets": "wild-launcher"
+    },
+    "bone": "rightHand",
+    "muzzleWindowSecs": [
+     0.08,
+     0.25
+    ]
+   },
+   "sharesDefaultWith": [
+    "skill.horizon_wave.release",
+    "skill.longshot.release",
+    "skill.wild_rocket.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "wildspark"
+   ],
+   "class": "wildspark",
+   "minIntervalSecs": 0.4375,
+   "weaponMode": "rockets"
+  },
+  "skill.anchor_step.recast": {
+   "group": "skill",
+   "role": "recast",
+   "label": "Anchor Step (W) — recast",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "rally_raise",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.15,
+    "rate": 1.2,
+    "start": 0,
+    "playSecs": 0.5,
+    "effectiveContactSecs": 0.125,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.5,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.125
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.battle_rally.release",
+    "skill.smite.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "stormfist"
+   ],
+   "skill": "anchor_step"
+  },
+  "skill.anchor_step.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Anchor Step (W) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "leap_land",
+    "durationSecs": 0.65,
+    "looping": false,
+    "contactSecs": 0.12,
+    "rate": 1,
+    "start": 0,
+    "playSecs": 0.65,
+    "effectiveContactSecs": 0.12,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.65,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.12
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.rift_step.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "stormfist"
+   ],
+   "skill": "anchor_step"
+  },
+  "skill.anvil_charge.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Anvil Charge (E) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "dive_lunge",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.12,
+    "rate": 1.2,
+    "start": 0.1,
+    "playSecs": 0.45,
+    "effectiveContactSecs": 0.05,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.45,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.05
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.echo_strike.recast",
+    "skill.sheltering_leap.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "cinderforge"
+   ],
+   "skill": "anvil_charge"
+  },
+  "skill.arc_bolt.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Arc Bolt (Q) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "cast_thrust_r",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.24,
+    "rate": 1.7,
+    "start": 0.25,
+    "playSecs": 0.2647,
+    "effectiveContactSecs": 0.0529,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.2647,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.0529
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.edgeweaver.0",
+    "basic.riftshot.0",
+    "skill.dawn_bind.release",
+    "skill.orbital_guard.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "mage"
+   ],
+   "skill": "arc_bolt"
+  },
+  "skill.barkskin.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Barkskin (W) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "guard",
+    "durationSecs": 0.8333,
+    "looping": false,
+    "contactSecs": 0.3333,
+    "rate": 1.2,
+    "start": 0.2,
+    "playSecs": 0.5556,
+    "effectiveContactSecs": 0.1389,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.5556,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1389
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "warden"
+   ],
+   "skill": "barkskin"
+  },
+  "skill.battle_rally.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Battle Rally (W) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "rally_raise",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.15,
+    "rate": 0.85,
+    "start": 0.1,
+    "playSecs": 0.6353,
+    "effectiveContactSecs": 0.1059,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.6353,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1059
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "forge-sword",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [
+    "skill.anchor_step.recast",
+    "skill.smite.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "warrior"
+   ],
+   "skill": "battle_rally"
+  },
+  "skill.chain_sweep.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Chain Sweep (E) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "spin_cleave",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.1,
+    "rate": 0.7,
+    "start": 0,
+    "playSecs": 0.8571,
+    "effectiveContactSecs": 0.1429,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.8571,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1429
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.rampage.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "chainkeeper"
+   ],
+   "skill": "chain_sweep"
+  },
+  "skill.dagger_backstab.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Backstab (E) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "dagger_backstab",
+    "durationSecs": 0.65,
+    "looping": false,
+    "contactSecs": 0.11,
+    "rate": 1,
+    "start": 0,
+    "playSecs": 0.65,
+    "effectiveContactSecs": 0.11,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.65,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.11
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "dagger",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "adventurer"
+   ],
+   "skill": "dagger_backstab"
+  },
+  "skill.dagger_bluff.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Bluff (W) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "dagger_feint",
+    "durationSecs": 0.62,
+    "looping": false,
+    "contactSecs": 0.155,
+    "rate": 1.1,
+    "start": 0,
+    "playSecs": 0.5636,
+    "effectiveContactSecs": 0.1409,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.5636,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1409
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "dagger",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "adventurer"
+   ],
+   "skill": "dagger_bluff"
+  },
+  "skill.dagger_deadly_blow.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Deadly Blow (Q) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "dagger_stab",
+    "durationSecs": 0.44,
+    "looping": false,
+    "contactSecs": 0.22,
+    "rate": 1,
+    "start": 0.25,
+    "playSecs": 0.33,
+    "effectiveContactSecs": 0.11,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.33,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.11
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "dagger",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [
+    "basic.adventurer.0"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "adventurer"
+   ],
+   "skill": "dagger_deadly_blow"
+  },
+  "skill.dagger_lethal_blow.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Lethal Blow (R) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "dagger_heavy_thrust",
+    "durationSecs": 0.84,
+    "looping": false,
+    "contactSecs": 0.336,
+    "rate": 0.9,
+    "start": 0.25,
+    "playSecs": 0.7,
+    "effectiveContactSecs": 0.14,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.7,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.14
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "dagger",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "adventurer"
+   ],
+   "skill": "dagger_lethal_blow"
+  },
+  "skill.dawn_barrier.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Returning Aegis (W) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "toss_underhand",
+    "durationSecs": 0.4,
+    "looping": false,
+    "contactSecs": 0.13,
+    "rate": 1.5,
+    "start": 0,
+    "playSecs": 0.2667,
+    "effectiveContactSecs": 0.0867,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.2667,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.0867
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "dawn-scepter",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [
+    "basic.chainkeeper.0",
+    "basic.mage.0",
+    "skill.wandering_ember.release",
+    "skill.wild_traps.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "dawnweaver"
+   ],
+   "skill": "dawn_barrier"
+  },
+  "skill.dawn_bind.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Gleaming Snare (Q) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "cast_thrust_r",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.24,
+    "rate": 1.25,
+    "start": 0.2,
+    "playSecs": 0.384,
+    "effectiveContactSecs": 0.096,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.384,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.096
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "dawn-scepter",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [
+    "basic.edgeweaver.0",
+    "basic.riftshot.0",
+    "skill.arc_bolt.release",
+    "skill.orbital_guard.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "dawnweaver"
+   ],
+   "skill": "dawn_bind"
+  },
+  "skill.dawn_field.recast": {
+   "group": "skill",
+   "role": "recast",
+   "label": "Luminous Field (E) — recast",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "draw_in",
+    "durationSecs": 0.5,
+    "looping": false,
+    "contactSecs": 0.125,
+    "rate": 1.8,
+    "start": 0,
+    "playSecs": 0.2778,
+    "effectiveContactSecs": 0.0694,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.2778,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.0694
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "dawn-scepter",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [
+    "skill.heart_tether.release",
+    "skill.iron_hook.recast",
+    "skill.mana_surge.release",
+    "skill.orbital_collapse.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "dawnweaver"
+   ],
+   "skill": "dawn_field"
+  },
+  "skill.dawn_field.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Luminous Field (E) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "kneel_plant",
+    "durationSecs": 0.75,
+    "looping": false,
+    "contactSecs": 0.36,
+    "rate": 1.6,
+    "start": 0.25,
+    "playSecs": 0.3516,
+    "effectiveContactSecs": 0.1078,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.3516,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1078
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "dawn-scepter",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [
+    "skill.field_dressing.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "dawnweaver"
+   ],
+   "skill": "dawn_field"
+  },
+  "skill.dawn_ray.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Horizon Ray (R) — release",
+   "kind": "action",
+   "phase": "warn_fire",
+   "edgeReleased": false,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "ray_release",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.05,
+    "rate": 1,
+    "start": 0,
+    "playSecs": 0.6,
+    "effectiveContactSecs": 0.05,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.6,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": null,
+    "targetSecs": 0.05
+   },
+   "telegraph": {
+    "secs": 0.8,
+    "serverWindupSecs": 0.8,
+    "fitWindup": true
+   },
+   "handheld": {
+    "item": "dawn-scepter",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "dawnweaver"
+   ],
+   "skill": "dawn_ray"
+  },
+  "skill.dawn_ray.windup": {
+   "group": "skill",
+   "role": "windup",
+   "label": "Horizon Ray (R) — wind-up",
+   "skill": "dawn_ray",
+   "kind": "hold",
+   "phase": "warn_fire",
+   "edgeReleased": false,
+   "customizable": false,
+   "customizableFrom": "1.1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "spell_charge",
+    "durationSecs": 0.8,
+    "looping": false,
+    "contactSecs": 0.64,
+    "rate": 1,
+    "start": 0,
+    "playSecs": 0.8,
+    "effectiveContactSecs": 0.64,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.3,
+    "targetSecs": 0.8,
+    "maxSecs": 2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": null,
+   "telegraph": {
+    "secs": 0.8,
+    "serverWindupSecs": 0.8,
+    "fitWindup": true
+   },
+   "handheld": {
+    "item": "dawn-scepter",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "dawnweaver"
+   ]
+  },
+  "skill.divine_favor.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Divine Favor (E) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "point_command",
+    "durationSecs": 0.5,
+    "looping": false,
+    "contactSecs": 0.16,
+    "rate": 0.75,
+    "start": 0.15,
+    "playSecs": 0.5667,
+    "effectiveContactSecs": 0.1133,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.5667,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1133
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.dawnweaver.0",
+    "skill.orbital_command.release",
+    "skill.thunder_pulse.recast"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "cleric"
+   ],
+   "skill": "divine_favor"
+  },
+  "skill.echo_strike.recast": {
+   "group": "skill",
+   "role": "recast",
+   "label": "Echo Strike (Q) — recast",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "dive_lunge",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.12,
+    "rate": 1.1,
+    "start": 0,
+    "playSecs": 0.5455,
+    "effectiveContactSecs": 0.1091,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.5455,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1091
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.anvil_charge.release",
+    "skill.sheltering_leap.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "stormfist"
+   ],
+   "skill": "echo_strike"
+  },
+  "skill.echo_strike.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Echo Strike (Q) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "punch",
+    "durationSecs": 1,
+    "looping": false,
+    "contactSecs": 0.25,
+    "rate": 1.25,
+    "start": 0.1,
+    "playSecs": 0.72,
+    "effectiveContactSecs": 0.12,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.72,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.12
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.winter_shard.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "stormfist"
+   ],
+   "skill": "echo_strike"
+  },
+  "skill.edge_lunge.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Edge Lunge (Q) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "thrust_lunge",
+    "durationSecs": 0.45,
+    "looping": false,
+    "contactSecs": 0.1125,
+    "rate": 0.9,
+    "start": 0,
+    "playSecs": 0.5,
+    "effectiveContactSecs": 0.125,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.5,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.125
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.stormfist.1",
+    "skill.mountain_echo.recast"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "edgeweaver"
+   ],
+   "skill": "edge_lunge"
+  },
+  "skill.fault_line.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Fault Line (Q) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "overhead_plant",
+    "durationSecs": 0.7,
+    "looping": false,
+    "contactSecs": 0.26,
+    "rate": 1.1,
+    "start": 0.3,
+    "playSecs": 0.4455,
+    "effectiveContactSecs": 0.0455,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.4455,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.0455
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.winter_divide.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "cinderforge"
+   ],
+   "skill": "fault_line"
+  },
+  "skill.feral_swipe.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Feral Swipe (Q) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "jab_cross",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.1,
+    "rate": 1.15,
+    "start": 0,
+    "playSecs": 0.5217,
+    "effectiveContactSecs": 0.087,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.5217,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.087
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "warden"
+   ],
+   "skill": "feral_swipe"
+  },
+  "skill.field_dressing.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Field Dressing (W) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "kneel_plant",
+    "durationSecs": 0.75,
+    "looping": false,
+    "contactSecs": 0.36,
+    "rate": 1,
+    "start": 0.3,
+    "playSecs": 0.525,
+    "effectiveContactSecs": 0.135,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.525,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.135
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "verdant-bow",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [
+    "skill.dawn_field.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "ranger"
+   ],
+   "skill": "field_dressing"
+  },
+  "skill.flame_dance.recast": {
+   "group": "skill",
+   "role": "recast",
+   "label": "Flame Dance (R) — recast",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "dance_twirl",
+    "durationSecs": 0.5,
+    "looping": false,
+    "contactSecs": 0.1429,
+    "rate": 1.2,
+    "start": 0,
+    "playSecs": 0.4167,
+    "effectiveContactSecs": 0.119,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.4167,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.119
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "emberveil"
+   ],
+   "skill": "flame_dance"
+  },
+  "skill.flame_dance.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Flame Dance (R) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "vault_flip",
+    "durationSecs": 0.7,
+    "looping": false,
+    "contactSecs": 0.35,
+    "rate": 1.3,
+    "start": 0.25,
+    "playSecs": 0.4038,
+    "effectiveContactSecs": 0.1346,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.4038,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1346
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "emberveil"
+   ],
+   "skill": "flame_dance"
+  },
+  "skill.fourfold_duel.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Fourfold Duel (R) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "slash_down",
+    "durationSecs": 0.55,
+    "looping": false,
+    "contactSecs": 0.165,
+    "rate": 1.5,
+    "start": 0,
+    "playSecs": 0.3667,
+    "effectiveContactSecs": 0.11,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.3667,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.11
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.veilstalker.1",
+    "basic.warden.0",
+    "skill.heroic_strike.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "edgeweaver"
+   ],
+   "skill": "fourfold_duel"
+  },
+  "skill.frost_lance.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Frost Lance (E) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "cast",
+    "durationSecs": 0.5,
+    "looping": false,
+    "contactSecs": 0.0833,
+    "rate": 0.8,
+    "start": 0,
+    "playSecs": 0.625,
+    "effectiveContactSecs": 0.1042,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.625,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1042
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.cleric.0",
+    "basic.orbitwright.0",
+    "skill.patient_curse.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "mage"
+   ],
+   "skill": "frost_lance"
+  },
+  "skill.furnace_breath.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Furnace Breath (W) — release",
+   "kind": "action",
+   "phase": "fuse",
+   "edgeReleased": false,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "two_hand_push",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.1,
+    "rate": 1,
+    "start": 0.25,
+    "playSecs": 0.45,
+    "effectiveContactSecs": -0.05,
+    "standInFor": "shield bash"
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.45,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": null,
+    "targetSecs": 0
+   },
+   "telegraph": {
+    "secs": 0.8,
+    "serverWindupSecs": null,
+    "fitWindup": false
+   },
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.frostguard.0",
+    "skill.pyroblast.release",
+    "skill.shield_bash.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "cinderforge"
+   ],
+   "skill": "furnace_breath"
+  },
+  "skill.furnace_breath.windup": {
+   "group": "skill",
+   "role": "windup",
+   "label": "Furnace Breath (W) — wind-up",
+   "skill": "furnace_breath",
+   "kind": "loop",
+   "phase": "fuse",
+   "edgeReleased": false,
+   "customizable": false,
+   "customizableFrom": "1.1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "fist_guard_loop",
+    "durationSecs": 1,
+    "looping": true,
+    "contactSecs": null,
+    "rate": 1,
+    "start": 0,
+    "playSecs": 1,
+    "effectiveContactSecs": null,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.3,
+    "targetSecs": 1,
+    "maxSecs": 2
+   },
+   "inPlace": true,
+   "loop": true,
+   "contact": null,
+   "telegraph": {
+    "secs": 0.8,
+    "serverWindupSecs": null,
+    "fitWindup": false
+   },
+   "handheld": null,
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "cinderforge"
+   ]
+  },
+  "skill.guardians_blessing.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Guardian's Blessing (R) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "hover_pulse",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.15,
+    "rate": 0.8,
+    "start": 0.1,
+    "playSecs": 0.675,
+    "effectiveContactSecs": 0.1125,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.675,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1125
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.kindled_wisps.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "cleric"
+   ],
+   "skill": "guardians_blessing"
+  },
+  "skill.guiding_lantern.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Guiding Lantern (W) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "place_quick",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.15,
+    "rate": 1,
+    "start": 0.2,
+    "playSecs": 0.48,
+    "effectiveContactSecs": 0.03,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.48,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.03
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "chainkeeper"
+   ],
+   "skill": "guiding_lantern"
+  },
+  "skill.heart_tether.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Heart Tether (E) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "draw_in",
+    "durationSecs": 0.5,
+    "looping": false,
+    "contactSecs": 0.125,
+    "rate": 1.3,
+    "start": 0.1,
+    "playSecs": 0.3462,
+    "effectiveContactSecs": 0.0577,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.3462,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.0577
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.dawn_field.recast",
+    "skill.iron_hook.recast",
+    "skill.mana_surge.release",
+    "skill.orbital_collapse.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "emberveil"
+   ],
+   "skill": "heart_tether"
+  },
+  "skill.heroic_strike.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Heroic Strike (E) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "slash_down",
+    "durationSecs": 0.55,
+    "looping": false,
+    "contactSecs": 0.165,
+    "rate": 0.85,
+    "start": 0.12,
+    "playSecs": 0.5694,
+    "effectiveContactSecs": 0.1165,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.5694,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1165
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "forge-sword",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [
+    "basic.veilstalker.1",
+    "basic.warden.0",
+    "skill.fourfold_duel.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "warrior"
+   ],
+   "skill": "heroic_strike"
+  },
+  "skill.horizon_wave.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Horizon Wave (R) — release",
+   "kind": "action",
+   "phase": "warn_fire",
+   "edgeReleased": false,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "shot_heavy",
+    "durationSecs": 0.8,
+    "looping": false,
+    "contactSecs": 0.17,
+    "rate": 1,
+    "start": 0.2,
+    "playSecs": 0.64,
+    "effectiveContactSecs": 0.01,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.64,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": null,
+    "targetSecs": 0.01
+   },
+   "telegraph": {
+    "secs": 0.7,
+    "serverWindupSecs": 0.7,
+    "fitWindup": false
+   },
+   "handheld": {
+    "item": "wild-repeater",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [
+    "basic.wildspark.rockets.0",
+    "skill.longshot.release",
+    "skill.wild_rocket.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "riftshot"
+   ],
+   "skill": "horizon_wave"
+  },
+  "skill.horizon_wave.windup": {
+   "group": "skill",
+   "role": "windup",
+   "label": "Horizon Wave (R) — wind-up",
+   "skill": "horizon_wave",
+   "kind": "loop",
+   "phase": "warn_fire",
+   "edgeReleased": false,
+   "customizable": false,
+   "customizableFrom": "1.1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "aim_hold_loop",
+    "durationSecs": 1.6667,
+    "looping": true,
+    "contactSecs": null,
+    "rate": 1,
+    "start": 0,
+    "playSecs": 1.6667,
+    "effectiveContactSecs": null,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.3,
+    "targetSecs": 1.6667,
+    "maxSecs": 2
+   },
+   "inPlace": true,
+   "loop": true,
+   "contact": null,
+   "telegraph": {
+    "secs": 0.7,
+    "serverWindupSecs": 0.7,
+    "fitWindup": false
+   },
+   "handheld": {
+    "item": "wild-repeater",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "riftshot"
+   ]
+  },
+  "skill.hunters_mark.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Hunter's Mark (E) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "hurl_overhand",
+    "durationSecs": 0.5,
+    "looping": false,
+    "contactSecs": 0.2,
+    "rate": 1,
+    "start": 0.25,
+    "playSecs": 0.375,
+    "effectiveContactSecs": 0.075,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.375,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.075
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.iron_hook.release",
+    "skill.thorn_volley.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "warden"
+   ],
+   "skill": "hunters_mark"
+  },
+  "skill.iron_boundary.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Iron Boundary (R) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "ground_pound",
+    "durationSecs": 0.7,
+    "looping": false,
+    "contactSecs": 0.17,
+    "rate": 0.7,
+    "start": 0.1,
+    "playSecs": 0.9,
+    "effectiveContactSecs": 0.1429,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.9,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1429
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.thunder_pulse.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "chainkeeper"
+   ],
+   "skill": "iron_boundary"
+  },
+  "skill.iron_hook.recast": {
+   "group": "skill",
+   "role": "recast",
+   "label": "Iron Hook (Q) — recast",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "draw_in",
+    "durationSecs": 0.5,
+    "looping": false,
+    "contactSecs": 0.125,
+    "rate": 1,
+    "start": 0,
+    "playSecs": 0.5,
+    "effectiveContactSecs": 0.125,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.5,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.125
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.dawn_field.recast",
+    "skill.heart_tether.release",
+    "skill.mana_surge.release",
+    "skill.orbital_collapse.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "chainkeeper"
+   ],
+   "skill": "iron_hook"
+  },
+  "skill.iron_hook.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Iron Hook (Q) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "hurl_overhand",
+    "durationSecs": 0.5,
+    "looping": false,
+    "contactSecs": 0.2,
+    "rate": 0.6,
+    "start": 0.35,
+    "playSecs": 0.5417,
+    "effectiveContactSecs": 0.0417,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.5417,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.0417
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.hunters_mark.release",
+    "skill.thorn_volley.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "chainkeeper"
+   ],
+   "skill": "iron_hook"
+  },
+  "skill.kindled_wisps.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Kindled Wisps (W) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "hover_pulse",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.15,
+    "rate": 1.5,
+    "start": 0,
+    "playSecs": 0.4,
+    "effectiveContactSecs": 0.1,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.4,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.guardians_blessing.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "emberveil"
+   ],
+   "skill": "kindled_wisps"
+  },
+  "skill.longshot.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Longshot (R) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "shot_heavy",
+    "durationSecs": 0.8,
+    "looping": false,
+    "contactSecs": 0.17,
+    "rate": 1.25,
+    "start": 0,
+    "playSecs": 0.64,
+    "effectiveContactSecs": 0.136,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.64,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.136
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "verdant-bow",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [
+    "basic.wildspark.rockets.0",
+    "skill.horizon_wave.release",
+    "skill.wild_rocket.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "ranger"
+   ],
+   "skill": "longshot"
+  },
+  "skill.mana_surge.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Mana Surge (W) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "draw_in",
+    "durationSecs": 0.5,
+    "looping": false,
+    "contactSecs": 0.125,
+    "rate": 0.7,
+    "start": 0.05,
+    "playSecs": 0.6786,
+    "effectiveContactSecs": 0.1429,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.6786,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1429
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.dawn_field.recast",
+    "skill.heart_tether.release",
+    "skill.iron_hook.recast",
+    "skill.orbital_collapse.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "mage"
+   ],
+   "skill": "mana_surge"
+  },
+  "skill.mirror_guard.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Mirror Guard (W) — release",
+   "kind": "action",
+   "phase": "parry",
+   "edgeReleased": false,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "slash_rising",
+    "durationSecs": 0.5,
+    "looping": false,
+    "contactSecs": 0.125,
+    "rate": 1.25,
+    "start": 0,
+    "playSecs": 0.4,
+    "effectiveContactSecs": 0.1,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.4,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": null,
+    "targetSecs": 0.1
+   },
+   "telegraph": {
+    "secs": 0.75,
+    "serverWindupSecs": null,
+    "fitWindup": false
+   },
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.warrior.0"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "edgeweaver"
+   ],
+   "skill": "mirror_guard"
+  },
+  "skill.mirror_guard.windup": {
+   "group": "skill",
+   "role": "windup",
+   "label": "Mirror Guard (W) — wind-up",
+   "skill": "mirror_guard",
+   "kind": "loop",
+   "phase": "parry",
+   "edgeReleased": false,
+   "customizable": false,
+   "customizableFrom": "1.1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "blade_ready_loop",
+    "durationSecs": 1.6667,
+    "looping": true,
+    "contactSecs": null,
+    "rate": 1,
+    "start": 0,
+    "playSecs": 1.6667,
+    "effectiveContactSecs": null,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.3,
+    "targetSecs": 1.6667,
+    "maxSecs": 2
+   },
+   "inPlace": true,
+   "loop": true,
+   "contact": null,
+   "telegraph": {
+    "secs": 0.75,
+    "serverWindupSecs": null,
+    "fitWindup": false
+   },
+   "handheld": null,
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "edgeweaver"
+   ]
+  },
+  "skill.mountain_echo.recast": {
+   "group": "skill",
+   "role": "recast",
+   "label": "Mountain Echo (R) — recast",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "thrust_lunge",
+    "durationSecs": 0.45,
+    "looping": false,
+    "contactSecs": 0.1125,
+    "rate": 1,
+    "start": 0,
+    "playSecs": 0.45,
+    "effectiveContactSecs": 0.1125,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.45,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1125
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.stormfist.1",
+    "skill.edge_lunge.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "cinderforge"
+   ],
+   "skill": "mountain_echo"
+  },
+  "skill.mountain_echo.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Mountain Echo (R) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "raise_from_earth",
+    "durationSecs": 0.8,
+    "looping": false,
+    "contactSecs": 0.2,
+    "rate": 0.9,
+    "start": 0.12,
+    "playSecs": 0.7822,
+    "effectiveContactSecs": 0.1156,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.7822,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1156
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "cinderforge"
+   ],
+   "skill": "mountain_echo"
+  },
+  "skill.nightfall.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Nightfall (R) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "backflip_retreat",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.1,
+    "rate": 1.1,
+    "start": 0,
+    "playSecs": 0.5455,
+    "effectiveContactSecs": 0.0909,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.5455,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.0909
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "veilstalker"
+   ],
+   "skill": "nightfall"
+  },
+  "skill.northwall.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Northwall (E) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "shoulder_drive",
+    "durationSecs": 0.8333,
+    "looping": false,
+    "contactSecs": 0.2083,
+    "rate": 0.9,
+    "start": 0.12,
+    "playSecs": 0.8148,
+    "effectiveContactSecs": 0.1204,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.8148,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1204
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.stormfist.0"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "frostguard"
+   ],
+   "skill": "northwall"
+  },
+  "skill.orbital_collapse.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Orbital Collapse (R) — release",
+   "kind": "action",
+   "phase": "fuse",
+   "edgeReleased": false,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "draw_in",
+    "durationSecs": 0.5,
+    "looping": false,
+    "contactSecs": 0.125,
+    "rate": 1.4,
+    "start": 0,
+    "playSecs": 0.3571,
+    "effectiveContactSecs": 0.0893,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.3571,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": null,
+    "targetSecs": 0.0893
+   },
+   "telegraph": {
+    "secs": 0.7,
+    "serverWindupSecs": null,
+    "fitWindup": false
+   },
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.dawn_field.recast",
+    "skill.heart_tether.release",
+    "skill.iron_hook.recast",
+    "skill.mana_surge.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "orbitwright"
+   ],
+   "skill": "orbital_collapse"
+  },
+  "skill.orbital_collapse.windup": {
+   "group": "skill",
+   "role": "windup",
+   "label": "Orbital Collapse (R) — wind-up",
+   "skill": "orbital_collapse",
+   "kind": "loop",
+   "phase": "fuse",
+   "edgeReleased": false,
+   "customizable": false,
+   "customizableFrom": "1.1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "levitate_loop",
+    "durationSecs": 1.6,
+    "looping": true,
+    "contactSecs": null,
+    "rate": 1,
+    "start": 0,
+    "playSecs": 1.6,
+    "effectiveContactSecs": null,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.3,
+    "targetSecs": 1.6,
+    "maxSecs": 2
+   },
+   "inPlace": true,
+   "loop": true,
+   "contact": null,
+   "telegraph": {
+    "secs": 0.7,
+    "serverWindupSecs": null,
+    "fitWindup": false
+   },
+   "handheld": null,
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "orbitwright"
+   ]
+  },
+  "skill.orbital_command.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Orbital Command (Q) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "point_command",
+    "durationSecs": 0.5,
+    "looping": false,
+    "contactSecs": 0.16,
+    "rate": 0.9,
+    "start": 0.1,
+    "playSecs": 0.5,
+    "effectiveContactSecs": 0.1222,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.5,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1222
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.dawnweaver.0",
+    "skill.divine_favor.release",
+    "skill.thunder_pulse.recast"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "orbitwright"
+   ],
+   "skill": "orbital_command"
+  },
+  "skill.orbital_field.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Orbital Field (W) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "spell_finish",
+    "durationSecs": 0.4167,
+    "looping": false,
+    "contactSecs": 0.25,
+    "rate": 1.2,
+    "start": 0.3,
+    "playSecs": 0.2431,
+    "effectiveContactSecs": 0.1042,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.2431,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1042
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.dawnweaver.1",
+    "basic.emberveil.0",
+    "skill.renew.release",
+    "skill.thorn_volley.recast"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "orbitwright"
+   ],
+   "skill": "orbital_field"
+  },
+  "skill.orbital_guard.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Orbital Guard (E) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "cast_thrust_r",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.24,
+    "rate": 1,
+    "start": 0.2,
+    "playSecs": 0.48,
+    "effectiveContactSecs": 0.12,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.48,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.12
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.edgeweaver.0",
+    "basic.riftshot.0",
+    "skill.arc_bolt.release",
+    "skill.dawn_bind.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "orbitwright"
+   ],
+   "skill": "orbital_guard"
+  },
+  "skill.patient_curse.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Patient Curse (W) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "cast",
+    "durationSecs": 0.5,
+    "looping": false,
+    "contactSecs": 0.0833,
+    "rate": 0.75,
+    "start": 0,
+    "playSecs": 0.6667,
+    "effectiveContactSecs": 0.1111,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.6667,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1111
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.cleric.0",
+    "basic.orbitwright.0",
+    "skill.frost_lance.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "veilstalker"
+   ],
+   "skill": "patient_curse"
+  },
+  "skill.piercing_arrow.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Piercing Arrow (E) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "sky_shot",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.15,
+    "rate": 1.1,
+    "start": 0.2,
+    "playSecs": 0.4364,
+    "effectiveContactSecs": 0.0273,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.4364,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.0273
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "verdant-bow",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [
+    "skill.rift_seal.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "ranger"
+   ],
+   "skill": "piercing_arrow"
+  },
+  "skill.primal_maul.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Primal Maul (R) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "cleave_slam",
+    "durationSecs": 0.9,
+    "looping": false,
+    "contactSecs": 0.3,
+    "rate": 1.1,
+    "start": 0.25,
+    "playSecs": 0.6136,
+    "effectiveContactSecs": 0.0682,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.6136,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.0682
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.cinderforge.0"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "warden"
+   ],
+   "skill": "primal_maul"
+  },
+  "skill.pyroblast.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Pyroblast (R) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "two_hand_push",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.1,
+    "rate": 0.65,
+    "start": 0.15,
+    "playSecs": 0.7846,
+    "effectiveContactSecs": 0.0154,
+    "standInFor": "shield bash"
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.7846,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.0154
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.frostguard.0",
+    "skill.furnace_breath.release",
+    "skill.shield_bash.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "mage"
+   ],
+   "skill": "pyroblast"
+  },
+  "skill.quick_shot.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Quick Shot (Q) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "burst_fire",
+    "durationSecs": 0.45,
+    "looping": false,
+    "contactSecs": 0.075,
+    "rate": 1.3,
+    "start": 0.33,
+    "playSecs": 0.2319,
+    "effectiveContactSecs": -0.0565,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.2319,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "verdant-bow",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [
+    "basic.wildspark.0",
+    "skill.rift_needle.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "ranger"
+   ],
+   "skill": "quick_shot"
+  },
+  "skill.rampage.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Rampage (R) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "spin_cleave",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.1,
+    "rate": 1.2,
+    "start": 0,
+    "playSecs": 0.5,
+    "effectiveContactSecs": 0.0833,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.5,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.0833
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "forge-sword",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [
+    "skill.chain_sweep.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "warrior"
+   ],
+   "skill": "rampage"
+  },
+  "skill.renew.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Renew (W) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "spell_finish",
+    "durationSecs": 0.4167,
+    "looping": false,
+    "contactSecs": 0.25,
+    "rate": 0.85,
+    "start": 0.3,
+    "playSecs": 0.3431,
+    "effectiveContactSecs": 0.1471,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.3431,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1471
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.dawnweaver.1",
+    "basic.emberveil.0",
+    "skill.orbital_field.release",
+    "skill.thorn_volley.recast"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "cleric"
+   ],
+   "skill": "renew"
+  },
+  "skill.rift_needle.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Rift Needle (Q) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "burst_fire",
+    "durationSecs": 0.45,
+    "looping": false,
+    "contactSecs": 0.075,
+    "rate": 1,
+    "start": 0.05,
+    "playSecs": 0.4275,
+    "effectiveContactSecs": 0.0525,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.4275,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.0525
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "wild-repeater",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [
+    "basic.wildspark.0",
+    "skill.quick_shot.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "riftshot"
+   ],
+   "skill": "rift_needle"
+  },
+  "skill.rift_seal.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Rift Seal (W) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "sky_shot",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.15,
+    "rate": 1.2,
+    "start": 0.3,
+    "playSecs": 0.35,
+    "effectiveContactSecs": -0.025,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.35,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "wild-repeater",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [
+    "skill.piercing_arrow.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "riftshot"
+   ],
+   "skill": "rift_seal"
+  },
+  "skill.rift_step.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Rift Step (E) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "leap_land",
+    "durationSecs": 0.65,
+    "looping": false,
+    "contactSecs": 0.12,
+    "rate": 1.4,
+    "start": 0,
+    "playSecs": 0.4643,
+    "effectiveContactSecs": 0.0857,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.4643,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.0857
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "wild-repeater",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [
+    "skill.anchor_step.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "riftshot"
+   ],
+   "skill": "rift_step"
+  },
+  "skill.shadow_lash.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Shadow Lash (E) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "slash_rising_m",
+    "durationSecs": 0.5,
+    "looping": false,
+    "contactSecs": 0.125,
+    "rate": 1,
+    "start": 0.15,
+    "playSecs": 0.425,
+    "effectiveContactSecs": 0.05,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.425,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.05
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.veilstalker.0"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "veilstalker"
+   ],
+   "skill": "shadow_lash"
+  },
+  "skill.sheltering_leap.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Sheltering Leap (W) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "dive_lunge",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.12,
+    "rate": 0.8,
+    "start": 0.2,
+    "playSecs": 0.6,
+    "effectiveContactSecs": 0,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.6,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.anvil_charge.release",
+    "skill.echo_strike.recast"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "frostguard"
+   ],
+   "skill": "sheltering_leap"
+  },
+  "skill.shield_bash.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Shield Bash (Q) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "two_hand_push",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.1,
+    "rate": 1.15,
+    "start": 0,
+    "playSecs": 0.5217,
+    "effectiveContactSecs": 0.087,
+    "standInFor": "shield bash"
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.5217,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.087
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "forge-sword",
+    "byMode": {},
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [
+    "basic.frostguard.0",
+    "skill.furnace_breath.release",
+    "skill.pyroblast.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "warrior"
+   ],
+   "skill": "shield_bash"
+  },
+  "skill.smite.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Smite (Q) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "rally_raise",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.15,
+    "rate": 1.6,
+    "start": 0,
+    "playSecs": 0.375,
+    "effectiveContactSecs": 0.0937,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.375,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.0937
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.anchor_step.recast",
+    "skill.battle_rally.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "cleric"
+   ],
+   "skill": "smite"
+  },
+  "skill.thorn_volley.recast": {
+   "group": "skill",
+   "role": "recast",
+   "label": "Thorn Volley (Q) — recast",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "spell_finish",
+    "durationSecs": 0.4167,
+    "looping": false,
+    "contactSecs": 0.25,
+    "rate": 2,
+    "start": 0,
+    "playSecs": 0.2083,
+    "effectiveContactSecs": 0.125,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.2083,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.125
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.dawnweaver.1",
+    "basic.emberveil.0",
+    "skill.orbital_field.release",
+    "skill.renew.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "veilstalker"
+   ],
+   "skill": "thorn_volley"
+  },
+  "skill.thorn_volley.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Thorn Volley (Q) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "hurl_overhand",
+    "durationSecs": 0.5,
+    "looping": false,
+    "contactSecs": 0.2,
+    "rate": 1.2,
+    "start": 0.3,
+    "playSecs": 0.2917,
+    "effectiveContactSecs": 0.0417,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.2917,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.0417
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.hunters_mark.release",
+    "skill.iron_hook.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "veilstalker"
+   ],
+   "skill": "thorn_volley"
+  },
+  "skill.thunder_kick.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Thunder Kick (R) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "flying_knee",
+    "durationSecs": 0.7,
+    "looping": false,
+    "contactSecs": 0.17,
+    "rate": 1.25,
+    "start": 0,
+    "playSecs": 0.56,
+    "effectiveContactSecs": 0.136,
+    "standInFor": "kick"
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.56,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.136
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "stormfist"
+   ],
+   "skill": "thunder_kick"
+  },
+  "skill.thunder_pulse.recast": {
+   "group": "skill",
+   "role": "recast",
+   "label": "Thunder Pulse (E) — recast",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "point_command",
+    "durationSecs": 0.5,
+    "looping": false,
+    "contactSecs": 0.16,
+    "rate": 1.1,
+    "start": 0,
+    "playSecs": 0.4545,
+    "effectiveContactSecs": 0.1455,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.4545,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1455
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.dawnweaver.0",
+    "skill.divine_favor.release",
+    "skill.orbital_command.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "stormfist"
+   ],
+   "skill": "thunder_pulse"
+  },
+  "skill.thunder_pulse.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Thunder Pulse (E) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "ground_pound",
+    "durationSecs": 0.7,
+    "looping": false,
+    "contactSecs": 0.17,
+    "rate": 1.2,
+    "start": 0,
+    "playSecs": 0.5833,
+    "effectiveContactSecs": 0.1417,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.5833,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1417
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.iron_boundary.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "stormfist"
+   ],
+   "skill": "thunder_pulse"
+  },
+  "skill.twin_tempo.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Twin Tempo (E) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "blade_flourish",
+    "durationSecs": 0.45,
+    "looping": false,
+    "contactSecs": 0.15,
+    "rate": 1.2,
+    "start": 0,
+    "playSecs": 0.375,
+    "effectiveContactSecs": 0.125,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.375,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.125
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "edgeweaver"
+   ],
+   "skill": "twin_tempo"
+  },
+  "skill.wandering_ember.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Wandering Ember (Q) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "toss_underhand",
+    "durationSecs": 0.4,
+    "looping": false,
+    "contactSecs": 0.13,
+    "rate": 0.9,
+    "start": 0.1,
+    "playSecs": 0.4,
+    "effectiveContactSecs": 0.1,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.4,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "basic.chainkeeper.0",
+    "basic.mage.0",
+    "skill.dawn_barrier.release",
+    "skill.wild_traps.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "emberveil"
+   ],
+   "skill": "wandering_ember"
+  },
+  "skill.wild_rocket.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Last Spark (R) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "shot_heavy",
+    "durationSecs": 0.8,
+    "looping": false,
+    "contactSecs": 0.17,
+    "rate": 1,
+    "start": 0.05,
+    "playSecs": 0.76,
+    "effectiveContactSecs": 0.13,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.76,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.13
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "wild-repeater",
+    "byMode": {
+     "rockets": "wild-launcher"
+    },
+    "bone": "rightHand",
+    "muzzleWindowSecs": [
+     0.08,
+     0.25
+    ]
+   },
+   "sharesDefaultWith": [
+    "basic.wildspark.rockets.0",
+    "skill.horizon_wave.release",
+    "skill.longshot.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "wildspark"
+   ],
+   "skill": "wild_rocket"
+  },
+  "skill.wild_switch.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Switchfire (Q) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "reload_snap",
+    "durationSecs": 0.6,
+    "looping": false,
+    "contactSecs": 0.34,
+    "rate": 1.5,
+    "start": 0.25,
+    "playSecs": 0.3,
+    "effectiveContactSecs": 0.1267,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.3,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1267
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "wild-repeater",
+    "byMode": {
+     "rockets": "wild-launcher"
+    },
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "wildspark"
+   ],
+   "skill": "wild_switch"
+  },
+  "skill.wild_traps.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Snapline (E) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "toss_underhand",
+    "durationSecs": 0.4,
+    "looping": false,
+    "contactSecs": 0.13,
+    "rate": 1.3,
+    "start": 0,
+    "playSecs": 0.3077,
+    "effectiveContactSecs": 0.1,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.3077,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "wild-repeater",
+    "byMode": {
+     "rockets": "wild-launcher"
+    },
+    "bone": "rightHand",
+    "muzzleWindowSecs": null
+   },
+   "sharesDefaultWith": [
+    "basic.chainkeeper.0",
+    "basic.mage.0",
+    "skill.dawn_barrier.release",
+    "skill.wandering_ember.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "wildspark"
+   ],
+   "skill": "wild_traps"
+  },
+  "skill.wild_zap.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Shockline (W) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "pistol_shoot",
+    "durationSecs": 0.625,
+    "looping": false,
+    "contactSecs": 0.0417,
+    "rate": 1.1,
+    "start": 0,
+    "playSecs": 0.5682,
+    "effectiveContactSecs": 0.0379,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.5682,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.0379
+   },
+   "telegraph": null,
+   "handheld": {
+    "item": "wild-repeater",
+    "byMode": {
+     "rockets": "wild-launcher"
+    },
+    "bone": "rightHand",
+    "muzzleWindowSecs": [
+     0.08,
+     0.25
+    ]
+   },
+   "sharesDefaultWith": [],
+   "alternatesWith": [],
+   "usedBy": [
+    "wildspark"
+   ],
+   "skill": "wild_zap"
+  },
+  "skill.winter_divide.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Winter Divide (R) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "overhead_plant",
+    "durationSecs": 0.7,
+    "looping": false,
+    "contactSecs": 0.26,
+    "rate": 0.75,
+    "start": 0.25,
+    "playSecs": 0.7,
+    "effectiveContactSecs": 0.1133,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.7,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1133
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.fault_line.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "frostguard"
+   ],
+   "skill": "winter_divide"
+  },
+  "skill.winter_shard.release": {
+   "group": "skill",
+   "role": "release",
+   "label": "Winter Shard (Q) — release",
+   "kind": "action",
+   "phase": "instant",
+   "edgeReleased": true,
+   "customizable": true,
+   "customizableFrom": "1",
+   "reserved": false,
+   "required": false,
+   "default": {
+    "motion": "punch",
+    "durationSecs": 1,
+    "looping": false,
+    "contactSecs": 0.25,
+    "rate": 0.9,
+    "start": 0.15,
+    "playSecs": 0.9444,
+    "effectiveContactSecs": 0.1111,
+    "standInFor": null
+   },
+   "window": {
+    "minSecs": 0.15,
+    "targetSecs": 0.9444,
+    "maxSecs": 1.2
+   },
+   "inPlace": true,
+   "loop": false,
+   "contact": {
+    "required": true,
+    "maxSecs": 0.15,
+    "targetSecs": 0.1111
+   },
+   "telegraph": null,
+   "handheld": null,
+   "sharesDefaultWith": [
+    "skill.echo_strike.release"
+   ],
+   "alternatesWith": [],
+   "usedBy": [
+    "frostguard"
+   ],
+   "skill": "winter_shard"
+  }
+ },
+ "heroes": [
+  {
+   "id": "any",
+   "kind": "any",
+   "name": "Any hero",
+   "role": null,
+   "requirementId": "character.any",
+   "basicAttack": null,
+   "kit": [],
+   "handheld": null,
+   "slots": [
+    "base.idle",
+    "base.run",
+    "base.death"
+   ]
+  },
+  {
+   "id": "warrior",
+   "kind": "class",
+   "name": "Warrior",
+   "role": "solo",
+   "requirementId": "character.warrior",
+   "basicAttack": {
+    "rangeM": 4,
+    "cooldownSecs": 0.9,
+    "attackRateCap": 1.6,
+    "minIntervalSecs": 0.5625,
+    "slots": [
+     "basic.warrior.0"
+    ]
+   },
+   "kit": [
+    {
+     "key": "q",
+     "skill": "shield_bash",
+     "name": "Shield Bash",
+     "slots": [
+      "skill.shield_bash.release"
+     ]
+    },
+    {
+     "key": "w",
+     "skill": "battle_rally",
+     "name": "Battle Rally",
+     "slots": [
+      "skill.battle_rally.release"
+     ]
+    },
+    {
+     "key": "e",
+     "skill": "heroic_strike",
+     "name": "Heroic Strike",
+     "slots": [
+      "skill.heroic_strike.release"
+     ]
+    },
+    {
+     "key": "r",
+     "skill": "rampage",
+     "name": "Rampage",
+     "slots": [
+      "skill.rampage.release"
+     ]
+    }
+   ],
+   "handheld": {
+    "default": "forge-sword",
+    "byMode": {},
+    "bone": "rightHand"
+   },
+   "slots": [
+    "base.idle",
+    "base.run",
+    "base.death",
+    "basic.warrior.0",
+    "skill.shield_bash.release",
+    "skill.battle_rally.release",
+    "skill.heroic_strike.release",
+    "skill.rampage.release"
+   ]
+  },
+  {
+   "id": "mage",
+   "kind": "class",
+   "name": "Mage",
+   "role": "mid",
+   "requirementId": "character.mage",
+   "basicAttack": {
+    "rangeM": 14,
+    "cooldownSecs": 1.1,
+    "attackRateCap": 1.5,
+    "minIntervalSecs": 0.7333,
+    "slots": [
+     "basic.mage.0"
+    ]
+   },
+   "kit": [
+    {
+     "key": "q",
+     "skill": "arc_bolt",
+     "name": "Arc Bolt",
+     "slots": [
+      "skill.arc_bolt.release"
+     ]
+    },
+    {
+     "key": "w",
+     "skill": "mana_surge",
+     "name": "Mana Surge",
+     "slots": [
+      "skill.mana_surge.release"
+     ]
+    },
+    {
+     "key": "e",
+     "skill": "frost_lance",
+     "name": "Frost Lance",
+     "slots": [
+      "skill.frost_lance.release"
+     ]
+    },
+    {
+     "key": "r",
+     "skill": "pyroblast",
+     "name": "Pyroblast",
+     "slots": [
+      "skill.pyroblast.release"
+     ]
+    }
+   ],
+   "handheld": null,
+   "slots": [
+    "base.idle",
+    "base.run",
+    "base.death",
+    "basic.mage.0",
+    "skill.arc_bolt.release",
+    "skill.mana_surge.release",
+    "skill.frost_lance.release",
+    "skill.pyroblast.release"
+   ]
+  },
+  {
+   "id": "ranger",
+   "kind": "class",
+   "name": "Ranger",
+   "role": "carry",
+   "requirementId": "character.ranger",
+   "basicAttack": {
+    "rangeM": 16,
+    "cooldownSecs": 0.85,
+    "attackRateCap": 1.8,
+    "minIntervalSecs": 0.4722,
+    "slots": [
+     "basic.ranger.0"
+    ]
+   },
+   "kit": [
+    {
+     "key": "q",
+     "skill": "quick_shot",
+     "name": "Quick Shot",
+     "slots": [
+      "skill.quick_shot.release"
+     ]
+    },
+    {
+     "key": "w",
+     "skill": "field_dressing",
+     "name": "Field Dressing",
+     "slots": [
+      "skill.field_dressing.release"
+     ]
+    },
+    {
+     "key": "e",
+     "skill": "piercing_arrow",
+     "name": "Piercing Arrow",
+     "slots": [
+      "skill.piercing_arrow.release"
+     ]
+    },
+    {
+     "key": "r",
+     "skill": "longshot",
+     "name": "Longshot",
+     "slots": [
+      "skill.longshot.release"
+     ]
+    }
+   ],
+   "handheld": {
+    "default": "verdant-bow",
+    "byMode": {},
+    "bone": "rightHand"
+   },
+   "slots": [
+    "base.idle",
+    "base.run",
+    "base.death",
+    "basic.ranger.0",
+    "skill.quick_shot.release",
+    "skill.field_dressing.release",
+    "skill.piercing_arrow.release",
+    "skill.longshot.release"
+   ]
+  },
+  {
+   "id": "cleric",
+   "kind": "class",
+   "name": "Cleric",
+   "role": "support",
+   "requirementId": "character.cleric",
+   "basicAttack": {
+    "rangeM": 12,
+    "cooldownSecs": 1,
+    "attackRateCap": 1.55,
+    "minIntervalSecs": 0.6452,
+    "slots": [
+     "basic.cleric.0"
+    ]
+   },
+   "kit": [
+    {
+     "key": "q",
+     "skill": "smite",
+     "name": "Smite",
+     "slots": [
+      "skill.smite.release"
+     ]
+    },
+    {
+     "key": "w",
+     "skill": "renew",
+     "name": "Renew",
+     "slots": [
+      "skill.renew.release"
+     ]
+    },
+    {
+     "key": "e",
+     "skill": "divine_favor",
+     "name": "Divine Favor",
+     "slots": [
+      "skill.divine_favor.release"
+     ]
+    },
+    {
+     "key": "r",
+     "skill": "guardians_blessing",
+     "name": "Guardian's Blessing",
+     "slots": [
+      "skill.guardians_blessing.release"
+     ]
+    }
+   ],
+   "handheld": null,
+   "slots": [
+    "base.idle",
+    "base.run",
+    "base.death",
+    "basic.cleric.0",
+    "skill.smite.release",
+    "skill.renew.release",
+    "skill.divine_favor.release",
+    "skill.guardians_blessing.release"
+   ]
+  },
+  {
+   "id": "warden",
+   "kind": "class",
+   "name": "Warden",
+   "role": "jungle",
+   "requirementId": "character.warden",
+   "basicAttack": {
+    "rangeM": 5,
+    "cooldownSecs": 0.85,
+    "attackRateCap": 1.65,
+    "minIntervalSecs": 0.5152,
+    "slots": [
+     "basic.warden.0",
+     "basic.warden.1"
+    ]
+   },
+   "kit": [
+    {
+     "key": "q",
+     "skill": "feral_swipe",
+     "name": "Feral Swipe",
+     "slots": [
+      "skill.feral_swipe.release"
+     ]
+    },
+    {
+     "key": "w",
+     "skill": "barkskin",
+     "name": "Barkskin",
+     "slots": [
+      "skill.barkskin.release"
+     ]
+    },
+    {
+     "key": "e",
+     "skill": "hunters_mark",
+     "name": "Hunter's Mark",
+     "slots": [
+      "skill.hunters_mark.release"
+     ]
+    },
+    {
+     "key": "r",
+     "skill": "primal_maul",
+     "name": "Primal Maul",
+     "slots": [
+      "skill.primal_maul.release"
+     ]
+    }
+   ],
+   "handheld": null,
+   "slots": [
+    "base.idle",
+    "base.run",
+    "base.death",
+    "basic.warden.0",
+    "basic.warden.1",
+    "skill.feral_swipe.release",
+    "skill.barkskin.release",
+    "skill.hunters_mark.release",
+    "skill.primal_maul.release"
+   ]
+  },
+  {
+   "id": "dawnweaver",
+   "kind": "class",
+   "name": "Dawnweaver",
+   "role": "mid",
+   "requirementId": "character.dawnweaver",
+   "basicAttack": {
+    "rangeM": 10,
+    "cooldownSecs": 1.2,
+    "attackRateCap": 1.6,
+    "minIntervalSecs": 0.75,
+    "slots": [
+     "basic.dawnweaver.0",
+     "basic.dawnweaver.1"
+    ]
+   },
+   "kit": [
+    {
+     "key": "q",
+     "skill": "dawn_bind",
+     "name": "Gleaming Snare",
+     "slots": [
+      "skill.dawn_bind.release"
+     ]
+    },
+    {
+     "key": "w",
+     "skill": "dawn_barrier",
+     "name": "Returning Aegis",
+     "slots": [
+      "skill.dawn_barrier.release"
+     ]
+    },
+    {
+     "key": "e",
+     "skill": "dawn_field",
+     "name": "Luminous Field",
+     "slots": [
+      "skill.dawn_field.release",
+      "skill.dawn_field.recast"
+     ]
+    },
+    {
+     "key": "r",
+     "skill": "dawn_ray",
+     "name": "Horizon Ray",
+     "slots": [
+      "skill.dawn_ray.windup",
+      "skill.dawn_ray.release"
+     ]
+    }
+   ],
+   "handheld": {
+    "default": "dawn-scepter",
+    "byMode": {},
+    "bone": "rightHand"
+   },
+   "slots": [
+    "base.idle",
+    "base.run",
+    "base.death",
+    "basic.dawnweaver.0",
+    "basic.dawnweaver.1",
+    "skill.dawn_bind.release",
+    "skill.dawn_barrier.release",
+    "skill.dawn_field.release",
+    "skill.dawn_field.recast",
+    "skill.dawn_ray.release",
+    "skill.dawn_ray.windup"
+   ]
+  },
+  {
+   "id": "wildspark",
+   "kind": "class",
+   "name": "Wildspark",
+   "role": "carry",
+   "requirementId": "character.wildspark",
+   "basicAttack": {
+    "rangeM": 11.5,
+    "cooldownSecs": 0.7,
+    "attackRateCap": 1.6,
+    "minIntervalSecs": 0.4375,
+    "slots": [
+     "basic.wildspark.0",
+     "basic.wildspark.rockets.0"
+    ]
+   },
+   "kit": [
+    {
+     "key": "q",
+     "skill": "wild_switch",
+     "name": "Switchfire",
+     "slots": [
+      "skill.wild_switch.release"
+     ]
+    },
+    {
+     "key": "w",
+     "skill": "wild_zap",
+     "name": "Shockline",
+     "slots": [
+      "skill.wild_zap.release"
+     ]
+    },
+    {
+     "key": "e",
+     "skill": "wild_traps",
+     "name": "Snapline",
+     "slots": [
+      "skill.wild_traps.release"
+     ]
+    },
+    {
+     "key": "r",
+     "skill": "wild_rocket",
+     "name": "Last Spark",
+     "slots": [
+      "skill.wild_rocket.release"
+     ]
+    }
+   ],
+   "handheld": {
+    "default": "wild-repeater",
+    "byMode": {
+     "rockets": "wild-launcher"
+    },
+    "bone": "rightHand"
+   },
+   "slots": [
+    "base.idle",
+    "base.run",
+    "base.death",
+    "basic.wildspark.0",
+    "basic.wildspark.rockets.0",
+    "skill.wild_switch.release",
+    "skill.wild_zap.release",
+    "skill.wild_traps.release",
+    "skill.wild_rocket.release"
+   ]
+  },
+  {
+   "id": "cinderforge",
+   "kind": "class",
+   "name": "Cinderforge",
+   "role": "solo",
+   "requirementId": "character.cinderforge",
+   "basicAttack": {
+    "rangeM": 4,
+    "cooldownSecs": 1.2,
+    "attackRateCap": 1.6,
+    "minIntervalSecs": 0.75,
+    "slots": [
+     "basic.cinderforge.0"
+    ]
+   },
+   "kit": [
+    {
+     "key": "q",
+     "skill": "fault_line",
+     "name": "Fault Line",
+     "slots": [
+      "skill.fault_line.release"
+     ]
+    },
+    {
+     "key": "w",
+     "skill": "furnace_breath",
+     "name": "Furnace Breath",
+     "slots": [
+      "skill.furnace_breath.windup",
+      "skill.furnace_breath.release"
+     ]
+    },
+    {
+     "key": "e",
+     "skill": "anvil_charge",
+     "name": "Anvil Charge",
+     "slots": [
+      "skill.anvil_charge.release"
+     ]
+    },
+    {
+     "key": "r",
+     "skill": "mountain_echo",
+     "name": "Mountain Echo",
+     "slots": [
+      "skill.mountain_echo.release",
+      "skill.mountain_echo.recast"
+     ]
+    }
+   ],
+   "handheld": null,
+   "slots": [
+    "base.idle",
+    "base.run",
+    "base.death",
+    "basic.cinderforge.0",
+    "skill.fault_line.release",
+    "skill.furnace_breath.release",
+    "skill.furnace_breath.windup",
+    "skill.anvil_charge.release",
+    "skill.mountain_echo.release",
+    "skill.mountain_echo.recast"
+   ]
+  },
+  {
+   "id": "edgeweaver",
+   "kind": "class",
+   "name": "Edgeweaver",
+   "role": "solo",
+   "requirementId": "character.edgeweaver",
+   "basicAttack": {
+    "rangeM": 3.5,
+    "cooldownSecs": 1.05,
+    "attackRateCap": 1.6,
+    "minIntervalSecs": 0.6562,
+    "slots": [
+     "basic.edgeweaver.0"
+    ]
+   },
+   "kit": [
+    {
+     "key": "q",
+     "skill": "edge_lunge",
+     "name": "Edge Lunge",
+     "slots": [
+      "skill.edge_lunge.release"
+     ]
+    },
+    {
+     "key": "w",
+     "skill": "mirror_guard",
+     "name": "Mirror Guard",
+     "slots": [
+      "skill.mirror_guard.windup",
+      "skill.mirror_guard.release"
+     ]
+    },
+    {
+     "key": "e",
+     "skill": "twin_tempo",
+     "name": "Twin Tempo",
+     "slots": [
+      "skill.twin_tempo.release"
+     ]
+    },
+    {
+     "key": "r",
+     "skill": "fourfold_duel",
+     "name": "Fourfold Duel",
+     "slots": [
+      "skill.fourfold_duel.release"
+     ]
+    }
+   ],
+   "handheld": null,
+   "slots": [
+    "base.idle",
+    "base.run",
+    "base.death",
+    "basic.edgeweaver.0",
+    "skill.edge_lunge.release",
+    "skill.mirror_guard.release",
+    "skill.mirror_guard.windup",
+    "skill.twin_tempo.release",
+    "skill.fourfold_duel.release"
+   ]
+  },
+  {
+   "id": "stormfist",
+   "kind": "class",
+   "name": "Stormfist",
+   "role": "jungle",
+   "requirementId": "character.stormfist",
+   "basicAttack": {
+    "rangeM": 3.5,
+    "cooldownSecs": 1,
+    "attackRateCap": 1.6,
+    "minIntervalSecs": 0.625,
+    "slots": [
+     "basic.stormfist.0",
+     "basic.stormfist.1"
+    ]
+   },
+   "kit": [
+    {
+     "key": "q",
+     "skill": "echo_strike",
+     "name": "Echo Strike",
+     "slots": [
+      "skill.echo_strike.release",
+      "skill.echo_strike.recast"
+     ]
+    },
+    {
+     "key": "w",
+     "skill": "anchor_step",
+     "name": "Anchor Step",
+     "slots": [
+      "skill.anchor_step.release",
+      "skill.anchor_step.recast"
+     ]
+    },
+    {
+     "key": "e",
+     "skill": "thunder_pulse",
+     "name": "Thunder Pulse",
+     "slots": [
+      "skill.thunder_pulse.release",
+      "skill.thunder_pulse.recast"
+     ]
+    },
+    {
+     "key": "r",
+     "skill": "thunder_kick",
+     "name": "Thunder Kick",
+     "slots": [
+      "skill.thunder_kick.release"
+     ]
+    }
+   ],
+   "handheld": null,
+   "slots": [
+    "base.idle",
+    "base.run",
+    "base.death",
+    "basic.stormfist.0",
+    "basic.stormfist.1",
+    "skill.echo_strike.release",
+    "skill.echo_strike.recast",
+    "skill.anchor_step.release",
+    "skill.anchor_step.recast",
+    "skill.thunder_pulse.release",
+    "skill.thunder_pulse.recast",
+    "skill.thunder_kick.release"
+   ]
+  },
+  {
+   "id": "veilstalker",
+   "kind": "class",
+   "name": "Veilstalker",
+   "role": "jungle",
+   "requirementId": "character.veilstalker",
+   "basicAttack": {
+    "rangeM": 3,
+    "cooldownSecs": 1,
+    "attackRateCap": 1.6,
+    "minIntervalSecs": 0.625,
+    "slots": [
+     "basic.veilstalker.0",
+     "basic.veilstalker.1"
+    ]
+   },
+   "kit": [
+    {
+     "key": "q",
+     "skill": "thorn_volley",
+     "name": "Thorn Volley",
+     "slots": [
+      "skill.thorn_volley.release",
+      "skill.thorn_volley.recast"
+     ]
+    },
+    {
+     "key": "w",
+     "skill": "patient_curse",
+     "name": "Patient Curse",
+     "slots": [
+      "skill.patient_curse.release"
+     ]
+    },
+    {
+     "key": "e",
+     "skill": "shadow_lash",
+     "name": "Shadow Lash",
+     "slots": [
+      "skill.shadow_lash.release"
+     ]
+    },
+    {
+     "key": "r",
+     "skill": "nightfall",
+     "name": "Nightfall",
+     "slots": [
+      "skill.nightfall.release"
+     ]
+    }
+   ],
+   "handheld": null,
+   "slots": [
+    "base.idle",
+    "base.run",
+    "base.death",
+    "basic.veilstalker.0",
+    "basic.veilstalker.1",
+    "skill.thorn_volley.release",
+    "skill.thorn_volley.recast",
+    "skill.patient_curse.release",
+    "skill.shadow_lash.release",
+    "skill.nightfall.release"
+   ]
+  },
+  {
+   "id": "emberveil",
+   "kind": "class",
+   "name": "Emberveil",
+   "role": "mid",
+   "requirementId": "character.emberveil",
+   "basicAttack": {
+    "rangeM": 10,
+    "cooldownSecs": 1.15,
+    "attackRateCap": 1.6,
+    "minIntervalSecs": 0.7187,
+    "slots": [
+     "basic.emberveil.0"
+    ]
+   },
+   "kit": [
+    {
+     "key": "q",
+     "skill": "wandering_ember",
+     "name": "Wandering Ember",
+     "slots": [
+      "skill.wandering_ember.release"
+     ]
+    },
+    {
+     "key": "w",
+     "skill": "kindled_wisps",
+     "name": "Kindled Wisps",
+     "slots": [
+      "skill.kindled_wisps.release"
+     ]
+    },
+    {
+     "key": "e",
+     "skill": "heart_tether",
+     "name": "Heart Tether",
+     "slots": [
+      "skill.heart_tether.release"
+     ]
+    },
+    {
+     "key": "r",
+     "skill": "flame_dance",
+     "name": "Flame Dance",
+     "slots": [
+      "skill.flame_dance.release",
+      "skill.flame_dance.recast"
+     ]
+    }
+   ],
+   "handheld": null,
+   "slots": [
+    "base.idle",
+    "base.run",
+    "base.death",
+    "basic.emberveil.0",
+    "skill.wandering_ember.release",
+    "skill.kindled_wisps.release",
+    "skill.heart_tether.release",
+    "skill.flame_dance.release",
+    "skill.flame_dance.recast"
+   ]
+  },
+  {
+   "id": "orbitwright",
+   "kind": "class",
+   "name": "Orbitwright",
+   "role": "mid",
+   "requirementId": "character.orbitwright",
+   "basicAttack": {
+    "rangeM": 10,
+    "cooldownSecs": 1.15,
+    "attackRateCap": 1.6,
+    "minIntervalSecs": 0.7187,
+    "slots": [
+     "basic.orbitwright.0"
+    ]
+   },
+   "kit": [
+    {
+     "key": "q",
+     "skill": "orbital_command",
+     "name": "Orbital Command",
+     "slots": [
+      "skill.orbital_command.release"
+     ]
+    },
+    {
+     "key": "w",
+     "skill": "orbital_field",
+     "name": "Orbital Field",
+     "slots": [
+      "skill.orbital_field.release"
+     ]
+    },
+    {
+     "key": "e",
+     "skill": "orbital_guard",
+     "name": "Orbital Guard",
+     "slots": [
+      "skill.orbital_guard.release"
+     ]
+    },
+    {
+     "key": "r",
+     "skill": "orbital_collapse",
+     "name": "Orbital Collapse",
+     "slots": [
+      "skill.orbital_collapse.windup",
+      "skill.orbital_collapse.release"
+     ]
+    }
+   ],
+   "handheld": null,
+   "slots": [
+    "base.idle",
+    "base.run",
+    "base.death",
+    "basic.orbitwright.0",
+    "skill.orbital_command.release",
+    "skill.orbital_field.release",
+    "skill.orbital_guard.release",
+    "skill.orbital_collapse.release",
+    "skill.orbital_collapse.windup"
+   ]
+  },
+  {
+   "id": "riftshot",
+   "kind": "class",
+   "name": "Riftshot",
+   "role": "carry",
+   "requirementId": "character.riftshot",
+   "basicAttack": {
+    "rangeM": 11,
+    "cooldownSecs": 1.1,
+    "attackRateCap": 1.6,
+    "minIntervalSecs": 0.6875,
+    "slots": [
+     "basic.riftshot.0"
+    ]
+   },
+   "kit": [
+    {
+     "key": "q",
+     "skill": "rift_needle",
+     "name": "Rift Needle",
+     "slots": [
+      "skill.rift_needle.release"
+     ]
+    },
+    {
+     "key": "w",
+     "skill": "rift_seal",
+     "name": "Rift Seal",
+     "slots": [
+      "skill.rift_seal.release"
+     ]
+    },
+    {
+     "key": "e",
+     "skill": "rift_step",
+     "name": "Rift Step",
+     "slots": [
+      "skill.rift_step.release"
+     ]
+    },
+    {
+     "key": "r",
+     "skill": "horizon_wave",
+     "name": "Horizon Wave",
+     "slots": [
+      "skill.horizon_wave.windup",
+      "skill.horizon_wave.release"
+     ]
+    }
+   ],
+   "handheld": {
+    "default": "wild-repeater",
+    "byMode": {},
+    "bone": "rightHand"
+   },
+   "slots": [
+    "base.idle",
+    "base.run",
+    "base.death",
+    "basic.riftshot.0",
+    "skill.rift_needle.release",
+    "skill.rift_seal.release",
+    "skill.rift_step.release",
+    "skill.horizon_wave.release",
+    "skill.horizon_wave.windup"
+   ]
+  },
+  {
+   "id": "chainkeeper",
+   "kind": "class",
+   "name": "Chainkeeper",
+   "role": "support",
+   "requirementId": "character.chainkeeper",
+   "basicAttack": {
+    "rangeM": 8,
+    "cooldownSecs": 1.15,
+    "attackRateCap": 1.6,
+    "minIntervalSecs": 0.7187,
+    "slots": [
+     "basic.chainkeeper.0"
+    ]
+   },
+   "kit": [
+    {
+     "key": "q",
+     "skill": "iron_hook",
+     "name": "Iron Hook",
+     "slots": [
+      "skill.iron_hook.release",
+      "skill.iron_hook.recast"
+     ]
+    },
+    {
+     "key": "w",
+     "skill": "guiding_lantern",
+     "name": "Guiding Lantern",
+     "slots": [
+      "skill.guiding_lantern.release"
+     ]
+    },
+    {
+     "key": "e",
+     "skill": "chain_sweep",
+     "name": "Chain Sweep",
+     "slots": [
+      "skill.chain_sweep.release"
+     ]
+    },
+    {
+     "key": "r",
+     "skill": "iron_boundary",
+     "name": "Iron Boundary",
+     "slots": [
+      "skill.iron_boundary.release"
+     ]
+    }
+   ],
+   "handheld": null,
+   "slots": [
+    "base.idle",
+    "base.run",
+    "base.death",
+    "basic.chainkeeper.0",
+    "skill.iron_hook.release",
+    "skill.iron_hook.recast",
+    "skill.guiding_lantern.release",
+    "skill.chain_sweep.release",
+    "skill.iron_boundary.release"
+   ]
+  },
+  {
+   "id": "frostguard",
+   "kind": "class",
+   "name": "Frostguard",
+   "role": "support",
+   "requirementId": "character.frostguard",
+   "basicAttack": {
+    "rangeM": 4,
+    "cooldownSecs": 1.15,
+    "attackRateCap": 1.6,
+    "minIntervalSecs": 0.7187,
+    "slots": [
+     "basic.frostguard.0"
+    ]
+   },
+   "kit": [
+    {
+     "key": "q",
+     "skill": "winter_shard",
+     "name": "Winter Shard",
+     "slots": [
+      "skill.winter_shard.release"
+     ]
+    },
+    {
+     "key": "w",
+     "skill": "sheltering_leap",
+     "name": "Sheltering Leap",
+     "slots": [
+      "skill.sheltering_leap.release"
+     ]
+    },
+    {
+     "key": "e",
+     "skill": "northwall",
+     "name": "Northwall",
+     "slots": [
+      "skill.northwall.release"
+     ]
+    },
+    {
+     "key": "r",
+     "skill": "winter_divide",
+     "name": "Winter Divide",
+     "slots": [
+      "skill.winter_divide.release"
+     ]
+    }
+   ],
+   "handheld": null,
+   "slots": [
+    "base.idle",
+    "base.run",
+    "base.death",
+    "basic.frostguard.0",
+    "skill.winter_shard.release",
+    "skill.sheltering_leap.release",
+    "skill.northwall.release",
+    "skill.winter_divide.release"
+   ]
+  },
+  {
+   "id": "adventurer",
+   "kind": "class",
+   "name": "Adventurer",
+   "role": "jungle",
+   "requirementId": "character.adventurer",
+   "basicAttack": {
+    "rangeM": 2.6,
+    "cooldownSecs": 0.7,
+    "attackRateCap": 1.8,
+    "minIntervalSecs": 0.3889,
+    "slots": [
+     "basic.adventurer.0"
+    ]
+   },
+   "kit": [
+    {
+     "key": "q",
+     "skill": "dagger_deadly_blow",
+     "name": "Deadly Blow",
+     "slots": [
+      "skill.dagger_deadly_blow.release"
+     ]
+    },
+    {
+     "key": "w",
+     "skill": "dagger_bluff",
+     "name": "Bluff",
+     "slots": [
+      "skill.dagger_bluff.release"
+     ]
+    },
+    {
+     "key": "e",
+     "skill": "dagger_backstab",
+     "name": "Backstab",
+     "slots": [
+      "skill.dagger_backstab.release"
+     ]
+    },
+    {
+     "key": "r",
+     "skill": "dagger_lethal_blow",
+     "name": "Lethal Blow",
+     "slots": [
+      "skill.dagger_lethal_blow.release"
+     ]
+    }
+   ],
+   "handheld": {
+    "default": "dagger",
+    "byMode": {},
+    "bone": "rightHand"
+   },
+   "slots": [
+    "base.idle",
+    "base.run",
+    "base.death",
+    "basic.adventurer.0",
+    "skill.dagger_deadly_blow.release",
+    "skill.dagger_bluff.release",
+    "skill.dagger_backstab.release",
+    "skill.dagger_lethal_blow.release"
+   ]
+  }
+ ]
+}
