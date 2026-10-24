@@ -74,26 +74,41 @@ SIZE-1 (owner, 2026-10-24) made every gate 5,000,000 B and the targets report-on
 boundaries hold: no Halo module is in `/editor`'s or `/autorig`'s scripts (`ekza-halo-shell` boundary), and neither
 dockview nor the curve editor is in `/app`'s initial scripts. Production build, `check:size`, gzip -9:
 
-| Route | `dev` `b58356a5` | this branch before the dev merges (source-map build) | gate (with `dev` `ce66bd1e`) |
+| Route | `dev` `ce66bd1e` (same build, no Halo grammar) | T6a at the gate (`c745859e`) | Δ |
 |---|---|---|---|
-| `/app` | 639,270 B | 684,534 B (+44,667 B over the same build of dev) | see *Gate* |
-| `/editor` | 895,838 B (map build) | 896,303 B (+465 B) | see *Gate* |
-| `/autorig` | 657,213 B (map build) | 657,682 B (+469 B) | see *Gate* |
+| `/app` | 639,822 B | **685,639 B** | +45,817 B (report-only; target 660,000 B) |
+| `/editor` | 896,090 B | **896,620 B** | +530 B (no Halo module; see below) |
+| `/autorig` | 657,175 B | **657,694 B** | +519 B (no Halo module; see below) |
 
 What the `/app` bytes are (attribution, eager): the touch kit 11.5 kB, the Halo layer 8.6 kB, the shell 7.9 kB, the
 catalogue 2.8 kB, input 1.9 kB, sessions 1.5 kB, chips 1.5 kB; the arbiter, the Thumb key's controller, search, the
 forms, the numpad, the project menu, More and the kernel's bind answers are lazy chunks, prefetched at idle (S23).
 
-**Why `/editor` and `/autorig` moved +465 B / +469 B with no Halo code in them** (ST-T6A-20): Turbopack emits a shared
+**Why `/editor` and `/autorig` grow ≈ 0.5 kB with no Halo code in them** (ST-T6A-20): about 465 B of it (measured on
+source-map builds before the dev merges: +465 / +469 B) is this — Turbopack emits a shared
 module once, with every export any chunk of the app uses. Halo's lazy forms chunk imports
 `@ekza-studio/editor-core/forms`, whose `formProblems` (param-lint's helper) uses anim-core's `assertParams`, which no
 route used before — so anim-core's `params` module grew by its `assertParams` (+1,280 B raw) in every route's eager
 copy. Splitting `formProblems` into its own module (`forms/problems.ts`, re-exported) removes it; measured, then
-reverted after SIZE-1 because it is T5a's file and bytes no longer gate (patch **P-T6A-6** below, optional).
+reverted after SIZE-1 because it is T5a's file and bytes no longer gate (patch **P-T6A-6** below, optional). The rest
+(≈ 60 B) are the viewport lines every route carries: `setManipulatorScale` and the x-ray opacity in the shading keys.
 
 ## Gate
 
-Filled in below after `EKZA_E2E_PORT=3181 pnpm run ci`.
+`EKZA_E2E_PORT=3181 pnpm run ci` at `c745859e` (`dev` `ce66bd1e` merged), local Chrome, load average 60–100: **green**
+(exit 0) — format, lint, typecheck, check:deps, fixtures, licences, 23 / 23 test tasks (halo 53, viewport 341 + 1
+skipped, editor 674 + 1 skipped, editor-core 1,797, headless-tests 225, mesh-view 83, autorig 115, web 105, …), the
+production build, check:size (all three routes OK under SIZE-1's 5,000,000 B) and **the e2e suite: 432 passed, 68
+skipped, 0 failed, 0 flaky** in 6.8 min (`chrome`, `chrome-touch`, `webkit-ipad`). The skips are `dev`'s stretch
+`test.fixme`s and the per-project skips (the touch specs on `chrome` and `webkit-ipad`, the mouse spec on the touch
+projects). `m6a-19` B11 (a known `dev` failure another agent fixes) did not fail in this run.
+
+Two earlier runs: the first stopped in the unit step at load average ~100 — 8 editor browser files (`input`, `shell`,
+`ui-primitives`, the clips, graph, attributes, kit and outliner panels) and 2 headless files (`ops.export`,
+`rig.ik.fixtures`) timed out; all 10 passed when rerun alone (120 + 1 skipped, 49). The second was green up to e2e,
+where `ar-12-layouts` › *phone 390×844 touch › the frame on ① and on ②* failed once on `chrome-touch` (an Auto-Rig
+layout race: its poll passes, the next read sees the sheet mid-move); alone it passed 5/5, 14/15 with four workers and
+8/8 serially. The third run is the green one.
 
 ## Deviations and lines outside the row
 
