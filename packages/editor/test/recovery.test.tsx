@@ -186,12 +186,13 @@ describe('shell autosave', () => {
 
   it('unsaved work is written on pagehide and when the page is hidden; clean work is not (S24, T0 patch)', async () => {
     const { app } = createTestShell();
-    const store = storeWith([]);
     const writes: string[] = [];
-    const write = store.write;
-    store.write = (...args) => {
-      writes.push(args[0]);
-      return write(...args);
+    const store: AutosaveStore = {
+      ...storeWith([]),
+      write: (slot) => {
+        writes.push(slot);
+        return Promise.resolve({ bytes: 0 });
+      },
     };
     Object.assign(app.services, { autosave: store });
     const target = new EventTarget();
