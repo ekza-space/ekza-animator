@@ -85,10 +85,16 @@ test('value chip: a sideways drag scrubs, a tap opens the numpad, and its expres
   await expect(numpad).toBeHidden();
   await expect(chip).toHaveAttribute('aria-valuenow', '0.34');
 
-  // keyboard: arrows step the slider
+  // keyboard: arrows step the slider; Enter opens the numpad, whose first key replaces the value and Enter commits
   await chip.focus();
   await page.keyboard.press('ArrowRight');
   await expect(chip).toHaveAttribute('aria-valuenow', '0.35');
+  await page.keyboard.press('Enter');
+  await expect(numpad.getByLabel('Distance value')).toBeFocused();
+  await page.keyboard.type('2*3');
+  await expect(numpad.getByRole('status')).toHaveText('= 6');
+  await page.keyboard.press('Enter');
+  await expect(chip).toHaveAttribute('aria-valuenow', '6');
 });
 
 test('the Halo is a named menu beside the selection; More opens the sheet; petals take roving focus', async ({

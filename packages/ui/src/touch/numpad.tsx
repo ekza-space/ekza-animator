@@ -141,11 +141,12 @@ export function Numpad({
               return;
             }
             // Typed characters go into the field as typed; `±` and nudges have no key of their own.
-            if (keyFromKeyboard(event.key) === null) return;
-            if (state.fresh && /^[0-9.]$/.test(event.key)) {
-              event.preventDefault();
-              press(keyFromKeyboard(event.key) ?? '0');
-            }
+            // The first key acts on the fresh value as the on-screen key would (a digit replaces it, an operator
+            // extends it); later keys edit the field as typed.
+            const key = keyFromKeyboard(event.key);
+            if (key === null || !state.fresh) return;
+            event.preventDefault();
+            press(key);
           }}
         />
         {unit === undefined ? null : <span className="font-mono text-touch-value text-fg-3">{unit}</span>}

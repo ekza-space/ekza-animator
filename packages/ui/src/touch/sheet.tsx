@@ -70,6 +70,8 @@ export function Sheet({
     lastT: number;
   } | null>(null);
   const content = useRef<HTMLDivElement>(null);
+  /** The last grab-bar press was a drag: its click must not also step the detent. */
+  const dragged = useRef(false);
   const bottom = side === 'bottom';
 
   const setDetent = (d: Detent): void => {
@@ -82,6 +84,7 @@ export function Sheet({
     const parent = el?.offsetParent ?? el?.parentElement;
     if (el === null || parent === null || parent === undefined) return;
     event.currentTarget.setPointerCapture(event.pointerId);
+    dragged.current = false;
     const now = event.timeStamp;
     drag.current = {
       id: event.pointerId,
@@ -97,6 +100,7 @@ export function Sheet({
     const d = drag.current;
     if (d === null || d.id !== event.pointerId) return;
     if (dragHeight === null && Math.abs(event.clientY - d.y) < 6) return;
+    dragged.current = true;
     d.lastY = event.clientY;
     d.lastT = event.timeStamp;
     setDragHeight(Math.max(96, Math.min(d.parent * 0.92, d.h - (event.clientY - d.y))));
@@ -143,7 +147,8 @@ export function Sheet({
             aria-label={`Sheet size: ${current}. Tap to change`}
             className="mx-auto flex min-h-(--touch-hit) w-24 shrink-0 touch-none items-center justify-center"
             onClick={() => {
-              if (dragHeight === null) setDetent(nextDetent(current));
+              if (dragged.current) dragged.current = false;
+              else setDetent(nextDetent(current));
             }}
             onPointerDown={onGrabDown}
             onPointerMove={onGrabMove}
