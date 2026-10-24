@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": ["../src/tsconfig.json", "../../../tooling/tsconfig/test.json"],
+  "compilerOptions": {
+    "rootDir": "..",
+    "outDir": "../.tsbuild/test"
+  },
+  "include": ["./**/*", "../bench/**/*", "../vitest.config.ts"],
+  "references": [
+    {
+      "path": "../src"
+    },
+    {
+      "path": "../../anim-core/src"
+    },
+    {
+      "path": "../../mesh-core/src"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@ekza-studio/mesh-wasm",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Lazy WASM adapters for the mesh kernel, run in a worker: the meshoptimizer Decimator and the AI intake chain (normalize, reduce, palette bake, texture downsize).",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./worker": "./src/worker.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -b",
+    "bench": "vitest bench --run"
+  },
+  "dependencies": {
+    "@ekza-studio/anim-core": "workspace:*",
+    "@ekza-studio/mesh-core": "workspace:*",
+    "meshoptimizer": "1.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}
