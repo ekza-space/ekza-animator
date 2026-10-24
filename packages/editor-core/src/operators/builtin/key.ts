@@ -26,6 +26,7 @@ import { currentClipFrame } from '../../edit/context';
 import { deleteKeys, ensureCurve, writeKeyAt } from '../../edit/keys';
 import { redirectedChannelEdit } from '../../evaluation/rigSource';
 import { activeClipOf } from '../../evaluation/time';
+import { basePrefs } from '../../prefs/persist';
 import { ownerOfControl } from '../../session/location';
 import { type ChannelEditResult, type EditorApp, GLOBAL_SCOPE, type KeyPolicy, type KeyTarget } from '../../types';
 import { isHumanoidRigOf } from '../../workflows/bodyParts';
@@ -331,7 +332,9 @@ const keyToggleAutoKey = defineOperator({
   category: 'key',
   scope: GLOBAL_SCOPE,
   apply({ app }) {
-    app.prefs.setState({ autoKey: !app.prefs.getState().autoKey });
+    // flips the stored value (Studio Pro's Auto Key): under a session override (Halo's Rec) the shown value is the
+    // override's, and flipping it would leave the stored one as it was or set it by accident (T6-INT, P-T6B-6)
+    app.prefs.setState({ autoKey: !basePrefs(app.prefs.getState()).autoKey });
   },
 });
 
