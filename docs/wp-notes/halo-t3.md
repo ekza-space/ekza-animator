@@ -1,9 +1,10 @@
 # Halo T3 — host re-homing and the Pro switch
 
 Work package T3 of [STUDIO-TOUCH-SPEC](../STUDIO-TOUCH-SPEC.md) §21 (v0.2, ADR 0023), branch `halo/t3-host` off
-`halo/int` (`fcf43871`, T2 merged; `halo/int` `154e7188` with T4 and T5a merged in before the gate). Spec items:
-§20.3 item 12 (host re-homing), §16.1 (the Pro → Simple layout switch, `watchRigViewOnly` Pro-only), §1.1 / ST-30 (the
-"Ekza Studio Pro" title behind a flag), J10 (recovery), and T5a's patch for T3 (§20.3 item 7: the UI wrappers at idle).
+`halo/int` (`fcf43871`, T2 merged; `halo/int` merged in again before the gate, up to `9d7b3a09`: T4, T5a, T0, T5b).
+Spec items: §20.3 item 12 (host re-homing), §16.1 (the Pro → Simple layout switch, `watchRigViewOnly` Pro-only), §1.1 /
+ST-30 (the "Ekza Studio Pro" title behind a flag), J10 (recovery), and two patches other packages asked of T3: T5a's
+(§20.3 item 7: the UI wrappers at idle) and T0's (§16.4, S24: write unsaved work when the page is hidden).
 Decisions: [DECISIONS-OPEN §P](../DECISIONS-OPEN.md) rows `ST-T3-*`.
 
 ## 1. What moved to the host
@@ -51,6 +52,12 @@ function provideRecoveryHook(app: EditorApp, hook: RecoveryHook): Disposer;
 `startShellAutosave({app, target?})` no longer prompts (its `prompt` and `runFromUi` options are gone; the host was
 its only caller).
 
+**Hidden pages (T0's patch, §16.4, S24)**: `startShellAutosave` also writes the snapshot (`controller.writeNow()`) on
+`pagehide` and on `visibilitychange` to hidden — iPad Safari fires `beforeunload` but never shows its prompt, and a
+hidden tab may be discarded. **Only while the project is dirty** (a deviation from T0's line, ST-T3-9): on a desktop a
+write after `beforeunload`'s clean would leave this page's own snapshot as an orphan, and the next load would offer a
+Recovery dialog for a clean project; T0's iOS store keeps the snapshot through clean ends anyway.
+
 ## 2. The Pro switch (§16.1, J9)
 
 - **`shell.halo`** (`shell/menuItems.ts`): internal (hidden from the palette), not undoable; `poll` prefetches the lazy
@@ -78,6 +85,8 @@ its only caller).
 | `watchRigViewOnly` still Pro-only (unit) | same file: with a narrow window (only the view-only query matches) the host alone in Rig & Skin leaves `rigViewOnly(app)` false; Pro mounted makes it true; Pro gone, false again, the rig registrations still present |
 | Recovery hook (unit) | no hook → no offer; a hook offers once per page load; a handoff page never offers; Pro waits for its first-run dialog on its own page; `from=halo` and `from=autorig` offer at once (P6) |
 | Pro switch (unit) | `shell.halo` pushes `/app?ws=rig&from=studio`, `takeWorkspace()` = `rig`, a remembered `'studio'` is kept while `HALO_ENTRY` is off; Help › and File › items present; `PRO_NAME` pinned |
+| Pro switch and registrations in a browser (e2e, `chrome`) | `e2e/ha-t3-pro-switch.spec.ts` (2 tests): the status line's ▤ Simple layout switches a Pro page in Rig & Skin to `/app?e2e=1&ws=rig&from=studio` on the same page (page mark kept, document and history equal); in Halo `view.selectionMask`, `rig.jointSize.set` and `rig.snap.projectedCenter` run and `edit.undo` takes back the import; Help › Switch to the Simple Layout does the same from Animate. Green alone with ha-12 (6/6) and in the gate |
+| Hide flush (unit) | `recovery.test.tsx`: `pagehide` writes nothing while clean; a `visibilitychange` while visible writes nothing; `pagehide` while dirty writes the page's slot |
 | All Pro e2e green | see *Gate* |
 | `/editor` within ST-B1 | see *Measurements* |
 
