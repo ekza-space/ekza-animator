@@ -5,7 +5,8 @@
 // rest fold into a `+n` chip that lists them all.
 import type { ClipRecord } from '@ekza-studio/doc';
 import { Cluster, TouchButton, TouchIconButton, ValueChip } from '@ekza-studio/ui/touch';
-import { type JSX, useState } from 'react';
+import { type EditorApp, loadTargetKit } from '@ekza-studio/editor-core';
+import { type JSX, useEffect, useState } from 'react';
 import { animateWords } from '../../i18n/animate';
 import type { HaloController } from '../../shell/controller';
 import { useDocumentVersion, useSessionValue } from '../../shell/hooks';
@@ -55,6 +56,61 @@ function ClipChip({
   );
 }
 
+/** A game target's slot that has no animation yet (CHARACTER-CONTRACT-SPEC §8.7, C2): *+ New* can make it. */
+interface OpenSlot {
+  readonly slot: string;
+  readonly label: string;
+}
+
+/** The open slots of the character's bound target (loads the target chunk only when the document has a target). */
+function useOpenSlots(app: EditorApp, character: string | null): readonly OpenSlot[] {
+  const [slots, setSlots] = useState<readonly OpenSlot[]>([]);
+  useEffect(() => {
+    let alive = true;
+    let bound = false;
+    try {
+      bound = character !== null && app.store.list('ekza.targets' as never).length > 0;
+    } catch {
+      bound = false;
+    }
+    if (!bound || character === null) return undefined;
+    void loadTargetKit(app).then(
+      (kit) => {
+        if (!alive) return;
+        const rows = kit.slotStatuses(app, character as never)?.rows ?? [];
+        setSlots(
+          rows
+            .filter((row) => row.status.kind === 'missing' || row.status.kind === 'default')
+            .filter((row) => {
+              try {
+                return (
+                  app.operators.poll(
+                    'target.slot.create',
+                    { panel: 'viewport' },
+                    {
+                      character,
+                      slot: row.slot,
+                      from: 'blank',
+                    },
+                  ) === true
+                );
+              } catch {
+                return false;
+              }
+            })
+            .slice(0, 4)
+            .map((row) => ({ slot: row.slot, label: row.label })),
+        );
+      },
+      () => undefined,
+    );
+    return () => {
+      alive = false;
+    };
+  }, [app, character]);
+  return slots;
+}
+
 /** *+ New*'s card (§10.6): a name (typed or the next free one) and the length; a length chip makes the animation. */
 function NewAnimationCard({
   controller,
@@ -69,6 +125,14 @@ function NewAnimationCard({
   const { app, store } = ctx;
   const [name, setName] = useState('');
   const placeholder = nextAnimationName(clips, w.namePlaceholder);
+  const slots = useOpenSlots(app, animateCharacter(app));
+  const makeSlot = async (slot: string): Promise<void> => {
+    store.set((s) => ({ touches: s.touches + 1 }));
+    const character = animateCharacter(app);
+    if (character === null) return;
+    const result = await ctx.run('target.slot.create', { character, slot, from: 'blank' });
+    if (result.status === 'finished') ui.set({ newCard: false, docked: null });
+  };
   const create = async (seconds: NewLength): Promise<void> => {
     store.set((s) => ({ touches: s.touches + 1 }));
     const character = animateCharacter(app);
@@ -126,6 +190,20 @@ function NewAnimationCard({
         data-testid="halo-new-close"
         onClick={() => ui.set({ newCard: false })}
       />
+      {slots.length > 0 ? (
+        <div className="flex w-full flex-wrap items-center gap-2" data-testid="halo-new-slots">
+          <span className="text-fg-3">{w.forSlot}</span>
+          {slots.map((slot) => (
+            <TouchButton
+              key={slot.slot}
+              data-testid={`halo-new-slot-${slot.slot}`}
+              onClick={() => void makeSlot(slot.slot)}
+            >
+              {slot.label}
+            </TouchButton>
+          ))}
+        </div>
+      ) : null}
     </Cluster>
   );
 }

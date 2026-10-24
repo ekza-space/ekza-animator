@@ -143,8 +143,9 @@ export function beatTicks(
   const first = Math.ceil((range.start / perSecond) * 4 - 1e-9);
   const last = Math.floor((range.end / perSecond) * 4 + 1e-9);
   for (let beat = first; beat <= last; beat++) {
-    const seconds = beat / 4;
-    out.push({ frame: Math.round(seconds * perSecond), seconds, major: beat % 2 === 0 });
+    // `+ 0` turns a −0 (the first beat from a ceiling of −ε) into 0
+    const seconds = beat / 4 + 0;
+    out.push({ frame: Math.round(seconds * perSecond) + 0, seconds, major: beat % 2 === 0 });
   }
   return out;
 }

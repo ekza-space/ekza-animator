@@ -38,6 +38,8 @@ export interface DopeSheetTouchOptions {
   readonly onLongPress?: (hit: DopeSheetHit, at: { readonly x: number; readonly y: number }) => void;
   /** A tap, after the controller's click selected (or cleared). */
   readonly onTap?: (hit: DopeSheetHit) => void;
+  /** A double-tap frames: `what` the shell runs (`dopeSheet.frame {what}`); without it the controller frames itself. */
+  readonly frame?: (what: 'selection' | 'all') => void;
   /** A double-tap framed the view. */
   readonly onFrame?: () => void;
   /** Overrides (tests): long-press time, slop by pointer type, double-tap window and radius. */
@@ -290,7 +292,9 @@ export function attachDopeSheetTouch(
         if (double) {
           lastTap = null;
           const hit = sheet.hitTest(current.start.x, current.start.y);
-          sheet.frame(hit.kind === 'glyph' ? 'selection' : 'all');
+          const what = hit.kind === 'glyph' ? 'selection' : 'all';
+          if (options.frame === undefined) sheet.frame(what);
+          else options.frame(what);
           options.onView?.(sheet.view);
           options.onFrame?.();
           return;

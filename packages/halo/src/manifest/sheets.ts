@@ -50,7 +50,8 @@ export const SHEET_SECTIONS: Readonly<Record<SheetId, readonly string[] | null>>
   health: ['legend', 'problems', 'checks'],
   help: ['gestures', 'glyphs', 'shortcuts', 'about', 'licences'],
   about: ['identity', 'licence', 'usage', 'flags', 'thumbnail'],
-  library: null,
+  // T7 (§10.6): search, kinds, the starter set, a file, the cards
+  library: ['search', 'kinds', 'starterSet', 'fromFile', 'cards'],
   palette: null,
   makeEditableReport: null,
   checks: null,

@@ -19,6 +19,8 @@ export interface AnimateUi {
   readonly menu: string | null;
   /** ⋯ More of the docked noun. */
   readonly more: DockNoun | null;
+  /** Numbers of the docked noun (an animation's *Settings*: its clip section). */
+  readonly numbers: DockNoun | null;
   /** *+ New*'s card (name and length). */
   readonly newCard: boolean;
   /** The expanded transport (tap the time readout, §10.3). */
@@ -37,6 +39,7 @@ export const INITIAL_ANIMATE_UI: AnimateUi = {
   docked: null,
   menu: null,
   more: null,
+  numbers: null,
   newCard: false,
   transport: false,
   playMenu: false,
@@ -94,6 +97,7 @@ export function closeAnimateSurfaces(store: AnimateUiStore): void {
     docked: null,
     menu: null,
     more: null,
+    numbers: null,
     newCard: false,
     transport: false,
     playMenu: false,

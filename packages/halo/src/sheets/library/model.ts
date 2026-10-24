@@ -1,8 +1,8 @@
 // The Library sheet's pure parts (STUDIO-TOUCH-SPEC §10.6, §15.9; T7): the kinds of the starter pack's animations, the
 // search (every word of the query in the label, id or source name, or a synonym of it), the parameters a card edits
 // (`ClipParams`: speed, trim, swap sides, stay in place, arms out) and the calls a card runs — preview
-// (`library.preview`) and Add (`autorig.clip.add`, one Use Clip step, the same call Auto-Rig's ④ makes through
-// `editor-core/autorigFlow`) — and the starter set (Idle · Walk · Run, each with its slot).
+// (`library.preview`) and Add (`library.useClip`, one Use Clip step, Studio Pro's Clip Library call) — and the starter
+// set (Idle · Walk · Run, each with its slot: `autorig.clip.add`, the call Auto-Rig's ④ makes through `autorigFlow`).
 import type { CharacterId } from '@ekza-studio/doc';
 import { type ClipParams, clipAddArgs, IDENTITY_FLOW_CLIP_PARAMS } from '@ekza-studio/editor-core';
 import type { OpCall } from '../../stages/animate/model';
@@ -98,16 +98,29 @@ export function previewCall(character: CharacterId, clip: string, params: ClipPa
   return { op: 'library.preview', args: { character, clip, params } };
 }
 
-/** *Add* (§10.6, J5): `autorig.clip.add` with the card's parameters (Use Clip, one undo step). */
+/** True for the parameters of a plain Use Clip (no trim, speed 1, not mirrored, not in place, arms 0°). */
+export function isIdentity(params: ClipParams): boolean {
+  return params.speed === 1 && params.trim === null && !params.mirror && !params.inPlace && params.armSpace === 0;
+}
+
+/**
+ * *Add* (§10.6, J5): Studio Pro's Clip Library call, `library.useClip` (Use Clip, one undo step) — with the card's
+ * parameters when they are not the identity, exactly Pro's `{character, clip}` when they are.
+ */
 export function addCall(character: CharacterId, clip: string, params: ClipParams): OpCall {
-  return { op: 'autorig.clip.add', args: clipAddArgs(character, clip, params) };
+  return { op: 'library.useClip', args: isIdentity(params) ? { character, clip } : { character, clip, params } };
+}
+
+/** The starter set's call per clip: Auto-Rig's ④ (`autorig.clip.add`, its slot from the pack). */
+export function starterCall(character: CharacterId, clip: string): OpCall {
+  return { op: 'autorig.clip.add', args: clipAddArgs(character, clip, IDENTITY_PARAMS) };
 }
 
 /** The starter set (§10.6): Idle · Walk · Run, each added as it is (its slot comes from the pack). */
 export const STARTER_SET = ['idle', 'walk', 'run'] as const;
 
 export function starterCalls(character: CharacterId, available: ReadonlySet<string>): readonly OpCall[] {
-  return STARTER_SET.filter((id) => available.has(id)).map((id) => addCall(character, id, IDENTITY_PARAMS));
+  return STARTER_SET.filter((id) => available.has(id)).map((id) => starterCall(character, id));
 }
 
 /** "Loop · 1.0 s" / "Once · 0.7 s" (a card's line). */

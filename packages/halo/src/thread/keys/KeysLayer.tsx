@@ -136,6 +136,8 @@ export default function KeysLayer({
           if (band !== null) ui.set({ docked: { kind: 'band' }, menu: null, more: null });
         }
       },
+      // `dopeSheet.frame` on this layer's controller (the operator Pro's F / A run)
+      frame: (what) => void ctx.run('dopeSheet.frame', { what }),
       onFrame: count,
     });
     setSheet(next);

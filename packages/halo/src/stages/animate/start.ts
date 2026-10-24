@@ -91,6 +91,8 @@ export function startAnimate(controller: HaloController): () => void {
         if (app.library.loaded && app.library.service.preview !== null) void ctx.run('library.stop');
       }
       if (next.home && !previous.home) closeAnimateSurfaces(ui);
+      // one sheet at a time: the frame's sheet slot takes over from a docked noun's More or Numbers
+      if (next.sheet !== null && previous.sheet === null) ui.set({ more: null, numbers: null });
     }),
   );
   // a deleted animation's docked Halo goes with it

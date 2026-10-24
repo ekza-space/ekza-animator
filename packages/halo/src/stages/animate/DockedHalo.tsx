@@ -23,6 +23,7 @@ import { sheetContextOf, threadNoun } from './sheetContext';
 import { type AnimateUiStore, type DockNoun, useAnimateUi } from './ui';
 
 const MoreSheet = lazy(() => import('../../sheets/more'));
+const NumbersSheet = lazy(() => import('../../sheets/numbers'));
 
 const w = animateWords;
 
@@ -428,7 +429,12 @@ export function DockedHalo({
     ui.set({ menu: null });
     if ('local' in action) {
       if (docked.kind === 'clip' && id === 'settings') {
-        store.set({ sheet: 'numbers', halo: null });
+        // the clip section of Numbers is the active animation's (§10.6 Settings)
+        if (clip !== null && app.session.getState().activeClip[clip.character] !== clip.id) {
+          void ctx.run('clip.setActive', { clip: clip.id });
+        }
+        store.set({ sheet: null, halo: null });
+        ui.set({ numbers: docked, more: null });
         return;
       }
       action.local();
@@ -539,19 +545,18 @@ export function DockedMore({
 }): JSX.Element | null {
   const { app } = controller.ctx;
   const more = useAnimateUi(ui, (s) => s.more);
-  if (more === null) return null;
-  const clip = more.kind === 'clip' ? (app.store.get('clips', more.clip) ?? null) : null;
+  const numbers = useAnimateUi(ui, (s) => s.numbers);
+  const open = more ?? numbers;
+  if (open === null) return null;
+  const clip = open.kind === 'clip' ? (app.store.get('clips', open.clip) ?? null) : null;
   const noun = threadNoun(
-    more.kind,
-    more.kind === 'clip' ? more.clip : null,
-    titleOf(app, more, clip),
+    open.kind,
+    open.kind === 'clip' ? open.clip : null,
+    titleOf(app, open, clip),
     animateCharacter(app),
   );
-  return (
-    <Suspense fallback={null}>
-      <MoreSheet
-        ctx={sheetContextOf(controller, noun, size === 'wide' ? 'right' : 'bottom', () => ui.set({ more: null }))}
-      />
-    </Suspense>
+  const ctx = sheetContextOf(controller, noun, size === 'wide' ? 'right' : 'bottom', () =>
+    ui.set({ more: null, numbers: null }),
   );
+  return <Suspense fallback={null}>{more !== null ? <MoreSheet ctx={ctx} /> : <NumbersSheet ctx={ctx} />}</Suspense>;
 }

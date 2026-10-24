@@ -16,6 +16,7 @@ export const animateWords = {
     lengthLabel: 'Length',
     seconds: (n: number): string => `${n} s`,
     lengthHint: 'Tap a length to make it',
+    forSlot: 'For the game’s',
     library: 'Library',
     more: 'More',
     others: (n: number): string => `+${n}`,

@@ -1,7 +1,7 @@
 // The Library (STUDIO-TOUCH-SPEC §10.6, §15.9, J5; T7): the starter pack's CC0 animations as cards, with search and
 // kinds. Tap a card and it plays on your character at once (`library.preview`; the chrome stays live, *Stop preview* is
 // on the card). Expand a card for its parameters — ⟨Speed⟩, Trim, *Swap sides*, *Stay in place*, *Arms out* — each
-// previewed live; *Add* puts it on the character (`autorig.clip.add`, one Use Clip step, the call Auto-Rig ④ makes).
+// previewed live; *Add* puts it on the character (`library.useClip`, one Use Clip step, Pro's Clip Library call).
 // *Add starter set* adds Idle · Walk · Run with their slots; *+ From file* imports a `.vrma` or an animation GLB
 // (`file.importAnimation`). A lazy chunk (§20.6), on the T6b sheet contract.
 import type { CharacterId } from '@ekza-studio/doc';
