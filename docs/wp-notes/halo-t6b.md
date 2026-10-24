@@ -56,13 +56,13 @@ plumbing to the allow-list.
 
 | At this branch (dev `ce66bd1e` merged) | |
 |---|---|
-| Live operators (every mount, every chunk) | 347 before C2 · 351 with C2 (48 deferred stubs excluded) |
-| Pairs checked | 1,003 before C2 (scan 353, menus 253, marking menus 164, key bindings 233); 1 dynamic |
+| Live operators (every mount, every chunk; 48 deferred stubs excluded) | **351** |
+| Pairs checked: call-site scan 362, menu items 253, marking-menu items 164, key bindings 233 | **1,012** (2 dynamic) |
 | Violations | **0** |
-| By kind | surfaces 322 · proOnly 8 · plumbing 7 · wraps 6 · searchOnly (explicit) 4 |
-| Reachable without search, T6a + T6b built | 231 |
-| Reachable with only T6b's own surfaces | 66 |
-| Reachable once T7–T11 land (every planned surface) | 328 (the other 19: 8 proOnly, 7 plumbing, 4 explicit searchOnly) |
+| By kind | surfaces 326 · proOnly 8 · plumbing 7 · wraps 6 · searchOnly (explicit) 4 |
+| Reachable without search, T6a + T6b built (phase S) | **241** |
+| Reachable with only T6b's own surfaces | 69 |
+| Reachable once T7–T11 land (every planned surface) | **332** (the other 19: 8 proOnly, 7 plumbing, 4 explicit searchOnly) |
 
 **The `searchOnly` ratchet (§20.5 test 5).** It counts two kinds of entry:
 - explicit `searchOnly` entries: the developer items `file.saveJson` and `ui.commandPalette`, and the agents'
@@ -75,13 +75,13 @@ rewrites the file after a deliberate change.
 
 | `searchOnly` | Total | Explicit | Pending | Make | Paint | Rig | Animate | All stages |
 |---|---|---|---|---|---|---|---|---|
-| Baseline (T6a + T6b built) | 111 | 4 | 107 | 1 | 12 | 18 | 51 | 29 |
+| Baseline (T6a + T6b built) | 114 | 4 | 110 | 1 | 12 | 18 | 52 | 31 |
 
 **Per-package targets.** Each target is the count once that package's surfaces land (on top of T6a + T6b):
 
 | T7 | T8 | T9 | T10 | T11 | All landed (GA) |
 |---|---|---|---|---|---|
-| 70 | 95 | 90 | 88 | 99 | **4** (the explicit items only) |
+| 71 | 98 | 93 | 91 | 100 | **4** (the explicit items only) |
 
 When a package lands, it adds itself to `BUILT_OWNERS` (`manifest/types.ts`), adds its sheet loaders and sections, and
 lowers the baseline.
@@ -113,7 +113,7 @@ Screenshots of every sheet in the harness at iPad landscape size were taken for 
 | ST-T6B-2 | **The browser census goes through a probe the Halo shell installs in e2e builds** (`window.__EKZA_HALO_PARITY__`: `loadAll`, `census`, `join`, `check`). It stays when Halo unmounts, so one page takes the census of Halo, Pro and Auto-Rig on the same EditorApp. The check runs in the page against the bundled manifest. | The test API has no operator list (it is T2's file), and a headless run misses about 70 ids |
 | ST-T6B-3 | **A deferred stub is an internal operator whose poll answers "Arrives after the MVP" (or "not available yet") for any arguments.** It is excluded from parity, and an entry for one is a violation. | 48 stubs today; a conditional `fail(NOT_AVAILABLE_YET)` in a live operator (pivot, IK) is not a stub |
 | ST-T6B-4 | **Argument predicates** are literal lists per key, with dotted keys for nested objects (`patch.jointAxes`); a missing key reads as null. Several entries per operator need pairwise-disjoint predicates, and at most one entry may leave `when` out (the rest). A `'*'` from the scan or a spread matches *dynamically* and is counted. | Literal JSON keeps the manifest data-only; dynamic matches are honest about what a static scan can know |
-| ST-T6B-5 | **Key bindings and marking-menu items are checked like menu items** (1,003 pairs), beyond the spec's menus and call sites. | They are argument shapes Pro sends too (Alt+1–4 presets, the selection-mode marking menu) |
+| ST-T6B-5 | **Key bindings and marking-menu items are checked like menu items** (1,012 pairs), beyond the spec's menus and call sites. | They are argument shapes Pro sends too (Alt+1–4 presets, the selection-mode marking menu) |
 | ST-T6B-6 | **The plumbing allow-list has the spec's five rows plus three**, each with a reason: `shell.halo` (Pro's own switch into this layout), `shell.autoRig` (Pro's switch to Auto-Rig; Halo uses `shell.navigate`), `view.cameraRadial` (Pro's Space-hold radial, replaced by the puck). The agent bookkeeping operator `agent.show` has a real surface (History › Show). | §20.5 test 1 |
 | ST-T6B-7 | **PRO_CHROME** = `workspace.preset.*`, `workspace.reset`, `workspace.toggleChrome` / `toggleFocus` / `toggleTimeline`, the panel arguments of `view.toggleMaximize`, `ui.open {layoutPresets}`, and the `workspace.showPanel` panels without a Halo sheet. Every other `workspace.showPanel` panel maps to its Halo surface (meshCheck / validation → Health, outliner → Scene, channels / attributes → Numbers, clipLibrary → Library, graph → Curves, dopeSheet → Keys, …). | §15.15 a, §20.5 test 6 |
 | ST-T6B-8 | **The agents' explicit-target writers `key.write` and `key.delete` are `searchOnly`.** `key.adjust`, `key.retime`, `pose.setAt`, `pose.goals`, `pose.transfer` and `clip.makeLoop` are `wraps` of T5a's public wrappers. | Halo keys through Key ◆ (`key.set`), channel rows and the Thread; the wrappers carry the rest |
