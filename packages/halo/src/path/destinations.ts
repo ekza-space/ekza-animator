@@ -16,8 +16,6 @@ export interface Destination {
   readonly profile: string | null;
   /** Triangle budget of the destination's profile, when it has one (the status corner's budget ring). */
   readonly triangleBudget: number | null;
-  /** Clip slots the destination needs (Animate's readiness), in order. */
-  readonly slots: readonly string[];
   /** Does the destination need a rigged character (Rig's readiness)? */
   readonly needsRig: boolean;
 }
@@ -29,7 +27,6 @@ export const DESTINATIONS: readonly Destination[] = [
     badge: 'OMOBA',
     profile: 'ekza/space-avatar-v1',
     triangleBudget: null,
-    slots: ['idle', 'walk', 'run'],
     needsRig: true,
   },
   {
@@ -38,7 +35,6 @@ export const DESTINATIONS: readonly Destination[] = [
     badge: 'GLB',
     profile: 'local/generic',
     triangleBudget: null,
-    slots: [],
     needsRig: false,
   },
   {
@@ -47,7 +43,6 @@ export const DESTINATIONS: readonly Destination[] = [
     badge: 'VRMA',
     profile: 'ekza/vrma-humanoid-v1',
     triangleBudget: null,
-    slots: [],
     needsRig: true,
   },
   {
@@ -55,8 +50,8 @@ export const DESTINATIONS: readonly Destination[] = [
     name: 'Prop for OMOBA',
     badge: 'Prop',
     profile: 'ekza/omoba-handheld-v1',
-    triangleBudget: 3000,
-    slots: [],
+    // The hand-held prop budget (editor-core `BUDGET_TRIS.handheld`); a mesh's own budget wins when larger.
+    triangleBudget: 600,
     needsRig: false,
   },
   {
@@ -65,7 +60,6 @@ export const DESTINATIONS: readonly Destination[] = [
     badge: 'Bake',
     profile: 'source',
     triangleBudget: null,
-    slots: [],
     needsRig: false,
   },
   {
@@ -74,7 +68,6 @@ export const DESTINATIONS: readonly Destination[] = [
     badge: null,
     profile: null,
     triangleBudget: null,
-    slots: [],
     needsRig: false,
   },
 ];
