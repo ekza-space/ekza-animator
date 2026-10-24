@@ -71,7 +71,8 @@ test('readiness is one list: glyphs, the status pill, Health and the budget read
   await expect.poll(async () => (await call(page, 'state')).workspace).toBe('model');
   await runOk(page, 'mesh.create.cube');
   await expect(page.getByTestId('halo-next-chip')).toContainText('Rig it for me');
-  await expect(page.getByTestId('halo-path-glyph-make')).toHaveText('◐');
+  // A clean mesh is ready for Just exploring (Mesh Check errors only, ST-4).
+  await expect(page.getByTestId('halo-path-glyph-make')).toHaveText('●');
 
   await press(page.getByTestId('harness-destination-omoba'), testInfo);
   await expect.poll(async () => (await halo(page)).t6b.destination).toBe('omoba');
