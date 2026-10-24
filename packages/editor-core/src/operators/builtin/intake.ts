@@ -206,7 +206,7 @@ const REDUCE_OPTIONS: readonly ParamDef[] = [
     label: 'Hard Edges Above',
     kind: 'angle',
     bound: 'value',
-    default: 60 * DEG,
+    default: 80 * DEG,
     min: 0,
     max: Math.PI,
     step: DEG,

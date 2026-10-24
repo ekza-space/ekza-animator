@@ -119,7 +119,7 @@ function reduceArgs(args: IntakeArgs): ReduceArgs {
     lockBorder: bool(args, 'lockBorder', false),
     regularize: typeof regularize === 'boolean' ? regularize : null,
     prune: bool(args, 'prune', false),
-    hardAngle: num(args, 'hardAngle', (60 * Math.PI) / 180),
+    hardAngle: num(args, 'hardAngle', (80 * Math.PI) / 180),
   };
 }
 
