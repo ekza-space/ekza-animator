@@ -3,6 +3,7 @@
 @source "./src";
 /* AUTORIG-SPEC §10 D3 (D0 note): the Auto-Rig shell's classes. */
 @source "../autorig/src";
+@source "../halo/src";
 
 /* Self-hosted fonts (OFL-1.1, no third-party requests; research 09 §8.4). */
 @import "@fontsource-variable/inter/wght.css";

@@ -2045,6 +2045,7 @@
                   "!@ekza-studio/editor",
                   "!@ekza-studio/ui",
                   "!@ekza-studio/ui/styles.css",
+                  "!@ekza-studio/ui/touch",
                   "!next",
                   "!next/**",
                   "!react",
@@ -2053,7 +2054,7 @@
                   "!react-dom/**",
                   "!@ekza-studio/editor/testing"
                 ],
-                "message": "apps/web dev route may import only: @ekza-studio/editor, @ekza-studio/ui, @ekza-studio/ui/styles.css, next, next/**, react, react/**, react-dom, react-dom/**, @ekza-studio/editor/testing (ARCHITECTURE \u00a73)."
+                "message": "apps/web dev route may import only: @ekza-studio/editor, @ekza-studio/ui, @ekza-studio/ui/styles.css, @ekza-studio/ui/touch, next, next/**, react, react/**, react-dom, react-dom/**, @ekza-studio/editor/testing (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-studio/[^/]+/[^/]+/",

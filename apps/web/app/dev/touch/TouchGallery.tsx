@@ -4,7 +4,6 @@
 // top bar with the Path, breadcrumb, the Halo beside a selected face, Echo chips with the numpad, the off-hand
 // column with ↶ and the Thumb key, the tray, toasts, the More sheet — and one card per primitive below it.
 import { type JSX, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
-// oxlint-disable-next-line no-restricted-imports -- the touch kit's own subpath (`@ekza-studio/ui/touch`, T4); the dev-route allow-list gains it at the Halo integration (docs/wp-notes/halo-t4.md)
 import {
   ActionChip,
   type Box,
