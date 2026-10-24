@@ -22,13 +22,15 @@ import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-cor
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorAppProvider } from '../src/hooks';
-import { bridgeCapture, ModelOpsShellOverlay, openOptionBox, optionBoxStore } from '../src/overlays/menus/optionBox';
+import { bridgeCapture } from '../src/overlays/menus/captureBridge';
+import { ModelOpsShellOverlay, openOptionBox, optionBoxStore } from '../src/overlays/menus/optionBox';
 import { MODEL_OPS_MARKING_MENUS, registerModelOpsMenus } from '../src/overlays/menus/tools';
 import { ChannelsPanel } from '../src/panels/channels/ChannelsPanel';
 import { CLOSED_CARD_MS } from '../src/panels/toolkit/LastOpCardView';
 import { ModelOpsSlot } from '../src/panels/toolkit/ModelOpsSlot';
 import ToolkitView from '../src/panels/toolkit/ToolkitView';
 import { cardPane, LastOpCard } from '../src/panels/viewport/LastOpCard';
+import { ShellProvider } from '../src/shell/context';
 import { createTestApi } from '../src/test-api/createTestApi';
 import { by, cleanup, input, maybe, mount } from './panels/helpers';
 import { createTestShell, settle, waitFor } from './shell-helpers';
@@ -441,6 +443,38 @@ describe('marking menus and the capture bridge', () => {
     window.dispatchEvent(new PointerEvent('pointerdown', { clientX: 16, clientY: 10 }));
     expect(app.capture.state.armed).toBeNull();
     off();
+  });
+
+  it('the shell slot installs the bridge with the shell: a window armed before the overlay chunk knows the pointer', async () => {
+    // E2E-MOD-19 B11 on a loaded machine: the pointer's last move before the keyboard run came before the lazy
+    // overlay's chunk; a bridge mounted from that chunk took the first move after the arm as its origin (§5.10 (b)).
+    const { app, shell } = createTestShell();
+    registerBuiltins(app);
+    await loadMeshKernel();
+    (app.meshes as KernelMeshRuntimes).attach(app);
+    await mount(
+      app,
+      <ShellProvider shell={shell}>
+        <ModelOpsSlot app={app} />
+      </ShellProvider>,
+    );
+    expect(app.session.getState().workspace).not.toBe('model');
+    // The pointer rests at (100, 100) before Model is entered, when no part of the overlay has been requested.
+    window.dispatchEvent(new PointerEvent('pointermove', { clientX: 100, clientY: 100 }));
+    await act(async () => switchWorkspace(app, 'model'));
+    await loadOpsRuntime();
+    const created = await app.run('mesh.create.cube', {}, { source: 'menu', paneId: 'pane-persp' });
+    if (created.status !== 'finished') throw new Error(JSON.stringify(created));
+    app.operators.register(weightOperator((created.value as { mesh: MeshId }).mesh));
+    await app.run('test.weight' as never, {} as never, { source: 'keyboard', paneId: 'pane-persp' });
+    expect(app.capture.state.armed).toBe('keyboard-op');
+    app.capture.key({ code: 'Digit3', key: '3', shift: false, mod: false, alt: false });
+    // Measured from (100, 100): 2 px stays inside the slop, 4 px disarms and discards the entry.
+    window.dispatchEvent(new PointerEvent('pointermove', { clientX: 102, clientY: 100 }));
+    expect(app.capture.state.armed).toBe('keyboard-op');
+    window.dispatchEvent(new PointerEvent('pointermove', { clientX: 104, clientY: 100 }));
+    expect(app.capture.state.armed).toBeNull();
+    expect(shell.ui.getState().help).toMatchObject({ text: 'Entry discarded', tone: 'warning' });
   });
 });
 
