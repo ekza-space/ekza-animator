@@ -46,16 +46,16 @@ const clip = (id: string, name: string): ClipRecord => ({ id, name }) as unknown
 const FPS30 = { num: 30, den: 1 };
 
 describe('the Animations row (§10.6, §4.8)', () => {
-  it('shows the active animation and folds the rest into +n', () => {
-    const clips = ['a', 'b', 'c', 'd'].map((id) => clip(id, id.toUpperCase()));
-    expect(rowChips(clips.slice(0, 1), 'a' as never)).toEqual({ shown: clips.slice(0, 1), folded: 0 });
+  it('shows up to three chips — the active one among them, in order — and folds the rest into +n', () => {
+    const clips = ['a', 'b', 'c', 'd', 'e'].map((id) => clip(id, id.toUpperCase()));
+    expect(rowChips(clips.slice(0, 3), 'a' as never)).toEqual({ shown: clips.slice(0, 3), folded: 0 });
     const folded = rowChips(clips, 'b' as never);
-    expect(folded.shown.map((c) => c.id)).toEqual(['b']);
-    expect(folded.folded).toBe(3);
+    expect(folded.shown.map((c) => c.id)).toEqual(['b', 'd', 'e']);
+    expect(folded.folded).toBe(2);
     // no active one: the most recent
-    expect(rowChips(clips, null).shown.map((c) => c.id)).toEqual(['d']);
-    // a wider row may show more
-    expect(rowChips(clips, 'a' as never, 3).shown.map((c) => c.id)).toEqual(['a', 'c', 'd']);
+    expect(rowChips(clips, null).shown.map((c) => c.id)).toEqual(['c', 'd', 'e']);
+    // a phone shows the active one only
+    expect(rowChips(clips, 'a' as never, 1).shown.map((c) => c.id)).toEqual(['a']);
   });
 
   it('+ New: a clean name, the next free "Animation n", a range of whole frames from 0', () => {

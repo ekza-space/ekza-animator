@@ -271,6 +271,89 @@ test.describe('ha-06: the Thread', () => {
     void ringPoint;
   });
 
+  test('the Animations row: several animations, one tap each; the active one drives the Thread; its Settings', async ({
+    page,
+  }, testInfo) => {
+    touchOnly(testInfo);
+    test.setTimeout(90_000);
+    await openHalo(page);
+    await loadSample(page, 'seed-san');
+    const character = (await call(page, 'characters'))[0]?.id;
+    await runOk(page, 'clip.new', { character, name: 'Idle', range: { start: 0, end: 30 } });
+    await runOk(page, 'clip.new', { character, name: 'Walk', range: { start: 0, end: 45 } });
+    await runOk(page, 'clip.new', { character, name: 'Wave', range: { start: 0, end: 60 } });
+    // four animations: three chips (the active one among them) and +1
+    await expect(page.getByTestId('halo-clip-chip-Wave')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('halo-clip-others')).toHaveText('+1');
+    // one tap switches: the Thread shows the animation's own length, in seconds
+    await fingerTap(page, await centreOf(page, 'halo-clip-chip-Idle'));
+    await expect.poll(async () => (await animate(page)).active).toBe('Idle');
+    expect((await animate(page)).thread.range).toEqual({ start: 0, end: 30 });
+    await expect(page.getByTestId('halo-thread-readout')).toHaveText('0.00 s');
+    await fingerTap(page, await centreOf(page, 'halo-clip-chip-Walk'));
+    await expect.poll(async () => (await animate(page)).active).toBe('Walk');
+    expect((await animate(page)).thread.range).toEqual({ start: 0, end: 45 });
+    // the folded one through +n
+    await fingerTap(page, await centreOf(page, 'halo-clip-others'));
+    const listed = await page.getByTestId('halo-all-clips').getByTestId('halo-clip-chip-clip1').boundingBox();
+    if (listed === null) throw new Error('clip1 is not listed');
+    await fingerTap(page, { x: listed.x + listed.width / 2, y: listed.y + listed.height / 2 });
+    await expect.poll(async () => (await animate(page)).active).toBe('clip1');
+
+    // the animation's Halo holds its Settings: loop, travel, the range in seconds (one undo step each)
+    await fingerTap(page, await centreOf(page, 'halo-clip-chip-Walk'));
+    await expect(page.getByTestId('halo-docked')).toHaveAttribute('data-noun', 'clip');
+    await fingerTap(page, await dockedPetal(page, 'Settings'));
+    await expect(page.getByTestId('halo-clip-settings')).toBeVisible();
+    const steps = (await call(page, 'history')).undo.length;
+    await fingerTap(page, await centreOf(page, 'halo-clip-loop'));
+    await expect.poll(async () => (await call(page, 'clips')).find((c) => c.name === 'Walk')?.loop).toBe(true);
+    expect((await call(page, 'history')).undo.length).toBe(steps + 1);
+    await page.getByTestId('halo-clip-travel').getByRole('radio', { name: 'In place' }).tap();
+    await expect.poll(async () => (await call(page, 'history')).undo.length).toBe(steps + 2);
+    await fingerTap(page, await rulerPoint(page, 20));
+    await fingerTap(page, await centreOf(page, 'halo-clip-contact-here'));
+    await expect(page.getByTestId('halo-clip-contact')).toHaveText('0.67 s');
+  });
+
+  test('two fingers on the ruler zoom time; a double-tap shows the whole animation again', async ({
+    page,
+  }, testInfo) => {
+    touchOnly(testInfo);
+    await openHalo(page);
+    await loadSample(page, 'seed-san');
+    const before = (await animate(page)).thread.ruler;
+    if (before === null) throw new Error('no ruler');
+    const y = before.rect.y + before.rect.h / 2;
+    const mid = before.rect.x + before.rect.w / 2;
+    await twoFingers(
+      page,
+      [
+        { x: mid - 30, y },
+        { x: mid + 30, y },
+      ],
+      [
+        { x: mid - 140, y },
+        { x: mid + 140, y },
+      ],
+    );
+    await expect
+      .poll(async () => {
+        const r = (await animate(page)).thread.ruler;
+        return r === null ? 0 : r.end - r.start;
+      })
+      .toBeLessThan(before.end - before.start - 10);
+    const at = await rulerPoint(page, 30);
+    await fingerTap(page, at);
+    await fingerTap(page, at);
+    await expect
+      .poll(async () => {
+        const r = (await animate(page)).thread.ruler;
+        return r === null ? 0 : r.end - r.start;
+      })
+      .toBe(before.end - before.start);
+  });
+
   test('webkit-ipad boots the Thread and taps it', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'webkit-ipad', 'webkit-ipad only');
     await openHalo(page);

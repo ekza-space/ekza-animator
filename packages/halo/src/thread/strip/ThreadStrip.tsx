@@ -449,7 +449,11 @@ export function ThreadStrip({
         case 'wait': {
           count();
           const now = e.timeStamp;
-          if (now - lastTap <= DOUBLE_TAP_MS && current.grab.kind === 'ruler' && view !== null) {
+          if (
+            now - lastTap <= DOUBLE_TAP_MS &&
+            (current.grab.kind === 'ruler' || current.grab.kind === 'playhead') &&
+            view !== null
+          ) {
             // a double-tap shows the whole animation again
             view = null;
             lastTap = 0;

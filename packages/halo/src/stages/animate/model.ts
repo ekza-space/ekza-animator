@@ -15,8 +15,11 @@ export const DEFAULT_FPS: Fps = { num: 30, den: 1 };
 export const NEW_LENGTHS = [1, 2, 4] as const;
 export type NewLength = (typeof NEW_LENGTHS)[number];
 
-/** The Animations row shows this many chips: the active one, and `+n` for the rest (§4.8, ST-T7-2). */
-export const MAX_CHIPS = 1;
+/**
+ * The Animations row shows this many chips, the active one among them, and `+n` for the rest (§4.8's row of wireframe
+ * C: `[Idle] [Walk] [Wave ▾] [+ New]`; ST-T7-2): one tap switches between them.
+ */
+export const MAX_CHIPS = 3;
 
 /** One operator call (the shape both shells' runs take). */
 export interface OpCall {

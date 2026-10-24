@@ -16,6 +16,7 @@ import { PANE } from '../../shell/stage';
 import { useHaloStore } from '../../shell/store';
 import { threadContext, timeText } from '../../thread/strip/model';
 import { PETAL_VARIANTS, type PetalChoice, type PetalDef, petalsFor } from '../../verbs/table';
+import { ClipSettings } from './ClipSettings';
 import { AnimateGlyph, type AnimateIcon } from './icons';
 import { animateCharacter, controlsOf, loopItCall, type OpCall, swapSidesCalls } from './model';
 import { threadNoun } from './sheetContext';
@@ -399,6 +400,7 @@ export function DockedHalo({
   const docked = useAnimateUi(ui, (s) => s.docked);
   const menu = useAnimateUi(ui, (s) => s.menu);
   const renaming = useAnimateUi(ui, (s) => s.renaming);
+  const settings = useAnimateUi(ui, (s) => s.settings);
   if (docked === null) return null;
   const clip = docked.kind === 'clip' ? (app.store.get('clips', docked.clip) ?? null) : null;
   if (docked.kind === 'clip' && clip === null) return null;
@@ -428,11 +430,8 @@ export function DockedHalo({
     ui.set({ menu: null });
     if ('local' in action) {
       if (docked.kind === 'clip' && id === 'settings') {
-        // the clip section of Numbers is the active animation's (§10.6 Settings)
-        if (clip !== null && app.session.getState().activeClip[clip.character] !== clip.id) {
-          void ctx.run('clip.setActive', { clip: clip.id });
-        }
-        store.set({ sheet: 'numbers', sheetArgs: { section: 'animation' }, sheetNoun: noun, halo: null, focus: null });
+        // the clip settings in the animation's own Halo (§10.6): fps, range, loop, travel, contact, tags
+        ui.set({ settings: ui.get().settings === docked.clip ? null : docked.clip });
         return;
       }
       action.local();
@@ -506,6 +505,9 @@ export function DockedHalo({
           />
         </div>
       )}
+      {clip !== null && settings === clip.id ? (
+        <ClipSettings key={clip.id} controller={controller} clip={clip} />
+      ) : null}
       {open !== undefined && 'menu' in open.action ? (
         <div
           role="menu"

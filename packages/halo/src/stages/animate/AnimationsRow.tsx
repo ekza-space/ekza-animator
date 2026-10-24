@@ -1,9 +1,9 @@
-// The Animations row (STUDIO-TOUCH-SPEC §10.6, §4.8; T7): the active animation's chip above the Thread — the first
-// tap on a chip makes it active *and* docks its Halo (Play, Loop it, Rename, Duplicate ▾, Settings, ⋯) — the others
-// behind one `+n` chip that lists them all, then `+ New` (a name and a length of 1, 2 or 4 s), the ⟨Blend⟩ chip when
-// the playhead sits between two keys of the selection, and `Library ▸`. Three or four targets at rest, so Animate stays
-// within §4.8's 22 with the Path's Next chip shown (ST-T7-2); empty space's other verbs (Key all, All controls, Reset
-// pose) and its ⋯ More are its long-press ring.
+// The Animations row (STUDIO-TOUCH-SPEC §10.6, §4.8; T7): one character holds several animations, and their chips sit
+// above the Thread — one tap on a chip makes it the active animation (the Thread shows and plays it) *and* docks its
+// Halo (Play, Loop it, Rename, Duplicate ▾, Settings, ⋯). Up to three chips show (wireframe C), the rest behind one
+// `+n` chip that lists them all; then `+ New` (a name and a length of 1, 2 or 4 s), the ⟨Blend⟩ chip when the playhead
+// sits between two keys of the selection, and `Library ▸`. Empty space's other verbs (Key all, All controls, Reset
+// pose) and its ⋯ More are its long-press ring (ST-T7-2).
 import type { ClipRecord } from '@ekza-studio/doc';
 import { Cluster, TouchButton, TouchIconButton, ValueChip } from '@ekza-studio/ui/touch';
 import { type EditorApp, loadTargetKit } from '@ekza-studio/editor-core';
@@ -286,7 +286,7 @@ export function AnimationsRow({
   const character = animateCharacter(app);
   const clips = animationsOf(app, character);
   const active = activeClip(app, character);
-  const { shown, folded } = rowChips(clips, active?.id ?? null);
+  const { shown, folded } = rowChips(clips, active?.id ?? null, compact ? 1 : undefined);
   const count = (): void => store.set((s) => ({ touches: s.touches + 1 }));
   const pick = (clip: ClipRecord): void => {
     count();
