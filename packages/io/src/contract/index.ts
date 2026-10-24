@@ -22,3 +22,27 @@ export {
 } from './profiles/omobaCharacterV1';
 export { CONTRACT_MAX_BYTES, type ContractReadOptions, readContract, readContractText } from './read';
 export { type ContractIndex, type ContractIndexEntry, parseContractIndex } from './snapshotIndex';
+export {
+  type CharacterPackageFill,
+  characterOffer,
+  characterPackageManifest,
+  PACKAGE_MANIFEST_KEY,
+  PACKAGE_SCHEMA,
+  PACKAGE_SCHEMA_VERSION,
+  type PackageFill,
+  type PackageManifest,
+  packageManifestJson,
+  type PackageRequirement,
+  readPackageManifest,
+} from './packageManifest';
+export {
+  checkCharacterPackage,
+  type GateVerdict,
+  gateVerdict,
+  type MeasuredValue,
+  type PackageCheckOptions,
+  type PackageIssue,
+  type PackageReport,
+  type PackageSlotReport,
+  validationReport,
+} from './packageCheck';

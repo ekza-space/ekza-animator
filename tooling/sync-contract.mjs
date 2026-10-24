@@ -13,7 +13,13 @@
 // draft data only: it replaces a stale revision with the recomputed one instead of refusing. `--check` (the local gate,
 // `tooling/test/sync-contract.test.mjs`) verifies every game's index against its files without writing.
 //
+// C2 (CHARACTER-CONTRACT-SPEC §5.3 item 3, Appendix D): `--fixtures <dir>` copies a game's conformance fixtures (OMOBA:
+// `omoba-bevy/shared/assets/catalog/game-contract-fixtures/v1/`) into `fixtures/contracts/<game>-fixtures/v1/`: the
+// fixture manifest and every file it lists, each checked against the manifest's SHA-256 (pinning); a file above 1 MiB
+// is not copied and is named in `studio-copy.json` (io's tests synthesize those cases). `--check` verifies the copy.
+//
 // Usage: node tooling/sync-contract.mjs --from <file> [--schema <file>]… [--restamp] [--root <repo>]
+//        node tooling/sync-contract.mjs --fixtures <dir> [--root <repo>]
 //        node tooling/sync-contract.mjs --check [--root <repo>]
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -145,6 +151,71 @@ export function syncContract({ root, from, schemas = [], restamp = false, submit
   return { game, revision: source.revision, bytes: bytes.byteLength, restamped: original !== computed };
 }
 
+/** Fixture files above this are not copied (named in `studio-copy.json`). */
+export const FIXTURE_FILE_CAP = 1_048_576;
+export const FIXTURE_COPY = 'studio-copy.json';
+/** The directory of a game's copied conformance fixtures. */
+export const fixturesPath = (game) => `${FIXTURE_DIR}/${game}-fixtures/v1`;
+
+/** Copies a game's conformance fixtures (see the header). Returns what it copied and skipped. */
+export function syncFixtures({ root, from, cap = FIXTURE_FILE_CAP }) {
+  const manifestBytes = readFileSync(join(from, 'manifest.json'));
+  const manifest = JSON.parse(manifestBytes.toString('utf8'));
+  const contract = readJson(join(from, 'contract.json'));
+  const game = gameOf(contract);
+  const dir = join(root, fixturesPath(game));
+  const copied = [];
+  const skipped = [];
+  // a source that is itself a copy names the files it left out
+  const earlier = existsSync(join(from, FIXTURE_COPY)) ? (readJson(join(from, FIXTURE_COPY)).skipped ?? []) : [];
+  for (const [file, pin] of Object.entries(manifest.files ?? {}).sort(([a], [b]) => a.localeCompare(b))) {
+    if (file.includes('..') || file.startsWith('/')) throw new Error(`${file}: not a relative path`);
+    const left = earlier.find((entry) => entry.file === file);
+    if (left !== undefined && !existsSync(join(from, file))) {
+      skipped.push(left);
+      continue;
+    }
+    const bytes = readFileSync(join(from, file));
+    if (sha256(bytes) !== pin.sha256 || bytes.byteLength !== pin.bytes) {
+      throw new Error(`${file}: does not match the fixture manifest's SHA-256`);
+    }
+    if (bytes.byteLength > cap) {
+      skipped.push({ file, bytes: bytes.byteLength, sha256: pin.sha256 });
+      continue;
+    }
+    mkdirSync(join(dir, file, '..'), { recursive: true });
+    writeFileSync(join(dir, file), bytes);
+    copied.push(file);
+  }
+  writeFileSync(join(dir, 'manifest.json'), manifestBytes);
+  const copy = { schema: 'ekza-studio.fixture-copy.v1', manifestSha256: sha256(manifestBytes), cap, skipped };
+  writeFileSync(join(dir, FIXTURE_COPY), `${JSON.stringify(copy, null, 2)}\n`);
+  return { game, copied: copied.length, skipped: skipped.map((entry) => entry.file) };
+}
+
+/** Problems of a game's copied fixtures ([] = consistent, or none copied). */
+function checkFixtureCopy(root, game) {
+  const base = fixturesPath(game);
+  const dir = join(root, base);
+  if (!existsSync(dir)) return [];
+  const problems = [];
+  const manifestBytes = readFileSync(join(dir, 'manifest.json'));
+  const manifest = JSON.parse(manifestBytes.toString('utf8'));
+  const copy = readJson(join(dir, FIXTURE_COPY));
+  if (copy.manifestSha256 !== sha256(manifestBytes)) problems.push(`${base}/${FIXTURE_COPY}: names another manifest`);
+  const skipped = new Set((copy.skipped ?? []).map((entry) => entry.file));
+  for (const [file, pin] of Object.entries(manifest.files ?? {})) {
+    const path = join(dir, file);
+    if (!existsSync(path)) {
+      if (!skipped.has(file)) problems.push(`${base}/${file}: listed but missing`);
+      continue;
+    }
+    if (sha256(readFileSync(path)) !== pin.sha256)
+      problems.push(`${base}/${file}: SHA-256 does not match the manifest`);
+  }
+  return problems;
+}
+
 /** Problems of one game's bundled snapshot ([] = consistent). */
 function checkGame(root, game) {
   const problems = [];
@@ -204,7 +275,7 @@ export function checkContracts(root) {
   if (!existsSync(dir)) return [`${PUBLIC_ROOT} is missing`];
   const games = readdirSync(dir).filter((name) => statSync(join(dir, name)).isDirectory());
   if (games.length === 0) return [`${PUBLIC_ROOT} has no game`];
-  return games.flatMap((game) => checkGame(root, game));
+  return games.flatMap((game) => [...checkGame(root, game), ...checkFixtureCopy(root, game)]);
 }
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
@@ -222,6 +293,12 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(p
       process.exit(1);
     }
     console.log('sync-contract: the bundled contract snapshots are consistent');
+  } else if (value('--fixtures') !== null) {
+    const result = syncFixtures({ root, from: resolve(value('--fixtures')) });
+    console.log(
+      `sync-contract: ${result.game} fixtures, ${result.copied} file(s) copied` +
+        (result.skipped.length === 0 ? '' : `, not copied (over 1 MiB): ${result.skipped.join(', ')}`),
+    );
   } else {
     const from = value('--from');
     if (from === null) {
