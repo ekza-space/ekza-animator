@@ -258,4 +258,12 @@ loads before the first intake run, and the browser path loads only the worker's.
 | 1 | format, lint, typecheck, deps (23 packages), fixtures (25), licences (178) green; unit tests stopped by a crash of Playwright's own IPC in curve-editor's browser tests (`SyntaxError: Unexpected end of JSON input` in playwright-core); turbo stopped the rest. curve-editor alone: 220 passed |
 | 2 | unit tests: three Halo tests and one editor-core compute-bound test timed out at load ≈ 93; alone: 14 + 26 passed |
 | 3 | every unit test task green (24/24), build, `check:size` green (table above), e2e **470 passed, 99 skipped, 1 failed**: `m2a-01-leg-ik-holds-feet` ("Character 'Polybot' has no runtime yet", a runtime-load timing at load ≈ 45); alone, with `m7-01-intake`: 2 passed |
-| **4 (final, `a5e7ec2c`)** | **green, exit 0**: format, lint, typecheck, deps (23 packages), fixtures (25), licences (178); unit tests 24/24 tasks — mesh-wasm 12, editor-core 1,824, io 494, headless-tests 232, editor 677 + 1 skipped, mesh-core 982, halo 178, agent-tools 263 + 8 skipped, curve-editor 220 + 3 skipped, web 110, tooling 37 (param-lint included); build; `check:size` (table above); e2e **471 passed, 99 skipped, 0 failed** (`m7-01-intake` included) |
+| 4 (`a5e7ec2c`, before fix round 1) | **green, exit 0**: format, lint, typecheck, deps (23 packages), fixtures (25), licences (178); unit tests 24/24 tasks — mesh-wasm 12, editor-core 1,824, io 494, headless-tests 232, editor 677 + 1 skipped, mesh-core 982, halo 178, agent-tools 263 + 8 skipped, curve-editor 220 + 3 skipped, web 110, tooling 37 (param-lint included); build; `check:size` (table above); e2e **471 passed, 99 skipped, 0 failed** (`m7-01-intake` included) |
+
+Fix round 1 (`5bf177f4`): run 5 stopped on editor-core's `agent/keys` compute-bound timing (4.1 s against 3 s at load
+≈ 35; alone: 26 passed), run 6 on `ops-ui/card-preview` (alone: 4 passed, three times); neither touches this package.
+**Run 7: green, exit 0** — format, lint, typecheck, deps, fixtures, licences; unit tests 24/24 tasks (mesh-wasm 14,
+editor-core 1,824, io 494, headless-tests 233, editor 677 + 1 skipped, halo 178, agent-tools 263 + 8 skipped, web 110,
+curve-editor 220 + 3 skipped); build; `check:size` `/editor` 897,558 B, `/autorig` 658,136 B, `/app` 716,019 B; e2e
+**471 passed, 99 skipped, 0 failed** (`m7-01`: 45 hard edges, 8 colours, 69 background samples ignored; the worker's
+reduce 96,824 → 3,000 in 88.6 ms, the chain in 202.5 ms).
