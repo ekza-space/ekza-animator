@@ -20,6 +20,7 @@ import { sizeClassOf, useElementSize } from './hooks';
 import { Sheets } from './Sheets';
 import { PathTabs, TopBar } from './TopBar';
 import { Tray } from './Tray';
+import { useAnimateDock } from '../stages/animate/AnimateDock';
 import { useHaloStore } from './store';
 
 const Palette = lazy(() => import('../palette/Palette'));
@@ -54,9 +55,11 @@ export function Frame({ controller }: { readonly controller: HaloController }): 
     () => app.prefs.getState().uiScale,
   );
   const compact = size === 'compact';
+  // T7 (P-T6A-4): Animate's tray is the Thread with the Animations row
+  const animate = useAnimateDock(controller, size, height);
   // the chrome's extent, for the floating grammar (pane px)
   const insetTop = size === 'regular' ? 128 : 76;
-  const insetBottom = compact ? 148 : 84;
+  const insetBottom = (compact ? 148 : 84) + animate.lift;
   // the off-hand column and the puck sit above the tray (and, on Compact, above the docked verb bar, §4.4)
   const cornerBottom = compact ? insetBottom + 52 : insetBottom - 12;
   const offSide = handedness === 'right' ? 'left-(--touch-inset-left)' : 'right-(--touch-inset-right)';
@@ -138,7 +141,7 @@ export function Frame({ controller }: { readonly controller: HaloController }): 
             style={{ ...fade, bottom: 'var(--touch-inset-bottom)' }}
           >
             <div className="flex justify-center">
-              <Tray controller={controller} compact={compact} />
+              {animate.dock ?? <Tray controller={controller} compact={compact} />}
             </div>
             {compact ? (
               <div className="pointer-events-auto flex">
@@ -149,6 +152,7 @@ export function Frame({ controller }: { readonly controller: HaloController }): 
         </>
       )}
       <Sheets controller={controller} size={size} />
+      {home ? null : animate.overlay}
       {palette ? (
         <Suspense fallback={null}>
           <Palette controller={controller} side={size === 'wide' ? 'right' : 'bottom'} />
