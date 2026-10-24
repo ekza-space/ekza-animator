@@ -117,6 +117,14 @@ e2e 368 passed, 24 skipped (the existing skips). Earlier runs failed only on kno
 property seeds 107113566 and 1028527676, the `agent/keys` timing bound under load; each green alone) and on two e2e
 expectations C2 changed (fixed).
 
+After merging `dev` (`054b8789`: Halo T0–T5c and SIZE-1; merge `9478a547`; one conflict, Auto-Rig's `files.ts`, which
+dev moved to editor-core's `autorigFlow` — the hero target's `.vrm` and the bound character's `-omoba-dev.zip` now live
+in `exportFileNameOf`), `EKZA_E2E_PORT=3190 pnpm run ci`: format, lint, typecheck, deps, fixtures, licences pass; test
+23/23 tasks (the first run's 7 failures in editor `shell.test.tsx` were load: 14/14 alone); build; check:size
+`/editor` 896,090 B, `/autorig` 657,175 B, `/app` 639,822 B (gate 5,000,000 B); e2e 414 passed, 34 skipped, **1
+failed**: `m6a-19-numeric-capture` B11 (the capture window still armed after a 10 px pointer move). It fails the same
+way on a clean `origin/dev` (`054b8789`, run in a temporary worktree), so it is dev's, not C2's.
+
 Screenshots (E2E-CC-03 with `EKZA_CC_SCREENSHOTS`): the time slider with the contact ◆, limit line and window
 bracket; Auto-Rig ⑤ blocked by the contract row with *Set contact*; the Export dialog blocked and ready; the Target
 panel with the fix.
