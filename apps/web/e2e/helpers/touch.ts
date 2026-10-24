@@ -12,15 +12,22 @@ export function cdp(page: Page): Promise<CDPSession> {
   return page.context().newCDPSession(page);
 }
 
-/** One CDP touch event; `points` are the fingers down after it (ids by index). */
+/**
+ * One CDP touch event; a finger's id is its index in `points` unless `ids` names them.
+ * - `touchStart` / `touchMove`: `points` are the fingers down after the event (a new id presses a finger, a known id
+ *   at a new place moves it).
+ * - `touchEnd` / `touchCancel`: `points` are the fingers that lift (CDP lifts the points it lists; the others stay
+ *   down); an empty list lifts every finger still down (P-T6A-8: two-finger releases one finger at a time).
+ */
 export async function touchEvent(
   session: CDPSession,
   type: 'touchStart' | 'touchMove' | 'touchEnd' | 'touchCancel',
   points: readonly Point[],
+  ids?: readonly number[],
 ): Promise<void> {
   await session.send('Input.dispatchTouchEvent', {
     type,
-    touchPoints: points.map((p, id) => ({ x: p.x, y: p.y, id })),
+    touchPoints: points.map((p, index) => ({ x: p.x, y: p.y, id: ids?.[index] ?? index })),
   });
 }
 

@@ -17,6 +17,8 @@ export interface SegmentedItem<V extends string> {
   readonly disabled?: boolean;
   /** `aria-controls` of a tab. */
   readonly controls?: string;
+  /** The segment's own test id; default `<the group's test id>-<value>` when the group has one. */
+  readonly testId?: string;
 }
 
 export interface SegmentedProps<V extends string> {
@@ -83,6 +85,7 @@ export function Segmented<V extends string>({
             tabIndex={on ? 0 : -1}
             disabled={item.disabled}
             data-on={on ? '' : undefined}
+            data-testid={item.testId ?? (testId === undefined ? undefined : `${testId}-${item.value}`)}
             className={cn(
               'inline-flex min-h-(--touch-hit) min-w-(--touch-hit) select-none items-center',
               'justify-center gap-2 whitespace-nowrap rounded-touch-inner px-3 text-touch font-medium text-fg-2',
