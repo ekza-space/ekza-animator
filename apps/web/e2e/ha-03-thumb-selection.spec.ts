@@ -99,7 +99,7 @@ test.describe('ha-03: the Thumb key', () => {
     await page.waitForTimeout(80);
     await touchEvent(s, 'touchStart', [thumb, target]);
     // CDP's touchEnd lists the points that lift: the canvas finger (id 1) first, the thumb stays down
-    await s.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [{ x: target.x, y: target.y, id: 1 }] });
+    await touchEvent(s, 'touchEnd', [target], [1]);
     await page.waitForTimeout(80);
     await expect.poll(() => selectedControls(page)).toEqual([upper, head]);
     expect((await halo(page)).thumb.mode).toBe('held');
@@ -119,15 +119,15 @@ test.describe('ha-03: selection undo per workspace (C9)', () => {
     await loadCubeLadInMake(page);
     await page.getByTestId('halo-pick').getByRole('radio', { name: 'Faces' }).click();
     await fingerTap(page, await meshPoint(page));
-    await expect.poll(async () => (await halo(page)).noun?.kind).toBe('face');
+    await expect.poll(async () => (await halo(page)).noun?.kind).toBe('faces');
     const steps = (await call(page, 'history')).undo.length;
     await fingerTap(page, await emptyPoint(page));
-    await expect.poll(async () => (await halo(page)).noun?.kind).not.toBe('face');
+    await expect.poll(async () => (await halo(page)).noun?.kind).not.toBe('faces');
     expect((await call(page, 'history')).undo.length).toBe(steps + 1);
     expect(await page.getByTestId('halo-reselect').count()).toBe(0);
     const p = await emptyPoint(page);
     await twoFingers(page, [p, { x: p.x + 80, y: p.y }], [p, { x: p.x + 80, y: p.y }], 0);
-    await expect.poll(async () => (await halo(page)).noun?.kind).toBe('face');
+    await expect.poll(async () => (await halo(page)).noun?.kind).toBe('faces');
     await expect(page.getByTestId('halo-toasts').getByText('Undid: Select')).toBeVisible();
   });
 

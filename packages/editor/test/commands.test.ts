@@ -158,6 +158,15 @@ describe('shell operators', () => {
     expect(shell.ui.getState().help?.text).toBe('Simplify: 41 → 24 keys (17 removed within 1°)');
   });
 
+  it('prefs.set takes the rigging preferences (the status line joint size, option boxes; T6-INT P-T6B-3)', async () => {
+    const { shell, app } = createTestShell();
+    const rigging = app.prefs.getState().rigging;
+    const result = await shell.runFromUi('prefs.set', { patch: { rigging: { ...rigging, jointSize: 1.5 } } });
+    expect(result.status).toBe('finished');
+    expect(app.prefs.getState().rigging.jointSize).toBe(1.5);
+    expect(app.prefs.getState().rigging.brush).toEqual(rigging.brush);
+  });
+
   it('typed run() accepts the shell operators added to OperatorMap', async () => {
     const { app } = createTestShell();
     const result = await app.run('prefs.set', { patch: { autoKey: true } });

@@ -1,8 +1,18 @@
 // The page host's operators (AUTORIG-SPEC §4.4, D1; moved from the Studio shell's `shell/operators.ts`): `ui.open` and
-// `ui.close` for the host's dialogs, and `prefs.set`. Registered by the HostShell, so they exist on `/editor` and
-// `/autorig` alike (scripts, the palette and the MCP bridge see them on both). None writes the document.
+// `ui.close` for the host's dialogs, `prefs.set`, and since STUDIO-TOUCH-SPEC T6-INT `view.toggleMaximize` (its pane
+// form is shell-neutral: Halo's ⤢ and View › Maximize pane run it on `/app`; the panel form asks the mounted shell's
+// maximize port, which only Studio Pro provides). Registered by the HostShell, so they exist on every route (scripts,
+// the palette and the MCP bridge see them on all). None writes the document.
 import type { Disposer } from '@ekza-studio/anim-core';
-import type { EditorApp, OperatorDef, PollResult, Prefs, UiDialog } from '@ekza-studio/editor-core';
+import {
+  type EditorApp,
+  type OperatorDef,
+  PANEL,
+  type PanelKind,
+  type PollResult,
+  type Prefs,
+  type UiDialog,
+} from '@ekza-studio/editor-core';
 import type {} from '../shell/operator-map';
 
 export const UI_DIALOGS: readonly UiDialog[] = [
@@ -51,7 +61,28 @@ const PREF_KEYS: ReadonlySet<string> = new Set([
   // M6a (M6A-SPEC §4.6; B13): the first-run start workspace and the modeling preferences (palette recents).
   'lastWorkspace',
   'modeling',
+  // M6b (§5.22; STUDIO-TOUCH-SPEC T6-INT, P-T6B-3): the rigging preferences — Studio Pro's status-line joint size,
+  // the option defaults of the Rig & Skin option boxes, Halo's Settings › Rigging and More's *Make default*.
+  'rigging',
 ]);
+
+/** A shell's docked panels, for `view.toggleMaximize`'s panel form (Studio Pro's dockview groups). */
+export interface MaximizePort {
+  /** Maximizes or restores the group of a panel kind; false when the shell has no such panel. */
+  toggle(panel: PanelKind): boolean;
+  /** Restores whatever group is maximized; false when none is. */
+  restore(): boolean;
+}
+
+const maximizePorts = new WeakMap<EditorApp, MaximizePort>();
+
+/** The mounted shell's maximize port (Studio Pro while mounted); the disposer removes it if it is still this one. */
+export function provideMaximizePort(app: EditorApp, port: MaximizePort): Disposer {
+  maximizePorts.set(app, port);
+  return () => {
+    if (maximizePorts.get(app) === port) maximizePorts.delete(app);
+  };
+}
 
 export interface HostOperatorDeps {
   /** Called when the import dialog closes without importing (drops the pending file). */
@@ -125,7 +156,35 @@ export function registerHostOperators(app: EditorApp, deps: HostOperatorDeps): D
     },
   };
 
-  const disposers = [open, close, setPrefs].map((def) => app.contribute({ kind: 'operator', def }));
+  const toggleMaximize: OperatorDef<{ readonly paneId?: string; readonly panel?: PanelKind } | void> = {
+    id: 'view.toggleMaximize',
+    label: 'Maximize Panel',
+    description: 'Maximize or restore the viewport pane or panel under the pointer.',
+    category: 'view',
+    scope: 'global',
+    apply(ctx, args) {
+      const explicit: { readonly paneId?: string; readonly panel?: PanelKind } =
+        typeof args === 'object' && args !== null ? args : {};
+      const hovered = app.session.getState().hoveredPanel;
+      const panel =
+        explicit.panel ?? (explicit.paneId === undefined ? null : PANEL.viewport) ?? ctx.panel ?? hovered?.kind ?? null;
+      const paneId = explicit.paneId ?? (panel === PANEL.viewport ? (ctx.paneId ?? hovered?.paneId ?? null) : null);
+      const session = app.session.getState();
+      if (panel === PANEL.viewport && paneId !== null) {
+        app.session.setState({ maximizedPane: session.maximizedPane === paneId ? null : paneId });
+        return;
+      }
+      const port = maximizePorts.get(app);
+      if (panel !== null && port?.toggle(panel) === true) return;
+      if (session.maximizedPane !== null) {
+        app.session.setState({ maximizedPane: null });
+        return;
+      }
+      port?.restore();
+    },
+  };
+
+  const disposers = [open, close, setPrefs, toggleMaximize].map((def) => app.contribute({ kind: 'operator', def }));
   return () => {
     for (const dispose of disposers.reverse()) dispose();
   };

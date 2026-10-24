@@ -10,6 +10,7 @@ import { SheetGroup, TouchButton, TouchIconButton } from '@ekza-studio/ui/touch'
 import { type JSX, useMemo, useState } from 'react';
 import type { HaloSheetProps } from '../../manifest/sheets';
 import { type MoreRow, moreFor } from '../../verbs/derive';
+import { type PetalDef, petalsFor } from '../../verbs/table';
 import { FieldRow, HaloSheet, OpenInProButton, ParamControl, useAppVersion } from './kit';
 
 /** The option defaults of an operator (Model's or Rig & Skin's table, as Studio Pro's option boxes keep them). */
@@ -20,20 +21,20 @@ function optionDefaults(app: EditorApp, op: string): Readonly<Record<string, unk
 
 const isRigOp = (op: string): boolean => /^(skel|skin|rig|char)\./.test(op);
 
-/** *Make default* (§5.6, §16.4): the only write to the option defaults, from a visible control. */
-function makeDefault(app: EditorApp, op: string, values: Readonly<Record<string, unknown>>): void {
-  const prefs = app.prefs.getState();
-  if (isRigOp(op)) {
-    const rigging = prefs.rigging;
-    app.prefs.setState({
-      rigging: { ...rigging, optionDefaults: { ...rigging.optionDefaults, [op]: values as never } },
-    });
-  } else {
-    const modeling = prefs.modeling;
-    app.prefs.setState({
-      modeling: { ...modeling, optionDefaults: { ...modeling.optionDefaults, [op]: values as never } },
-    });
-  }
+/**
+ * *Make default* (§5.6, §16.4): the only write to the option defaults, from a visible control — the host's `prefs.set`
+ * (an operator run, like Studio Pro's status line; `rigging` joined its allow-list at T6-INT).
+ */
+function makeDefault(
+  ctx: HaloSheetProps['ctx'],
+  op: string,
+  values: Readonly<Record<string, unknown>>,
+): Promise<boolean> {
+  const prefs = ctx.host.app.prefs.getState();
+  const patch = isRigOp(op)
+    ? { rigging: { ...prefs.rigging, optionDefaults: { ...prefs.rigging.optionDefaults, [op]: values } } }
+    : { modeling: { ...prefs.modeling, optionDefaults: { ...prefs.modeling.optionDefaults, [op]: values } } };
+  return ctx.run('prefs.set', { patch }).then((result) => result.status === 'finished');
 }
 
 interface OptionsTarget {
@@ -47,6 +48,7 @@ function visibleParams(def: OperatorDef<unknown, unknown, unknown> | undefined):
 }
 
 function OptionsView(props: {
+  readonly ctx: HaloSheetProps['ctx'];
   readonly app: EditorApp;
   readonly target: OptionsTarget;
   readonly onRun: (args: unknown) => void;
@@ -93,8 +95,7 @@ function OptionsView(props: {
         {target.mode === 'options' ? (
           <TouchButton
             onClick={() => {
-              makeDefault(app, target.row.op, values);
-              setSaved(true);
+              void makeDefault(props.ctx, target.row.op, values).then(setSaved);
             }}
             data-testid="halo-more-options-default"
           >
@@ -160,8 +161,26 @@ export default function MoreSheet({ ctx, args }: HaloSheetProps): JSX.Element {
   const [options, setOptions] = useState<OptionsTarget | null>(null);
   const groups = moreFor(app, ctx.noun, ctx.stage, filter);
   const label = ctx.noun === null || ctx.noun.kind === 'empty' ? 'here' : ctx.noun.label;
+  // The noun's petals that go somewhere (Checks, About this character, Paint, Rig it): More lists them too, so a
+  // Compact verb bar that folded them keeps them one tap away (T6-INT; §4.4, §6.3).
+  const query = filter.trim().toLowerCase();
+  const goes = petalsFor(ctx.noun?.kind ?? 'empty', ctx.stage).filter(
+    (petal) => petal.go !== undefined && (query === '' || petal.plain.toLowerCase().includes(query)),
+  );
+  const go = (petal: PetalDef): void => {
+    if (petal.go?.sheet !== undefined) ctx.open(petal.go.sheet);
+    else if (petal.go?.stage !== undefined) {
+      ctx.setStage(petal.go.stage);
+      ctx.close();
+    }
+  };
 
   const run = (row: MoreRow): void => {
+    // §6.4: Parent to… and the other verbs that take a second thing wait for a tap on it in the canvas
+    if (ctx.startTarget?.(row.op, row.plain) === true) {
+      ctx.close();
+      return;
+    }
     const def = app.operators.get(row.op);
     if (formOf(row.op, def) !== null) {
       setOptions({ row, mode: 'form' });
@@ -182,6 +201,7 @@ export default function MoreSheet({ ctx, args }: HaloSheetProps): JSX.Element {
     >
       {options !== null ? (
         <OptionsView
+          ctx={ctx}
           app={app}
           target={options}
           onBack={() => setOptions(null)}
@@ -202,7 +222,23 @@ export default function MoreSheet({ ctx, args }: HaloSheetProps): JSX.Element {
             data-testid="halo-more-filter"
             className="mx-1 mt-1 mb-2 min-h-(--touch-hit) w-[calc(100%-8px)] rounded-touch border border-line bg-field px-3 text-[16px] text-fg placeholder:text-fg-3"
           />
-          {groups.length === 0 ? (
+          {goes.length === 0 ? null : (
+            <section aria-label="Go to" data-testid="halo-more-group">
+              <SheetGroup>Go to</SheetGroup>
+              {goes.map((petal) => (
+                <div key={petal.id} className="flex items-center gap-1" data-testid="halo-more-go" data-go={petal.id}>
+                  <button
+                    type="button"
+                    className="flex min-h-[52px] min-w-0 flex-1 flex-col justify-center rounded-touch px-2.5 py-1.5 text-left active:bg-header"
+                    onClick={() => go(petal)}
+                  >
+                    <span className="font-medium text-fg">{petal.plain}</span>
+                  </button>
+                </div>
+              ))}
+            </section>
+          )}
+          {groups.length === 0 && goes.length === 0 ? (
             <p className="px-2.5 py-4 text-fg-3" data-testid="halo-more-empty">
               Nothing matches. Search (⌕ Do or find…) reaches every verb in every stage.
             </p>

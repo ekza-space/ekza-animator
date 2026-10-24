@@ -108,7 +108,13 @@ describe('StudioHost with a switchable shell (§4.4)', () => {
     expect(page.host()).toBe(host);
     expect(host.mounted.getState()?.kind).toBe('autorig');
     expect(app.operators.get('workspace.reset')).toBeUndefined();
-    expect(app.operators.get('view.toggleMaximize')).toBeUndefined();
+    // the host's since T6-INT: the pane form works with Pro unmounted, the panel form finds no panel and does nothing
+    expect(app.operators.get('view.toggleMaximize')).toBeDefined();
+    expect((await api?.run('view.toggleMaximize', { paneId: 'pane-single' }))?.status).toBe('finished');
+    expect(app.session.getState().maximizedPane).toBe('pane-single');
+    expect((await api?.run('view.toggleMaximize', { paneId: 'pane-single' }))?.status).toBe('finished');
+    expect(app.session.getState().maximizedPane).toBeNull();
+    expect((await api?.run('view.toggleMaximize', { panel: 'graph' }))?.status).toBe('finished');
     expect(app.operators.get('ui.open')).toBeDefined();
     expect(app.operators.get('prefs.set')).toBeDefined();
     expect(window.__EKZA_STUDIO_TEST__).toBe(api);

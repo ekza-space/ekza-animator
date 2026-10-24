@@ -12,6 +12,10 @@
 // - While installed, `setState` writes the base and publishes the effective state. A write of an overridden field
 //   lands in the base and shows once the override goes. A write that only carries the shown (overridden) value back —
 //   `setState({ modeling: { ...getState().modeling, gridStep } })` — keeps the base's own value for that field.
+// - A top-level scalar named in a plain partial write (`setState({ autoKey: true })`, `prefs.set`) is always meant:
+//   it lands in the base even when it equals the shown value (T6-INT: under Halo's Rec override of `autoKey`, Studio
+//   Pro's own Auto Key can still be set to on). Functional and replace writes carry every field, so they keep the
+//   carried-back rule at every level.
 import type { Disposer } from '@ekza-studio/anim-core';
 import type { StoreApi } from 'zustand/vanilla';
 import type { Prefs } from '../types';
@@ -124,7 +128,14 @@ function install(store: StoreApi<Prefs>): Layered {
     if (Object.is(written, shown)) return;
     const overlay = overlayOf(state.entries);
     const next: Record<string, unknown> = replace === true ? {} : { ...state.base };
+    // a plain partial names only the fields it means to write: its top-level scalars are deliberate
+    const named = typeof partial !== 'function' && replace !== true;
     for (const key of Object.keys(written)) {
+      const value = (written as Plain)[key];
+      if (named && !isPlain(value)) {
+        next[key] = value;
+        continue;
+      }
       next[key] = rebase(
         (state.base as unknown as Plain)[key],
         (shown as unknown as Plain)[key],

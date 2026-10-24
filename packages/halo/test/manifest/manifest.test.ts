@@ -11,6 +11,8 @@ import {
   loadUiWrappers,
   type UiDialog,
 } from '@ekza-studio/editor-core';
+import type { ParamDef } from '@ekza-studio/anim-core';
+import { formOf } from '@ekza-studio/editor-core/forms';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { type Census, type CensusOperator, liveCensus } from '../../src/manifest/census';
 import { checkParity, disjoint, entryFor, matchArgs } from '../../src/manifest/check';
@@ -195,6 +197,36 @@ describe('verb table (§6.1, §6.2)', () => {
 });
 
 describe('parameter surfaces (§20.5 test 9)', () => {
+  // T6-INT (P-T6A-3): PARAM_SURFACES is fed from what the shell shows — the Echo chips after every adjustable run with
+  // visible ParamDefs (`echoParams`), and the pre-run form the runner and More open whenever `formOf` answers.
+  const visible = (params: readonly ParamDef[] | undefined): readonly ParamDef[] =>
+    (params ?? []).filter((p) => p.hidden !== true && p.kind !== 'data' && p.bound !== 'pointer');
+  const ranFromHalo = (op: string): boolean =>
+    entriesOf(DISCLOSURE[op] ?? []).some(
+      (entry) => isSurfaceEntry(entry) && entry.surfaces.some((s) => 'petal' in s || 'more' in s),
+    );
+  const surfaced = (op: string): boolean => entriesOf(DISCLOSURE[op] ?? []).some((entry) => isSurfaceEntry(entry));
+
+  it('lists the chips of every adjustable operator the shell runs, and only those', () => {
+    const chips = app.operators
+      .list()
+      .filter((def) => def.flags?.adjustable === true && visible(def.params).length > 0 && surfaced(def.id))
+      .map((def): string => def.id);
+    const listed = PARAM_SURFACES.filter((s) => s.surface === 'chips').map((s) => s.op);
+    expect(chips.filter((op) => !listed.includes(op))).toEqual([]);
+    expect(listed.filter((op) => !chips.includes(op))).toEqual([]);
+  });
+
+  it('lists the form of every operator a petal or a More row opens one for, and only operators with a form', () => {
+    const forms = app.operators
+      .list()
+      .filter((def) => formOf(def.id, def as never) !== null)
+      .map((def): string => def.id);
+    const listed = PARAM_SURFACES.filter((s) => s.surface === 'form').map((s) => s.op);
+    expect(forms.filter((op) => ranFromHalo(op) && !listed.includes(op))).toEqual([]);
+    expect(listed.filter((op) => !forms.includes(op))).toEqual([]);
+  });
+
   it('sit on operators the manifest shows on a surface', () => {
     const missing = PARAM_SURFACES.filter(
       ({ op }) => !entriesOf(DISCLOSURE[op] ?? []).some((entry) => isSurfaceEntry(entry) || 'wraps' in entry),

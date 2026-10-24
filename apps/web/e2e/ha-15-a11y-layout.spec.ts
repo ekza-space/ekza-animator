@@ -7,15 +7,13 @@
 // - axe (WCAG 2.0 / 2.1 / 2.2 A and AA rules) finds no violation in an open sheet when axe-core is available: the
 //   repository has no axe dependency (T4's ST-T4-13: the offline store has none), so the spec reads
 //   `EKZA_AXE_PATH` (a local `axe.min.js`) or a resolvable `axe-core`, and records a skip annotation without one.
-// Until T6a's frame is integrated the sheets run in the T6b harness (`/dev-halo`); at integration the spec opens
-// them from `/app`.
+// Since the integration (T6-INT) every sheet opens from the real shell at `/app` (`openSheetFromShell`: the tray's
+// ⋯, the breadcrumb's Numbers, the project menu, the character's Halo in Rig).
 import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { expect, type Page, type TestInfo, test } from '@playwright/test';
-import { call, runOk, waitForTestApi } from './helpers/test-api';
-
-const START = '/dev-halo?e2e=1';
-const SHEETS = ['more', 'numbers', 'scene', 'view', 'settings', 'health', 'help', 'about'] as const;
+import { HALO_SHEETS as SHEETS, loadPolybot, openHalo, openSheetFromShell } from './helpers/halo';
+import { call, runOk } from './helpers/test-api';
 const SIZES = [
   { name: 'landscape', width: 1194, height: 834 },
   { name: 'portrait', width: 834, height: 1194 },
@@ -79,11 +77,17 @@ function sheetProblems(page: Page, testId: string): Promise<LayoutProblem[]> {
   }, testId);
 }
 
-async function openSheet(page: Page, id: string, info: TestInfo): Promise<void> {
-  const launcher = page.getByTestId(`harness-open-${id}`);
-  if (info.project.name === 'chrome') await launcher.click();
-  else await launcher.tap();
-  await expect(page.getByTestId(`halo-sheet-${id}`)).toBeVisible();
+async function openSheet(page: Page, id: (typeof SHEETS)[number], info: TestInfo): Promise<void> {
+  await openSheetFromShell(page, id, info.project.name !== 'chrome');
+}
+
+/** `/app` with Polybot and an FK control selected (Numbers needs a selection; About needs a character). */
+async function polybotWithControl(page: Page): Promise<void> {
+  await openHalo(page);
+  await loadPolybot(page);
+  const control = (await call(page, 'controls')).find((c) => c.key.startsWith('fk.'));
+  if (control !== undefined) await runOk(page, 'select.controls', { ids: [control.id], mode: 'replace' });
+  await expect(page.getByTestId('halo-breadcrumb')).toBeVisible();
 }
 
 async function closeSheet(page: Page, id: string): Promise<void> {
@@ -95,11 +99,7 @@ for (const size of SIZES) {
   test(`the sheets meet 44 px targets, 16 px inputs and stay on screen (${size.name})`, async ({ page }, testInfo) => {
     test.setTimeout(180_000);
     await page.setViewportSize({ width: size.width, height: size.height });
-    await page.goto(START);
-    await waitForTestApi(page);
-    await runOk(page, 'file.loadSample', { sample: 'polybot' });
-    const control = (await call(page, 'controls')).find((c) => c.key.startsWith('fk.'));
-    if (control !== undefined) await runOk(page, 'select.controls', { ids: [control.id], mode: 'replace' });
+    await polybotWithControl(page);
     const found: Record<string, LayoutProblem[]> = {};
     for (const id of SHEETS) {
       await openSheet(page, id, testInfo);
@@ -115,10 +115,8 @@ for (const size of SIZES) {
 }
 
 test('no floating item covers the selection', async ({ page }) => {
-  await page.goto(START);
-  await waitForTestApi(page);
-  await runOk(page, 'file.loadSample', { sample: 'polybot' });
-  await runOk(page, 'workspace.set', { workspace: 'animate' });
+  await openHalo(page);
+  await loadPolybot(page);
   const panes = await call(page, 'panes');
   const pane = panes[0]?.id ?? 'pane-single';
   const controls = (await call(page, 'controls')).filter((c) => c.visible);
@@ -148,9 +146,7 @@ test('axe finds no WCAG 2.2 A/AA violation in the open sheets', async ({ page },
     return;
   }
   test.setTimeout(180_000);
-  await page.goto(START);
-  await waitForTestApi(page);
-  await runOk(page, 'file.loadSample', { sample: 'polybot' });
+  await polybotWithControl(page);
   await page.addScriptTag({ content: axe });
   const violations: Record<string, string[]> = {};
   for (const id of SHEETS) {

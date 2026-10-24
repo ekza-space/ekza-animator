@@ -15,9 +15,9 @@
 // - **Units and ranges** are in the shown unit; `display` converts a stored value to it (radians shown as degrees,
 //   milliseconds as seconds, fractions and factors as percent, metres as millimetres). `range` is the control's range,
 //   which may be narrower than what loading accepts (`uiScale`: 0.85–1.5 shown, 0.5–3 stored by Studio Pro, §18).
-// - **Writers**: a control writes through `prefs.set` (the host's operator, whose allow-list takes top-level keys and
-//   has no `rigging`), or through the named operator that owns the setting (`rig.jointSize.set`, `skin.paint.set`), or
-//   not at all (`'none'`: only Studio Pro's own panels write the store directly). `prefWrite` builds the call.
+// - **Writers**: a control writes through `prefs.set` (the host's operator, whose allow-list takes top-level keys;
+//   `rigging` since T6-INT), or through the named operator that owns the setting (`rig.jointSize.set`,
+//   `skin.paint.set`), or not at all (`'none'`: only Studio Pro's own panels write it). `prefWrite` builds the call.
 // - **Hidden** descriptors are not controls: internal bookkeeping, settings with their own control elsewhere, and
 //   settings nothing can write from Settings yet. **Shared** marks the Studio Pro preferences that Ekza Studio never
 //   writes implicitly (§16.4): only their own control changes them.
@@ -139,8 +139,6 @@ const TANGENT_OPTIONS: readonly (PrefOption & { readonly value: TangentType })[]
   { value: 'autoEase', label: 'Auto ease' },
   { value: 'autoMix', label: 'Auto mix' },
 ];
-
-const NO_RIGGING_KEY = '`prefs.set` refuses `rigging`';
 
 type TopKey = Exclude<keyof Prefs, 'version'>;
 type Under<K extends TopKey> = Extract<PrefPath, K | `${K}.${string}`>;
@@ -830,7 +828,8 @@ const TABLE: { readonly [K in TopKey]: readonly (PrefDescriptor & { readonly pat
         { value: 'alpha', label: 'Alphabetical' },
         { value: 'flat', label: 'Flat list' },
       ],
-      hidden: `Studio Pro's Paint Weights list writes the store directly; no operator writes it and ${NO_RIGGING_KEY}.`,
+      hidden:
+        "Studio Pro's Paint Weights list sorts it in place; Halo's weights list (T9) will carry the same control.",
       writer: 'none',
     },
     {
@@ -846,7 +845,8 @@ const TABLE: { readonly [K in TopKey]: readonly (PrefDescriptor & { readonly pat
       label: 'Default options of Rig tools',
       section: 'rigging',
       kind: 'record',
-      hidden: `Per operator id (and constraint type); Studio Pro's Rig Toolkit option boxes write the store directly and ${NO_RIGGING_KEY}.`,
+      hidden:
+        "Per operator id (and constraint type); written by the option boxes' *Make default* (Studio Pro's Rig Toolkit, Halo's More › ⚙ Options).",
       writer: 'none',
     },
     {
@@ -859,7 +859,7 @@ const TABLE: { readonly [K in TopKey]: readonly (PrefDescriptor & { readonly pat
         { value: 'yAim', label: 'Along the bone (Y)' },
         { value: 'world', label: 'World' },
       ],
-      hidden: `Read by Orient Joint and the Joint tool for chains that are not humanoid; nothing writes it yet and ${NO_RIGGING_KEY}.`,
+      hidden: 'Read by Orient Joint and the Joint tool for chains that are not humanoid; nothing writes it yet.',
       writer: 'none',
     },
     {

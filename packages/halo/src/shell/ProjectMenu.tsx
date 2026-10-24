@@ -1,6 +1,7 @@
 // The project menu (STUDIO-TOUCH-SPEC §4.1): `◂ Project • ▾` — New, Open, Import, Samples, Save project to Files,
-// Recover, Scene, History, Settings, Help, Full screen, Hide UI and Home (and ▤ Pro layout on Compact containers,
-// §4.4). A lazy chunk. Files open through the host's pipeline (projects, models, animations; sniffed by their bytes on
+// Recover, Scene, View, Health, History, Settings, Help, Full screen, Hide UI and Home (and ▤ Pro layout on Compact
+// containers, §4.4). View and Health are the visible twins (§18) of the View puck's long-press and of the Path's ⚠ and
+// the status pill, which show only when there is something to fix (T6-INT). A lazy chunk. Files open through the host's pipeline (projects, models, animations; sniffed by their bytes on
 // iOS, S10); saving and the sheets are other packages' surfaces (T11's Share / Save, T6b's sheets).
 import { Cluster, TouchButton } from '@ekza-studio/ui/touch';
 import { type JSX, useEffect, useRef, useState } from 'react';
@@ -42,7 +43,7 @@ export default function ProjectMenu({ controller }: { readonly controller: HaloC
   useEffect(() => {
     menu.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true });
   }, []);
-  const sheet = (id: string) => () => store.set({ sheet: id, halo: null });
+  const sheet = (id: string) => () => store.set({ sheet: id, sheetArgs: null, sheetNoun: null, halo: null });
   const p = en.project;
   const entries: readonly { readonly label: string; readonly run: () => void; readonly testId?: string }[] = [
     { label: p.new, run: () => void ctx.run('file.new') },
@@ -52,6 +53,9 @@ export default function ProjectMenu({ controller }: { readonly controller: HaloC
     { label: p.saveProject, run: () => void commitSession(ctx).then(sheet('share')) },
     { label: p.recover, run: () => store.set({ home: true }) },
     { label: p.scene, run: sheet('scene') },
+    // §18: the visible twins of the View puck's long-press and of the Path's ⚠ and the status pill
+    { label: p.view, run: sheet('view'), testId: 'halo-project-view' },
+    { label: p.health, run: sheet('health'), testId: 'halo-project-health' },
     { label: p.history, run: sheet('history') },
     { label: p.settings, run: sheet('settings') },
     { label: p.help, run: sheet('help') },
@@ -75,7 +79,7 @@ export default function ProjectMenu({ controller }: { readonly controller: HaloC
         role="menu"
         aria-label={en.top.projectMenu}
         data-testid="halo-project-menu"
-        className="pointer-events-auto absolute top-[64px] left-(--touch-inset-left) z-(--z-popover) flex w-[260px] flex-col p-1.5"
+        className="pointer-events-auto absolute top-[64px] left-(--touch-inset-left) z-(--z-popover) flex max-h-[calc(100%-76px)] w-[260px] flex-col overflow-y-auto p-1.5"
         onKeyDown={(event) => {
           if (event.key === 'Escape') close();
         }}

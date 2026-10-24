@@ -11,6 +11,7 @@ import {
   type Prefs,
   type PrefsStorage,
   prefsOverrideLayers,
+  registerBuiltins,
 } from '../../src';
 import { PREFS_STORAGE_KEY } from '../../src/prefs/persist';
 import { createFakeEditorApp, createFakeServices } from '../../src/testing';
@@ -152,6 +153,41 @@ describe('the override layer on the kernel (persistence writes only the base)', 
     expect(stored(storage)).toMatchObject({ autoKey: false, lastWorkspace: 'rig' });
     off();
     expect(app.prefs.getState().autoKey).toBe(false);
+    app.dispose();
+  });
+
+  it('under Rec, prefs.set and Auto Key still write Pro’s stored value, and only it (T6-INT, P-T6B-6)', async () => {
+    const storage = memoryStorage();
+    const app = appWith(storage);
+    app.contribute({
+      kind: 'operator',
+      def: {
+        id: 'prefs.set',
+        label: 'Set Preferences',
+        category: 'ui',
+        scope: 'global',
+        apply: (_ctx, args) => app.prefs.setState({ ...(args as { patch: Partial<Prefs> }).patch }),
+      },
+    });
+    registerBuiltins(app);
+    const off = overridePrefs(app.prefs, 'shell', { autoKey: true });
+    // the stored value can be set to the value the override shows (the plain partial names it)
+    expect((await app.run('prefs.set', { patch: { autoKey: true } })).status).toBe('finished');
+    expect(stored(storage).autoKey).toBe(true);
+    expect(app.prefs.getState().autoKey).toBe(true);
+    // the toggle flips the stored value, not the shown one
+    expect((await app.run('key.toggleAutoKey')).status).toBe('finished');
+    expect(stored(storage).autoKey).toBe(false);
+    expect(app.prefs.getState().autoKey).toBe(true);
+    expect((await app.run('key.toggleAutoKey')).status).toBe('finished');
+    expect(stored(storage).autoKey).toBe(true);
+    await app.run('key.toggleAutoKey');
+    off();
+    expect(app.prefs.getState().autoKey).toBe(false);
+    // without an override the toggle is what it always was
+    await app.run('key.toggleAutoKey');
+    expect(app.prefs.getState().autoKey).toBe(true);
+    expect(stored(storage).autoKey).toBe(true);
     app.dispose();
   });
 

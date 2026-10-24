@@ -1,8 +1,9 @@
 // The Simple layout's words (STUDIO-TOUCH-SPEC §1.3, §3 P8, §17, §18): the only source of the shell's strings. Plain
 // words first; Pro's names appear one layer down (More, search, the numpad header). One word labels one kind of thing
-// (the vocabulary lint, `test/vocabulary.test.ts`): *Animation* is a clip, *Move* is translation, *Add* puts new content
-// into the project, *Select more / Pick or unpick / Unselect* are the selection meanings, *Numbers* is the Inspector,
-// *Other side* is the mirrored part. Russian is OQ-9.
+// (the vocabulary lint, `test/rules.test.ts`, over this catalogue, `manifest/labels.ts` and the verb table):
+// *Animation* is a clip, *Move* is translation, *Add* puts new content into the project, *Select more / Pick or
+// unpick / Unselect* are the selection meanings, *Numbers* is the Inspector, *Other side* is the mirrored part.
+// Russian is OQ-9.
 
 export const en = {
   app: {
@@ -32,6 +33,8 @@ export const en = {
     saveProject: 'Save project to Files',
     recover: 'Recover…',
     scene: 'Scene',
+    view: 'View',
+    health: 'Health',
     history: 'History',
     settings: 'Settings',
     help: 'Help',
@@ -68,6 +71,7 @@ export const en = {
     points: (n: number): string => (n === 1 ? '1 point' : `${n} points`),
     scene: 'Scene',
     skeleton: 'Skeleton',
+    character: 'Character',
     otherSide: 'Other side',
     parent: 'Parent',
     children: 'Children',
@@ -247,44 +251,35 @@ export const en = {
     health: 'Health',
     library: 'Library',
   } as Record<string, string>,
-  // The first-layer verbs of the grammar's stand-in table (`halo/verbSource.ts`); the curated table is T6b's.
+  // Settings › Input (§4.5, §5.1, §18): Halo's own `halo.input` rows, a per-device record (never Pro's preferences).
+  input: {
+    routing: 'Pencil and fingers',
+    routingHelp: 'Who edits: shared until a Pencil is used, then the Pencil edits and fingers move the view.',
+    shared: 'Both',
+    pencilEdits: 'Pencil edits',
+    pencilOnly: 'Pencil only',
+    opensOn: 'Halo opens on',
+    opensOnHelp:
+      'Auto: every finger or Pencil tap, while a mouse click only selects. Hold: a long-press, a right-click or ⋯ Verbs.',
+    auto: 'Auto',
+    tap: 'Every tap',
+    secondary: 'Hold',
+    reduce: 'Reduce gestures',
+    reduceHelp:
+      'No two-finger undo, quick pinch or flicks: the undo button undoes, a double-tap on View frames everything, a ring waits for a tap.',
+    quickPinch: 'Quick pinch frames everything',
+    thumbKey: 'Thumb key',
+    thumbAuto: 'When it helps',
+    thumbAlways: 'Always',
+    thumbNever: 'Never',
+    handedness: 'Hand you draw with',
+    right: 'Right',
+    left: 'Left',
+    on: 'On',
+    off: 'Off',
+  },
+  // The verbs' own words beyond the curated table's (`verbs/table.ts`, T6b): ⟳ Again and the reduced Halo's repeat.
   verbs: {
-    newShape: 'New shape',
-    selectArea: 'Select area',
-    showAll: 'Show all',
-    selectAll: 'Select all',
-    editShape: 'Edit shape',
-    duplicate: 'Duplicate',
-    mirror: 'Mirror',
-    paint: 'Paint',
-    rigIt: 'Rig it',
-    delete: 'Delete',
-    pull: 'Pull',
-    inset: 'Inset',
-    bevel: 'Bevel',
-    colour: 'Colour',
-    loopCut: 'Loop cut',
-    merge: 'Merge',
-    slide: 'Slide',
-    connect: 'Connect',
-    weldTo: 'Weld to…',
-    key: 'Key',
-    reset: 'Reset',
-    copyPose: 'Copy pose',
-    pastePose: 'Paste',
-    mirrorPose: 'Mirror',
-    keyAll: 'Key all',
-    resetPose: 'Reset pose',
-    newAnimation: 'New animation',
-    allControls: 'All controls',
-    turn: 'Turn',
-    orient: 'Orient',
-    rename: 'Rename',
-    checks: 'Checks',
-    allJoints: 'All joints',
-    bindSkin: 'Bind skin',
-    pivot: 'Pivot',
-    parentTo: 'Parent to…',
     again: (label: string): string => `Again: ${label}`,
     repeat: (label: string): string => `${label} again`,
   },

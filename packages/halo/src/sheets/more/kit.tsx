@@ -5,7 +5,7 @@
 import type { ParamDef } from '@ekza-studio/anim-core';
 import type { EditorApp } from '@ekza-studio/editor-core';
 import { Numpad, Segmented, Sheet, SheetGroup, ToggleChip, TouchButton, ValueChip } from '@ekza-studio/ui/touch';
-import { type JSX, type ReactNode, useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { type JSX, type ReactNode, useCallback, useState, useSyncExternalStore } from 'react';
 import type { HaloSheetContext } from '../../manifest/sheets';
 import type { SheetId } from '../../manifest/types';
 
@@ -29,18 +29,15 @@ export function HaloSheet({
   actions,
   children,
 }: HaloSheetFrameProps): JSX.Element {
-  // A scrolling body must be reachable by keyboard (WCAG 2.1.1, axe `scrollable-region-focusable`) even when the
-  // sheet holds no control (About of a character from a file). The kit's body has no tabindex yet (patch P-T6B-4).
-  useEffect(() => {
-    const body = document.querySelector<HTMLElement>(`[data-testid="halo-sheet-${id}"] [data-touch-scroll]`);
-    if (body !== null && !body.hasAttribute('tabindex')) body.tabIndex = 0;
-  }, [id]);
+  // The kit's scrolling body takes focus itself (P-T6B-4, applied at T6-INT): a sheet without controls stays
+  // reachable by keyboard (WCAG 2.1.1, axe `scrollable-region-focusable`).
   return (
     <Sheet
       open
       modal={false}
       side={ctx.side}
-      defaultDetent="half"
+      // §4.4: on phones a sheet rises full height
+      defaultDetent={ctx.compact === true ? 'full' : 'half'}
       title={title}
       {...(description === undefined ? {} : { description })}
       {...(footer === undefined ? {} : { footer })}

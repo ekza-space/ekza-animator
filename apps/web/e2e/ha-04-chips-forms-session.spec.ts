@@ -28,7 +28,7 @@ test('Pull: Echo chips adjust the last run in place; a reduced Halo stays; leavi
   await page.getByTestId('halo-pick').getByRole('radio', { name: 'Faces' }).click();
   await expect.poll(async () => (await call(page, 'state')).mode).toBe('face');
   await fingerTap(page, await meshPoint(page));
-  await expect.poll(async () => (await halo(page)).noun?.kind).toBe('face');
+  await expect.poll(async () => (await halo(page)).noun?.kind).toBe('faces');
   await expect(petal(page, 'Pull')).toBeVisible();
   const steps = (await call(page, 'history')).undo.length;
   const box = await petal(page, 'Pull').boundingBox();
@@ -71,7 +71,7 @@ test('a non-adjustable operator opens its pre-run form; ✓ runs it, ✕ runs no
   await loadPolybot(page);
   const clips = (await call(page, 'clips')).length;
   // the tray is empty space's docked Halo: New animation (clip.new has a form, §5.6)
-  await fingerTap(page, await trayVerb(page, 'New animation'));
+  await fingerTap(page, await trayVerb(page, '\\+ New animation'));
   const form = page.getByTestId('halo-form');
   await expect(form).toBeVisible();
   await expect(form).toHaveAttribute('data-op', 'clip.new');
@@ -79,7 +79,7 @@ test('a non-adjustable operator opens its pre-run form; ✓ runs it, ✕ runs no
   await fingerTap(page, await centre(page, 'halo-form-cancel'));
   await expect(form).toHaveCount(0);
   expect((await call(page, 'clips')).length).toBe(clips);
-  await fingerTap(page, await trayVerb(page, 'New animation'));
+  await fingerTap(page, await trayVerb(page, '\\+ New animation'));
   await expect(form).toBeVisible();
   await fingerTap(page, await centre(page, 'halo-form-run'));
   await expect.poll(async () => (await call(page, 'clips')).length).toBe(clips + 1);

@@ -3,6 +3,7 @@
 // call that reads back, the shared Studio Pro preferences say so, a session override shows with a note, and every
 // operator the Disclosure Manifest places in Settings has a control or section here.
 import {
+  basePrefs,
   createHeadlessEditorApp,
   type EditorApp,
   type OperatorDef,
@@ -173,6 +174,20 @@ describe('a control writes through an operator and reads back (§16.4: only its 
     expect(autoKey?.write(was)).toBeNull();
     expect(autoKey === undefined ? 'missing' : await write(autoKey, !was)).toBe('key.toggleAutoKey: finished');
     expect(app.prefs.getState().autoKey).toBe(!was);
+  });
+
+  it('Auto Key in Studio Pro writes Pro’s stored value while Rec holds the shown one (T6-INT, P-T6B-6)', async () => {
+    const autoKeyRow = () => settingsControls(app).find((entry) => entry.control.op === 'key.toggleAutoKey')?.control;
+    app.prefs.setState({ autoKey: false });
+    const off = overridePrefs(app.prefs, 'shell', { autoKey: true });
+    const row = autoKeyRow();
+    expect([row?.value, row?.disabledReason, row?.presentation]).toEqual([false, null, 'toggle']);
+    expect(row?.note).toContain('Rec');
+    expect(row === undefined ? 'missing' : await write(row, true)).toBe('key.toggleAutoKey: finished');
+    expect(basePrefs(app.prefs.getState()).autoKey).toBe(true);
+    expect(autoKeyRow()?.value).toBe(true);
+    off();
+    expect(app.prefs.getState().autoKey).toBe(true);
   });
 
   it('the Rig writers: Opens with Rig until the chunk registers them, then they write', async () => {
