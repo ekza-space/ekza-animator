@@ -31,6 +31,7 @@ import { arrivalStage, HALO_STAGES, PANE, parseStage, STAGE_BASICS, stageOfWorks
 import { createHaloStore, type HaloInput, type HaloStore, initialUi } from './store';
 import { countVisibleTargets } from './targets';
 import { coachMarks } from './coach';
+import { historyProbe } from '../history/probe';
 import { animateSlice } from '../stages/animate/slice';
 import { startAnimate } from '../stages/animate/start';
 import { homeSlice } from '../home/slice';
@@ -513,6 +514,8 @@ export function createHaloController(host: HostShell): HaloController {
                 focus: ui.focus?.kind ?? null,
               },
               animate: animateSlice(controller),
+              // T10: the open History ribbon's rows (null while it is closed)
+              history: historyProbe(app),
               // T11: Continue, the resume record, the storage card, Share's prepared file
               t11: homeSlice(controller),
               // T6b's slice (the harness's, now the frame's): the readiness list and the Next chip shown

@@ -2,8 +2,8 @@
 // Curves), the docked Halos of a key, a key band, the playhead and an animation, and the Library sheet. The same rules
 // as the shell's catalogue (`./en.ts`): *Animation* is only a clip, *Move* only translation, *Add* puts new content
 // into the project, no DCC jargon at L0 or L1 (Pro's names come from the registry, one layer down). Its own module so
-// the stage package owns its words; `test/animate-words.test.ts` runs the vocabulary lint over it (P-T7-3: the shell's
-// lint may take it in at integration).
+// the stage package owns its words; the shell's vocabulary lint (`test/rules.test.ts`) runs over it under `animate.`
+// (P-T7-3, T10), and `test/animate-words.test.ts` adds the stage's own checks.
 
 export const animateWords = {
   dock: {
@@ -156,7 +156,7 @@ export const animateWords = {
     beforeHint: 'Hold to compare with the curves as they were when Curves opened',
     keyHint: 'Tap a key, or drag across keys, for their verbs',
     timeAxis: 'Time of the curves',
-    fields: 'Numbers of the selected keys',
+    fields: 'The selected keys’ values',
     time: 'Time',
     value: 'Value',
     inAngle: 'In',

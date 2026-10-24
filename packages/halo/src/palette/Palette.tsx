@@ -36,6 +36,8 @@ export default function Palette({
   const { app, store } = ctx;
   const stage = useHaloStore(store, (s) => s.stage);
   const [query, setQuery] = useState('');
+  // a filled text field is one touch (§9), counted on its first letter
+  const [typed, setTyped] = useState(false);
   const entries = useMemo((): PaletteEntry[] => {
     const here = paletteEntries(app, CONTEXT);
     const seen = new Set(here.map((e) => e.op));
@@ -137,7 +139,13 @@ export default function Palette({
         data-testid="halo-palette-input"
         className="mb-2 min-h-(--touch-hit) w-full rounded-touch border border-line-strong bg-field px-3 text-[16px] text-fg"
         value={query}
-        onChange={(event) => setQuery(event.currentTarget.value)}
+        onChange={(event) => {
+          if (!typed) {
+            setTyped(true);
+            store.set((s) => ({ touches: s.touches + 1 }));
+          }
+          setQuery(event.currentTarget.value);
+        }}
         onKeyDown={(event) => {
           if (event.key === 'Enter') {
             const recipe = recipeRows[0];
@@ -180,6 +188,26 @@ export default function Palette({
           />
         );
       })}
+      {/* §8, §14 (T10): a query can go to the AI agent — the Ask sheet keeps it and pairs the agent */}
+      {q === '' ? null : (
+        <div data-testid="halo-ask-ai">
+          <SheetGroup>{en.palette.ask}</SheetGroup>
+          <SheetRow
+            title={`${en.palette.ask}: “${query.trim()}”`}
+            detail={en.palette.askDetail}
+            onClick={() => {
+              close();
+              store.set((s) => ({
+                sheet: 'ask',
+                sheetArgs: { query: query.trim() },
+                sheetNoun: null,
+                halo: null,
+                touches: s.touches + 1,
+              }));
+            }}
+          />
+        </div>
+      )}
     </Sheet>
   );
 }

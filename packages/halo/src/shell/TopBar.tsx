@@ -11,6 +11,7 @@ import { destinationOf } from '../path/destinations';
 import type { HaloController } from './controller';
 import { useSessionValue, type SizeClass } from './hooks';
 import { FramePath } from './PathParts';
+import { useUndoPress } from '../history/undoPress';
 import { useHaloStore } from './store';
 
 export function TopBar({
@@ -25,6 +26,7 @@ export function TopBar({
   const dirty = useSessionValue(app, (s) => s.dirty);
   const project = useSessionValue(app, (s) => s.projectName);
   const proLine = useHaloStore(store, (s) => s.proLine);
+  const undoPress = useUndoPress(controller);
   const badge = destinationOf(useHaloStore(store, (s) => s.destination)).badge;
   const compact = size === 'compact';
   const name = project.trim() === '' ? en.top.untitled : project;
@@ -62,14 +64,14 @@ export function TopBar({
               icon={<Icon name="search" />}
               className="border-0 bg-transparent shadow-none"
               data-testid="halo-search"
-              onClick={() => store.set({ palette: true })}
+              onClick={() => store.set((ui) => ({ palette: true, touches: ui.touches + 1 }))}
             />
           ) : (
             <TouchButton
               variant="ghost"
               className="min-w-[200px] justify-start gap-2 font-normal text-fg-2"
               data-testid="halo-search"
-              onClick={() => store.set({ palette: true })}
+              onClick={() => store.set((ui) => ({ palette: true, touches: ui.touches + 1 }))}
             >
               <Icon name="search" />
               {en.top.search}
@@ -106,7 +108,8 @@ export function TopBar({
             icon={<Icon name="undo" />}
             className="pointer-events-auto"
             data-testid="halo-undo"
-            onClick={() => controller.grammar.undo()}
+            // T10: a tap undoes, a long-press opens the History ribbon
+            {...undoPress}
           />
         ) : (
           <div className="pointer-events-auto relative">

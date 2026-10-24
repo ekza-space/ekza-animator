@@ -22,6 +22,7 @@ import { FrameNext, FramePath, FrameStatus } from './PathParts';
 import { TopBar } from './TopBar';
 import { Tray } from './Tray';
 import { useAnimateDock } from '../stages/animate/AnimateDock';
+import { useUndoPress } from '../history/undoPress';
 import { useHaloStore } from './store';
 
 const Palette = lazy(() => import('../palette/Palette'));
@@ -31,7 +32,7 @@ const ProjectMenu = lazy(() => import('./ProjectMenu'));
 export const HALO_SHELL_MARKER = 'ekza-halo-shell' as const;
 
 export function Frame({ controller }: { readonly controller: HaloController }): JSX.Element {
-  const { ctx, grammar } = controller;
+  const { ctx } = controller;
   const { store, app } = ctx;
   const [root, setRoot] = useState<HTMLElement | null>(null);
   const ref = useCallback(
@@ -58,6 +59,7 @@ export function Frame({ controller }: { readonly controller: HaloController }): 
   const compact = size === 'compact';
   // T7 (P-T6A-4): Animate's tray is the Thread with the Animations row
   const animate = useAnimateDock(controller, size, height);
+  const undoPress = useUndoPress(controller);
   // the chrome's extent, for the floating grammar (pane px)
   const insetTop = size === 'regular' ? 128 : 76;
   const insetBottom = (compact ? 148 : 84) + animate.lift;
@@ -121,10 +123,8 @@ export function Frame({ controller }: { readonly controller: HaloController }): 
                 data-testid="halo-undo"
                 data-halo-chrome=""
                 className="pointer-events-auto"
-                onClick={() => {
-                  store.set((s) => ({ touches: s.touches + 1 }));
-                  grammar.undo();
-                }}
+                // T10: a tap undoes, a long-press opens the History ribbon
+                {...undoPress}
               />
             )}
             <div className="pointer-events-auto transition-opacity duration-(--motion-touch)" style={fade}>

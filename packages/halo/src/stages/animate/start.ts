@@ -1,35 +1,16 @@
 // The Animate stage while the shell is mounted (STUDIO-TOUCH-SPEC §7.1, §10; T7; P-T6A-4): ● Rec as the `shell`
 // override (removed on unmount, ha-12), the fitting manipulator of a selected control (§10.1: a turn ring for FK
-// controls, move for IK goals and the root), Reach and the touch count of canvas drags, and the Library sheet (the
-// Thread provides the focused band source itself while it is mounted). Leaving Animate closes the stage's transient
+// controls, move for IK goals and the root), Reach and the touch count of canvas drags (the Library sheet loads through
+// the frame's stage sheet loaders and counts through `HaloSheetContext.touch`, P-T7-2; the Thread provides the focused
+// band source itself while it is mounted). Leaving Animate closes the stage's transient
 // surfaces and stops a library preview.
 import { PANEL, VIEWPORT_TOOL } from '@ekza-studio/editor-core';
-import { type ComponentType, createElement, type JSX, lazy, Suspense } from 'react';
-import type { HaloSheetProps } from '../../manifest/sheets';
 import type { HaloController } from '../../shell/controller';
-import { registerHaloSheet } from '../../shell/Sheets';
 import { loadTimeUnit } from '../../thread/units';
 import { FITTABLE_TOOLS, fittingTool } from './model';
 import { installReach } from './reach';
 import { installRec } from './rec';
 import { animateUi, closeAnimateSurfaces } from './ui';
-
-const LibrarySheet = lazy(() => import('../../sheets/library'));
-
-/**
- * The Library in the frame's sheet slot (`registerHaloSheet`, the frame's `HaloSheetContext`), with the journeys'
- * touch counter (P-T7-2: `HaloSheetContext.touch`).
- */
-function libraryHost(controller: HaloController): ComponentType<HaloSheetProps> {
-  const touch = (): void => controller.ctx.store.set((s) => ({ touches: s.touches + 1 }));
-  return function LibraryHost({ ctx, args }: HaloSheetProps): JSX.Element {
-    return createElement(
-      Suspense,
-      { fallback: null },
-      createElement(LibrarySheet, { ctx: { ...ctx, touch }, ...(args === undefined ? {} : { args }) }),
-    );
-  };
-}
 
 /** The fitting manipulator follows the lead selected control in Animate (§10.1). */
 function installFittingTool(controller: HaloController): () => void {
@@ -79,7 +60,6 @@ export function startAnimate(controller: HaloController): () => void {
   disposers.push(installRec(app, store));
   disposers.push(installFittingTool(controller));
   disposers.push(installReach(ctx, () => store.set((s) => ({ touches: s.touches + 1 }))));
-  disposers.push(registerHaloSheet('library', libraryHost(controller)));
 
   // leaving Animate (or the sheet slot taken by another sheet) closes the stage's transient surfaces
   disposers.push(

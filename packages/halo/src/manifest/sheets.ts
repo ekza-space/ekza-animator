@@ -58,8 +58,10 @@ export const SHEET_SECTIONS: Readonly<Record<SheetId, readonly string[] | null>>
   checks: null,
   bones: null,
   weights: null,
-  history: null,
-  ask: null,
+  // T10 (§6.2, §14): the History ribbon's steps and AI groups; the Ask sheet's request, connection, grants, the AI's
+  // activity and its revert-all
+  history: ['steps', 'groups'],
+  ask: ['request', 'connection', 'grants', 'activity', 'revertAll'],
   // T11 (§13.3): the destinations and the game target, the card, Advanced, More formats, the footer's project save
   share: ['destination', 'card', 'advanced', 'moreFormats', 'footer'],
 };
@@ -105,6 +107,10 @@ export interface HaloSheetContext {
   startTarget?(op: string, label: string): boolean;
   /** The frame's own content for a named slot of a sheet (Settings › Input: `halo.input`, T6a's rows). */
   renderSlot?(slot: string): ReactNode;
+  /** P-T7-2 (T10): one touch on the sheet, for the journeys' counter (§9, AS-ST-4). */
+  touch?(): void;
+  /** T10: ⋯ More over a noun the sheet shows (a History step), in the frame's More sheet. */
+  openMore?(noun: Noun): void;
 }
 
 export interface HaloSheetProps {

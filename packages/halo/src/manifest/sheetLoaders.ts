@@ -17,9 +17,11 @@ export const SHEET_LOADERS: Readonly<Record<T6bSheetId, () => Promise<SheetModul
   about: () => import('../sheets/about'),
 };
 
-/** The stage packages' sheets (T7: the Library, §10.6), beside T6b's. */
-export const STAGE_SHEET_LOADERS: Readonly<Record<'library', () => Promise<SheetModule>>> = {
+/** The stage packages' sheets (T7: the Library, §10.6; T10: History and Ask, §6.2, §14), beside T6b's. */
+export const STAGE_SHEET_LOADERS: Readonly<Record<'library' | 'history' | 'ask', () => Promise<SheetModule>>> = {
   library: () => import('../sheets/library'),
+  history: () => import('../sheets/history'),
+  ask: () => import('../sheets/ask'),
 };
 
 /** Prefetches every sheet chunk (the shell calls it at idle and on `online`, S23); failures are retried later. */
