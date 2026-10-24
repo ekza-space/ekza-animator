@@ -324,7 +324,7 @@ export class ViewBase {
     surface.flat = display.flat;
     surface.cull = display.cull;
     surface.faceOrientation = display.faceOrientation;
-    surface.opacity = dim * (xray ? MESH_VIEW_STYLE.xrayOpacity : 1);
+    surface.opacity = dim * (xray ? (display.xrayOpacity ?? MESH_VIEW_STYLE.xrayOpacity) : 1);
     surface.xray = xray;
     this.surface.apply(surface);
     const theme = this.theme;

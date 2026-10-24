@@ -17,12 +17,11 @@ import {
   type Object3D,
   Texture,
 } from 'three';
+import { XRAY_OPACITY } from '../theme';
 
 /** Token colours (packages/ui tokens §8.9; the viewport may not import the ui package): `--clay`, `--wire`,
  *  `--wire-wiremode`. */
 export const SHADING_THEME = { clay: '#6e7179', wire: '#14151a', wireMode: '#c8ccd4' } as const;
-/** Opacity of the shading materials in an x-ray pane (the model's own materials use XRAY_OPACITY in SceneSync). */
-const XRAY_ALPHA = 0.5;
 
 interface Swap {
   readonly mesh: Mesh;
@@ -95,18 +94,18 @@ export class CharacterShading {
     if (isOutline(original)) return this.hidden(); // MToon outlines belong to the model's own look
     const xray = display.xray;
     if (display.shading === 'wire') {
-      return this.sharedMaterial(`wire|${xray}`, () =>
+      return this.sharedMaterial(`wire|${xrayKey(xray)}`, () =>
         withXray(new MeshBasicMaterial({ color: SHADING_THEME.wireMode, wireframe: true, toneMapped: false }), xray),
       );
     }
     const side = display.cull ? FrontSide : DoubleSide;
     if (display.shading === 'shaded') {
-      return this.sharedMaterial(`shaded|${display.flat}|${display.cull}|${xray}`, () =>
+      return this.sharedMaterial(`shaded|${display.flat}|${display.cull}|${xrayKey(xray)}`, () =>
         withXray(new MeshLambertMaterial({ color: SHADING_THEME.clay, flatShading: display.flat, side }), xray),
       );
     }
     // colours: the material's own base colour and texture under the scene lights.
-    const key = `colours|${display.flat}|${display.cull}|${xray}`;
+    const key = `colours|${display.flat}|${display.cull}|${xrayKey(xray)}`;
     let variants = this.perMaterial.get(original);
     if (variants === undefined) {
       variants = new Map();
@@ -150,10 +149,14 @@ function isOutline(material: Material): boolean {
   return (material as { isOutline?: unknown }).isOutline === true;
 }
 
+/** The x-ray part of a material's cache key: the opacity in force (0.5, or a display overlay's, §20.3 item 17). */
+const xrayKey = (xray: boolean): string => (xray ? String(XRAY_OPACITY) : 'off');
+
+/** Shading materials in an x-ray pane take the opacity in force, as the model's own materials do in SceneSync. */
 function withXray<M extends Material>(material: M, xray: boolean): M {
   if (xray) {
     material.transparent = true;
-    material.opacity *= XRAY_ALPHA;
+    material.opacity *= XRAY_OPACITY;
     material.depthWrite = false;
   }
   return material;

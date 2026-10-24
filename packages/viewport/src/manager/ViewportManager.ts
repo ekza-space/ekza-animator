@@ -274,6 +274,8 @@ export class ViewportManager {
   private planeSpecs: readonly ImagePlaneSpec[] = [];
   private planesLoad: Promise<void> | null = null;
   private pointerMenus: PanePointerMenus | null = null;
+  /** ST-T1-5: the touch shell's manipulator scale (`setManipulatorScale`), 1 without one. */
+  private manipScale = 1;
   /** M6a (B10): what `F`/`A` frame in Model (component and object selections, meshes); null = the shipped bounds. */
   private frameBounds: ((what: 'selection' | 'all') => SpatialBounds | null) | null = null;
   /** M6a (B10): whether a mesh-view mesh is under a pane point (its meshes take no raycasts); null = none. */
@@ -629,6 +631,17 @@ export class ViewportManager {
       off?.();
       if (this.mods === source) this.mods = null;
     };
+  }
+
+  /**
+   * STUDIO-TOUCH-SPEC §5.4, ST-T1-5: a touch shell's render-time scale of the manipulator (bigger handles for a finger),
+   * applied over the session's `tools.manipulatorSize`, which it never writes — Studio Pro, which sets none, keeps its
+   * size. 1 is today's size.
+   */
+  setManipulatorScale(scale: number): void {
+    if (!(scale > 0) || scale === this.manipScale) return;
+    this.manipScale = scale;
+    this.refreshManipulatorSoon();
   }
 
   /** The virtual modifiers set (`setModifierSource`), or null: the rig runtime's held keys read its holds. */
@@ -1245,11 +1258,11 @@ export class ViewportManager {
       this.objectTarget = false;
       this.controlTargetInModel = false;
       this.modelTarget = true;
-      this.kit.configure(modelTarget.mode, 'object', session.tools.manipulatorSize);
+      this.kit.configure(modelTarget.mode, 'object', session.tools.manipulatorSize * this.manipScale);
       this.kit.setTarget(modelTarget.target);
       return;
     }
-    this.kit.configure(mode, space, session.tools.manipulatorSize);
+    this.kit.configure(mode, space, session.tools.manipulatorSize * this.manipScale);
     // M6a: in Model's object mode the Scale tool sits on the selected scene objects (meshes and groups). Model does
     // not draw or pick rig controls, so a control selection carried over from Animate is edited there only where it
     // is seen (§5.17, M6A-B9-21): in object mode, with no object target, the transform tools sit on the lead control

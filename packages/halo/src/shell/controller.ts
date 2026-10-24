@@ -13,6 +13,7 @@ import type { ViewportManager } from '@ekza-studio/viewport';
 import { stageOverlay } from '../canvas/overlay';
 import { createGrammar, type Grammar } from '../halo/grammar';
 import { createVerbRunner } from '../halo/run';
+import { createManipScale } from '../input/manipScale';
 import { standInVerbs, type Verb, type VerbSource } from '../halo/verbSource';
 import { en } from '../i18n/en';
 import type { InputHandle } from '../input/install';
@@ -85,6 +86,9 @@ export function createHaloController(host: HostShell): HaloController {
   let input: InputHandle | null = null;
   let lastDown: PointerEvent | null = null;
   let arrived = false;
+  const manipScale = createManipScale(
+    typeof window !== 'undefined' && window.matchMedia?.('(any-pointer: coarse)').matches === true ? 'touch' : 'mouse',
+  );
 
   const verbs = standInVerbs;
   const runVerb = createVerbRunner(ctx, {
@@ -184,6 +188,8 @@ export function createHaloController(host: HostShell): HaloController {
       const onDown = (e: PointerEvent): void => {
         lastDown = e;
         grammar.notePointer(e.pointerType);
+        // ST-T1-5: the manipulator grows for a finger (two presses in a row of the other kind switch it)
+        ctx.vm()?.setManipulatorScale(manipScale.press(e.pointerType));
         press = { id: e.pointerId, x: e.clientX, y: e.clientY };
       };
       const onMove = (e: PointerEvent): void => {
@@ -310,6 +316,7 @@ export function createHaloController(host: HostShell): HaloController {
         input = null;
         if (vm === null) return;
         offOverlay = stageOverlay(vm, store.get().stage);
+        vm.setManipulatorScale(manipScale.scale);
         const ticket = ++installing;
         void import('../input/install').then(
           ({ installInput }) => {
@@ -335,6 +342,7 @@ export function createHaloController(host: HostShell): HaloController {
       );
       disposers.push(() => {
         installing += 1;
+        ctx.vm()?.setManipulatorScale(1);
         offOverlay?.();
         offOverlay = null;
         input?.dispose();
