@@ -121,7 +121,7 @@ export function Numpad({
           <Glyph name="close" />
         </button>
       </div>
-      <div className="flex items-baseline gap-2 rounded-touch bg-field px-3 py-1.5">
+      <div className="flex items-center gap-2 rounded-touch bg-field px-3 py-1">
         <input
           ref={input}
           type="text"
@@ -132,7 +132,7 @@ export function Numpad({
           aria-describedby={statusId}
           aria-invalid={result === null || undefined}
           value={state.text}
-          className="min-w-0 flex-1 bg-transparent font-mono text-[max(28px,var(--touch-input-text))] leading-tight tabular-nums text-fg outline-none"
+          className="min-h-(--touch-hit) min-w-0 flex-1 bg-transparent font-mono text-[max(28px,var(--touch-input-text))] leading-tight tabular-nums text-fg outline-none"
           onChange={(event) => setState({ text: event.target.value, fresh: false })}
           onKeyDown={(event) => {
             if (event.key === 'Enter') {

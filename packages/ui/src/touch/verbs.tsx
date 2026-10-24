@@ -147,6 +147,18 @@ function MorePetal({
   );
 }
 
+/**
+ * Compass slots for the long-press ring: a verb keeps its own slot (the matching marking menu's, §6.1), the others —
+ * ⋯ More last — take the free slots in compass order, so no two petals share a direction.
+ */
+export function ringSlots(verbs: readonly Pick<VerbItem, 'slot'>[]): CompassSlot[] {
+  const taken = new Set<CompassSlot>();
+  for (const v of verbs) if (v.slot !== undefined) taken.add(v.slot);
+  const free = COMPASS.filter((slot) => !taken.has(slot));
+  let next = 0;
+  return verbs.map((v) => v.slot ?? free[next++] ?? 'N');
+}
+
 /** Roving focus over a menu's buttons (arrows, Home / End) and Escape. */
 function useRoving(count: number, orientation: 'horizontal' | 'both', onDismiss?: () => void) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -248,8 +260,8 @@ export function VerbRing({
   } | null = null;
   if (widths !== null && widths.length === count) {
     if (mode === 'ring' && center !== undefined) {
-      const slots = [...shown, ...(hideMore ? [] : [MORE])].map((v, i) => ({
-        slot: v.slot ?? COMPASS[i % COMPASS.length] ?? 'N',
+      const slots = ringSlots([...shown, ...(hideMore ? [] : [MORE])]).map((slot, i) => ({
+        slot,
         width: widths[i] ?? 0,
       }));
       const r = ringLayout(center, slots, width, height);

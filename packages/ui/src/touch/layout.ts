@@ -142,32 +142,61 @@ export const COMPASS: readonly CompassSlot[] = ['N', 'NE', 'E', 'SE', 'S', 'SW',
 const ANGLE: Readonly<Record<CompassSlot, number>> = { E: 0, NE: 45, N: 90, NW: 135, W: 180, SW: 225, S: 270, SE: 315 };
 
 /**
- * The flick ring (§5.2): the centre kept `ringEdgeMargin` inside the container, each slot's petal on its compass
- * direction — the petal's inner edge at `radius` from the centre, so 44 px petals clear each other — and clamped
- * into the gutters. A flick is measured from where the press started, not from the drawn centre (`slotToward`).
+ * The flick ring (§5.2): the centre kept `ringEdgeMargin` inside the container and each slot's petal on its compass
+ * direction, its near edge (a corner on the diagonals) at the radius. The radius starts at the marking menus' 80 px
+ * and grows until no two petals touch (wide labels on neighbouring slots); petals are then clamped into the gutters.
+ * A flick is measured from where the press started, by direction only (`slotToward`), so the drawn radius does not
+ * change what a flick picks.
  */
 export function ringLayout(
   center: Point,
   slots: readonly { readonly slot: CompassSlot; readonly width: number }[],
   width: number,
   height: number,
-  radius = 104,
-): { readonly center: Point; readonly positions: readonly Point[] } {
+  radius: number = TOUCH.ringRadius,
+): { readonly center: Point; readonly positions: readonly Point[]; readonly radius: number } {
   const m = TOUCH.ringEdgeMargin;
   const c = { x: clamp(center.x, m, width - m), y: clamp(center.y, m, height - m) };
   const h = TOUCH.hit;
-  const positions = slots.map(({ slot, width: w }) => {
-    const a = (ANGLE[slot] * Math.PI) / 180;
-    const px = c.x + Math.cos(a) * radius;
-    const py = c.y - Math.sin(a) * radius;
-    const cos = Math.cos(a);
-    const x = Math.abs(cos) < 0.2 ? px - w / 2 : cos > 0 ? px - 18 : px - w + 18;
-    return {
-      x: clamp(x, TOUCH.gutter, width - TOUCH.gutter - w),
-      y: clamp(py - h / 2, TOUCH.gutter, height - TOUCH.gutter - h),
-    };
-  });
-  return { center: c, positions };
+  const place = (r: number): Point[] =>
+    slots.map(({ slot, width: w }) => {
+      const a = (ANGLE[slot] * Math.PI) / 180;
+      const cos = Math.cos(a);
+      const sin = Math.sin(a);
+      const px = c.x + cos * r;
+      const py = c.y - sin * r;
+      const x = Math.abs(cos) < 0.2 ? px - w / 2 : cos > 0 ? px : px - w;
+      const y = Math.abs(sin) < 0.2 ? py - h / 2 : sin > 0 ? py - h : py;
+      return { x, y };
+    });
+  const overlaps = (ps: readonly Point[]): boolean => {
+    for (let i = 0; i < ps.length; i++) {
+      for (let j = i + 1; j < ps.length; j++) {
+        const a = ps[i];
+        const b = ps[j];
+        const wa = slots[i]?.width ?? 0;
+        const wb = slots[j]?.width ?? 0;
+        if (a === undefined || b === undefined) continue;
+        const g = TOUCH.gap / 2;
+        if (a.x < b.x + wb + g && b.x < a.x + wa + g && a.y < b.y + h + g && b.y < a.y + h + g) return true;
+      }
+    }
+    return false;
+  };
+  let r = radius;
+  let positions = place(r);
+  while (overlaps(positions) && r < radius + 160) {
+    r += 8;
+    positions = place(r);
+  }
+  return {
+    center: c,
+    radius: r,
+    positions: positions.map((p, i) => ({
+      x: clamp(p.x, TOUCH.gutter, width - TOUCH.gutter - (slots[i]?.width ?? 0)),
+      y: clamp(p.y, TOUCH.gutter, height - TOUCH.gutter - h),
+    })),
+  };
 }
 
 /** The compass slot a flick from the press point points at, or null inside the dead zone or between slots. */

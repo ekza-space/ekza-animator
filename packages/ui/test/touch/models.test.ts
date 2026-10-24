@@ -20,6 +20,7 @@ import {
   numpadReduce,
   prefersReducedMotion,
   ringLayout,
+  ringSlots,
   rovingIndex,
   scrubFactor,
   slopFor,
@@ -232,9 +233,37 @@ describe('Halo geometry (§4.1, §4.3, §6.1)', () => {
       expect(p.x).toBeGreaterThanOrEqual(TOUCH.gutter);
       expect(p.y).toBeGreaterThanOrEqual(TOUCH.gutter);
     }
+    // wide labels on all eight slots: the radius grows until no two petals touch
+    const all = ringLayout(
+      { x: 600, y: 420 },
+      (['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'] as const).map((slot) => ({ slot, width: 150 })),
+      1194,
+      834,
+    );
+    expect(all.radius).toBeGreaterThan(TOUCH.ringRadius);
+    for (let i = 0; i < all.positions.length; i++) {
+      for (let j = i + 1; j < all.positions.length; j++) {
+        const a = all.positions[i];
+        const b = all.positions[j];
+        if (a === undefined || b === undefined) throw new Error('missing');
+        expect(a.x + 150 <= b.x || b.x + 150 <= a.x || a.y + TOUCH.hit <= b.y || b.y + TOUCH.hit <= a.y).toBe(true);
+      }
+    }
+    expect(ringLayout({ x: 600, y: 420 }, [{ slot: 'N', width: 90 }], 1194, 834).radius).toBe(TOUCH.ringRadius);
     expect(slotToward(0, -30)).toBe('N');
     expect(slotToward(30, 30)).toBe('SE');
     expect(slotToward(5, 5)).toBeNull();
+  });
+
+  it('ring slots: a verb keeps its marking-menu slot, the rest and ⋯ More take the free ones', () => {
+    expect(ringSlots([{ slot: 'N' }, { slot: 'E' }, { slot: 'S' }, { slot: 'W' }, {}])).toEqual([
+      'N',
+      'E',
+      'S',
+      'W',
+      'NE',
+    ]);
+    expect(ringSlots([{}, { slot: 'N' }, {}])).toEqual(['NE', 'N', 'E']);
   });
 
   it('a row folds what does not fit into its pinned ⋯', () => {

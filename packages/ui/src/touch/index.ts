@@ -107,6 +107,7 @@ export { type LongPressCallbacks, type LongPressHandlers, useLongPress } from '.
 export {
   Petal,
   type PetalProps,
+  ringSlots,
   VerbBar,
   type VerbBarProps,
   type VerbItem,
