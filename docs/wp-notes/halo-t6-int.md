@@ -91,7 +91,7 @@ the total or any stage), and it also fails now when `reachable` falls below the 
 |---|---|---|---|
 | `/editor` | 896,865 B | **896,828 B** | −37 B |
 | `/autorig` | 657,694 B | **657,808 B** | +114 B |
-| `/app` | 685,639 B | **695,520 B** | +9,881 B (report-only; target 660,000 B) |
+| `/app` | 685,639 B | **695,517 B** | +9,878 B (report-only; target 660,000 B) |
 
 Where the deltas come from:
 - **`/editor`.** −380 B from `formProblems`, against the host's eager `view.toggleMaximize` and port and the
@@ -121,7 +121,7 @@ saved **0 B**: Turbopack keeps a re-exported module's exports in the shared modu
 
 ## Gate
 
-`EKZA_E2E_PORT=3183 pnpm run ci` at `542461e6`, local Chrome, load average ≈ 3: **green** (exit 0, 4 min 28 s).
+`EKZA_E2E_PORT=3183 pnpm run ci` at `542461e6`, local Chrome, load average 4.6–9.4 at the start: **green** (exit 0, 4 min 28 s).
 - format, lint, typecheck, check:deps, check:fixtures, check:licenses.
 - 23 / 23 test tasks: halo 157, editor 677 + 1 skipped, editor-core 1,821, ui 155, viewport 341 + 1, headless-tests
   225, …; the tooling tests and param-lint.
