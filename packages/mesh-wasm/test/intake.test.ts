@@ -1,6 +1,16 @@
 // The Decimator and the intake chain on a dense, atlas-cut sphere (MODELING-PLAN §7.2 G-a, §7.3): exact triangle
 // targets, crack-free UV seams, kept corner values, the palette bake's colours, normalize's frame, determinism.
-import { topologyStats, validateMesh } from '@ekza-studio/mesh-core';
+import { curveEngine } from '@ekza-studio/anim-core';
+import {
+  BUILTIN_LAYERS,
+  editMeshFrom,
+  isRefusal,
+  MESH_OPS,
+  morphLayer,
+  type OpContext,
+  topologyStats,
+  validateMesh,
+} from '@ekza-studio/mesh-core';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
   type IntakeJob,
@@ -13,6 +23,8 @@ import {
   type Simplifier,
   splitBudget,
   triangleCount,
+  frameRotation,
+  transformMesh,
   WRAP_REPEAT,
 } from '../src';
 import { BANDS, bandTexture, chartedSphere, gridSphere, meshBytes, openEdges } from './support';
@@ -29,6 +41,15 @@ const REDUCE: ReduceArgs = {
   hardAngle: (60 * Math.PI) / 180,
 };
 const IDENTITY = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+const CONTEXT: OpContext = {
+  symmetry: null,
+  hidden: null,
+  placement: { t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] },
+  faceted: false,
+  soft: null,
+  curves: curveEngine,
+  epsilon: 1e-9,
+};
 
 let simplifier: Simplifier;
 beforeAll(async () => {
@@ -183,6 +204,30 @@ describe('normalize', () => {
     expect(out[3 * nosePoint + 2]).toBeCloseTo(maxZ, 5);
     expect(out[3 * nosePoint]).toBeCloseTo(0, 5);
     expect(validateMesh(outcome.meshes[0] as never)).toEqual([]);
+  });
+
+  it('applies a proper rotation and scale like the kernel’s Freeze, byte for byte (the direct path)', () => {
+    const sphere = chartedSphere(2000, 2);
+    // A morph layer and custom normals, so every transformed kind is compared.
+    const morph = new Float32Array(3 * sphere.counts.points).map((_, k) => ((k % 7) - 3) * 0.01);
+    const normals = new Float32Array(3 * sphere.counts.corners).map((_, k) => (k % 3 === 1 ? 1 : 0));
+    const data = {
+      ...sphere,
+      layers: new Map([
+        ...sphere.layers,
+        ['morph:smile', { def: morphLayer('smile'), data: morph }],
+        ['normal.custom', { def: BUILTIN_LAYERS.normalCustom, data: normals }],
+      ]),
+    };
+    const turn = frameRotation('+y', '+x');
+    const matrix = Float64Array.from(turn).map((v, k) => (k === 12 ? 0.3 : k === 13 ? -1.25 : k < 11 ? v * 1.7 : v));
+    const fast = transformMesh(data, matrix);
+    const kernel = editMeshFrom(data);
+    kernel.begin('compare');
+    const result = MESH_OPS['mesh.applyTransform']?.run(kernel, null, { matrix: Array.from(matrix) }, CONTEXT);
+    expect(result === undefined || isRefusal(result)).toBe(false);
+    kernel.end();
+    expect(meshBytes(fast)).toEqual(meshBytes(kernel.snapshot()));
   });
 
   it('refuses parallel axes', () => {
