@@ -12,7 +12,7 @@ import { type SizeClass, useDocumentVersion, useSessionValue } from '../shell/ho
 import { useHaloStore } from '../shell/store';
 import { ConfirmCard } from '../dialogs/ConfirmCard';
 import { Breadcrumb } from './Breadcrumb';
-import { selectionBox } from './geometry';
+import { BREADCRUMB_ROW, breadcrumbTop, selectionBox } from './geometry';
 import { Icon } from './icons';
 import { FACE_OPS } from './run';
 import { opOf, type Verb } from './verbSource';
@@ -152,7 +152,7 @@ export function HaloLayer({
             width={width}
             height={height}
             prefer={handedness === 'right' ? 'left' : 'right'}
-            insetTop={insetTop}
+            insetTop={halo.mode === 'arc' ? breadcrumbTop(box, insetTop) + BREADCRUMB_ROW : insetTop}
             insetBottom={insetBottom}
             hideMore={halo.reduced === true}
             onSelect={select}

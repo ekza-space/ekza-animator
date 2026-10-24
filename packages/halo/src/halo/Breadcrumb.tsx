@@ -9,6 +9,7 @@ import { type JSX, useState } from 'react';
 import type { HaloController } from '../shell/controller';
 import { useHaloStore } from '../shell/store';
 import { en } from '../i18n/en';
+import { breadcrumbTop } from './geometry';
 import { Icon } from './icons';
 import type { Noun } from './verbSource';
 
@@ -50,7 +51,7 @@ export function Breadcrumb({
     onLongPress: () => setMenu('walk'),
   });
   const centerX = box === null ? width / 2 : (box.left + box.right) / 2;
-  const top = box === null ? above + 12 : Math.max(above + 8, box.top - 60);
+  const top = breadcrumbTop(box, above);
   const walk = (direction: 'up' | 'down' | 'left' | 'right'): void => {
     setMenu(null);
     void ctx.run('select.pickWalk', { direction, add: thumbOn });

@@ -96,6 +96,14 @@ export function selectionBox(
   };
 }
 
+/** The breadcrumb's top above the selection (below the top bar); its row is 44 px tall (§6.5). */
+export function breadcrumbTop(box: Box | null, above: number): number {
+  return box === null ? above + 12 : Math.max(above + 8, box.top - 60);
+}
+
+/** Where the arc's petals may start: under the breadcrumb (the chip above the selection stays readable). */
+export const BREADCRUMB_ROW = 44 + 8;
+
 /** Whether two boxes overlap (AS-ST-18: no floater intersects the selection). */
 export function overlaps(a: Box, b: Box): boolean {
   return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;

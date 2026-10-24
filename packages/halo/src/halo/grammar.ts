@@ -227,7 +227,8 @@ export function createGrammar(deps: GrammarDeps): Grammar {
       pending = { at, before: selectionKey(app), controls: s.selection.controls };
       if (settle !== null) clearTimeout(settle);
       settle = setTimeout(resolveTap, SETTLE_MS);
-      if (store.get().thumb.latch !== 'off') queueMicrotask(deps.consumeThumb);
+      // after the replayed click (the tool read the meaning's modifiers): a `once` latch is used up
+      if (store.get().thumb.latch !== 'off') void Promise.resolve().then(deps.consumeThumb);
       return 'select';
     },
     doubleTap(tap) {

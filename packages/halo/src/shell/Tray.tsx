@@ -47,7 +47,7 @@ export function Tray({
     <Cluster
       data-halo-chrome=""
       data-testid="halo-tray"
-      className="pointer-events-auto flex max-w-full items-center gap-1.5 p-[5px]"
+      className="pointer-events-auto flex w-full max-w-[1100px] items-center gap-1.5 p-[5px]"
     >
       {stage === 'make' ? (
         <Segmented<ComponentMode>
