@@ -95,6 +95,19 @@ export function startAnimate(controller: HaloController): () => void {
       if (next.sheet !== null && previous.sheet === null) ui.set({ more: null, numbers: null });
     }),
   );
+  // one Halo at a time: a docked Thread noun closes the canvas Halo, a canvas Halo closes the docked one
+  disposers.push(
+    ui.subscribe(() => {
+      if (ui.get().docked !== null && store.get().halo !== null) store.set({ halo: null });
+    }),
+  );
+  disposers.push(
+    store.subscribe((next, previous) => {
+      if (next.halo !== null && previous.halo === null && ui.get().docked !== null) {
+        ui.set({ docked: null, menu: null, renaming: null });
+      }
+    }),
+  );
   // a deleted animation's docked Halo goes with it
   disposers.push(
     app.store.subscribe(() => {

@@ -122,7 +122,7 @@ function Card({
             <ValueChip
               label={w.trimStart}
               value={trim.start}
-              step={1 / 30}
+              step={0.01}
               min={0}
               max={entry.duration}
               unit="s"
@@ -136,7 +136,7 @@ function Card({
             <ValueChip
               label={w.trimEnd}
               value={trim.end}
-              step={1 / 30}
+              step={0.01}
               min={0}
               max={entry.duration}
               unit="s"

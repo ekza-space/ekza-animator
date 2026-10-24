@@ -230,6 +230,7 @@ function BlendChip({ controller }: { readonly controller: HaloController }): JSX
       min={-25}
       max={125}
       data-testid="halo-blend"
+      className="shrink-0"
       onChange={setValue}
       onCommit={(next) => {
         ctx.store.set((s) => ({ touches: s.touches + 1 }));
@@ -296,7 +297,7 @@ export function AnimationsRow({
       {newCard ? <NewAnimationCard controller={controller} ui={ui} clips={clips} /> : null}
       {allClips ? <AllClips clips={clips} active={active?.id ?? null} onPick={pick} /> : null}
       <div
-        className="pointer-events-auto flex min-w-0 items-center gap-1.5"
+        className="pointer-events-auto flex w-full min-w-0 flex-wrap items-center gap-1.5"
         // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a row of controls, not a form (<fieldset>)
         role="group"
         aria-label={w.animations}
@@ -345,6 +346,7 @@ export function AnimationsRow({
         <button
           type="button"
           className={chipClass}
+          aria-label={w.library}
           data-testid="halo-library"
           onClick={() => {
             count();
@@ -353,8 +355,8 @@ export function AnimationsRow({
           }}
         >
           <AnimateGlyph name="library" size={18} />
-          {w.library}
-          <AnimateGlyph name="right" size={16} />
+          {compact ? null : w.library}
+          {compact ? null : <AnimateGlyph name="right" size={16} />}
         </button>
         <TouchIconButton
           label={w.more}

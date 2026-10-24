@@ -99,9 +99,12 @@ function cssVar(el: Element, name: string, fallback: string): string {
 export function ThreadStrip({
   controller,
   ui,
+  row = false,
 }: {
   readonly controller: HaloController;
   readonly ui: AnimateUiStore;
+  /** A row of its own under the controls (phones: the ruler keeps a usable length). */
+  readonly row?: boolean;
 }): JSX.Element {
   const { ctx } = controller;
   const { app, store } = ctx;
@@ -620,7 +623,7 @@ export function ThreadStrip({
       tabIndex={0}
       data-testid="halo-thread-ruler"
       data-halo-chrome=""
-      className="block h-11 min-w-0 flex-1 cursor-pointer touch-none select-none"
+      className={`block h-11 min-w-0 flex-1 cursor-pointer touch-none select-none ${row ? 'order-last basis-full' : ''}`}
     />
   );
 }

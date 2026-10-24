@@ -3,8 +3,9 @@
 // Thread with its layer switch, and the unfolded layer above the Thread (Keys; Curves is T10's). With no character to
 // animate it is the empty state that bridges to the next step instead of a lock (§7.1).
 import { Cluster, TouchButton } from '@ekza-studio/ui/touch';
-import { type JSX, lazy, Suspense } from 'react';
+import { type JSX, lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { animateWords } from '../../i18n/animate';
+import { en } from '../../i18n/en';
 import type { HaloController } from '../../shell/controller';
 import { type SizeClass, useDocumentVersion } from '../../shell/hooks';
 import { useHaloStore } from '../../shell/store';
@@ -62,7 +63,7 @@ function CurvesStandIn({ controller }: { readonly controller: HaloController }):
       className="pointer-events-auto flex items-center gap-2 p-[5px] pl-4"
     >
       <span className="flex-1 text-fg-2">{w.thread.layers.curves}</span>
-      <TouchButton onClick={() => controller.proLayout(true)}>Open in the Pro layout</TouchButton>
+      <TouchButton onClick={() => controller.proLayout(true)}>{en.toast.openInPro}</TouchButton>
     </Cluster>
   );
 }
@@ -81,6 +82,16 @@ export function useAnimateDock(
   const stage = useHaloStore(ctx.store, (s) => s.stage);
   const layer = useHaloStore(ctx.store, (s) => s.threadLayer);
   useDocumentVersion(ctx.app);
+  // the dock's own height, for the floating grammar and the corner clusters (the docked Halo and the open cards grow it)
+  const [element, setElement] = useState<HTMLDivElement | null>(null);
+  const [measured, setMeasured] = useState(0);
+  const measure = useCallback((el: HTMLDivElement | null) => setElement(el), []);
+  useEffect(() => {
+    if (element === null || typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(() => setMeasured(element.offsetHeight));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [element]);
   if (stage !== 'animate') return { dock: null, overlay: null, lift: 0 };
   const ui = animateUi(ctx.store);
   const compact = size === 'compact';
@@ -89,11 +100,12 @@ export function useAnimateDock(
   const unfold = layer === 1 ? Math.round(height * 0.34) : 0;
   const dock = (
     <div
+      ref={measure}
       className="flex w-full max-w-[1100px] flex-col items-stretch gap-2"
       data-testid="halo-animate-dock"
       data-layer={layer}
     >
-      <DockedHalo controller={controller} ui={ui} />
+      <DockedHalo controller={controller} ui={ui} compact={compact} />
       {layer === 1 ? (
         <Suspense fallback={null}>
           <KeysLayer controller={controller} ui={ui} height={unfold} />
@@ -107,6 +119,7 @@ export function useAnimateDock(
   return {
     dock,
     overlay: <DockedMore controller={controller} ui={ui} size={size} />,
-    lift: 60 + unfold + (layer === 2 ? 60 : 0),
+    // the shell's tray is one 54 px row; the dock is two rows at rest, more with a docked Halo, a card or Keys
+    lift: measured > 0 ? Math.max(0, measured - 54) : 60 + unfold,
   };
 }

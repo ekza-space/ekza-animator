@@ -244,7 +244,13 @@ function Readout({
   );
 }
 
-function RecChip({ controller }: { readonly controller: HaloController }): JSX.Element {
+function RecChip({
+  controller,
+  compact,
+}: {
+  readonly controller: HaloController;
+  readonly compact: boolean;
+}): JSX.Element {
   const { store } = controller.ctx;
   const rec = useHaloStore(store, (s) => s.rec);
   return (
@@ -260,7 +266,7 @@ function RecChip({ controller }: { readonly controller: HaloController }): JSX.E
         aria-hidden="true"
         className={`size-3 rounded-full ${rec ? 'bg-[var(--autokey,#e5484d)]' : 'border-2 border-[var(--text-3)]'}`}
       />
-      <span>{w.rec}</span>
+      {compact ? null : <span>{w.rec}</span>}
     </button>
   );
 }
@@ -292,13 +298,13 @@ export function Thread({
         // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a row of controls, not a form (<fieldset>)
         role="group"
         aria-label={w.region}
-        className="pointer-events-auto flex w-full items-center gap-1 p-[5px]"
+        className="pointer-events-auto flex w-full flex-wrap items-center gap-1 p-[5px]"
       >
         {before}
         <PlayButton controller={controller} ui={ui} />
         {compact ? null : <Readout controller={controller} ui={ui} />}
-        <ThreadStrip controller={controller} ui={ui} />
-        <RecChip controller={controller} />
+        <ThreadStrip controller={controller} ui={ui} row={compact} />
+        <RecChip controller={controller} compact={compact} />
         <Segmented<'0' | '1' | '2'>
           label={w.layer}
           data-testid="halo-thread-layer"

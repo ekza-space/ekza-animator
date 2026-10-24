@@ -385,9 +385,12 @@ function RenameRow({
 export function DockedHalo({
   controller,
   ui,
+  compact = false,
 }: {
   readonly controller: HaloController;
   readonly ui: AnimateUiStore;
+  /** A phone-sized frame: the title gives its room to the petals (the noun is the group's name). */
+  readonly compact?: boolean;
 }): JSX.Element | null {
   const { ctx } = controller;
   const { app, store } = ctx;
@@ -483,9 +486,11 @@ export function DockedHalo({
         <RenameRow key={clip.id} controller={controller} ui={ui} clip={clip} />
       ) : (
         <div className="flex min-w-0 items-center gap-1.5">
-          <span className="max-w-[180px] shrink-0 truncate px-2 font-medium text-fg" data-testid="halo-docked-title">
-            {noun.label}
-          </span>
+          {compact ? null : (
+            <span className="max-w-[180px] shrink-0 truncate px-2 font-medium text-fg" data-testid="halo-docked-title">
+              {noun.label}
+            </span>
+          )}
           <VerbBar
             className="min-w-0 flex-1"
             data-testid="halo-docked-verbs"
