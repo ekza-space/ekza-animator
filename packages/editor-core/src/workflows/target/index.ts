@@ -2,7 +2,7 @@
 // operators, the slot statuses, the open-vocabulary check and the `animation` Validation rows. Loaded on the first run
 // of a `target.*` id (the runner), by the Target panel and by Auto-Rig ④'s target line — never on a route's first
 // visit (`TARGET_CHUNK_MARKER` is the check-size boundary marker). `attachTargets` is idempotent per app.
-import { type ContractCharacter, type ContractModel, contractCharacter } from '@ekza-studio/io';
+import { type ContractModel, type ContractTarget, contractOffer, contractTarget } from '@ekza-studio/io';
 import { TARGET_OPERATORS } from '../../operators/builtin/target';
 import type { EditorApp } from '../../types';
 import { setTargetSlotCheck, setTargetValidationRows } from '../targetSlots';
@@ -22,8 +22,10 @@ export {
   clipSeconds,
   computeSlotStatuses,
   contactSeconds,
+  type OfferStatus,
   type SlotBinding,
   type SlotClip,
+  type SlotCounts,
   type SlotIssue,
   type SlotRow,
   type SlotStatus,
@@ -31,7 +33,7 @@ export {
   type SlotStatuses,
 } from './status';
 export { TARGETS_TABLE, type TargetRecord, targetIdOf, targetOf, targetRecords } from './table';
-export { type ContractCharacter, type ContractModel, contractCharacter };
+export { type ContractModel, type ContractTarget, contractOffer, contractTarget };
 
 /** `check-size` marker of the target chunk (never in a route's initial scripts). */
 export const TARGET_CHUNK_MARKER = 'ekza-character-target' as const;

@@ -1,22 +1,26 @@
-// The slot status function (CHARACTER-CONTRACT-SPEC §8.3, §8.9; decision D12): pure, never stored. For the character
-// a target binds, every slot of its game character's view in checklist order with its status — `custom` (a clip
-// fills it, through its own slot or an alias), `invalid` (the fill fails an error rule), `default` (empty: the game
-// plays its own), `missing` (empty, required, no default), `fixed` (not open in this contract) — plus the clips the
-// game will not use (`extras`). Generic over slot kinds: each kind has a filler; `animation` slots are filled by clips
-// (`clip.slot === slot id`), an `asset` slot has no filler in C1 and shows its default. The document-level checks of
-// §8.9 (C1) read their numbers from the contract (rule parameters, the slot's window and contact): duration window,
-// loop flag, frame rate, contact present and within the limit, root motion in place, basic-attack interval. The checks
-// on written bytes (channels, samplers, loop closure, hips drift) are C2's.
+// The slot status function (CHARACTER-CONTRACT-SPEC §8.3, §8.9; GAME-PROTOCOL-SPEC §4.4–§4.7; decision D12): pure,
+// never stored. For the character a binding names, every slot of its contract target in checklist order (sections may
+// mix kinds) with its status — `custom` (filled, through its own slot or an alias), `invalid` (the fill fails an error
+// rule), `default` (empty: the game plays or shows its own), `missing` (empty, required, no default), `fixed` (not open
+// to packages in this contract: made by the game, or opening in a later minor) — the counts in total and per offer of
+// the target, the namespaced rules this Studio defers to the game, and the clips the game will not use (`extras`).
+// Generic over slot kinds: each kind has a filler; `animation` slots are filled by clips (`clip.slot === slot id`),
+// `asset` and `socket` slots have no filler before GP6 and show their default. The document checks of §8.9 (C1) read
+// their numbers from the contract (rule parameters, the slot's window and markers): duration window, loop flag, frame
+// rate, markers present and within their limit, root motion in place, minimum interval. The checks on written bytes
+// (channels, samplers, loop closure, hips drift) are C2's.
 import type { Fps } from '@ekza-studio/anim-core';
 import type { ClipId, ClipRecord } from '@ekza-studio/doc';
 import {
   type ContractModel,
+  type ContractOffer,
   type ContractRuleSeverity,
   type ContractSlotDefault,
   type ContractSlotKind,
   type ContractSlotSpec,
-  contractCharacter,
+  type ContractStage,
   contractRule,
+  contractTarget,
 } from '@ekza-studio/io';
 
 export interface SlotIssue {
@@ -47,31 +51,44 @@ export type SlotStatus =
   | { readonly kind: 'fixed' };
 
 export type SlotStatusKind = SlotStatus['kind'];
+export type SlotCounts = Readonly<Record<SlotStatusKind, number>>;
 
 export interface SlotRow {
   readonly slot: string;
   readonly label: string;
   readonly kind: ContractSlotKind;
-  /** The section it is listed under (Base, Basic attack, a Q/W/E/R skill). */
+  /** The section it is listed under (Base, Basic attack, a Q/W/E/R skill, Gear). */
   readonly section: string;
   readonly key: string | null;
   readonly status: SlotStatus;
-  /** "↻ 0.67 s · in place" (the fill), or "game default · 0.30 s · contact 0.13 s". */
+  /** "↻ 0.67 s · in place" (the fill), "game default · 0.30 s · contact 0.13 s", "made by the game". */
   readonly timing: string;
-  /** What to aim for: the default's play time and contact (seconds). */
-  readonly target: { readonly secs: number; readonly contactSecs: number | null };
+  /** What to aim for (animation slots): the default's play time and marker times (seconds). */
+  readonly target: { readonly secs: number | null; readonly markers: Readonly<Record<string, number | null>> };
   readonly default: ContractSlotDefault | null;
-  /** When the slot opens, for a fixed slot ("1.1"). */
+  /** When a fixed slot opens ("1.1"), or null (made by the game). */
   readonly customizableFrom: string | null;
+  /** The requirement ids of the target's offers that list the slot. */
+  readonly offers: readonly string[];
+}
+
+export interface OfferStatus {
+  readonly package: ContractOffer['package'];
+  readonly requirementId: string;
+  readonly label: string;
+  readonly counts: SlotCounts;
 }
 
 export interface SlotStatuses {
   readonly game: string;
-  readonly gameCharacter: string;
+  readonly target: string;
   readonly revision: string;
   readonly rows: readonly SlotRow[];
-  readonly counts: Readonly<Record<SlotStatusKind, number>>;
-  /** Clips of the character the game will not use (no slot of the view; left out of the package). */
+  readonly counts: SlotCounts;
+  readonly offers: readonly OfferStatus[];
+  /** Namespaced rules this Studio does not check: "checked by the game when you submit" (§7.3). */
+  readonly deferred: readonly { readonly rule: string; readonly checkedBy: readonly ContractStage[] }[];
+  /** Clips of the character the game will not use (no slot of the target; left out of the package). */
   readonly extras: readonly ClipId[];
 }
 
@@ -84,7 +101,8 @@ export type SlotClip = Pick<
 };
 
 export interface SlotBinding {
-  readonly gameCharacter: string;
+  /** The contract target id (`wildspark`, `any`). */
+  readonly target: string;
   readonly aliases: Readonly<Record<string, string>>;
 }
 
@@ -98,6 +116,7 @@ export const contactSeconds = (clip: SlotClip): number | null =>
 const secs = (value: number): string => `${(Math.round(value * 100) / 100).toFixed(2)} s`;
 const num = (value: unknown, fallback: number): number =>
   typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+const zero = (): Record<SlotStatusKind, number> => ({ custom: 0, invalid: 0, default: 0, missing: 0, fixed: 0 });
 
 /** The C1 document checks of an animation fill (§8.9), with the contract's numbers. */
 function animationIssues(model: ContractModel, spec: ContractSlotSpec, clip: SlotClip): SlotIssue[] {
@@ -125,22 +144,39 @@ function animationIssues(model: ContractModel, spec: ContractSlotSpec, clip: Slo
   if (keysRule !== undefined && fpsOf(clip.fps) > maxHz + 1e-9) {
     issues.push({ rule: keysRule.id, severity: keysRule.severity, message: `More than ${maxHz} frames per second` });
   }
-  const contactRule = rule('clip.contact');
-  const contact = contactSeconds(clip);
-  if (contactRule !== undefined && anim.contact !== null) {
-    const tolerance = num(contactRule.params['toleranceSecs'], 0);
-    if (contact === null) {
-      if (anim.contact.required) {
-        issues.push({ rule: contactRule.id, severity: contactRule.severity, message: 'Needs a contact frame' });
+  const markersRule = rule('clip.markers');
+  if (markersRule !== undefined) {
+    const tolerance = num(markersRule.params['toleranceSecs'], 0);
+    for (const [name, marker] of Object.entries(anim.markers)) {
+      // Studio stores the `contact` marker on the clip; other named markers arrive with C2's timeline markers.
+      if (name !== 'contact') {
+        if (marker.required) {
+          issues.push({
+            rule: markersRule.id,
+            severity: 'warning',
+            message: `The ${name} marker is set in a later Studio`,
+          });
+        }
+        continue;
       }
-    } else if (contact < 0 || contact > duration + 1e-6) {
-      issues.push({ rule: contactRule.id, severity: contactRule.severity, message: 'The contact is outside the clip' });
-    } else if (anim.contact.maxSecs !== null && contact > anim.contact.maxSecs + tolerance) {
-      issues.push({
-        rule: contactRule.id,
-        severity: contactRule.severity,
-        message: `Contact ${secs(contact)} > ${secs(anim.contact.maxSecs)}`,
-      });
+      const at = contactSeconds(clip);
+      if (at === null) {
+        if (marker.required) {
+          issues.push({ rule: markersRule.id, severity: markersRule.severity, message: 'Needs a contact frame' });
+        }
+      } else if (at < 0 || at > duration + 1e-6) {
+        issues.push({
+          rule: markersRule.id,
+          severity: markersRule.severity,
+          message: 'The contact is outside the clip',
+        });
+      } else if (marker.maxSecs !== null && at > marker.maxSecs + tolerance) {
+        issues.push({
+          rule: markersRule.id,
+          severity: markersRule.severity,
+          message: `Contact ${secs(at)} > ${secs(marker.maxSecs)}`,
+        });
+      }
     }
   }
   const inPlaceRule = rule('clip.in-place');
@@ -152,27 +188,27 @@ function animationIssues(model: ContractModel, spec: ContractSlotSpec, clip: Slo
       message: 'The game plays it in place: set Root motion to In place',
     });
   }
-  const intervalRule = rule('clip.basic-interval');
+  const intervalRule = rule('clip.min-interval');
   if (intervalRule !== undefined && anim.minIntervalSecs !== null && duration > anim.minIntervalSecs + 1e-6) {
     issues.push({
       rule: intervalRule.id,
       severity: intervalRule.severity,
-      message: `The next attack cuts it after ${secs(anim.minIntervalSecs)} at full attack speed`,
+      message: `The next action cuts it after ${secs(anim.minIntervalSecs)}`,
     });
   }
   return issues;
 }
 
-/** The fill of a slot of each kind: its clip and how it got there, or null. */
-type Filler = (
-  spec: ContractSlotSpec,
-  ctx: FillContext,
-) => { clip: SlotClip; via: 'own' | 'alias'; from: string } | null;
-
 interface FillContext {
   readonly bySlot: ReadonlyMap<string, SlotClip>;
   readonly aliases: Readonly<Record<string, string>>;
 }
+
+/** The fill of a slot: its clip and how it got there, or null. */
+type Filler = (
+  spec: ContractSlotSpec,
+  ctx: FillContext,
+) => { clip: SlotClip; via: 'own' | 'alias'; from: string } | null;
 
 const FILLERS: Readonly<Record<ContractSlotKind, Filler>> = {
   animation: (spec, { bySlot, aliases }) => {
@@ -182,13 +218,13 @@ const FILLERS: Readonly<Record<ContractSlotKind, Filler>> = {
     const aliased = to === undefined ? undefined : bySlot.get(to);
     return aliased === undefined || to === undefined ? null : { clip: aliased, via: 'alias', from: to };
   },
-  // Asset slots (a character's own weapon, …) have no filler yet: they show the game's default.
+  // Asset and socket slots have no filler before GP6: they show the game's default.
   asset: () => null,
+  socket: () => null,
 };
 
-function timingOf(spec: ContractSlotSpec, clip: SlotClip | null): string {
-  const anim = spec.animation;
-  if (clip !== null && anim !== null) {
+function timingOf(spec: ContractSlotSpec, status: SlotStatus, clip: SlotClip | null): string {
+  if (clip !== null && spec.animation !== null) {
     const contact = contactSeconds(clip);
     return [
       `${clip.loop ? '↻ ' : ''}${secs(clipSeconds(clip))}`,
@@ -196,13 +232,17 @@ function timingOf(spec: ContractSlotSpec, clip: SlotClip | null): string {
       ...(contact === null ? [] : [`contact ${secs(contact)}`]),
     ].join(' · ');
   }
+  if (status.kind === 'fixed') {
+    return spec.customizableFrom === null ? 'made by the game' : `game default · opens with ${spec.customizableFrom}`;
+  }
   if (spec.default === null) return 'no default';
+  const contact = spec.default.markers['contact'];
   return [
     'game default',
-    `${spec.default.loop ? '↻ ' : ''}${secs(spec.default.playSecs)}`,
-    ...(spec.default.contactSecs === null || spec.default.contactSecs < 0
+    ...(spec.default.playSecs === null
       ? []
-      : [`contact ${secs(spec.default.contactSecs)}`]),
+      : [`${spec.default.loop === true ? '↻ ' : ''}${secs(spec.default.playSecs)}`]),
+    ...(contact === undefined ? [] : [`contact ${secs(contact)}`]),
   ].join(' · ');
 }
 
@@ -216,32 +256,37 @@ export function computeSlotStatuses(
   binding: SlotBinding,
   clips: readonly SlotClip[],
 ): SlotStatuses {
-  const character = contractCharacter(model, binding.gameCharacter);
+  const target = contractTarget(model, binding.target);
   const usable = clips.filter((clip) => clip.source?.kind !== 'test');
   const bySlot = new Map<string, SlotClip>();
   for (const clip of usable) if (clip.slot !== null && !bySlot.has(clip.slot)) bySlot.set(clip.slot, clip);
-  const counts: Record<SlotStatusKind, number> = { custom: 0, invalid: 0, default: 0, missing: 0, fixed: 0 };
+  const counts = zero();
   const rows: SlotRow[] = [];
   const used = new Set<ClipId>();
-  for (const section of character?.sections ?? []) {
+  const placed = new Set<string>();
+  const sections = [
+    ...(target?.sections ?? []),
+    // a slot of the target no section lists still shows, last
+    { id: 'other', label: 'Other', key: null, slots: target?.slots ?? [] },
+  ];
+  for (const section of sections) {
     for (const id of section.slots) {
       const spec = model.slots[id];
-      if (spec === undefined) continue;
+      if (spec === undefined || placed.has(id)) continue;
+      placed.add(id);
       const fill = FILLERS[spec.kind](spec, { bySlot, aliases: binding.aliases });
       let status: SlotStatus;
       if (fill !== null) {
         used.add(fill.clip.id);
         const issues: SlotIssue[] = spec.customizable
-          ? spec.kind === 'animation'
-            ? animationIssues(model, spec, fill.clip)
-            : []
+          ? animationIssues(model, spec, fill.clip)
           : [
               {
                 rule: 'slot.not-open',
                 severity: 'error',
                 message:
                   spec.customizableFrom === null
-                    ? 'The game does not take a custom fill here'
+                    ? 'The game makes this one itself'
                     : `Custom fills open with contract ${spec.customizableFrom}`,
               },
             ];
@@ -257,7 +302,8 @@ export function computeSlotStatuses(
         status = { kind: 'default' };
       }
       counts[status.kind]++;
-      const anim = spec.animation;
+      const markers: Record<string, number | null> = {};
+      for (const [name, marker] of Object.entries(spec.animation?.markers ?? {})) markers[name] = marker.targetSecs;
       rows.push({
         slot: id,
         label: spec.label,
@@ -265,22 +311,27 @@ export function computeSlotStatuses(
         section: section.label,
         key: section.key,
         status,
-        timing: timingOf(spec, fill?.clip ?? null),
-        target: {
-          secs: anim?.window.targetSecs ?? spec.default?.playSecs ?? 0,
-          contactSecs: anim?.contact?.targetSecs ?? null,
-        },
+        timing: timingOf(spec, status, fill?.clip ?? null),
+        target: { secs: spec.animation?.window.targetSecs ?? spec.default?.playSecs ?? null, markers },
         default: spec.default,
         customizableFrom: spec.customizableFrom,
+        offers: (target?.accepts ?? []).filter((offer) => offer.slots.includes(id)).map((offer) => offer.requirementId),
       });
     }
   }
+  const offers = (target?.accepts ?? []).map((offer) => {
+    const offerCounts = zero();
+    for (const row of rows) if (offer.slots.includes(row.slot)) offerCounts[row.status.kind]++;
+    return { package: offer.package, requirementId: offer.requirementId, label: offer.label, counts: offerCounts };
+  });
   return {
     game: model.game,
-    gameCharacter: binding.gameCharacter,
+    target: binding.target,
     revision: model.revision,
     rows,
     counts,
+    offers,
+    deferred: model.rules.filter((rule) => rule.deferred).map((rule) => ({ rule: rule.id, checkedBy: rule.checkedBy })),
     extras: usable.filter((clip) => !used.has(clip.id)).map((clip) => clip.id),
   };
 }

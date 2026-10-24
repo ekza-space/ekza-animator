@@ -1,20 +1,19 @@
 #!/usr/bin/env node
-// Contract snapshot sync (CHARACTER-CONTRACT-SPEC §8.1, §5.3; C1). Studio bundles each game's character contract so a
-// project binds and reopens offline. Per game (the document's `projectId`, or `game`):
+// Contract snapshot sync (GAME-PROTOCOL-SPEC §8.10, CHARACTER-CONTRACT-SPEC §8.1; C1). Studio bundles each game's
+// `ekza.game-contract.v1` so a project binds and reopens offline. Per game (the document's `game.id`):
 //
 //   apps/web/public/contracts/<game>/<revision>.json   the bundled revisions (served same-origin, never edited)
-//   apps/web/public/contracts/<game>/index.json        `ekza.contract-index.v1`: revisions, channels, `submit`
-//   fixtures/contracts/<schema>.json                   the live revision, the io tests' fixture
+//   apps/web/public/contracts/<game>/index.json        `ekza.contract-index.v1`: profiles, revisions, channels, `submit`
+//   fixtures/contracts/<game>.game-contract.json       the live revision, the io tests' fixture
 //
-// `--from <file>` takes the game's committed snapshot (OMOBA: `omoba-bevy/shared/assets/catalog/
-// character-contract.json`, or a registry download), recomputes the canonical revision (the `omoba.asset-catalog.v1`
-// rule, below) and refuses a mismatch, writes the revision file, points both channels at it and copies the fixture.
-// `--schema <file>` also copies the document's JSON Schema to `fixtures/contracts/<schema>.schema.json`. `--restamp`
-// is for draft data only (the C1 prototype export, whose `revision` was illustrative): it replaces the revision with
-// the recomputed one instead of refusing. `--check` (the local gate, `tooling/test/sync-contract.test.mjs`) verifies
-// every game's index against its files without writing.
+// `--from <file>` takes the game's committed snapshot (OMOBA: `omoba-bevy/shared/assets/catalog/game-contract.json`,
+// or a registry download), recomputes the canonical revision (`ekza-canonical-json/1`, below) and refuses a mismatch,
+// writes the revision file, points both channels at it and copies the fixture. `--schema <file>` (repeatable) copies a
+// JSON Schema to `fixtures/contracts/<its title>.schema.json` (the protocol's and the profiles'). `--restamp` is for
+// draft data only: it replaces a stale revision with the recomputed one instead of refusing. `--check` (the local gate,
+// `tooling/test/sync-contract.test.mjs`) verifies every game's index against its files without writing.
 //
-// Usage: node tooling/sync-contract.mjs --from <file> [--schema <file>] [--restamp] [--root <repo>]
+// Usage: node tooling/sync-contract.mjs --from <file> [--schema <file>]… [--restamp] [--root <repo>]
 //        node tooling/sync-contract.mjs --check [--root <repo>]
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -63,40 +62,50 @@ export function revisionOf(document) {
   return `sha256-${sha256(Buffer.from(canonical(rest), 'utf8'))}`;
 }
 
-/** The game a contract document belongs to (`projectId` in OMOBA's v1 profile). */
+/** The game a contract document belongs to (`game.id`). */
 export function gameOf(document) {
-  const game = document.game ?? document.projectId;
+  const game = document.game?.id;
   if (typeof game !== 'string' || !GAME.test(game)) throw new Error('the document names no game (projectId)');
   return game;
 }
 
-/** The fixture file of a document schema. */
-export const fixturePath = (schema) => `${FIXTURE_DIR}/${schema}.json`;
+/** The fixture file of a game's live contract. */
+export const fixturePath = (game) => `${FIXTURE_DIR}/${game}.game-contract.json`;
 
 /** The document with its identity keys first (schema … previousRevision), the rest in the source's order. */
 function ordered(document) {
-  const { schema, schemaVersion, projectId, revision, previousRevision, ...rest } = document;
-  return { schema, schemaVersion, projectId, revision, previousRevision, ...rest };
+  const { schema, schemaVersion, minReaderVersion, game, revision, previousRevision, ...rest } = document;
+  return { schema, schemaVersion, minReaderVersion, game, revision, previousRevision, ...rest };
 }
 
 const textOf = (document) => `${JSON.stringify(ordered(document), null, 1)}\n`;
 const readJson = (path) => JSON.parse(readFileSync(path, 'utf8'));
 
 function indexEntry(document, bytes) {
-  const characters = document.characters ?? document.heroes ?? [];
   return {
     revision: document.revision,
     file: `${document.revision}.json`,
     bytes: bytes.byteLength,
     sha256: sha256(bytes),
     previousRevision: document.previousRevision ?? null,
-    characters: characters.length,
+    targets: (document.targets ?? []).length,
     slots: Object.keys(document.slots ?? {}).length,
   };
 }
 
+/** The profiles the listed revisions use (`profiles.used`, union, sorted). */
+function profilesOf(dir, revisions) {
+  const used = new Set();
+  for (const entry of revisions) {
+    const path = join(dir, entry.file);
+    if (!existsSync(path)) continue;
+    for (const profile of readJson(path).profiles?.used ?? []) used.add(profile);
+  }
+  return [...used].sort((a, b) => a.localeCompare(b));
+}
+
 /** Takes a contract file into the repository (see the header). Returns what it wrote. */
-export function syncContract({ root, from, schema = null, restamp = false, submit = null }) {
+export function syncContract({ root, from, schemas = [], restamp = false, submit = null }) {
   const source = readJson(from);
   if (typeof source.schema !== 'string' || !SCHEMA_ID.test(source.schema)) throw new Error(`${from}: no schema id`);
   const game = gameOf(source);
@@ -120,14 +129,19 @@ export function syncContract({ root, from, schema = null, restamp = false, submi
     schema: 'ekza.contract-index.v1',
     game,
     contractSchema: source.schema,
+    profiles: profilesOf(dir, revisions),
     channels: { live: source.revision, test: source.revision },
     submit: submit ?? previous?.submit ?? false,
     revisions,
   };
   writeFileSync(indexPath, `${JSON.stringify(index, null, 2)}\n`);
   mkdirSync(join(root, FIXTURE_DIR), { recursive: true });
-  writeFileSync(join(root, fixturePath(source.schema)), bytes);
-  if (schema !== null) writeFileSync(join(root, FIXTURE_DIR, `${source.schema}.schema.json`), readFileSync(schema));
+  writeFileSync(join(root, fixturePath(game)), bytes);
+  for (const schema of schemas) {
+    const title = JSON.parse(readFileSync(schema, 'utf8')).title;
+    if (typeof title !== 'string' || !SCHEMA_ID.test(title)) throw new Error(`${schema}: no schema id in its title`);
+    writeFileSync(join(root, FIXTURE_DIR, `${title}.schema.json`), readFileSync(schema));
+  }
   return { game, revision: source.revision, bytes: bytes.byteLength, restamped: original !== computed };
 }
 
@@ -173,11 +187,13 @@ function checkGame(root, game) {
       problems.push(`${base}/index.json: channel ${channel} names an unlisted revision`);
     }
   }
-  const fixture = join(root, fixturePath(index.contractSchema));
+  const expected = JSON.stringify(profilesOf(dir, index.revisions ?? []));
+  if (JSON.stringify(index.profiles) !== expected) problems.push(`${base}/index.json: profiles should be ${expected}`);
+  const fixture = join(root, fixturePath(game));
   const live = join(dir, `${index.channels?.live}.json`);
-  if (!existsSync(fixture)) problems.push(`${fixturePath(index.contractSchema)} is missing`);
+  if (!existsSync(fixture)) problems.push(`${fixturePath(game)} is missing`);
   else if (existsSync(live) && sha256(readFileSync(fixture)) !== sha256(readFileSync(live))) {
-    problems.push(`${fixturePath(index.contractSchema)} differs from the live revision ${index.channels.live}`);
+    problems.push(`${fixturePath(game)} differs from the live revision ${index.channels.live}`);
   }
   return problems;
 }
@@ -212,13 +228,10 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(p
       console.error('usage: sync-contract.mjs --from <file> [--schema <file>] [--restamp] | --check');
       process.exit(2);
     }
-    const schema = value('--schema');
-    const result = syncContract({
-      root,
-      from: resolve(from),
-      schema: schema === null ? null : resolve(schema),
-      restamp: args.includes('--restamp'),
-    });
+    const schemas = args.flatMap((arg, i) =>
+      arg === '--schema' && args[i + 1] !== undefined ? [resolve(args[i + 1])] : [],
+    );
+    const result = syncContract({ root, from: resolve(from), schemas, restamp: args.includes('--restamp') });
     console.log(`sync-contract: ${result.game} ${result.revision} (${result.bytes} B)`);
   }
 }

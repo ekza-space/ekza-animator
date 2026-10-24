@@ -1,7 +1,8 @@
-// ④ Animations in contract mode (CHARACTER-CONTRACT-SPEC §8.5, §9 F1; C1). The step's new first line *For a game…*
-// binds the character to a game character of the bundled contract (`target.bind`; the contract and the target chunk
-// load on that tap, not on entry). Bound, the line reads *For: OMOBA · Wildspark* with *Change* and *Not for a game*,
-// and the slot checklist replaces the free clip list: "Wildspark: 2 yours · 7 game default", each slot with its status
+// ④ Animations in contract mode (CHARACTER-CONTRACT-SPEC §8.5, §9 F1; GAME-PROTOCOL-SPEC §4.7; C1). The step's new
+// first line *For a game…* binds the character to a target of the bundled game contract (`target.bind`; the contract
+// and the target chunk load on that tap, not on entry). Bound, the line reads *For: OMOBA · Wildspark* with *Change*
+// and *Not for a game*, and the checklist of the target's character package (its `character` offer: the clips)
+// replaces the free clip list: "Wildspark: 2 yours · 7 game default", each slot with its status
 // (● yours, ○ game default, ⚠ to fix with the contract's reason, ◌ fixed), *Game default ▶* (a preview of the default
 // where the starter pack has it), *Pick from library…* (`autorig.clip.add` with the slot: one Use Clip step), *Use
 // clip…* (a clip of the character, `target.slot.assign`) and *Use default* (`target.slot.clear`); clips the game will
@@ -28,8 +29,8 @@ const GAMES: readonly string[] = ['omoba'];
 const IN_PLACE = { speed: 1, trim: null, mirror: false, inPlace: true, armSpace: 0 } as const;
 const IDENTITY = { speed: 1, trim: null, mirror: false, inPlace: false, armSpace: 0 } as const;
 
-/** The game-agnostic contract model (io's, through the target chunk's types: Auto-Rig does not depend on io). */
-type ContractModel = Parameters<TargetKit['contractCharacter']>[0];
+/** The protocol's contract model (io's, through the target chunk's types: Auto-Rig does not depend on io). */
+type ContractModel = Parameters<TargetKit['contractTarget']>[0];
 type Statuses = NonNullable<ReturnType<TargetKit['slotStatuses']>>;
 type Row = Statuses['rows'][number];
 
@@ -101,15 +102,15 @@ function Picker(props: {
         value={current ?? ''}
         data-testid="ar-target-character"
         onChange={(event) => {
-          const gameCharacter = event.currentTarget.value;
-          if (gameCharacter === '' || gameCharacter === current) return;
-          void ctx.run('target.bind', { character, game, gameCharacter }).then((result) => {
+          const target = event.currentTarget.value;
+          if (target === '' || target === current) return;
+          void ctx.run('target.bind', { character, game, target }).then((result) => {
             if (result.status === 'finished') onDone();
           });
         }}
       >
         <option value="">{a.targetChoose}</option>
-        {model.characters.map((entry) => (
+        {model.targets.map((entry) => (
           <option key={entry.id} value={entry.id}>
             {entry.name}
           </option>
@@ -277,13 +278,12 @@ export function TargetSection(props: {
   );
   if (character === null) return props.children;
   const model = binding?.model ?? null;
-  const view =
-    model === null || binding === null ? undefined : kit?.contractCharacter(model, binding.target.gameCharacter);
+  const view = model === null || binding === null ? undefined : kit?.contractTarget(model, binding.target.target);
   const line = (
     <div className="flex flex-wrap items-center gap-2" data-testid="ar-target-line">
       {binding !== null && model !== null ? (
         <span className="font-semibold" data-testid="ar-target-title">
-          {a.targetLine(model.gameName, view?.name ?? binding.target.gameCharacter)}
+          {a.targetLine(model.gameName, view?.name ?? binding.target.target)}
         </span>
       ) : null}
       {picking && kit !== null ? (
@@ -291,7 +291,7 @@ export function TargetSection(props: {
           ctx={ctx}
           kit={kit}
           character={character.id}
-          current={binding?.target.gameCharacter ?? null}
+          current={binding?.target.target ?? null}
           onDone={() => setPicking(false)}
         />
       ) : (
@@ -327,30 +327,33 @@ export function TargetSection(props: {
       </>
     );
   }
-  const counts = statuses.counts;
+  // ④ makes the character package: the rows and counts of the target's `character` offer (its clips)
+  const offer = statuses.offers.find((candidate) => candidate.package === 'character');
+  const rows = statuses.rows.filter((row) => offer !== undefined && row.offers.includes(offer.requirementId));
+  const counts = offer?.counts ?? statuses.counts;
   const extras = statuses.extras
     .map((id) => clips.find((clip) => clip.id === id))
     .filter((clip): clip is ClipRecord => clip !== undefined);
-  const openSlots = statuses.rows.filter((row) => model.slots[row.slot]?.customizable === true);
+  const openSlots = rows.filter((row) => model.slots[row.slot]?.customizable === true);
   return (
     <section className="flex flex-col gap-2" aria-labelledby="ar-target-summary" data-testid="ar-target">
       {line}
       <h2 id="ar-target-summary" className="font-semibold" data-testid="ar-target-summary">
         {a.targetSummary(
-          view?.name ?? binding.target.gameCharacter,
+          view?.name ?? binding.target.target,
           a.targetCounts(counts.custom, counts.default, counts.invalid + counts.missing),
         )}
       </h2>
       <p className="text-fg-3">{a.targetNote(model.gameName)}</p>
       <ul className="flex flex-col gap-1" data-testid="ar-target-rows">
-        {statuses.rows.map((row) => (
+        {rows.map((row) => (
           <SlotRow
             key={row.slot}
             ctx={ctx}
             character={character.id}
             model={model}
             row={row}
-            rows={statuses.rows}
+            rows={rows}
             clips={clips}
           />
         ))}

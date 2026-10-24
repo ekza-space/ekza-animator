@@ -1,9 +1,10 @@
-// The target binding in the document (CHARACTER-CONTRACT-SPEC §8.2; decision CC-17): the extension table
-// `ekza.targets`, one record per character, partition `char:<id>`, the contract document pinned inline so a project
-// reopens offline against the contract it was made for. An extension table keeps `SCHEMA_VERSION` 4: builds without
-// this chunk keep the rows untouched (opaque tables survive snapshots verbatim). The binding is keyed by (game,
-// character, contract revision); `gameCharacter` is the game's character the Studio character is made for (a hero
-// class, or `any`). Registered when the target chunk loads, before anything reads or writes the table.
+// The target binding in the document (CHARACTER-CONTRACT-SPEC §8.2, §15; GAME-PROTOCOL-SPEC §12.3; decision CC-17):
+// the extension table `ekza.targets`, one record per Studio character, partition `char:<id>`, the contract document
+// pinned inline so a project reopens offline against the contract it was made for. An extension table keeps
+// `SCHEMA_VERSION` 4: builds without this chunk keep the rows untouched (opaque tables survive snapshots verbatim). The
+// binding is keyed by (game, contract target, contract revision): `contract {schema, game, revision}` and `target`, the
+// contract target the character is made for (a hero class, or `any`). Registered when the target chunk loads, before
+// anything reads or writes the table.
 import { type Disposer, EkzaError } from '@ekza-studio/anim-core';
 import {
   type CharacterId,
@@ -23,13 +24,12 @@ export type TargetId = string;
 export interface TargetRecord {
   readonly id: TargetId;
   readonly character: CharacterId;
-  /** The game (Hub project id): `omoba`. */
-  readonly game: string;
-  readonly contract: { readonly schema: string; readonly revision: string };
+  /** The contract: its schema (`ekza.game-contract.v1`), the game (Hub project id) and the revision. */
+  readonly contract: { readonly schema: string; readonly game: string; readonly revision: string };
   /** The canonical JSON of the contract document, pinned. */
   readonly document: string;
-  /** The game's character this one is made for (a view id of the contract: `wildspark`, `any`). */
-  readonly gameCharacter: string;
+  /** The contract target the character is made for (`wildspark`, `any`). */
+  readonly target: string;
   /** slot → the slot whose clip it reuses (*Same clip as…*). */
   readonly aliases: Readonly<Record<string, string>>;
   /** The Hub asset and the last submitted revision (C5 writes them). */
@@ -52,10 +52,15 @@ export function validateTarget(value: unknown): readonly string[] {
     const field = value[key];
     if (typeof field !== 'string' || field.length === 0) problems.push(`${key}: expected text`);
   };
-  for (const key of ['id', 'character', 'game', 'document', 'gameCharacter']) text(key);
+  for (const key of ['id', 'character', 'document', 'target']) text(key);
   const contract = value['contract'];
-  if (!isObject(contract) || typeof contract['schema'] !== 'string' || !REVISION.test(String(contract['revision']))) {
-    problems.push('contract: expected { schema, revision: sha256-… }');
+  if (
+    !isObject(contract) ||
+    typeof contract['schema'] !== 'string' ||
+    typeof contract['game'] !== 'string' ||
+    !REVISION.test(String(contract['revision']))
+  ) {
+    problems.push('contract: expected { schema, game, revision: sha256-… }');
   }
   const aliases = value['aliases'];
   if (!isObject(aliases) || Object.values(aliases).some((to) => typeof to !== 'string')) {

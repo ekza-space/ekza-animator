@@ -1,4 +1,4 @@
-// Where Studio reads contracts (CHARACTER-CONTRACT-SPEC §8.1; decision CC-16): first the copy pinned in the document
+// Where Studio reads contracts (CHARACTER-CONTRACT-SPEC §8.1, GAME-PROTOCOL-SPEC §8.10; decision CC-16): first the copy pinned in the document
 // (a target record holds its contract document), then this session's cache, then the bundled snapshot served
 // same-origin (`<contractsPath><game>/index.json` and `…/<revision>.json`, checked against the index's size and
 // SHA-256, its revision recomputed). The live fetch from Hub (`CC-Q8`, on an explicit *Check for newer* only) waits for
@@ -91,7 +91,7 @@ export class ContractService {
   /** A contract revision of a game: pinned in the document, else cached, else the bundled snapshot. */
   load(game: string, revision: string): Promise<LoadedContract> {
     const pinned = targetRecords(this.app.store).find(
-      (target) => target.game === game && target.contract.revision === revision,
+      (target) => target.contract.game === game && target.contract.revision === revision,
     );
     if (pinned !== undefined) {
       const model = pinnedModel(pinned);

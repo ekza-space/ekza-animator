@@ -35,7 +35,7 @@ export function useTargetKit(app: EditorApp): Load<TargetKit> {
   return state;
 }
 
-/** The latest bundled contract of a game (for the picker). */
+/** The latest bundled contract of a game (for the picker: its targets). */
 export function useLatestContract(app: EditorApp, kit: TargetKit | null, game: string): Load<ContractModel> {
   const [state, setState] = useState<Load<ContractModel>>({ status: 'loading' });
   useEffect(() => {

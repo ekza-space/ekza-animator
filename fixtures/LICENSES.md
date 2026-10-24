@@ -73,13 +73,14 @@ the clip-library package (C12).
 - Clips from web auto-rigging services, or any clip that is not redistributable as a standalone file.
 - CC-BY assets without an attribution entry above.
 
-## Character contracts
+## Game contracts
 
-`contracts/omoba.character-contract.v1.json` is OMOBA's character contract (CHARACTER-CONTRACT-SPEC §3), the same
-bytes Studio serves as its bundled snapshot under `apps/web/public/contracts/omoba/`; both are written by
-`tooling/sync-contract.mjs` (`--check` in the local gate). The contract is data generated from OMOBA's game files and
-published by OMOBA under **CC0 1.0** (`license` in the document, `CC-Q3`). Until OMOBA's exporter (work package C0)
-publishes the official snapshot, the committed revision is the C1 draft: the prototype export of
-CHARACTER-CONTRACT-SPEC Appendix B (all 18 views, 107 slots) re-stamped with the canonical revision rule.
-`contracts/omoba.character-contract.v1.schema.json` (Appendix A) and `contracts/ekza_animation_set_v1.schema.json`
-(Appendix C) are copies of the spec's JSON Schemas (MIT, this repository).
+`contracts/omoba.game-contract.json` is OMOBA's game contract (`ekza.game-contract.v1` with the profile
+`omoba.character.v1`; GAME-PROTOCOL-SPEC §4, CHARACTER-CONTRACT-SPEC v0.2 §15), the same bytes Studio serves as its
+bundled snapshot under `apps/web/public/contracts/omoba/`; both are written by `tooling/sync-contract.mjs` (`--check`
+in the local gate). The contract is data generated from OMOBA's game files and published by OMOBA under **CC0 1.0**
+(`license` in the document, `CC-Q3`). Until OMOBA's exporter (work package C0) publishes the official snapshot, the
+committed revision is the converter prototype's output of the protocol spec (all 18 targets, 113 slots).
+`contracts/ekza.game-contract.v1.schema.json`, `contracts/ekza.package.v1.schema.json` (GAME-PROTOCOL-SPEC Appendices
+A and B) and `contracts/omoba.character.v1.schema.json` (CHARACTER-CONTRACT-SPEC Appendix A) are copies of the specs'
+JSON Schemas.

@@ -52,7 +52,7 @@ function localMatrix(node: Json): Mat4 {
 }
 
 function multiply(a: Mat4, b: Mat4): Mat4 {
-  const out = new Array<number>(16).fill(0);
+  const out: number[] = Array.from({ length: 16 }, () => 0);
   for (let c = 0; c < 4; c++) {
     for (let r = 0; r < 4; r++) {
       let sum = 0;
@@ -128,7 +128,7 @@ export function stageVrmForOmoba(bytes: Uint8Array): { readonly bytes: Uint8Arra
   try {
     readGlbLayout(bytes);
     const parsed = parseGlbSync(bytes);
-    json = parsed.json as unknown as Json;
+    json = parsed.json;
     bin = parsed.bin;
   } catch {
     return unchanged;

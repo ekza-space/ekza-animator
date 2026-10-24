@@ -1,5 +1,6 @@
 // CHARACTER-CONTRACT-SPEC §8.1–§8.3, §8.16 (C1): the target chunk. The pure slot status function over the bundled
-// OMOBA contract (custom, invalid, default, missing, fixed, aliases, extras, an asset slot); the target operators,
+// OMOBA game contract (custom, invalid, default, missing, fixed, aliases, extras, asset slots, per-offer counts); the
+// target operators,
 // each one undo step (bind, unbind, update, assign, clear, alias); the open vocabulary of `clip.setSettings` and
 // `library.useClip`'s slot (one clip per contract slot per character; the chunk loads on demand); the `animation`
 // Validation rows; the target surviving a snapshot round-trip and reading its pinned contract without any fetch.
@@ -44,10 +45,7 @@ async function expectUndoRedoExact(app: EditorApp, id: string, args?: unknown): 
 }
 
 const PUBLIC = new URL('../../../../apps/web/public/contracts/', import.meta.url);
-const TEXT = readFileSync(
-  new URL('../../../../fixtures/contracts/omoba.character-contract.v1.json', import.meta.url),
-  'utf8',
-);
+const TEXT = readFileSync(new URL('../../../../fixtures/contracts/omoba.game-contract.json', import.meta.url), 'utf8');
 const MODEL: ContractModel = readContractText(TEXT);
 
 interface Served {
@@ -87,26 +85,42 @@ function clip(fields: Partial<SlotClip>): SlotClip {
   };
 }
 
-const WILDSPARK = { gameCharacter: 'wildspark', aliases: {} };
+const WILDSPARK = { target: 'wildspark', aliases: {} };
 
 describe('computeSlotStatuses (pure)', () => {
-  it('an empty Wildspark: nine game-default rows in checklist order, no extras', () => {
+  it('an empty Wildspark: the whole kit in checklist order, clips and objects, per-offer counts, no extras', () => {
     const statuses = computeSlotStatuses(MODEL, WILDSPARK, []);
-    expect(statuses.rows.map((row) => [row.slot, row.section, row.key, row.status.kind])).toEqual([
-      ['base.idle', 'Base', null, 'default'],
-      ['base.run', 'Base', null, 'default'],
-      ['base.death', 'Base', null, 'default'],
-      ['basic.wildspark.0', 'Basic attack', null, 'default'],
-      ['basic.wildspark.rockets.0', 'Basic attack', null, 'default'],
-      ['skill.wild_switch.release', 'Switchfire', 'Q', 'default'],
-      ['skill.wild_zap.release', 'Shockline', 'W', 'default'],
-      ['skill.wild_traps.release', 'Snapline', 'E', 'default'],
-      ['skill.wild_rocket.release', 'Last Spark', 'R', 'default'],
+    expect(statuses.rows.map((row) => [row.slot, row.kind, row.key, row.status.kind])).toEqual([
+      ['base.idle', 'animation', null, 'default'],
+      ['base.run', 'animation', null, 'default'],
+      ['base.death', 'animation', null, 'default'],
+      ['basic.wildspark.0', 'animation', null, 'default'],
+      ['basic.wildspark.rockets.0', 'animation', null, 'default'],
+      ['wildspark.projectile.basic-rocket', 'asset', null, 'fixed'],
+      ['skill.wild_switch.release', 'animation', 'Q', 'default'],
+      ['skill.wild_zap.release', 'animation', 'W', 'default'],
+      ['wildspark.effect.shockline', 'asset', 'W', 'fixed'],
+      ['skill.wild_traps.release', 'animation', 'E', 'default'],
+      ['wildspark.prop.trap', 'asset', 'E', 'fixed'],
+      ['skill.wild_rocket.release', 'animation', 'R', 'default'],
+      ['wildspark.projectile.ultimate', 'asset', 'R', 'fixed'],
+      ['wildspark.handheld.repeater', 'asset', null, 'default'],
+      ['wildspark.handheld.launcher', 'asset', null, 'default'],
     ]);
-    expect(statuses.counts).toEqual({ custom: 0, invalid: 0, default: 9, missing: 0, fixed: 0 });
-    expect(statuses.rows[1]?.timing).toBe('game default · ↻ 0.67 s');
-    expect(statuses.rows[6]?.timing).toBe('game default · 0.57 s · contact 0.04 s');
-    expect(statuses.rows[6]?.target).toEqual({ secs: 0.5682, contactSecs: 0.0379 });
+    expect(statuses.counts).toEqual({ custom: 0, invalid: 0, default: 11, missing: 0, fixed: 4 });
+    expect(statuses.offers.map((offer) => [offer.requirementId, offer.counts.default])).toEqual([
+      ['character.wildspark', 9],
+      ['wildspark.handheld.set', 2],
+    ]);
+    const row = (slot: string) => statuses.rows.find((candidate) => candidate.slot === slot);
+    expect(row('base.run')?.timing).toBe('game default · ↻ 0.67 s');
+    expect(row('skill.wild_zap.release')?.timing).toBe('game default · 0.57 s · contact 0.04 s');
+    expect(row('skill.wild_zap.release')?.target).toEqual({ secs: 0.5682, markers: { contact: 0.0379 } });
+    expect(row('skill.wild_zap.release')?.offers).toEqual(['character.wildspark']);
+    expect(row('wildspark.prop.trap')?.timing).toBe('made by the game');
+    expect(row('wildspark.handheld.repeater')?.timing).toBe('game default');
+    expect(row('wildspark.handheld.repeater')?.offers).toEqual(['wildspark.handheld.set']);
+    expect(statuses.deferred).toEqual([{ rule: 'omoba.asset.grip', checkedBy: ['tool', 'hub', 'builder', 'game'] }]);
     expect(statuses.extras).toEqual([]);
   });
 
@@ -125,7 +139,7 @@ describe('computeSlotStatuses (pure)', () => {
     const rom = clip({ slot: 'base.death', source: { kind: 'test', generator: 'rom', version: 1 } });
     const statuses = computeSlotStatuses(
       MODEL,
-      { gameCharacter: 'wildspark', aliases: { 'skill.wild_rocket.release': 'basic.wildspark.rockets.0' } },
+      { target: 'wildspark', aliases: { 'skill.wild_rocket.release': 'basic.wildspark.rockets.0' } },
       [run, idle, basic, rocket, wave, loose, rom],
     );
     const row = (slot: string) => statuses.rows.find((candidate) => candidate.slot === slot);
@@ -135,17 +149,17 @@ describe('computeSlotStatuses (pure)', () => {
       kind: 'invalid',
       issues: [{ rule: 'clip.loop-closure', severity: 'error', message: 'The game loops it: turn Loop on' }],
     });
-    // 13 frames at 30 fps = 0.43 s (in the window); contact 0.20 s > 0.15 s; longer than the 0.44 s interval? no
+    // 13 frames at 30 fps = 0.43 s (in the window, within the 0.44 s interval); contact 0.20 s > 0.15 s
     expect(row('basic.wildspark.0')?.status).toMatchObject({
       kind: 'invalid',
-      issues: [{ rule: 'clip.contact', severity: 'error', message: 'Contact 0.20 s > 0.15 s' }],
+      issues: [{ rule: 'clip.markers', severity: 'error', message: 'Contact 0.20 s > 0.15 s' }],
     });
-    // the rocket basic: in place is a warning only; 0.67 s is longer than the 0.44 s basic interval (warning)
+    // the rocket basic: in place is a warning only; 0.67 s is longer than the 0.44 s interval (warning)
     expect(row('basic.wildspark.rockets.0')?.status.kind).toBe('custom');
     expect(row('basic.wildspark.rockets.0')?.status).toMatchObject({
       issues: [
         { rule: 'clip.in-place', severity: 'warning' },
-        { rule: 'clip.basic-interval', severity: 'warning' },
+        { rule: 'clip.min-interval', severity: 'warning' },
       ],
     });
     expect(row('skill.wild_rocket.release')?.status).toMatchObject({
@@ -157,16 +171,17 @@ describe('computeSlotStatuses (pure)', () => {
     // the test clip neither fills base.death nor counts as an extra
     expect(row('base.death')?.status.kind).toBe('default');
     expect(statuses.extras).toEqual([wave.id, loose.id]);
-    expect(statuses.counts).toEqual({ custom: 3, invalid: 2, default: 4, missing: 0, fixed: 0 });
+    expect(statuses.counts).toEqual({ custom: 3, invalid: 2, default: 6, missing: 0, fixed: 4 });
+    expect(statuses.offers[0]?.counts).toEqual({ custom: 3, invalid: 2, default: 4, missing: 0, fixed: 0 });
   });
 
   it('a wind-up is fixed until its contract opens it; a fill there is invalid', () => {
-    const empty = computeSlotStatuses(MODEL, { gameCharacter: 'dawnweaver', aliases: {} }, []);
+    const empty = computeSlotStatuses(MODEL, { target: 'dawnweaver', aliases: {} }, []);
     const windup = empty.rows.find((row) => row.slot === 'skill.dawn_ray.windup');
     expect(windup?.status).toEqual({ kind: 'fixed' });
     expect(windup?.customizableFrom).toBe('1.1');
-    expect(empty.counts.fixed).toBe(1);
-    const filled = computeSlotStatuses(MODEL, { gameCharacter: 'dawnweaver', aliases: {} }, [
+    expect(windup?.timing).toBe('game default · opens with 1.1');
+    const filled = computeSlotStatuses(MODEL, { target: 'dawnweaver', aliases: {} }, [
       clip({ slot: 'skill.dawn_ray.windup', range: { start: 0, end: 24 } }),
     ]);
     expect(filled.rows.find((row) => row.slot === 'skill.dawn_ray.windup')?.status).toMatchObject({
@@ -175,33 +190,15 @@ describe('computeSlotStatuses (pure)', () => {
     });
   });
 
-  it('generic over slot kinds: an asset slot shows its default (no filler yet), a required one without a default is missing', () => {
-    const idle = MODEL.slots['base.idle'] as ContractSlotSpec;
+  it('generic over slot kinds: an asset slot has no filler yet (a clip never fills it); required without default is missing', () => {
     const run = MODEL.slots['base.run'] as ContractSlotSpec;
-    const asset: ContractSlotSpec = { ...idle, id: 'asset.weapon', kind: 'asset', animation: null };
     const required: ContractSlotSpec = { ...run, required: true, default: null };
-    const model: ContractModel = {
-      ...MODEL,
-      slots: { ...MODEL.slots, 'asset.weapon': { ...asset, label: 'Weapon' }, 'base.run': required },
-      characters: [
-        {
-          id: 'hero',
-          name: 'Hero',
-          kind: 'character',
-          subtitle: null,
-          requirementId: 'character.hero',
-          sections: [{ id: 'base', label: 'Base', key: null, slots: ['base.run', 'asset.weapon'] }],
-          slots: ['base.run', 'asset.weapon'],
-        },
-      ],
-    };
-    const statuses = computeSlotStatuses(model, { gameCharacter: 'hero', aliases: {} }, [
-      clip({ slot: 'asset.weapon' }),
-    ]);
-    expect(statuses.rows.map((row) => [row.slot, row.kind, row.status.kind])).toEqual([
-      ['base.run', 'animation', 'missing'],
-      ['asset.weapon', 'asset', 'default'],
-    ]);
+    const model: ContractModel = { ...MODEL, slots: { ...MODEL.slots, 'base.run': required } };
+    const statuses = computeSlotStatuses(model, WILDSPARK, [clip({ slot: 'wildspark.handheld.repeater' })]);
+    const kinds = (slot: string) => statuses.rows.find((row) => row.slot === slot)?.status.kind;
+    expect(kinds('base.run')).toBe('missing');
+    expect(kinds('wildspark.handheld.repeater')).toBe('default');
+    expect(statuses.extras).toHaveLength(1);
   });
 });
 
@@ -242,27 +239,25 @@ describe('target operators and the open vocabulary', () => {
     const { after } = await expectUndoRedoExact(app, 'target.bind', {
       character,
       game: 'omoba',
-      gameCharacter: 'wildspark',
+      target: 'wildspark',
     });
     expect(after).toBeDefined();
     const target = targetOf(app.store, character);
-    expect(target?.gameCharacter).toBe('wildspark');
+    expect(target?.target).toBe('wildspark');
     expect(target?.contract.revision).toBe(MODEL.revision);
-    expect(target?.contract.schema).toBe('omoba.character-contract.v1');
+    expect(target?.contract).toEqual({ schema: 'ekza.game-contract.v1', game: 'omoba', revision: MODEL.revision });
     expect(readContractText(target?.document ?? '').revision).toBe(MODEL.revision);
     expect(app.history.peekUndo()?.label).toBe('Set Target');
     expect(served.requests).toEqual(['/contracts/omoba/index.json', `/contracts/omoba/${MODEL.revision}.json`]);
     const statuses = slotStatuses(app, character);
-    expect(statuses?.counts.default).toBe(9);
+    expect(statuses?.offers[0]?.counts.default).toBe(9);
     // the wave clip (no slot) is an extra
     expect(statuses?.extras).toEqual([WAVE.clip]);
-    expect((await runResult(app, 'target.bind', { character, game: 'omoba', gameCharacter: 'nobody' })).status).toBe(
-      'failed',
-    );
+    expect((await runResult(app, 'target.bind', { character, game: 'omoba', target: 'nobody' })).status).toBe('failed');
   });
 
   it('assign moves a slot, clear empties it, alias reuses a clip, each one undo step', async () => {
-    await runOk(app, 'target.bind', { character, game: 'omoba', gameCharacter: 'wildspark' });
+    await runOk(app, 'target.bind', { character, game: 'omoba', target: 'wildspark' });
     const other = await newClip('Run 2');
     await expectUndoRedoExact(app, 'target.slot.assign', { character, slot: 'base.run', clip: WAVE.clip });
     expect(record(WAVE.clip).slot).toBe('base.run');
@@ -301,11 +296,17 @@ describe('target operators and the open vocabulary', () => {
     await runOk(app, 'target.slot.clear', { character, slot: 'skill.wild_rocket.release' });
     expect(targetOf(app.store, character)?.aliases).toEqual({});
     // the wave clip still fills the rocket basic, without the contact frame it needs
-    expect(slotStatuses(app, character)?.counts).toEqual({ custom: 0, invalid: 1, default: 8, missing: 0, fixed: 0 });
+    expect(slotStatuses(app, character)?.offers[0]?.counts).toEqual({
+      custom: 0,
+      invalid: 1,
+      default: 8,
+      missing: 0,
+      fixed: 0,
+    });
   });
 
   it('a wind-up slot is refused while its contract keeps it closed', async () => {
-    await runOk(app, 'target.bind', { character, game: 'omoba', gameCharacter: 'dawnweaver' });
+    await runOk(app, 'target.bind', { character, game: 'omoba', target: 'dawnweaver' });
     const result = await runResult(app, 'target.slot.assign', {
       character,
       slot: 'skill.dawn_ray.windup',
@@ -315,7 +316,7 @@ describe('target operators and the open vocabulary', () => {
   });
 
   it('unbind and update are one undo step each; clips keep their slots; update never edits clips', async () => {
-    await runOk(app, 'target.bind', { character, game: 'omoba', gameCharacter: 'any' });
+    await runOk(app, 'target.bind', { character, game: 'omoba', target: 'any' });
     await runOk(app, 'target.slot.assign', { character, slot: 'base.idle', clip: WAVE.clip });
     expect((await runResult(app, 'target.update', { character })).status).toBe('failed');
     await expectUndoRedoExact(app, 'target.unbind', { character });
@@ -323,7 +324,7 @@ describe('target operators and the open vocabulary', () => {
     expect(record(WAVE.clip).slot).toBe('base.idle');
     expect(slotStatuses(app, character)).toBeNull();
     // rebinding brings the clips back as fills
-    await runOk(app, 'target.bind', { character, game: 'omoba', gameCharacter: 'warden' });
+    await runOk(app, 'target.bind', { character, game: 'omoba', target: 'warden' });
     expect(slotStatuses(app, character)?.rows[0]?.status).toMatchObject({
       kind: 'custom',
       clip: WAVE.clip,
@@ -332,34 +333,34 @@ describe('target operators and the open vocabulary', () => {
   });
 
   it('Validation rows of area animation: one per issue, warnings in C1', async () => {
-    await runOk(app, 'target.bind', { character, game: 'omoba', gameCharacter: 'wildspark' });
+    await runOk(app, 'target.bind', { character, game: 'omoba', target: 'wildspark' });
     await runOk(app, 'target.slot.assign', { character, slot: 'basic.wildspark.0', clip: WAVE.clip });
     const rows = targetValidationRows(app, character);
     expect(rows.every((row) => row.area === 'animation' && row.ids[0] === WAVE.clip)).toBe(true);
     // an error of the contract shows as a warning, a warning as info (C1: nothing blocks a plain export)
-    expect(rows.find((row) => row.code === 'contract.clip.contact')).toMatchObject({
+    expect(rows.find((row) => row.code === 'contract.clip.markers')).toMatchObject({
       severity: 'warning',
       message: 'Basic attack: Needs a contact frame',
     });
-    expect(rows.find((row) => row.code === 'contract.clip.basic-interval')?.severity).toBe('info');
+    expect(rows.find((row) => row.code === 'contract.clip.min-interval')?.severity).toBe('info');
   });
 
   it('the target survives a snapshot and reads its pinned contract offline', async () => {
-    await runOk(app, 'target.bind', { character, game: 'omoba', gameCharacter: 'wildspark' });
+    await runOk(app, 'target.bind', { character, game: 'omoba', target: 'wildspark' });
     const snapshot = app.store.snapshot();
     expect(Object.keys(snapshot.tables[TARGETS_TABLE] ?? {})).toEqual([`tgt:${character}`]);
     const reopened = createFakeEditorApp({ snapshot, skeleton: humanoidSkeleton() });
     const offline: Served = { requests: [], tamper: false };
     const kit = await loadTargetKit(reopened);
     kit.contractsOf(reopened, { fetch: servedFetch(offline) });
-    expect(kit.slotStatuses(reopened, character)?.rows).toHaveLength(9);
+    expect(kit.slotStatuses(reopened, character)?.rows).toHaveLength(15);
     await kit.contractsOf(reopened).load('omoba', MODEL.revision);
     expect(offline.requests).toEqual([]);
   });
 
   it('a bundled file that fails its checksum is refused', async () => {
     served.tamper = true;
-    const result = await runResult(app, 'target.bind', { character, game: 'omoba', gameCharacter: 'wildspark' });
+    const result = await runResult(app, 'target.bind', { character, game: 'omoba', target: 'wildspark' });
     expect(result).toMatchObject({ status: 'failed', error: { code: 'checksum' } });
   });
 });

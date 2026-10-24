@@ -1,10 +1,12 @@
-// The Target panel (CHARACTER-CONTRACT-SPEC §8.4, §9 F2; C1): a lazy panel next to Clips (Windows › Target). For the
-// active character: *For: <game> · <character> ▾* binds it to a game character of the bundled contract; then the slot
-// checklist of that character in the game's order — ● yours, ○ game default, ⚠ to fix (with the contract's reason),
-// ⊘ missing, ◌ fixed (opens in a later contract) — with the timing to aim for, and per row: *Game default ▶* (a
+// The Target panel (CHARACTER-CONTRACT-SPEC §8.4, §9 F2; GAME-PROTOCOL-SPEC §6.1; C1): a lazy panel next to Clips
+// (Windows › Target). For the active character: *For: <game> · <target> ▾* binds it to a target of the bundled game
+// contract; then the target's whole kit in the game's order — clips and objects — with one summary per offer (the
+// character package, the gear set): ● yours, ○ game default, ⚠ to fix (with the contract's reason), ⊘ missing,
+// ◌ fixed (made by the game, or opening in a later contract), the timing to aim for, and per clip row: *Game default ▶* (a
 // preview of the default where the starter pack has it), *From library ▾* (Use Clip into the slot), *Use clip ▾* (a
 // clip of the character), *Same as ▾* (reuse another slot's clip), *Use default* (clear). A row's name activates its
-// clip. Clips the game will not use are listed with *Map to slot ▾*. Every change is one `target.*` / Use Clip step.
+// clip. Object rows (asset slots) show their default until gear arrives (GP6); rules the game checks itself are named.
+// Clips the game will not use are listed with *Map to slot ▾*. Every change is one `target.*` / Use Clip step.
 import type { CharacterId, ClipId, ClipRecord } from '@ekza-studio/doc';
 import type { EditorApp, SessionState, TargetKit } from '@ekza-studio/editor-core';
 import type { ContractModel } from '@ekza-studio/io';
@@ -60,12 +62,12 @@ function Picker(props: {
   readonly app: EditorApp;
   readonly kit: TargetKit;
   readonly character: CharacterId;
-  readonly current: { readonly game: string; readonly gameCharacter: string } | null;
+  readonly current: { readonly game: string; readonly target: string } | null;
 }): JSX.Element {
   const { app, kit, character, current } = props;
   const [game, setGame] = useState(current?.game ?? BUNDLED_GAMES[0] ?? 'omoba');
   const contract = useLatestContract(app, kit, game);
-  const [choice, setChoice] = useState<string>(current?.gameCharacter ?? '');
+  const [choice, setChoice] = useState<string>(current?.target ?? '');
   const model = contract.status === 'ready' ? contract.value : null;
   return (
     <div className="flex flex-wrap items-center gap-1.5" data-testid="target-picker">
@@ -85,14 +87,14 @@ function Picker(props: {
       </select>
       <select
         className={`${SELECT} min-w-32`}
-        aria-label="Game character"
+        aria-label="Target"
         value={choice}
         disabled={model === null}
         data-testid="target-game-character"
         onChange={(event) => setChoice(event.currentTarget.value)}
       >
         <option value="">Choose a character…</option>
-        {(model?.characters ?? []).map((entry) => (
+        {(model?.targets ?? []).map((entry) => (
           <option key={entry.id} value={entry.id}>
             {entry.name}
             {entry.subtitle === null ? '' : ` (${entry.subtitle})`}
@@ -102,9 +104,9 @@ function Picker(props: {
       <button
         type="button"
         className={PRIMARY_BUTTON}
-        disabled={model === null || choice === '' || (current?.gameCharacter === choice && current.game === game)}
+        disabled={model === null || choice === '' || (current?.target === choice && current.game === game)}
         data-testid="target-bind"
-        onClick={() => run(app, 'target.bind', { character, game, gameCharacter: choice })}
+        onClick={() => run(app, 'target.bind', { character, game, target: choice })}
       >
         {current === null ? 'Set target' : 'Change'}
       </button>
@@ -131,7 +133,8 @@ function SlotRowView(props: {
   const status = row.status;
   const filled = status.kind === 'custom' || status.kind === 'invalid';
   const spec = model.slots[row.slot];
-  const open = spec?.customizable === true;
+  // clips fill animation slots; objects (asset slots) arrive with gear (GP6)
+  const open = spec?.customizable === true && spec.kind === 'animation';
   const defaultClip = row.default === null ? null : libraryClipForDefault(manifest, row.default.name);
   const playingDefault = defaultClip !== null && previewing === `${character}\u0000${defaultClip}`;
   const clipName = filled ? clips.find((clip) => clip.id === status.clip)?.name : undefined;
@@ -163,6 +166,7 @@ function SlotRowView(props: {
             onClick={() => filled && run(app, 'clip.setActive', { clip: status.clip })}
           >
             {row.label}
+            {row.kind === 'animation' ? null : <span className={MUTED_TEXT}> (object)</span>}
             <span className="sr-only"> — {STATUS_TEXT[status.kind]}</span>
           </button>
           <span className={`${MUTED_TEXT} tabular-nums`} data-testid={`target-row-timing-${row.slot}`}>
@@ -303,7 +307,7 @@ function Checklist(props: {
   const clips = app.store.query
     .clipsOfCharacter(character)
     .filter((clip) => clip.deleted === null && clip.source.kind !== 'test');
-  const view = model === null ? undefined : kit.contractCharacter(model, binding.target.gameCharacter);
+  const view = model === null ? undefined : kit.contractTarget(model, binding.target.target);
   const sections = useMemo(() => {
     const out: { label: string; key: string | null; rows: Row[] }[] = [];
     for (const row of statuses?.rows ?? []) {
@@ -323,19 +327,33 @@ function Checklist(props: {
   const extras = statuses.extras
     .map((id) => clips.find((clip) => clip.id === id))
     .filter((clip): clip is ClipRecord => clip !== undefined);
-  const openSlots = statuses.rows.filter((row) => model.slots[row.slot]?.customizable === true);
+  const openSlots = statuses.rows.filter(
+    (row) => row.kind === 'animation' && model.slots[row.slot]?.customizable === true,
+  );
+  const characterOffer = statuses.offers.find((offer) => offer.package === 'character');
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-auto p-1.5" data-testid="target-checklist">
       <div className="flex flex-col gap-0.5" data-testid="target-header">
         <div className="font-semibold text-fg" data-testid="target-title">
-          {model.gameName} · {view?.name ?? binding.target.gameCharacter}
+          {model.gameName} · {view?.name ?? binding.target.target}
         </div>
         <div className={MUTED_TEXT} title={model.revision} data-testid="target-revision">
           Contract {model.revision.slice(7, 15)} · {model.license}
         </div>
         <div className="text-fg-2" data-testid="target-summary">
-          {summaryText(statuses.counts)}
+          {summaryText(characterOffer?.counts ?? statuses.counts)}
         </div>
+        {statuses.offers.map((offer) => (
+          <div key={offer.requirementId} className={MUTED_TEXT} data-testid={`target-offer-${offer.requirementId}`}>
+            {offer.label}: {summaryText(offer.counts)}
+            {offer.package === 'character' ? '' : ' · made in a later Studio'}
+          </div>
+        ))}
+        {statuses.deferred.length > 0 ? (
+          <div className={MUTED_TEXT} data-testid="target-deferred">
+            Checked by {model.gameName} when you submit: {statuses.deferred.map((rule) => rule.rule).join(', ')}
+          </div>
+        ) : null}
         <div className={MUTED_TEXT}>Empty slots use the game’s own animations.</div>
       </div>
       {sections.map((section) => (
@@ -430,16 +448,16 @@ export default function TargetPanel({ app, instanceId }: PanelProps): JSX.Elemen
         <>
           <div className="border-b border-line p-1.5">
             <Picker
-              key={binding === null ? 'none' : `${binding.target.game}:${binding.target.gameCharacter}`}
+              key={binding === null ? 'none' : `${binding.target.contract.game}:${binding.target.target}`}
               app={app}
               kit={ready}
               character={character}
-              current={binding === null ? null : binding.target}
+              current={binding === null ? null : { game: binding.target.contract.game, target: binding.target.target }}
             />
           </div>
           {binding === null ? (
             <div className={EMPTY_STATE} data-testid="target-unbound">
-              Pick a game character to see the animations it needs. Empty slots use the game’s own animations.
+              Pick what the character is for to see what the game needs. Empty slots use the game’s own animations.
             </div>
           ) : (
             <Checklist app={app} kit={ready} character={character} binding={binding} />

@@ -1,11 +1,12 @@
-// The target operators (CHARACTER-CONTRACT-SPEC §8.2; C1): bind a character to a game character of a contract,
+// The target operators (CHARACTER-CONTRACT-SPEC §8.2; GAME-PROTOCOL-SPEC §4.7; C1): bind a character to a contract
+// target (a hero class, `any`) of a game's contract,
 // unbind, update to another revision (never edits clips), and the slot edits — assign a clip to a slot (one clip per
 // slot per character: the slot moves off any other clip), clear a slot (its game default plays), and alias a slot to
 // another (*Same clip as…*). Each is one undo step. Registered by the lazy target chunk (`workflows/target`) on the
 // first run of a `target.*` id (the runner's `lazyOperatorChunk`). Agents get them with the C6 tools.
 import { EkzaError } from '@ekza-studio/anim-core';
 import type { CharacterId, ClipId, ClipRecord, DocQueries } from '@ekza-studio/doc';
-import { type ContractModel, contractCharacter } from '@ekza-studio/io';
+import { type ContractModel, contractTarget } from '@ekza-studio/io';
 import { GLOBAL_SCOPE, type EditorApp, type OperatorAgentPolicy, type PollResult } from '../../types';
 import { contractsOf } from '../../workflows/target/service';
 import { pinnedModel, type LoadedContract } from '../../workflows/target/contracts';
@@ -45,10 +46,13 @@ function bound(app: EditorApp, character: CharacterId): { target: TargetRecord; 
 /** Why `slot` cannot take a fill on the bound target, or null. */
 function slotProblemOf(model: ContractModel, target: TargetRecord, slot: unknown): string | null {
   if (typeof slot !== 'string') return 'slot must be a slot id';
-  const view = contractCharacter(model, target.gameCharacter);
+  const view = contractTarget(model, target.target);
   const spec = model.slots[slot];
   if (view === undefined || spec === undefined || !view.slots.includes(slot)) {
-    return `'${slot}' is not a slot of ${view?.name ?? target.gameCharacter}`;
+    return `'${slot}' is not a slot of ${view?.name ?? target.target}`;
+  }
+  if (spec.kind !== 'animation') {
+    return `${spec.label} takes ${spec.kind === 'asset' ? 'an object' : 'a socket'}, not a clip (with gear, later)`;
   }
   if (!spec.customizable) {
     return spec.customizableFrom === null
@@ -72,7 +76,7 @@ const withoutAlias = (aliases: Readonly<Record<string, string>>, slot: string): 
 const bind = defineOperator<'target.bind', LoadedContract>({
   id: 'target.bind',
   label: 'Set Target',
-  description: 'Binds the character to a game character of a contract (what the game needs from it).',
+  description: 'Binds the character to a target of a game contract (what the game needs from it).',
   category: CATEGORY,
   scope: GLOBAL_SCOPE,
   flags: { undo: true },
@@ -82,8 +86,8 @@ const bind = defineOperator<'target.bind', LoadedContract>({
     const base = characterArg(app, args);
     if (base !== true) return base;
     const raw = args as unknown as Readonly<Record<string, unknown>>;
-    if (typeof raw['game'] !== 'string' || typeof raw['gameCharacter'] !== 'string') {
-      return fail('expects { character, game, gameCharacter, revision? }');
+    if (typeof raw['game'] !== 'string' || typeof raw['target'] !== 'string') {
+      return fail('expects { character, game, target, revision? }');
     }
     if (raw['revision'] !== undefined && typeof raw['revision'] !== 'string') return fail('revision must be text');
     return pollEditable(app);
@@ -92,15 +96,15 @@ const bind = defineOperator<'target.bind', LoadedContract>({
     const service = contractsOf(app);
     const loaded =
       args.revision === undefined ? await service.latest(args.game) : await service.load(args.game, args.revision);
-    if (contractCharacter(loaded.model, args.gameCharacter) === undefined) {
-      throw new EkzaError('invalid-input', `'${args.gameCharacter}' is not a character of this contract`);
+    if (contractTarget(loaded.model, args.target) === undefined) {
+      throw new EkzaError('invalid-input', `'${args.target}' is not a target of this contract`);
     }
     return loaded;
   },
   apply({ tx }, args, loaded) {
     if (tx === null) throw new EkzaError('internal', 'target.bind runs in a transaction');
     const existing = targetOf(tx, args.character);
-    const view = contractCharacter(loaded.model, args.gameCharacter);
+    const view = contractTarget(loaded.model, args.target);
     const kept = Object.fromEntries(
       Object.entries(existing?.aliases ?? {}).filter(
         ([slot, to]) => view?.slots.includes(slot) === true && view.slots.includes(to),
@@ -109,10 +113,9 @@ const bind = defineOperator<'target.bind', LoadedContract>({
     putTarget(tx, {
       id: targetIdOf(args.character),
       character: args.character,
-      game: loaded.model.game,
-      contract: { schema: loaded.model.schema, revision: loaded.model.revision },
+      contract: { schema: loaded.model.schema, game: loaded.model.game, revision: loaded.model.revision },
       document: loaded.document,
-      gameCharacter: args.gameCharacter,
+      target: args.target,
       aliases: kept,
       hub: existing?.hub ?? { assetId: null, lastRevisionId: null },
       deleted: null,
@@ -167,12 +170,14 @@ const update = defineOperator<'target.update', LoadedContract>({
     if (target === undefined) throw new EkzaError('unsupported', 'The character has no target');
     const service = contractsOf(app);
     const loaded =
-      args.revision === undefined ? await service.latest(target.game) : await service.load(target.game, args.revision);
+      args.revision === undefined
+        ? await service.latest(target.contract.game)
+        : await service.load(target.contract.game, args.revision);
     if (loaded.model.revision === target.contract.revision) {
       throw new EkzaError('unsupported', 'The target already uses that contract');
     }
-    if (contractCharacter(loaded.model, target.gameCharacter) === undefined) {
-      throw new EkzaError('unsupported', `That contract has no '${target.gameCharacter}'`);
+    if (contractTarget(loaded.model, target.target) === undefined) {
+      throw new EkzaError('unsupported', `That contract has no '${target.target}'`);
     }
     return loaded;
   },
@@ -180,9 +185,9 @@ const update = defineOperator<'target.update', LoadedContract>({
     if (tx === null) throw new EkzaError('internal', 'target.update runs in a transaction');
     const target = targetOf(tx, args.character);
     if (target === undefined) throw new EkzaError('unsupported', 'The character has no target');
-    const view = contractCharacter(loaded.model, target.gameCharacter);
+    const view = contractTarget(loaded.model, target.target);
     patchTarget(tx, args.character, {
-      contract: { schema: loaded.model.schema, revision: loaded.model.revision },
+      contract: { schema: loaded.model.schema, game: loaded.model.game, revision: loaded.model.revision },
       document: loaded.document,
       aliases: Object.fromEntries(
         Object.entries(target.aliases).filter(([slot, to]) => view?.slots.includes(slot) && view.slots.includes(to)),

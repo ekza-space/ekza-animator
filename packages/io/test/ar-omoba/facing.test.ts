@@ -26,22 +26,28 @@ describe('stageVrmForOmoba', { timeout: 120_000 }, () => {
     const nodes = after.json.nodes as Node[];
     const original = before.json.nodes as Node[];
     const children = new Set(nodes.flatMap((node) => node.children ?? []));
-    nodes.forEach((node, index) => {
-      if (children.has(index)) {
-        expect(node).toEqual(original[index]);
-        return;
-      }
-      // a root: Y·q (an identity rotation becomes the 180° yaw) and (−x, y, −z)
-      const [x, y, z, w] = original[index]?.rotation ?? [0, 0, 0, 1];
-      const turned = node.rotation ?? [];
-      const expected = [z, w, -x, -y];
-      turned.forEach((value, i) => expect(value).toBeCloseTo(expected[i] as number, 6));
-      const t = original[index]?.translation;
-      if (t !== undefined)
-        expect(node.translation).toEqual(
-          [0 - (t[0] as number), t[1], 0 - (t[2] as number)].map((v) => (v === 0 ? 0 : v)),
-        );
+    // inner nodes unchanged; a root: Y·q (an identity rotation becomes the 180° yaw) and (−x, y, −z)
+    const round = (values: readonly number[] | undefined) => values?.map((v) => Math.round(v * 1e6) / 1e6 + 0);
+    const expected = original.map((node, index) => {
+      if (children.has(index)) return node;
+      const [x = 0, y = 0, z = 0, w = 1] = node.rotation ?? [];
+      const t = node.translation;
+      return {
+        ...node,
+        rotation: round([z, w, -x, -y]),
+        ...(t === undefined ? {} : { translation: round([-(t[0] ?? 0), t[1] ?? 0, -(t[2] ?? 0)]) }),
+      };
     });
+    const actual = nodes.map((node, index) =>
+      children.has(index)
+        ? node
+        : {
+            ...node,
+            rotation: round(node.rotation),
+            ...(node.translation === undefined ? {} : { translation: round(node.translation) }),
+          },
+    );
+    expect(actual).toEqual(expected);
     const again = stageVrmForOmoba(staged.bytes);
     expect(again.turned).toBe(false);
     expect(again.bytes).toBe(staged.bytes);

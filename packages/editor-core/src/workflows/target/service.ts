@@ -3,7 +3,7 @@
 // `clip.setSettings` asks for contract slots, and the Validation rows of area `animation`.
 import { EkzaError } from '@ekza-studio/anim-core';
 import type { CharacterId, ClipId } from '@ekza-studio/doc';
-import { type ContractModel, contractCharacter } from '@ekza-studio/io';
+import { type ContractModel, contractTarget } from '@ekza-studio/io';
 import type { EditorApp, RigValidationRow } from '../../types';
 import { ContractService, type ContractServiceOptions, pinnedModel } from './contracts';
 import { computeSlotStatuses, type SlotStatuses } from './status';
@@ -71,11 +71,13 @@ export function contractSlotProblem(
   const binding = bindingOf(app, character);
   if (binding === null) return `'${slot}' is a target slot: set a target for the character first`;
   if (binding.model === null) return binding.error;
-  const view = contractCharacter(binding.model, binding.target.gameCharacter);
+  const view = contractTarget(binding.model, binding.target.target);
   const spec = binding.model.slots[slot];
   if (view === undefined || spec === undefined || !view.slots.includes(slot)) {
-    return `'${slot}' is not a slot of ${view?.name ?? binding.target.gameCharacter}`;
+    return `'${slot}' is not a slot of ${view?.name ?? binding.target.target}`;
   }
+  if (spec.kind !== 'animation')
+    return `${spec.label} takes ${spec.kind === 'asset' ? 'an object' : 'a socket'}, not a clip`;
   if (!spec.customizable) {
     return spec.customizableFrom === null
       ? `${spec.label} takes no custom fill`

@@ -627,7 +627,7 @@ export interface OperatorMap {
   'edit.restoreDocument': { args: { readonly snapshot: DocSnapshot; readonly label: string };   // user runs only (denied to agents)
     result: { readonly writes: number } };
   // ---------- CHARACTER-CONTRACT-SPEC §8.2 (C1, additive): the target binding (lazy chunk `workflows/target`) ----------
-  'target.bind': { args: { readonly character: CharacterId; readonly game: string; readonly gameCharacter: string;
+  'target.bind': { args: { readonly character: CharacterId; readonly game: string; readonly target: string;
     readonly revision?: string }; result: { readonly revision: string } };
   'target.unbind': { args: { readonly character: CharacterId }; result: void };
   'target.update': { args: { readonly character: CharacterId; readonly revision?: string }; result: { readonly revision: string } };

@@ -1,6 +1,7 @@
-// The bundled snapshot's index (CHARACTER-CONTRACT-SPEC §8.1; C1): `apps/web/public/contracts/<game>/index.json`,
-// written by `tooling/sync-contract.mjs` — every bundled revision with its file, size and SHA-256, the channels, and
-// whether Hub accepts packages for the game yet (`submit`, §8.11). Game-agnostic.
+// The bundled snapshot's index `ekza.contract-index.v1` (GAME-PROTOCOL-SPEC §8.10; C1):
+// `apps/web/public/contracts/<game>/index.json`, written by `tooling/sync-contract.mjs` — the contract schema and the
+// profiles it uses, every bundled revision with its file, size and SHA-256, the channels, and whether Hub accepts
+// packages for the game yet (`submit`).
 import { EkzaError } from '@ekza-studio/anim-core';
 import { CONTRACT_MAX_BYTES } from './read';
 
@@ -8,8 +9,10 @@ export interface ContractIndex {
   readonly schema: 'ekza.contract-index.v1';
   /** The game (Hub project id). */
   readonly game: string;
-  /** The contract documents' schema (the profile). */
+  /** The contract documents' schema: `ekza.game-contract.v1`. */
   readonly contractSchema: string;
+  /** The profiles the bundled revisions use (`profiles.used`, union). */
+  readonly profiles: readonly string[];
   readonly channels: { readonly live: string; readonly test: string };
   readonly submit: boolean;
   readonly revisions: readonly ContractIndexEntry[];
@@ -21,13 +24,14 @@ export interface ContractIndexEntry {
   readonly bytes: number;
   readonly sha256: string;
   readonly previousRevision: string | null;
-  readonly characters: number;
+  readonly targets: number;
   readonly slots: number;
 }
 
 const REVISION = /^sha256-[0-9a-f]{64}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
 const GAME = /^[a-z][a-z0-9-]{1,62}$/;
+const PROFILE = /^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*\.v[0-9]+$/;
 
 type Json = Readonly<Record<string, unknown>>;
 
@@ -60,16 +64,20 @@ function count(json: Json, key: string, field: string, max = Number.MAX_SAFE_INT
 /** Parses an index strictly (unknown keys refused; channels name listed revisions). */
 export function parseContractIndex(json: unknown): ContractIndex {
   const f = 'index';
-  const root = object(json, f, ['schema', 'game', 'contractSchema', 'channels', 'submit', 'revisions']);
+  const root = object(json, f, ['schema', 'game', 'contractSchema', 'profiles', 'channels', 'submit', 'revisions']);
   if (root['schema'] !== 'ekza.contract-index.v1') fail(`${f}.schema`, "'ekza.contract-index.v1'");
   const contractSchema = root['contractSchema'];
-  if (typeof contractSchema !== 'string' || contractSchema.length === 0) fail(`${f}.contractSchema`, 'a schema id');
+  if (typeof contractSchema !== 'string' || !PROFILE.test(contractSchema)) fail(`${f}.contractSchema`, 'a schema id');
+  const profiles = root['profiles'];
+  if (!Array.isArray(profiles) || profiles.some((p) => typeof p !== 'string' || !PROFILE.test(p))) {
+    fail(`${f}.profiles`, 'a list of profile ids');
+  }
   if (typeof root['submit'] !== 'boolean') fail(`${f}.submit`, 'a boolean');
   const list = root['revisions'];
   if (!Array.isArray(list) || list.length === 0) fail(`${f}.revisions`, 'a non-empty array');
   const revisions = (list as readonly unknown[]).map((item, i): ContractIndexEntry => {
     const rf = `${f}.revisions[${i}]`;
-    const entry = object(item, rf, ['revision', 'file', 'bytes', 'sha256', 'previousRevision', 'characters', 'slots']);
+    const entry = object(item, rf, ['revision', 'file', 'bytes', 'sha256', 'previousRevision', 'targets', 'slots']);
     const revision = match(entry, 'revision', rf, REVISION);
     if (entry['file'] !== `${revision}.json`) fail(`${rf}.file`, `'${revision}.json'`);
     const previous = entry['previousRevision'];
@@ -82,7 +90,7 @@ export function parseContractIndex(json: unknown): ContractIndex {
       bytes: count(entry, 'bytes', rf, CONTRACT_MAX_BYTES),
       sha256: match(entry, 'sha256', rf, SHA256),
       previousRevision: previous,
-      characters: count(entry, 'characters', rf),
+      targets: count(entry, 'targets', rf),
       slots: count(entry, 'slots', rf),
     };
   });
@@ -96,6 +104,7 @@ export function parseContractIndex(json: unknown): ContractIndex {
     schema: 'ekza.contract-index.v1',
     game: match(root, 'game', f, GAME),
     contractSchema,
+    profiles: profiles as string[],
     channels: { live, test },
     submit: root['submit'],
     revisions,

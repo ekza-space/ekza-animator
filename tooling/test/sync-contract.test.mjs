@@ -1,6 +1,6 @@
-// CHARACTER-CONTRACT-SPEC §8.1, §5.3 (C1): the bundled contract snapshots are consistent (index ↔ files, recomputed
-// revisions, the fixture = the live revision); the sync takes a game's file, refuses a revision that does not match its
-// content (unless `--restamp`, for draft data) and keeps earlier revisions listed.
+// GAME-PROTOCOL-SPEC §8.10, CHARACTER-CONTRACT-SPEC §8.1 (C1): the bundled contract snapshots are consistent (index ↔
+// files, recomputed revisions, profiles, the fixture = the live revision); the sync takes a game's file, refuses a
+// revision that does not match its content (unless `--restamp`, for draft data) and keeps earlier revisions listed.
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { canonical, checkContracts, fixturePath, revisionOf, syncContract } from '../sync-contract.mjs';
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
-const FIXTURE = join(repoRoot, fixturePath('omoba.character-contract.v1'));
+const FIXTURE = join(repoRoot, fixturePath('omoba'));
 
 test('the committed snapshots are consistent', () => {
   assert.deepEqual(checkContracts(repoRoot), []);
@@ -43,6 +43,8 @@ test('sync: refuses a stale revision, restamps draft data, keeps earlier revisio
     const index = JSON.parse(readFileSync(join(root, 'apps/web/public/contracts/omoba/index.json'), 'utf8'));
     assert.equal(index.revisions.length, 2);
     assert.equal(index.channels.live, two.revision);
+    assert.equal(index.contractSchema, 'ekza.game-contract.v1');
+    assert.deepEqual(index.profiles, ['omoba.character.v1']);
 
     writeFileSync(join(root, 'apps/web/public/contracts/omoba', `${one.revision}.json`), '{}');
     assert.ok(checkContracts(root).some((problem) => problem.includes('SHA-256')));
