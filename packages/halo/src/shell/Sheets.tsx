@@ -21,6 +21,7 @@ import { useHaloStore } from './store';
 export type { HaloSheetContext, HaloSheetProps };
 
 const InputSettings = lazy(() => import('../input/InputSettings'));
+const TimeSettings = lazy(() => import('../thread/TimeSettings'));
 
 /** T6b's sheets, each its own chunk (§20.6). */
 const T6B: Readonly<Record<T6bSheetId, ComponentType<HaloSheetProps>>> = Object.fromEntries(
@@ -106,6 +107,11 @@ export function Sheets({
         slot === 'halo.input' ? (
           <Suspense fallback={null}>
             <InputSettings store={store} setInput={(patch) => controller.setInput(patch)} />
+          </Suspense>
+        ) : slot === 'halo.time' ? (
+          // ST-T7-UNIT: Settings › Time (T7's seam)
+          <Suspense fallback={null}>
+            <TimeSettings controller={controller} />
           </Suspense>
         ) : null,
     };

@@ -215,14 +215,20 @@ function SectionView(props: {
       {section.slot === null ? null : (
         // SLOT (§5.1, §18): the frame's `halo.input` rows mount here (`ctx.renderSlot`, T6a's `input/InputSettings`) —
         // the Finger / Pencil / Mouse routing, *Halo opens on*, *Reduce gestures*, quick pinch to frame all, the
-        // Thumb key and handedness. They are Halo preferences and never write Studio Pro's `navProfile`.
-        <div data-slot={section.slot} data-testid="halo-settings-input-slot" className="px-2.5 pb-1">
-          {ctx.renderSlot?.(section.slot) ?? (
-            <p className="text-touch-label text-fg-2">
-              Touch and Pencil: until a Pencil is used, a finger changes what is selected and orbits elsewhere; after
-              that the Pencil edits and fingers move the view.
-            </p>
-          )}
+        // Thumb key and handedness. They are Halo preferences and never write Studio Pro's `navProfile`. The Animation
+        // section's `halo.time` slot holds Settings › Time (T7's `thread/TimeSettings`, ST-T7-UNIT).
+        <div
+          data-slot={section.slot}
+          data-testid={section.slot === 'halo.input' ? 'halo-settings-input-slot' : 'halo-settings-time-slot'}
+          className="px-2.5 pb-1"
+        >
+          {ctx.renderSlot?.(section.slot) ??
+            (section.slot !== 'halo.input' ? null : (
+              <p className="text-touch-label text-fg-2">
+                Touch and Pencil: until a Pencil is used, a finger changes what is selected and orbits elsewhere; after
+                that the Pencil edits and fingers move the view.
+              </p>
+            ))}
         </div>
       )}
       {section.controls.map((control) => (

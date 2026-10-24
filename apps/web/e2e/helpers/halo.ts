@@ -129,7 +129,8 @@ const MENU_LABEL: Partial<Record<HaloSheetId, string>> = {
 };
 
 /**
- * Opens a sheet the way a person does in the real shell (T6-INT): More from the tray's ⋯, Numbers from the
+ * Opens a sheet the way a person does in the real shell (T6-INT): More from the tray's ⋯ (in Animate, empty space's
+ * ring, T7), Numbers from the
  * breadcrumb (a selection is needed), Scene, View, Settings, Health and Help from the project menu, About this
  * character from the character's Halo in Rig (the breadcrumb's root crumb, then its petal). `touch` taps, else clicks.
  */
@@ -137,7 +138,14 @@ export async function openSheetFromShell(page: Page, id: HaloSheetId, touch: boo
   const press = (locator: ReturnType<Page['locator']>): Promise<void> => (touch ? locator.tap() : locator.click());
   const label = MENU_LABEL[id];
   if (id === 'more') {
-    await press(page.getByTestId('halo-tray-verbs').locator('[data-verb="more"]'));
+    const tray = page.getByTestId('halo-tray-verbs').locator('[data-verb="more"]');
+    if ((await tray.count()) > 0) await press(tray);
+    else {
+      // T7: Animate's tray is the Thread and the Animations row; empty space's ⋯ More is its ring (right-click here)
+      const at = await emptyPoint(page);
+      await page.mouse.click(at.x, at.y, { button: 'right' });
+      await press(haloMenu(page).locator('[data-verb="more"]'));
+    }
   } else if (id === 'numbers') {
     await press(page.getByTestId('halo-numbers'));
   } else if (id === 'about') {

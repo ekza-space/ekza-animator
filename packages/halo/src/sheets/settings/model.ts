@@ -84,7 +84,7 @@ export interface SettingsSection {
   readonly controls: readonly SettingsControl[];
   readonly links: readonly SettingsLink[];
   /** Where Halo's own settings mount (Input: `halo.input`, T6a's routing and gesture settings, §5.1, §18). */
-  readonly slot: 'halo.input' | null;
+  readonly slot: 'halo.input' | 'halo.time' | null;
 }
 
 /** Writers the manifest names for a descriptor's section, used instead of `prefs.set` (the same state). */
@@ -277,6 +277,9 @@ function sectionExtras(app: EditorApp, id: string, controls: readonly SettingsCo
       };
     case 'input':
       return { slot: 'halo.input' };
+    case 'animation':
+      // Settings › Time (§10.3, ST-T7-UNIT): the frame's `halo.time` row (T7's `thread/TimeSettings`)
+      return { slot: 'halo.time' };
     case 'keyboard':
       return {
         intro: haloKeysLine(app),

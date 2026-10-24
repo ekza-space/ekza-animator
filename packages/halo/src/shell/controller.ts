@@ -31,6 +31,8 @@ import { arrivalStage, HALO_STAGES, PANE, parseStage, STAGE_BASICS, stageOfWorks
 import { createHaloStore, type HaloInput, type HaloStore, initialUi } from './store';
 import { countVisibleTargets } from './targets';
 import { coachMarks } from './coach';
+import { animateSlice } from '../stages/animate/slice';
+import { startAnimate } from '../stages/animate/start';
 
 export interface HaloController {
   readonly ctx: ShellContext;
@@ -395,6 +397,9 @@ export function createHaloController(host: HostShell): HaloController {
         );
       }
 
+      // T7: the Animate stage (Rec as the shell override, the fitting manipulator, Reach, the Library, the band source)
+      disposers.push(startAnimate(controller));
+
       // the Halo's own operator: Pro's window chords say why they do nothing here (§5.8)
       if (app.operators.get(PRO_ONLY_KEY) === undefined) disposers.push(app.operators.register(proOnlyKeyDef));
 
@@ -501,6 +506,7 @@ export function createHaloController(host: HostShell): HaloController {
                 hideUi: ui.hideUi,
                 focus: ui.focus?.kind ?? null,
               },
+              animate: animateSlice(controller),
               // T6b's slice (the harness's, now the frame's): the readiness list and the Next chip shown
               t6b: ((): Record<string, unknown> => {
                 const r = readinessSource.get();

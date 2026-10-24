@@ -1,3 +1,8 @@
+export {
+  attachDopeSheetTouch,
+  type DopeSheetTouchOptions,
+  type TouchModifiers,
+} from './adapters/dopesheet';
 export { buildChannelTree, CHANNEL_COLORS, channelNodes } from './channel-tree/buildChannelTree';
 export { channelColor, channelLabel } from './channel-tree/colors';
 export {
@@ -29,6 +34,12 @@ export {
   TimeSliderController,
   type TimeSliderLayer,
 } from './timeline/TimeSliderController';
+export {
+  type BandSource,
+  type BandSourceHandle,
+  focusedBandSource,
+  provideBandSource,
+} from './timeline/contributions';
 export type { SliderLayout } from './timeline/layout';
 export type { TimelineTheme } from './timeline/theme';
 export {

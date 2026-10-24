@@ -21,6 +21,7 @@ import { Sheets } from './Sheets';
 import { FrameNext, FramePath, FrameStatus } from './PathParts';
 import { TopBar } from './TopBar';
 import { Tray } from './Tray';
+import { useAnimateDock } from '../stages/animate/AnimateDock';
 import { useHaloStore } from './store';
 
 const Palette = lazy(() => import('../palette/Palette'));
@@ -55,9 +56,11 @@ export function Frame({ controller }: { readonly controller: HaloController }): 
     () => app.prefs.getState().uiScale,
   );
   const compact = size === 'compact';
+  // T7 (P-T6A-4): Animate's tray is the Thread with the Animations row
+  const animate = useAnimateDock(controller, size, height);
   // the chrome's extent, for the floating grammar (pane px)
   const insetTop = size === 'regular' ? 128 : 76;
-  const insetBottom = compact ? 148 : 84;
+  const insetBottom = (compact ? 148 : 84) + animate.lift;
   // the off-hand column and the puck sit above the tray (and, on Compact, above the docked verb bar, §4.4)
   const cornerBottom = compact ? insetBottom + 52 : insetBottom - 12;
   const offSide = handedness === 'right' ? 'left-(--touch-inset-left)' : 'right-(--touch-inset-right)';
@@ -141,9 +144,10 @@ export function Frame({ controller }: { readonly controller: HaloController }): 
             className="pointer-events-none absolute inset-x-0 flex flex-col items-stretch gap-2 px-(--touch-inset-left) transition-opacity duration-(--motion-touch)"
             style={{ ...fade, bottom: 'var(--touch-inset-bottom)' }}
           >
-            <FrameNext controller={controller} />
+            {/* ST-T7-18: in Animate the Next chip gives way while the Animations row shows two or more chips */}
+            {animate.hideNext ? null : <FrameNext controller={controller} />}
             <div className="flex justify-center">
-              <Tray controller={controller} compact={compact} />
+              {animate.dock ?? <Tray controller={controller} compact={compact} />}
             </div>
             {compact ? (
               <div className="pointer-events-auto flex">
