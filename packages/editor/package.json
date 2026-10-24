@@ -10,6 +10,10 @@
     ".": "./src/index.ts",
     "./host": "./src/host/index.ts",
     "./bodies": "./src/bodies.ts",
+    "./models": "./src/models.ts",
+    "./overlays": "./src/overlays.ts",
+    "./toolkit": "./src/toolkit.ts",
+    "./agent": "./src/agent.ts",
     "./testing": "./src/testing/index.ts"
   },
   "scripts": {
