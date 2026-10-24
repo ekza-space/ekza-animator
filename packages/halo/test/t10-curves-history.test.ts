@@ -92,8 +92,14 @@ describe('the Curves layer’s listing (§10.5)', () => {
   });
 });
 
-const step = (id: number, label: string, extra: Partial<HistoryStep> = {}): HistoryStep =>
-  ({ id, label, docTxId: `tx${id}`, overrides: null, at: id * 1000, ...extra }) as HistoryStep;
+const step = (id: number, label: string, extra: Partial<HistoryStep> = {}): HistoryStep => ({
+  id,
+  label,
+  docTxId: `tx${id}`,
+  overrides: null,
+  at: id * 1000,
+  ...extra,
+});
 const PART = { kind: 'controls' } as unknown as NonNullable<HistoryStep['selection']>;
 const select = (id: number): HistoryStep => step(id, 'Select', { docTxId: null, selection: PART });
 const ai = (id: number, label: string): HistoryStep =>
