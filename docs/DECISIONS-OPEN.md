@@ -1,6 +1,6 @@
 # Open owner decisions — defaults chosen
 
-Status: 2026-10-24 (rev. 15: section Q, the character contract — `CC-*` ([CHARACTER-CONTRACT-SPEC](CHARACTER-CONTRACT-SPEC.md) v0.1, ADR 0024); rev. 14: TM-4, neutral feature names; rev. 13: section P, the touch-first Ekza Studio shell "Halo" — defaults and owner questions of [STUDIO-TOUCH-SPEC](STUDIO-TOUCH-SPEC.md) v0.2 and ADR 0023; rev. 12: section O, third-party trademarks — TM-1); 2026-10-23 (rev. 11: section N, the agent bridge M-AI — its defaults of 2026-10-19 (section H on the `mcp/*` branches) and N.6, the MVP cut and the port onto `dev`); 2026-10-22 (rev. 10: section M, Auto-Rig — AR-B1 and AR-V1; rev. 9: section L, the M6b MVP deviations and owner review items); 2026-10-19, M2a merged into `dev` (rev. 8; rev. 8 revised section G after the modeling plan's design review
+Status: 2026-10-24 (rev. 16: section R, the game protocol — `GP-*` ([GAME-PROTOCOL-SPEC](GAME-PROTOCOL-SPEC.md) v0.1, ADR 0025; CHARACTER-CONTRACT-SPEC v0.2 becomes its OMOBA profile); rev. 15: section Q, the character contract — `CC-*` ([CHARACTER-CONTRACT-SPEC](CHARACTER-CONTRACT-SPEC.md) v0.1, ADR 0024); rev. 14: TM-4, neutral feature names; rev. 13: section P, the touch-first Ekza Studio shell "Halo" — defaults and owner questions of [STUDIO-TOUCH-SPEC](STUDIO-TOUCH-SPEC.md) v0.2 and ADR 0023; rev. 12: section O, third-party trademarks — TM-1); 2026-10-23 (rev. 11: section N, the agent bridge M-AI — its defaults of 2026-10-19 (section H on the `mcp/*` branches) and N.6, the MVP cut and the port onto `dev`); 2026-10-22 (rev. 10: section M, Auto-Rig — AR-B1 and AR-V1; rev. 9: section L, the M6b MVP deviations and owner review items); 2026-10-19, M2a merged into `dev` (rev. 8; rev. 8 revised section G after the modeling plan's design review
 (MODELING-PLAN v0.2 §12); rev. 7 added section G: the owner decisions of the modeling
 iteration M6a–M7 planned in [MODELING-PLAN](MODELING-PLAN.md), with defaults; rev. 5 added section F: the M2a build
 deviations, the integration decisions and
@@ -1301,3 +1301,52 @@ Branch `feat/character-contract-studio`; notes in [wp-notes/cc-c1.md](wp-notes/c
 | CC-C1-14 | P-4 (C-pre) | **Fixed in the existing kit** ahead of C2's dev zip: `packOmobaKit` stages the VRM as OMOBA's `convert_vrm_to_glb.py` does (`stageVrmForOmoba`, a port of `normalize_vrm1_rest_facing`: a +Z VRM 1.0 gets its roots turned 180° about Y and `asset.extras.omoba_rest_yaw180`; VRM 0.x byte for byte). Verified on `omoba-bevy@dev`: the client never turns a model at runtime, so the old kit's VRM 1.0 faced backwards | — | C7 (in-game check) |
 | CC-C1-15 | P-5, P-6 (C-pre) | P-5: `ekza/omoba-humanoid-v1` keeps the five clips its v1 passport requires; its label and FEATURES row now say "legacy passport clips" (the v2 profile is C2). P-6: the copy stays until C3 ships (`CC-20`) | — | C3 |
 | CC-C1-16 | Agents and the target operators | `target.*` carry `agent: denied` until C6 adds `target_describe` and friends (the policy test needs every operator classified) | — | C6 |
+
+## R. Game protocol, defaults chosen (2026-10-24)
+
+Defaults and owner questions of the Ekza Game Protocol ([GAME-PROTOCOL-SPEC](GAME-PROTOCOL-SPEC.md) v0.1,
+[ADR 0025](adr/0025-game-protocol.md), Proposed), which turns the character contract of section Q into a protocol any
+game can adopt; the OMOBA contract becomes its profile `omoba.character.v1`
+([CHARACTER-CONTRACT-SPEC](CHARACTER-CONTRACT-SPEC.md) v0.2). Where a `GP-*` row renames something a `CC-*` row names
+(CC-1 document and file, CC-6 manifest key, CC-8 rule ids), the `GP-*` row wins; the substance of every `CC-*` row
+stands.
+
+- Every row has a default, so that work can start; the owner may override any of them.
+- Rows `GP-Q*` are the spec's open questions (§15). The default stands until the owner answers.
+- Build-time decisions are added by the work packages as `GP-<wp>-*` rows.
+
+| ID | Question | Default chosen | Impact if changed | Decide by |
+|---|---|---|---|---|
+| GP-1 | One protocol for every game? | **Yes**: the Ekza Game Protocol (EGP) 1.0 with five documents — `ekza.game-contract.v1`, `ekza.package.v1`, `ekza.validation-report.v1`, `ekza.event.v1`, `ekza.contract-index.v1` — and per-game **profiles** whose data lives only under `ext` and in namespaced rules | Per-game formats make every tool and Hub learn each game | C0 freeze |
+| GP-2 | OMOBA's contract under the protocol | `ekza.game-contract.v1` with profile `omoba.character.v1` (used, not required); `omoba.character-contract.v1` is never published | Keeping the old name makes OMOBA a special case forever | C0 freeze |
+| GP-3 | Versioning | Major in the schema id; additive minors in `schemaVersion` (`"1.0"`); `minReaderVersion` for safe forward reading; strict parsing for understood minors; `revision` = `sha256-` of canonical JSON (asset-catalog rule, RFC 8785 subset) | Without minors every addition is a breaking change | C0 freeze |
+| GP-4 | Ids | Stable; removed ids go to `retired` and are never reused (Hub refuses); slots keyed by gameplay identity; OMOBA asset slots use the `omoba.asset-catalog.v1` requirement ids | — | C0 freeze |
+| GP-5 | Model | game → targets (`character`, `any`, `item`, `vehicle`, `prop`) → slots of kind `animation`, `asset` (handheld, projectile, throwable, deployable, attachment, effect) or `socket`; `variant` and `audio` reserved; **families** for extensible lists (`idPrefix`, `maxFills`) | — | C0 freeze |
+| GP-6 | How a target says what it accepts | **Offers** (`accepts[]`): one per package kind, with its slots, `listing` and `mustFill`, each mapped to one Hub requirement id (`character.<hero>`, `wildspark.handheld.set`) | Requirements stay hand-seeded in SQL | C4 |
+| GP-7 | Generic timing and placement vocabulary | **Markers** (`contact`, `release`, `fire`, footsteps, `land`) and **anchors** (`muzzle`, `trail`, `grip_off`, `impact`); OMOBA's `contact` becomes `animation.markers.contact` | A single `contact` field cannot express throws and shots | C0 freeze |
+| GP-8 | Package manifest | One `ekza.package.v1` for every kind, in `asset.extras.ekza_package_v1` (replaces `ekza_animation_set_v1`, never shipped); fills bind by index (animation, root node) | Per-kind manifests multiply parsers | C2 |
+| GP-9 | Monolithic or fragments? | **Both**; one package per review unit and per reuse unit; **bundles** (author as one, submit several, approve atomically). OMOBA 1.0: the character package is one VRM with clips; gear is one `asset-pack` GLB per set (the Wildspark set), later also filling the rocket and the trap | Embedding gear in the body couples body and hero | C5 |
+| GP-10 | Runtime composition | Per slot: equipped fragment → character package → default; per-slot fallback; `mustFill` sets all or none | — | C3, GP5 |
+| GP-11 | Rule vocabulary | Core ids `pack.*`, `rig.*`, `clip.*`, `asset.*`, `socket.*`, `rights.*` with contract parameters; OMOBA renames `pack.extras` → `pack.manifest`, `pack.animation-ref` → `pack.ref`, `clip.contact` → `clip.markers`, `clip.basic-interval` → `clip.min-interval`; adds `pack.target`, explicit `rig.humanoid`, and (GP5) `asset.*` and `omoba.asset.grip` | — | C0 freeze |
+| GP-12 | Game-specific rules | Namespaced (`<game>.<scope>.<name>`) with `checkedBy`; run only in the game's sandboxed builder and its runtime; tools without them show *deferred* and do not block; unknown **core** ids fail closed | Fail-closed on game rules would block every generic tool | C0 freeze |
+| GP-13 | Reference implementations | TypeScript `@ekza/gp` (MIT, extracted from Studio) and Rust `ekza-gp` (MIT OR Apache-2.0, used by the SDK and OMOBA's passport for core rules; written fresh from the spec, no relicensing); Python in the registry for the structural subset only | A third full implementation would drift | GP0 |
+| GP-14 | Events | CloudEvents 1.0 structured JSON, types `io.ekza.gp.<object>.<verb>`, a transactional outbox, per-project `ekzaseq`, at-least-once, 30-day feed | Polling only keeps third-party games blind | GP3 |
+| GP-15 | Delivery | Standard Webhooks (HMAC-SHA256, `webhook-id/-timestamp/-signature`, rotation, retries 1 min … 24 h, SSRF guard) and a cursor pull feed for static games | — | GP3 |
+| GP-16 | Commands | HTTP + JSON with `Idempotency-Key` on every state-changing POST (24 h) and RFC 9457 problem details carrying the validation report | — | GP2 |
+| GP-17 | Game auth | Project keys: publishable `ekza_pk_…` (test channel read) and secret `ekza_sk_…` with scopes `contract:publish`, `events:read`, `usage:write`, `webhooks:manage`, `admission:read`; hashed, shown once, revocable | User tokens in game CI are fragile | GP3 |
+| GP-18 | Offline | Contracts committed and bundled; release snapshots (`ekza.release-snapshot.v1`) pulled by `ekza-gp snapshot pull` and pinned by SHA-256; manifests inside the hashed package | — | GP4 |
+| GP-19 | Rights | Per package and per fragment revision (`revision_rights` + `share_bps`); bundle approvable only when every member's rights are complete; derivatives declared in `requires` and licence-checked | — | C5 |
+| GP-20 | Second game | Ekza Space as the pilot (GP8): a minimal contract with no profile, consumed with no registry code change | Without a second game the generality is untested | after GP4 |
+| GP-21 | Work in flight | C0 and C1 adopt the protocol names before the C0 freeze (GAME-PROTOCOL-SPEC §12.3), about one agent-day each | Renaming after the freeze needs a breaking revision | now |
+| GP-Q1 | **owner** — Protocol name and home | "Ekza Game Protocol" (EGP); a new public repository `ekza-game-protocol` for schemas, fixtures and reference code | Keeping it in ekza-studio ties every game to the editor's repo | GP0 |
+| GP-Q2 | **owner** — Licences | Schemas, fixtures and spec text CC0-1.0; reference code MIT OR Apache-2.0 | Copyleft would keep games from embedding the validator | GP0 |
+| GP-Q3 | **owner** — Asset slots in OMOBA's first contract? | No: C0 ships animation slots; GP5 adds the asset slots as a compatible revision | +≈ 2 agent-days in C0 | C0 freeze |
+| GP-Q4 | **owner** — Bundles approved atomically? | Yes (approve, promote and revoke the bundle as one; members stay separately equippable) | Per-member approval lets a body go live without its gear | C5 |
+| GP-Q5 | **owner** — Gear equip semantics in OMOBA | Slot-keyed: a gear set applies wherever its slots are used, on any body; sets all or none | Hero-locked gear needs catalogue flags and admission checks | GP5 |
+| GP-Q6 | **owner** — Outbound webhooks from the registry | Yes, HTTPS only with an egress guard, after GP3; until then the pull feed | Feed only: third-party games must poll | GP3 |
+| GP-Q7 | **owner** — Usage aggregates from games | Yes, opt-in per game, aggregates only (no player, account, device or IP data) | Without them creators never see "works in game" | GP3 |
+| GP-Q8 | **owner** — Portable rule modules (WebAssembly) so tools can run game rules | Later | Earlier: a sandboxed runtime in Studio and Hub | after GP8 |
+| GP-Q9 | **owner** — Signed release snapshots for mirrors | Later; SHA pins in builds suffice | — | after GP4 |
+| GP-Q10 | **owner** — Who may create a Hub project for a third-party game | Curated by Ekza (operator CLI), self-serve later | Self-serve needs abuse controls and billing | GP8 |
+| GP-Q11 | **owner** — Register a glTF vendor prefix (`EKZA_`) and move the manifest into an extension | No for 1.0; `asset.extras` | A registered extension is more visible to other tools | 1.x |
+| GP-Q12 | **owner** — Store revenue shares now | Yes, `share_bps` per rights row, inactive until the commerce ledger pays out | Adding it later needs a migration and re-consent | C5 |
