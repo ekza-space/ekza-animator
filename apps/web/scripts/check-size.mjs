@@ -4,7 +4,7 @@
 // (`e2e/bench/budgets.bench.ts`, test `editor route JS`), read here from the build: the prerendered HTML's scripts
 // and script preloads (not `noModule`), plus the route's `next/dynamic` files (`lib/route-scripts.mjs`), plus the
 // lazy groups a browser's first visit opens before the empty state can be used (the First-run dialog) — gzip -9,
-// decimal bytes. Fails above 900,000 B, or when a required lazy boundary's code is in the eager scripts; prints
+// decimal bytes. Fails above the gate (5,000,000 B since SIZE-1; 900,000 B before), or when a required lazy boundary's code is in the eager scripts; prints
 // every lazy chunk group with its size.
 //
 // M6a (M6A-SPEC §5.27; B9): the eager-delta gate — the route may grow by at most the M6a allowance (+20,480 B) over
@@ -16,13 +16,12 @@
 // AUTORIG-SPEC §7.2 (D0): the gate runs once per app route (`ROUTES`: `/editor`, and `/autorig` — required when the
 // app source has its page, else when the build has it;
 // `--route <name>` picks one). Each route has its gate, target, first-visit groups and boundaries: `/editor` keeps the
-// shipped ones plus the `autorig-shell` boundary; `/autorig` (gate 660,000 B, target 620,000 B — reported, not
-// enforced, until D1 records its baseline under `routes.autorig` in `size-baseline.json`) adds the dockview,
+// shipped ones plus the `autorig-shell` boundary; `/autorig` (target 620,000 B, reported; its gate was 660,000 B until
+// SIZE-1, recorded under `routes.autorig` in `size-baseline.json`) adds the dockview,
 // curve-editor and Studio-shell boundaries and opens no First-run dialog.
 //
-// STUDIO-TOUCH-SPEC §20.6 (T2): a third route, `/app` (Ekza Studio's Simple layout, the Halo shell): gate 700,000 B,
-// target 660,000 B (ST-19, OQ-3), reported and not enforced until T12 records its baseline under `routes.app` (the
-// Auto-Rig D0→D7 pattern); it bans dockview, the Studio and Auto-Rig shells and the curve editor from its initial
+// STUDIO-TOUCH-SPEC §20.6 (T2): a third route, `/app` (Ekza Studio's Simple layout, the Halo shell): target 660,000 B
+// (ST-19), reported; the gate (700,000 B and unenforced until SIZE-1 closed OQ-3) is the shared 5,000,000 B; it bans dockview, the Studio and Auto-Rig shells and the curve editor from its initial
 // scripts, and the Halo shell (`ekza-halo-shell`) is a banned boundary of `/editor` and `/autorig`.
 //
 // Usage: node scripts/check-size.mjs [--next <dir>] [--app <dir>] [--route <name>] [--json <file>] [--baseline <file>]
@@ -33,8 +32,12 @@ import { fileURLToPath } from 'node:url';
 import { attributeFiles } from './attribute-chunks.mjs';
 import { kB, readRouteScripts } from './lib/route-scripts.mjs';
 
-/** CI gate: the §14 budget (decimal bytes, gzip -9). */
-export const GATE_BYTES = 900_000;
+/**
+ * CI gate (decimal bytes, gzip -9): one limit for every route, 5,000,000 B (owner, 2026-10-24, DECISIONS-OPEN SIZE-1;
+ * it replaces the §14 budget of 900,000 B and the per-route gates of 660,000 B and 700,000 B). The targets below are
+ * reported only.
+ */
+export const GATE_BYTES = 5_000_000;
 /**
  * M2a target for the initial route of a first visit (M2A-SPEC §5.21.2: 800,000 B provisional, set at the M2a
  * integration to the spec's ceiling of 850,000 B with the attribution recorded: A1…A4 added ≈ 58 kB of eager code;
@@ -146,16 +149,16 @@ export const ROUTE_BOUNDARIES = {
 export const ROUTES = ['editor', 'autorig', 'app'];
 
 /** `/autorig` first-visit gate and target (AUTORIG-SPEC §7.2, AR-D8; gzip -9, decimal bytes). */
-export const AUTORIG_GATE_BYTES = 660_000;
+export const AUTORIG_GATE_BYTES = GATE_BYTES;
 export const AUTORIG_TARGET_BYTES = 620_000;
 
 /** `/app` first-visit gate and target (STUDIO-TOUCH-SPEC §20.6, ST-19, OQ-3; gzip -9, decimal bytes). */
-export const HALO_GATE_BYTES = 700_000;
+export const HALO_GATE_BYTES = GATE_BYTES;
 export const HALO_TARGET_BYTES = 660_000;
 
 /** Per-route gate, target and first-visit groups (neither Auto-Rig nor Halo opens the First-run dialog). */
 export const ROUTE_LIMITS = {
-  editor: { gate: 900_000, target: 850_000, firstVisit: ['dialog-first-run'] },
+  editor: { gate: GATE_BYTES, target: TARGET_BYTES, firstVisit: ['dialog-first-run'] },
   autorig: { gate: AUTORIG_GATE_BYTES, target: AUTORIG_TARGET_BYTES, firstVisit: [] },
   app: { gate: HALO_GATE_BYTES, target: HALO_TARGET_BYTES, firstVisit: [] },
 };
