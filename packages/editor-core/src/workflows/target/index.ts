@@ -5,7 +5,7 @@
 import { type ContractModel, type ContractTarget, contractOffer, contractTarget } from '@ekza-studio/io';
 import { TARGET_OPERATORS } from '../../operators/builtin/target';
 import type { EditorApp } from '../../types';
-import { setTargetSlotCheck, setTargetValidationRows } from '../targetSlots';
+import { targetHooks } from '../targetSlots';
 import { contractSlotProblem, targetValidationRows } from './service';
 import { ensureTargetTable } from './table';
 
@@ -44,8 +44,7 @@ const attached = new WeakSet<object>();
 export function attachTargets(app: EditorApp): void {
   if (typeof TARGET_CHUNK_MARKER !== 'string') throw new Error('target chunk without its marker');
   ensureTargetTable();
-  setTargetSlotCheck({ problem: contractSlotProblem });
-  setTargetValidationRows(targetValidationRows);
+  targetHooks({ problem: contractSlotProblem, rows: targetValidationRows });
   if (attached.has(app.operators)) return;
   attached.add(app.operators);
   for (const def of TARGET_OPERATORS) {

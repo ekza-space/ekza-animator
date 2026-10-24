@@ -9,7 +9,7 @@ import { newRecordId } from '../../app/internals';
 import { type EditorApp, GLOBAL_SCOPE, type Selection } from '../../types';
 import { clipNameTaken } from '../../workflows/importChecks';
 import { clipNameProblem, slotProblem, tagsProblem } from '../../workflows/names';
-import { isTargetSlotId, loadTargetKit, targetSlotProblem, targetSlotsLoaded } from '../../workflows/targetSlots';
+import { isTargetSlotId, loadTargetKit, targetHooks } from '../../workflows/targetSlots';
 import { clipFrameOfScene, EMPTY_SELECTION, sceneFpsIn, sceneFrameOf } from '../../workflows/session';
 import { derivedFromProblem, fpsValue, sameFps } from '../../workflows/util';
 import type { ClipSettingsArgs } from '../args';
@@ -321,12 +321,12 @@ const clipSetSettings = defineOperator<'clip.setSettings', ClipBodies>({
     const clip = clipOf(app, args) as ClipRecord;
     const problem =
       settingsProblem(clip, args as unknown as Readonly<Record<string, unknown>>) ??
-      (isTargetSlotId(args.slot) ? targetSlotProblem(app, clip.character, clip.id, args.slot) : null);
+      (isTargetSlotId(args.slot) ? (targetHooks()?.problem(app, clip.character, clip.id, args.slot) ?? null) : null);
     return problem === null ? pollEditable(app) : fail(problem);
   },
   async prepare({ app }, args) {
     // A contract slot is checked by the target chunk: load it, the runner polls again.
-    if (isTargetSlotId(args.slot) && !targetSlotsLoaded()) await loadTargetKit(app);
+    if (isTargetSlotId(args.slot) && targetHooks() === null) await loadTargetKit(app);
     // A frame-rate change rescales the clip's keys: they must be loaded.
     await app.store.open(`clip:${args.clip}`);
     return clipBodies();

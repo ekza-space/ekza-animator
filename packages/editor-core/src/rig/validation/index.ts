@@ -5,7 +5,7 @@
 import type { Disposer } from '@ekza-studio/anim-core';
 import type { CharacterId } from '@ekza-studio/doc';
 import type { EditorApp, RigValidationRow, RigValidationService, WorkspaceStatus } from '../../types';
-import { targetValidationRowsOf } from '../../workflows/targetSlots';
+import { targetHooks } from '../../workflows/targetSlots';
 import { type ChecklistStep, rigChecklist } from './checklist';
 import { characterMeshes, characterSkeleton } from './inputs';
 import { DEFAULT_PROFILE, profileRows, type RawRow, rawRows } from './rows';
@@ -71,7 +71,7 @@ export function createRigValidation(deps: { readonly app: () => EditorApp }): Ri
     const skeleton = characterSkeleton(app.store, character)?.skeleton.id ?? null;
     const rows = profileRows(raw(character), chosen ?? profile, { character, skeleton });
     // CHARACTER-CONTRACT-SPEC §8.3 (C1): the bound target's slot checks, area `animation`, last.
-    const target = targetValidationRowsOf(app, character);
+    const target = targetHooks()?.rows(app, character) ?? [];
     return target.length === 0 ? rows : [...rows, ...target];
   };
 

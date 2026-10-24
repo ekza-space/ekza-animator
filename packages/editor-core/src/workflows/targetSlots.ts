@@ -1,8 +1,9 @@
 // The open slot vocabulary (CHARACTER-CONTRACT-SPEC §8.2; ADR 0010 §5 as amended by ADR 0024): a clip's slot is a
 // vocabulary-v1 name (`walk`), or a slot id of the contract its character is bound to (`base.run`). Contract slot ids
-// always contain a dot, vocabulary names never do. Eager and tiny: the check of a contract slot (bound, in the
-// character's view, open in this contract, one clip per slot) lives in the lazy target chunk, which installs it here
-// when it loads; until then a dotted slot passes the first poll and `prepare` loads the chunk (the runner polls again).
+// always contain a dot, vocabulary names never do. Eager and tiny (four exports): the check of a contract slot (bound,
+// in the target, open in this contract, one clip per slot) and the `animation` Validation rows live in the lazy target
+// chunk, which installs them here when it loads; until then a dotted slot passes the first poll and `prepare` loads the
+// chunk (the runner polls again), and the Validation service lists no target rows.
 import type { CharacterId, ClipId } from '@ekza-studio/doc';
 import type { EditorApp, RigValidationRow } from '../types';
 import type * as TargetChunk from './target';
@@ -12,11 +13,11 @@ export function isTargetSlotId(slot: unknown): slot is string {
   return typeof slot === 'string' && slot.includes('.');
 }
 
-/** What the target chunk answers for a contract slot on a clip. */
-export interface TargetSlotCheck {
+/** What the target chunk installs once it is loaded. */
+export interface TargetHooks {
   /**
-   * Why `clip` (of `character`; null: a clip about to be made) cannot take `slot`, or null. `moving`: the operator
-   * moves the slot off any other clip, so another holder is no problem.
+   * Why `clip` (of `character`; null: a clip about to be made) cannot take the contract slot `slot`, or null.
+   * `moving`: the operator moves the slot off any other clip, so another holder is no problem.
    */
   problem(
     app: EditorApp,
@@ -25,41 +26,16 @@ export interface TargetSlotCheck {
     slot: string,
     opts?: { readonly moving?: boolean },
   ): string | null;
+  /** The Validation rows of a character's target (area `animation`). */
+  rows(app: Pick<EditorApp, 'store'>, character: CharacterId): RigValidationRow[];
 }
 
-let check: TargetSlotCheck | null = null;
+let hooks: TargetHooks | null = null;
 
-/** Installed by the target chunk (`workflows/target`), never by anything else. */
-export function setTargetSlotCheck(next: TargetSlotCheck | null): void {
-  check = next;
-}
-
-/** True once the target chunk can check contract slots. */
-export function targetSlotsLoaded(): boolean {
-  return check !== null;
-}
-
-/** Why `clip` cannot take the contract slot `slot`; null when it can, or while the chunk is not loaded yet. */
-export function targetSlotProblem(
-  app: EditorApp,
-  character: CharacterId,
-  clip: ClipId | null,
-  slot: string,
-  opts?: { readonly moving?: boolean },
-): string | null {
-  return check === null ? null : check.problem(app, character, clip, slot, opts);
-}
-
-/** The Validation rows of a character's target (area `animation`), installed by the target chunk; [] until then. */
-type RowSource = (app: Pick<EditorApp, 'store'>, character: CharacterId) => RigValidationRow[];
-let rows: RowSource | null = null;
-
-export function setTargetValidationRows(next: RowSource | null): void {
-  rows = next;
-}
-
-export function targetValidationRowsOf(app: Pick<EditorApp, 'store'>, character: CharacterId): RigValidationRow[] {
-  return rows === null ? [] : rows(app, character);
+/** The installed hooks, or null while the target chunk is not loaded (the chunk's `attachTargets` sets them). */
+export function targetHooks(next?: TargetHooks | null): TargetHooks | null {
+  if (next !== undefined) hooks = next;
+  return hooks;
 }
 
 /** The target chunk's module (a type-only import: a value import would make it eager). */

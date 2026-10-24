@@ -19,7 +19,7 @@ import {
   targetOf,
   targetValidationRows,
 } from '../../src/workflows/target';
-import { setTargetSlotCheck, targetSlotsLoaded } from '../../src/workflows/targetSlots';
+import { targetHooks } from '../../src/workflows/targetSlots';
 import { docJson, humanoidSkeleton, opsApp, runOk, runResult, WAVE } from '../builtin/support';
 
 /** The document as JSON, without an empty `ekza.targets` table (the store keeps a table once declared). */
@@ -220,8 +220,8 @@ describe('target operators and the open vocabulary', () => {
     ((await runOk(app, 'clip.new', { character, name })) as { clip: ClipId }).clip;
 
   it('a contract slot on a clip without a target is refused, and the chunk loads on demand', async () => {
-    setTargetSlotCheck(null);
-    expect(targetSlotsLoaded()).toBe(false);
+    targetHooks(null);
+    expect(targetHooks()).toBeNull();
     expect(isTargetSlotId('base.run')).toBe(true);
     expect(isTargetSlotId('walk')).toBe(false);
     const result = await runResult(app, 'clip.setSettings', { clip: WAVE.clip, slot: 'base.run' });
@@ -229,7 +229,7 @@ describe('target operators and the open vocabulary', () => {
       status: 'cancelled',
       reason: "'base.run' is a target slot: set a target for the character first",
     });
-    expect(targetSlotsLoaded()).toBe(true);
+    expect(targetHooks()).not.toBeNull();
     // the vocabulary-v1 slots are unchanged
     await runOk(app, 'clip.setSettings', { clip: WAVE.clip, slot: 'wave' });
     expect((await runResult(app, 'clip.setSettings', { clip: WAVE.clip, slot: 'flying' })).status).toBe('cancelled');

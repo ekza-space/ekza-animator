@@ -31,7 +31,7 @@ import type { ClipImportPlan } from '../../workflows/importAnimation';
 import { animationTargetProblem } from '../../workflows/importChecks';
 import { importPathLoaded } from '../../workflows/importLoader';
 import { slotProblem, uniqueName } from '../../workflows/names';
-import { isTargetSlotId, loadTargetKit, targetSlotProblem, targetSlotsLoaded } from '../../workflows/targetSlots';
+import { isTargetSlotId, loadTargetKit, targetHooks } from '../../workflows/targetSlots';
 import { type AnyOperator, all, defineOperator, fail, isRecord, OK, runContextOf } from './define';
 import { pollEditable } from './polls';
 
@@ -195,7 +195,7 @@ const useClip = defineOperator<'library.useClip', UseClipPlan>({
     const slot = raw['slot'];
     if (slot !== undefined) {
       const problem = isTargetSlotId(slot)
-        ? targetSlotProblem(app, args.character, null, slot, { moving: true })
+        ? (targetHooks()?.problem(app, args.character, null, slot, { moving: true }) ?? null)
         : slotProblem(slot);
       if (problem !== null) return fail(problem);
     }
@@ -205,7 +205,7 @@ const useClip = defineOperator<'library.useClip', UseClipPlan>({
     return old !== undefined && old.character === args.character ? OK : fail('replace must be a clip of the character');
   },
   async prepare({ app }, args) {
-    if (isTargetSlotId(args.slot) && !targetSlotsLoaded()) await loadTargetKit(app);
+    if (isTargetSlotId(args.slot) && targetHooks() === null) await loadTargetKit(app);
     const library = requireClipLibrary(app);
     const entry = await library.clip(args.clip);
     if (library.failed(entry.id)) throw new EkzaError('checksum', CHECKSUM_FAILED, { clip: entry.id });

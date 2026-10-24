@@ -1,5 +1,5 @@
 // CHARACTER-CONTRACT-SPEC §8.4, §9 F2, GAME-PROTOCOL-SPEC §6.1 (C1): the Pro Target panel. Polybot in Animate; the
-// Clips toolbar's *Target* opens the lazy panel beside Clips; *For: OMOBA · Wildspark* binds the character from the
+// Windows › Target opens the lazy panel beside Clips; *For: OMOBA · Wildspark* binds the character from the
 // bundled snapshot (two same-origin requests, nothing else); the checklist lists Wildspark's whole kit in the game's
 // order — nine clip slots, all game defaults, and six objects (gear, projectiles, the trap) with their offers;
 // *From library* fills Run in one Use Clip step (in place, so no warning); a library clip without a contact frame in
@@ -24,9 +24,9 @@ test('E2E-CC-01: Target panel — bind, fill from the library, fix, reuse, defau
     if (url.pathname.startsWith('/contracts/')) contracts.push(url.pathname);
   });
 
-  // the Clips toolbar opens the Target panel beside Clips (Windows › Target)
-  await runOk(page, 'workspace.showPanel', { panel: 'clips' });
-  await page.getByTestId('clips-target').click();
+  // Windows › Target opens the lazy panel as a tab beside Clips
+  await page.getByTestId('menu-windows').click();
+  await page.getByTestId('menu-item-shell.windows.panel.target').click();
   const panel = page.getByTestId('target-panel');
   await expect(panel).toBeVisible();
   await expect(page.getByTestId('target-unbound')).toContainText('Empty slots use the game’s own animations');

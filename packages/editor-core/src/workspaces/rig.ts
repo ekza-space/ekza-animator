@@ -78,12 +78,12 @@ export function isRigWorkspaceOperator(id: string): boolean {
  * The chunk an unregistered operator id belongs to, loading (null: none). The runner awaits it and runs the id when
  * the chunk has registered it (§2.1: menus, the palette and the test API run rig ids before the tab was entered).
  */
-export function lazyOperatorChunk(app: EditorApp, id: string): Promise<void> | null {
+export function lazyOperatorChunk(app: EditorApp, id: string): Promise<unknown> | null {
   if (id.startsWith('library.')) return app.library.loaded ? null : app.library.load();
   if (isRigWorkspaceOperator(id)) return app.rig.loaded ? null : app.rig.load();
   // M-AI (MCP-SPEC §0.4): the explicit-target operators' chunk.
   if (AGENT_OPERATOR_IDS.has(id)) return loadAgentOperators(app);
   // CHARACTER-CONTRACT-SPEC §8.2 (C1): the target chunk.
-  if (id.startsWith('target.')) return loadTargetKit(app).then(() => {});
+  if (id.startsWith('target.')) return loadTargetKit(app);
   return null;
 }

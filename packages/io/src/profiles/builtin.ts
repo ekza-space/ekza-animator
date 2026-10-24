@@ -37,7 +37,7 @@ export const BUILTIN_EXPORT_PROFILES: readonly ExportProfileDef[] = [
   // contract's slots, C1) and exports with `ekza/omoba-humanoid-v2` (C2).
   {
     id: 'ekza/omoba-humanoid-v1',
-    label: 'OMOBA humanoid v1 (GLB with the five legacy passport clips)',
+    label: 'OMOBA humanoid v1 (GLB, five legacy clips)',
     platform: 'desktop',
     profile: 'humanoid-glb-v1',
     kind: 'bake-into-model',
