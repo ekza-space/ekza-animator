@@ -402,11 +402,18 @@ function Row(props: {
           }}
           data-testid={`halo-scene-row-${row.key}`}
         >
-          <span className={row.hidden ? 'truncate font-medium text-fg-3' : 'truncate font-medium text-fg'}>
+          <span
+            className={`truncate font-medium ${row.hidden ? (row.selected ? 'text-fg-2' : 'text-fg-3') : 'text-fg'}`}
+          >
             {row.active ? '● ' : ''}
             {row.name}
           </span>
-          {row.detail === null ? null : <span className="truncate text-touch-label text-fg-3">{row.detail}</span>}
+          {row.detail === null ? null : (
+            // on the selected row's tint the faint grey falls below 4.5:1 (axe color-contrast)
+            <span className={`truncate text-touch-label ${row.selected ? 'text-fg-2' : 'text-fg-3'}`}>
+              {row.detail}
+            </span>
+          )}
           {row.select !== null && row.select.reason !== null ? (
             <span className="truncate text-touch-label text-fg-2">{row.select.reason}</span>
           ) : null}
