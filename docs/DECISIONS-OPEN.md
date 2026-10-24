@@ -1450,6 +1450,7 @@ and Ask.
 | ST-T10-18 | Lines outside the row | Listed in the wp-note: the breadcrumb is clamped above the dock (Keys and Curves unfold over a selected foot), the docked Halo's ⋯ More opens the frame's More (T7's `ui.more` was never read), the sheet context's `touch` and `openMore`, the stage sheet loaders render History and Ask, ↶'s long-press, *Ask AI* in search, the History slice, `BUILT_OWNERS` + T10, the vocabulary lint over the Animate words (P-T7-3) | — | T12 |
 | ST-T10-19 | Parity after T10 | `searchOnly` **58 → 41** (its target; 4 explicit, 37 pending: make 1 · paint 12 · rig 18 · animate 2 · all 8); 303 operators reachable without search (from 289) of 352 live. Targets left: T8 25, T9 20 | — | — |
 | ST-T10-20 | Numbers beside the curves (§10.5, wireframe D) | Not built: the frame has one sheet slot, and pinning Numbers would take it from the others; Numbers opens from the breadcrumb (one tap) | A second slot for a pinned column | T12 / owner |
+| ST-T10-21 | Bytes after T10 (SIZE-1: report-only) | Production build, `check:size`, gzip -9, against merged `dev` (T7 + T11): `/editor` 897,482 → **898,843 B (+1,361**: the controller's three switches and the graph modules gaining Halo's Curves chunk as a second importer, AR-D3-1), `/autorig` 657,839 → **657,840 B (+1)**, `/app` 722,865 → **726,555 B (+3,690**: the ruler, ↶'s press, *Ask AI*, the words). Curves, History, Ask and the agent module inside Ask are lazy chunks | — | T12 (`routes.app` baseline) |
 
 ## Q. Character contract, defaults chosen (2026-10-24)
 
