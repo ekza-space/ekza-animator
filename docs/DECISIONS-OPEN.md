@@ -1226,6 +1226,25 @@ Defaults and owner questions of the touch-first shell ([STUDIO-TOUCH-SPEC](STUDI
 | ST-39 *(v0.2)* | Input pipeline | The arbiter is a stage of `ViewportManager`'s pointer path (buffer, replay original events with coalesced samples, DOM-target panes); spiked in **T1a** before §20.4 freezes; T1 sized L+ (10 days) | A DOM-wrapping arbiter loses capture and coalesced samples | T1a |
 | ST-40 *(v0.2)* | Licence in Share | **An explicit choice**, *Free for anyone (CC0)* listed first, none pre-selected (Q-SKIN-3 stands); J1 is 11 touches (OQ-14) | Pre-selecting CC0 saves one touch but publishes without the user noticing | **owner** |
 
+### P · T5a — forms, lint and wrappers (2026-10-24)
+
+Branch `halo/t5a-forms`; notes in [`wp-notes/halo-t5a.md`](wp-notes/halo-t5a.md).
+
+| ID | Decision | Default chosen | Impact if changed | Decide by |
+|---|---|---|---|---|
+| ST-T5A-1 | Wrapper names | `pose.hold` (Hold Pose), `pose.pasteAt` (Paste Pose at Frame), `pose.placeGoal` (Place IK Goal), `pose.lookAt` (Look At), `pose.reach` (Reach), `clip.loop` (Make Loop), `key.scaleValues` (Scale Key Values), `key.offsetValues` (Offset Key Values), `key.offsetInLoop` (Offset in Loop), `imagePlane.replace` (Replace Image): the spec's ids, Pro-style labels for More and search | Renaming later touches the manifest, forms and policy rows | T12 |
+| ST-T5A-2 | How a wrapper calls the wrapped operator | Its poll asks the wrapped poll; its `prepare` runs the wrapped `prepare` and full poll; its `apply` runs the wrapped `apply` in the wrapper's one transaction and annotates the wrapper's label. One step under the wrapper's label (also for override-only runs). Agent runs refused in the poll too | A dispatcher (`forward` from `prepare`) would record the wrapped operator's step and label, and `imagePlane.replace` would be two steps | — |
+| ST-T5A-3 | Argument types | Declared in `uiWrapperChunk.ts` by declaration merging into `OperatorMap`; `args.ts` (T2's contract file) untouched | Folding them into `args.ts` is a line patch, no behaviour change | T2 |
+| ST-T5A-4 | Registration | `loadUiWrappers(app)`: idempotent per app, never disposed, loads the M-AI operators first; not in Pro's eager registration nor in `lazyOperatorChunk`, so `/editor` gains 0 B. The host calls it at idle (T3) | Wiring it into `lazyOperatorChunk` lets any surface run a wrapper id before the load, for a few dozen eager bytes on `/editor` and `/autorig` | T3, T12 |
+| ST-T5A-5 | Session defaults | Clip = the active one; frame = the playhead (the active clip only, else required); time range = the band; key targets = selected keys → selected channels → animated channels of selected controls; positions in character space (`pose.goals`' space) | — | — |
+| ST-T5A-6 | Reach and Rec | `key` defaults to the effective auto key (Halo's Rec override): keyed through `pose.goals`, else unkeyed edits through `pose.setAt {propose}`, one step either way; `solveReach` is the preview. Hands and feet only: head and hips need a spine solve `pose.goals` lacks | Head / hips Reach: Look At, a Move, or a new kernel solve (ADR) | T7 |
+| ST-T5A-7 | An FK limb under Place Goal / Reach | Switched to IK over the time band only (`ensureIk: 'auto'`); without a band, refused with a pointer to *Hand leads* / *Foot leads*; Reach without Rec refuses an FK limb | Switching at a single frame would bend the neighbouring frames | T7 |
+| ST-T5A-8 | Replace Image | Delete + import + settings in one step; keeps name, view, offset, size, opacity, depth and visibility; the plane gets a new id and is drawn last among its view's planes (`imagePlane.set` has no order); a locked plane is refused | Keeping the id or order needs a new kernel field | — |
+| ST-T5A-9 | `FormDef` beyond the §20.4 sketch | Dotted param names into object arguments (`tolerance.rotationRad`, `params.speed`) and `base` (fixed starting values); `fromSession` stays `'time' \| 'target'` (playhead or band; selection, active animation, picked target, copied pose) | — | — |
+| ST-T5A-10 | Which operators have forms | 20: `graph.curves.simplify`, `graph.infinity.set`, `key.tween`, `time.insertTime`, `time.deleteTime`, `pose.mirrorAnimation`, `clip.new`, `rig.ikFk.switch`, `rig.ikFk.matchRange`, `library.useClip` and the ten wrappers. Defaults are the operator's own; non-adjustable operators with ParamDefs use those (`formOf` → `source: 'params'`) | More forms are additive (one entry each, param-lint checks them) | T6b–T9 |
+| ST-T5A-11 | param-lint | Runs in `test:tooling`; loads the TypeScript registry through a `typescript` transpile hook; the surface checks read `PARAM_SURFACES` from `packages/halo/src/manifest/paramSurfaces.ts` once T6b exports it; "a Pro option box" = a public operator with visible scalar ParamDefs (48 today) | — | T6b |
+| ST-T5A-12 | Turbo inputs of `test:tooling` | Needs `packages/*/src/**` (param-lint reads sources); not changed in T5a (shared file) | Without it a cached pass can hide a source change | T12 |
+
 ## Q. Character contract, defaults chosen (2026-10-24)
 
 Defaults and owner questions of the character contract between Ekza Studio, Ekza Hub and OMOBA
