@@ -35,15 +35,7 @@ interface ToolResult {
   readonly error?: { readonly code: string; readonly message: string };
 }
 
-declare global {
-  interface Window {
-    __EKZA_AGENT_E2E__?: {
-      installFake(opts?: Record<string, unknown>): void;
-      call(tool: string, args: unknown): Promise<unknown>;
-      status(): string | null;
-    };
-  }
-}
+// `window.__EKZA_AGENT_E2E__` is declared once for the e2e project (ai-02-agent-panel.spec.ts)
 
 const touchOnly = (info: TestInfo): void => test.skip(info.project.name !== 'chrome-touch', 'chrome-touch only (CDP)');
 
