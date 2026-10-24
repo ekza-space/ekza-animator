@@ -96,7 +96,7 @@ export function KeyChips({
   };
   return (
     <fieldset
-      className="m-0 flex min-w-0 flex-wrap items-center gap-1.5 border-0 p-0"
+      className="m-0 flex min-w-0 shrink-0 flex-wrap items-center gap-1.5 border-0 p-0"
       aria-label={w.fields}
       data-testid="halo-curves-fields"
     >

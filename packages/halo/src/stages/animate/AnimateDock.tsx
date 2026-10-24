@@ -85,7 +85,12 @@ export function useAnimateDock(
   if (character === null) return { dock: <EmptyState controller={controller} />, lift: 0, hideNext: false };
   // Keys unfold a third of the frame; Curves keep the canvas at 45 % or more of it (§4.2 D) and take the Animations
   // row's place (the active animation is the layer's first chip)
-  const unfold = layer === 1 ? Math.round(height * 0.34) : layer === 2 ? Math.max(300, Math.round(height * 0.44)) : 0;
+  const unfold =
+    layer === 1
+      ? Math.round(height * 0.34)
+      : layer === 2
+        ? Math.max(300, Math.round(height * (compact ? 0.52 : 0.44)))
+        : 0;
   const dock = (
     <div
       ref={measure}
@@ -102,7 +107,7 @@ export function useAnimateDock(
       ) : null}
       {layer === 2 ? (
         <Suspense fallback={null}>
-          <CurvesLayer controller={controller} ui={ui} height={unfold} />
+          <CurvesLayer controller={controller} ui={ui} height={unfold} compact={compact} />
         </Suspense>
       ) : null}
       {layer === 2 ? null : <AnimationsRow controller={controller} ui={ui} compact={compact} />}

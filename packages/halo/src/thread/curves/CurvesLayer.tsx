@@ -90,10 +90,13 @@ export default function CurvesLayer({
   controller,
   ui,
   height,
+  compact = false,
 }: {
   readonly controller: HaloController;
   readonly ui: AnimateUiStore;
   readonly height: number;
+  /** A phone-sized frame: rows scroll sideways and the docked Halo takes its own row. */
+  readonly compact?: boolean;
 }): JSX.Element {
   const { ctx } = controller;
   const { app, store } = ctx;
@@ -447,10 +450,17 @@ export default function CurvesLayer({
     <Cluster
       data-halo-chrome=""
       data-testid="halo-thread-curves"
-      className="pointer-events-auto flex flex-col items-stretch gap-1.5 p-[5px]"
+      className="pointer-events-auto flex flex-col items-stretch gap-1.5 overflow-hidden p-[5px]"
       style={{ height }}
     >
-      <div className="flex min-w-0 flex-wrap items-center gap-1.5" data-testid="halo-curves-header">
+      <div
+        className={
+          compact
+            ? 'flex min-w-0 shrink-0 flex-nowrap items-center gap-1.5 overflow-x-auto'
+            : 'flex min-w-0 shrink-0 flex-wrap items-center gap-1.5'
+        }
+        data-testid="halo-curves-header"
+      >
         {clip !== null && character !== null ? (
           <button
             type="button"
@@ -471,7 +481,7 @@ export default function CurvesLayer({
           {partName}
         </span>
         <fieldset
-          className="m-0 flex min-w-0 flex-wrap items-center gap-1.5 border-0 p-0"
+          className={`m-0 flex items-center gap-1.5 border-0 p-0 ${compact ? 'shrink-0 flex-nowrap' : 'min-w-0 flex-wrap'}`}
           aria-label={animateWords.curves.channels}
           data-testid="halo-curves-chips"
         >
@@ -534,7 +544,14 @@ export default function CurvesLayer({
           {w.before}
         </button>
       </div>
-      <div className="flex min-w-0 flex-wrap items-center gap-1.5" data-testid="halo-curves-tools">
+      <div
+        className={
+          compact
+            ? 'flex min-w-0 shrink-0 flex-nowrap items-center gap-1.5 overflow-x-auto'
+            : 'flex min-w-0 shrink-0 flex-wrap items-center gap-1.5'
+        }
+        data-testid="halo-curves-tools"
+      >
         <Segmented<GraphTool>
           label={w.toolLabel}
           data-testid="halo-curves-tool"
@@ -555,12 +572,19 @@ export default function CurvesLayer({
         >
           {w.axes[axis]}
         </ActionChip>
-        <div className="min-w-0 flex-1" data-testid="halo-curves-docked">
-          <DockedHalo controller={controller} ui={ui} />
-          {docked === null ? <span className="px-2 text-fg-3">{w.keyHint}</span> : null}
-        </div>
+        {compact ? null : (
+          <div className="min-w-0 flex-1" data-testid="halo-curves-docked">
+            <DockedHalo controller={controller} ui={ui} />
+            {docked === null ? <span className="px-2 text-fg-3">{w.keyHint}</span> : null}
+          </div>
+        )}
       </div>
-      <div className="relative min-h-[96px] min-w-0 flex-1 overflow-hidden rounded-touch-inner">
+      {compact && docked !== null ? (
+        <div className="min-w-0 shrink-0" data-testid="halo-curves-docked">
+          <DockedHalo controller={controller} ui={ui} compact />
+        </div>
+      ) : null}
+      <div className="relative min-h-[72px] min-w-0 flex-1 overflow-hidden rounded-touch-inner">
         <canvas ref={baseRef} aria-hidden="true" className="absolute inset-0 block h-full w-full" />
         <canvas
           ref={overlayRef}
@@ -601,10 +625,25 @@ export default function CurvesLayer({
           scrub.current = null;
         }}
       />
-      <div className="flex min-w-0 flex-wrap items-center gap-1.5" data-testid="halo-curves-foot">
+      <div
+        className={
+          compact
+            ? 'flex min-w-0 shrink-0 flex-nowrap items-center gap-1.5 overflow-x-auto'
+            : 'flex min-w-0 shrink-0 flex-wrap items-center gap-1.5'
+        }
+        data-testid="halo-curves-foot"
+      >
         <KeyChips controller={controller} numbers={numbers} units={units} />
-        <CurveHalo controller={controller} shown={shown} focus={focus} frame={frame} />
+        {compact && numbers.count > 0 ? null : (
+          // with keys selected the key Halo's Ease applies, so the bar leaves *Ease all* to More (wireframe D)
+          <CurveHalo controller={controller} shown={shown} focus={focus} frame={frame} keys={numbers.count > 0} />
+        )}
       </div>
+      {compact && numbers.count > 0 ? (
+        <div className="flex min-w-0 shrink-0" data-testid="halo-curves-foot-verbs">
+          <CurveHalo controller={controller} shown={shown} focus={focus} frame={frame} keys />
+        </div>
+      ) : null}
     </Cluster>
   );
 }

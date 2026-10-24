@@ -56,6 +56,7 @@ export function CurveHalo({
   shown,
   focus,
   frame,
+  keys = false,
 }: {
   readonly controller: HaloController;
   /** The curves the layer draws. */
@@ -64,6 +65,8 @@ export function CurveHalo({
   readonly focus: CurveId | null;
   /** The playhead in the animation's frames (*Insert key* lands there). */
   readonly frame: number;
+  /** Keys are selected: their Halo's *Ease* applies, so *Ease all* stays in More (§4.2 wireframe D). */
+  readonly keys?: boolean;
 }): JSX.Element | null {
   const { ctx } = controller;
   const { app, store } = ctx;
@@ -74,6 +77,7 @@ export function CurveHalo({
   const count = (): void => store.set((s) => ({ touches: s.touches + 1 }));
   const actions = new Map<string, Action>();
   for (const petal of petalsFor('curve', 'animate')) {
+    if (keys && petal.id === 'easeAll') continue;
     switch (petal.id) {
       case 'easeAll':
         // every key of the subject curves first, so the ease lands on all of them (Pro's own tangent call after)
