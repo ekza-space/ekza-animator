@@ -128,7 +128,34 @@ Screenshots of every sheet in the harness at iPad landscape size were taken for 
 
 ## Gate and sizes
 
-_(see the end of this note; filled in after the final gate)_
+`EKZA_E2E_PORT=3182 pnpm run ci` at `437f9dff` (dev `ce66bd1e` merged), local Chrome, load average 60–80 on 14 cores:
+**green** (exit 0). It ran format, lint, typecheck, check:deps, check:fixtures, check:licenses, then 23 of 23 test
+tasks (halo 101, editor-core with the descriptor test, the tooling tests with `param-lint` surfaces on and the
+call-site scan), the build, and check:size (all routes OK). The e2e step passed 437 tests and skipped 39 (the existing
+stretch `fixme`s and per-project skips), with none failing.
+
+The run before it, at `02c0b0d0`, stopped in the unit step on load-sensitive tests outside T6b. Each was green when run
+alone right after:
+- `editor-core` `agent/keys.test.ts`: the 50,000-key compute bound took 3,642 ms against 3,000 ms;
+- `headless-tests` `cc-c2.package`;
+- `editor` `m6a-select-ui`, `dialogs`, `m6a-marking-menu` and `input`.
+
+The rest of that chain was green except `ha-parity`. Its ratchet caught the three C2 operators that have only pending
+surfaces (`target.slot.create`, `target.marker.set`, `target.exportPackage`). That change was intended, so the baseline
+was regenerated (114). The dev failure m6a-19 B11 that the coordinator reported did not fail here.
+
+| Route (production build, gzip -9) | dev `ce66bd1e` | T6b `437f9dff` | Δ |
+|---|---|---|---|
+| `/editor` | 896,090 B | 896,090 B | **+0** |
+| `/autorig` | 657,175 B | 657,175 B | **+0** |
+| `/app` | 639,822 B | 639,822 B | **+0** (nothing on `/app` imports T6b yet) |
+
+T6b's eager parts mounted in the Halo shell were measured with a probe build: the `Path`, the `StatusCorner`, the
+`NextChipView` and readiness, plus `prefetchSheets` at idle. Against dev `b58356a5` (`/app` 639,767 B) the probe
+measured `/app` **645,055 B, +5,288 B**. The bytes are the touch kit's segmented control, cluster and buttons (the
+frame will import these anyway) and readiness's editor-core helpers. The manifest, More, every sheet, the forms and the
+models are lazy. SIZE-1 makes every gate 5,000,000 B, so this is a record, not a limit. `/editor` and `/autorig` load
+no Halo code: the check:size boundaries hold.
 
 ## Patches for other packages
 
