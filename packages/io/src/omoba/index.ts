@@ -24,5 +24,6 @@ export {
   omobaManifestJson,
   omobaSlug,
 } from './manifest';
+export { OMOBA_FACING_MARKER, stageVrmForOmoba } from './facing';
 export { omobaKitReadme, omobaValidateCommand } from './readme';
 export { type VrmThumbnail, vrmThumbnail } from './thumbnail';

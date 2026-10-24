@@ -31,9 +31,13 @@ export const BUILTIN_EXPORT_PROFILES: readonly ExportProfileDef[] = [
       })),
     ],
   },
+  // CHARACTER-CONTRACT-SPEC P-5 (C-pre): the five clips mirror OMOBA's v1 passport (`humanoid-glb-v1`, the clips its
+  // hosted builder appends), not what the game plays: every hero moves with Run, and skills pick their own library
+  // motions. The profile stays for asset-sourced characters; a character made for an OMOBA hero binds a target (the
+  // contract's slots, C1) and exports with `ekza/omoba-humanoid-v2` (C2).
   {
     id: 'ekza/omoba-humanoid-v1',
-    label: 'OMOBA humanoid (GLB with the five game clips)',
+    label: 'OMOBA humanoid v1 (GLB with the five legacy passport clips)',
     platform: 'desktop',
     profile: 'humanoid-glb-v1',
     kind: 'bake-into-model',

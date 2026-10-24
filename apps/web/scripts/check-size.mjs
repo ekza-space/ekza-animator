@@ -104,6 +104,13 @@ export const BOUNDARIES = [
   },
   { id: 'pose-bodies', label: 'pose operator bodies', markers: ['locked channel(s) were not changed'] },
   { id: 'clip-bodies', label: 'clip operator bodies', markers: ['clip.duplicate runs in a transaction'] },
+  // CHARACTER-CONTRACT-SPEC §8.15 (C1): the target chunk (contract reader, slot statuses, target operators) loads with
+  // the Target panel, Auto-Rig ④'s *For a game…* or a `target.*` run, never with a route.
+  {
+    id: 'character-target',
+    label: 'character target (contracts, slot statuses, target operators)',
+    markers: ['ekza-character-target'],
+  },
 ];
 
 /**

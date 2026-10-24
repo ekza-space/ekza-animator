@@ -90,6 +90,11 @@ that `model/vrma` has no registry or IANA meaning, and that the Hub → Studio d
 5. **Clip slot vocabulary v1**: `idle, walk, run, attack, cast, death, jump, hit, stagger, crouch, fly, climb,
    swim, dance, wave, emote, celebrate`; `tpose` is reserved and never exported. Clip display names are free
    text; the exported glTF animation name is the slot when set, else the sanitized clip name.
+   *Amended by [ADR 0024](0024-character-contract.md) (C1, 2026-10-24): the vocabulary is open per bound contract.* A
+   clip's slot is a v1 name, or a slot id of the contract its character is bound to (`base.run`,
+   `skill.wild_zap.release`; contract slot ids always contain a dot, v1 names never do): `clip.setSettings` and
+   `library.useClip {slot}` accept it when it is a custom-able slot of the character's view, and one clip holds a
+   contract slot per character. The `ekza.slot-name` lint accepts contract slot ids as animation names.
 6. **Interop warnings** (informational, MVP): "Ekza Space uses only `idle` and `walk`"; "embedding any clip makes
    the current Space renderer skip its shared idle/walk library"; "OMOBA admits but does not play custom humanoid
    clips yet"; "plain GLB consumers do not evaluate VRMC_node_constraint"; VRM meta licence gate for baking a

@@ -149,28 +149,30 @@ function SlotRowView(props: {
       data-testid={`target-row-${row.slot}`}
       data-status={status.kind}
     >
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-start gap-1.5">
         <span aria-hidden className={`w-3 shrink-0 text-center ${GLYPH_CLASS[status.kind]}`}>
           {GLYPH[status.kind]}
         </span>
-        <button
-          type="button"
-          className="min-w-0 flex-1 truncate text-left text-fg disabled:text-fg-2"
-          disabled={!filled}
-          title={filled ? `Show ${clipName ?? 'the clip'}` : row.slot}
-          data-testid={`target-row-label-${row.slot}`}
-          onClick={() => filled && run(app, 'clip.setActive', { clip: status.clip })}
-        >
-          {row.label}
-          <span className="sr-only"> — {STATUS_TEXT[status.kind]}</span>
-        </button>
-        <span className={`${MUTED_TEXT} shrink-0 tabular-nums`} data-testid={`target-row-timing-${row.slot}`}>
-          {filled && status.via === 'alias'
-            ? `same clip as ${rows.find((other) => other.slot === status.from)?.label ?? status.from}`
-            : status.kind === 'fixed'
-              ? `game default · opens with ${row.customizableFrom ?? 'a later contract'}`
-              : row.timing}
-        </span>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <button
+            type="button"
+            className="text-left text-fg disabled:cursor-default disabled:text-fg-2"
+            disabled={!filled}
+            title={filled ? `Show ${clipName ?? 'the clip'}` : row.slot}
+            data-testid={`target-row-label-${row.slot}`}
+            onClick={() => filled && run(app, 'clip.setActive', { clip: status.clip })}
+          >
+            {row.label}
+            <span className="sr-only"> — {STATUS_TEXT[status.kind]}</span>
+          </button>
+          <span className={`${MUTED_TEXT} tabular-nums`} data-testid={`target-row-timing-${row.slot}`}>
+            {filled && status.via === 'alias'
+              ? `same clip as ${rows.find((other) => other.slot === status.from)?.label ?? status.from}`
+              : status.kind === 'fixed'
+                ? `game default · opens with ${row.customizableFrom ?? 'a later contract'}`
+                : row.timing}
+          </span>
+        </div>
       </div>
       {issues.length > 0 ? (
         <ul className="ml-4.5 flex flex-col" data-testid={`target-row-issues-${row.slot}`}>
