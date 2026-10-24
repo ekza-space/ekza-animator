@@ -14,7 +14,7 @@ editor tab, no network access, no telemetry. Tool list: [agent-tools-reference.m
 (generated). Design and contracts: [MCP-SPEC.md](MCP-SPEC.md) (§0.4 is the MVP), [ADR 0018](adr/0018-agent-bridge-mcp.md),
 [ADR 0022](adr/0022-m-ai-mvp-cut.md).
 
-> **Status (MVP, toolset `1.0.0-mvp.2`)**: the package is not on npm yet. Until it is, run the server from a clone of
+> **Status (MVP, toolset `1.0.0-mvp.3`)**: the package is not on npm yet. Until it is, run the server from a clone of
 > this repository (`pnpm install && pnpm mcp:build`, then use `node <repo>/packages/mcp-server/dist/cli.mjs`). The
 > `npx -y ekza-studio-mcp` lines below are for after the first publish.
 
