@@ -40,8 +40,8 @@
       "total": null,
       "pending": "STUDIO-TOUCH-SPEC §20.6 (ST-19, OQ-3): an unenforced placeholder from T2 (the empty Halo shell); T12 records the merged measure and enforces the gate (the Auto-Rig D0→D7 pattern)",
       "placeholder": {
-        "total": null,
-        "recorded": "T2 (halo/t2-contracts): the empty Halo shell over the shared host; docs/wp-notes/halo-t2.md"
+        "total": 635275,
+        "recorded": "2026-10-24, T2 (halo/t2-contracts on dev d5d123c3): the empty Halo shell over the shared host, production build; docs/wp-notes/halo-t2.md"
       }
     }
   },
