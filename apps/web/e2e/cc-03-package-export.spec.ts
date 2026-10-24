@@ -136,7 +136,7 @@ test('E2E-CC-03: OMOBA hero package — slot clips, a blocked rule and its fix, 
   await expect(page.getByTestId('export-char-blocked')).toHaveCount(0);
   await shot(page, 'export-dialog-ready');
   await page.getByTestId('export-confirm').click();
-  await expect.poll(async () => (await lastExport(page))?.fileName ?? null, { timeout: 120_000 }).toBe('cube-lad.vrm');
+  await expect.poll(async () => (await lastExport(page))?.fileName ?? null, { timeout: 120_000 }).toBe('Cube_Lad.vrm');
   const last = await lastExport(page);
   const exported = await manifestOf(new Uint8Array(last?.bytes ?? []));
   expect(exported.names).toEqual(['base.run', 'skill.wild_zap.release']);
