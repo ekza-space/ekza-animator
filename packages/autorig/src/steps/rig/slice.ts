@@ -1,5 +1,6 @@
 // The `rig` slice's reducers and constants (AUTORIG-SPEC §4.3, §5.4; D4; lazy with ③'s view): the sub-tools and the
-// rig mode each works in, the motion test's clips, and `paintedSinceBind`'s rule (fed by `./painted`).
+// rig mode each works in, the motion test's clips, and `paintedSinceBind`'s rule (fed by `./painted`; the clips and
+// the rule are editor-core's `autorigFlow`, T5b).
 import type { AutoRigRigSlice } from '../../types';
 
 export type RigSub = AutoRigRigSlice['sub'];
@@ -11,23 +12,14 @@ export const SUB_MODE: Readonly<Record<RigSub, 'object' | 'skeleton' | 'skin'>> 
   paint: 'skin',
 };
 
-/** The motion test's clips (starter-pack ids, §5.4): Walk, Sword attack, Dance. */
-export const MOTION_CLIPS = ['walk', 'sword-attack', 'dance'] as const;
+/** The motion test's clips (starter-pack ids, §5.4): Walk, Sword attack, Dance (editor-core's `autorigFlow`). */
+export { MOTION_CLIPS } from '@ekza-studio/editor-core';
 
 /**
- * Reducer of `paintedSinceBind` (§4.3, §5.4): a finished document run with a history step sets it when it was a weight
- * edit (`skin.weights.*`) and clears it when it was a bind (`skin.bind`, or Create Skeleton / its refit, which binds
- * a bound skeleton again); any other run leaves it. Conservative: an undone stroke still counts.
+ * Reducer of `paintedSinceBind` (§4.3, §5.4; editor-core's `autorigFlow`): a weight edit sets it, a bind clears it;
+ * `paintTracked` names the runs that can change it.
  */
-export function paintedAfterRun(id: string, painted: boolean): boolean {
-  if (id.startsWith('skin.weights.')) return true;
-  if (id === 'skin.bind' || id === 'skel.quickRig.commit') return false;
-  return painted;
-}
-
-/** Whether a run can change `paintedSinceBind` (the listener watches only these). */
-export const paintTracked = (id: string): boolean =>
-  id.startsWith('skin.weights.') || id === 'skin.bind' || id === 'skel.quickRig.commit';
+export { paintedAfterRun, paintTracked } from '@ekza-studio/editor-core';
 
 /** Reducer: a sub-tool (*Adjust joints* and *Paint weights* stop nothing else in the slice). */
 export function withSub(slice: AutoRigRigSlice, sub: RigSub): Partial<AutoRigRigSlice> {
