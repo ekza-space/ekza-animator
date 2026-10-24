@@ -9,6 +9,9 @@ import { reinspectSubject } from './intake';
 import { leftOutParts } from './parts';
 import { liveSubjectMeshes } from './subject';
 
+/** The *Size* fix's default target height (metres; ①'s Set height field, `autorig.fix`'s own default). */
+export const AUTORIG_TARGET_HEIGHT = 1.7;
+
 /** The subject's next fix now (none without a report or a scene mesh). */
 export function nextFix(host: Pick<AutoRigFlowHost, 'app' | 'state'>): AutoRigFix | null {
   const { intake, subject } = host.state.get();

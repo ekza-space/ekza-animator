@@ -2,7 +2,7 @@
 // truth — the fix order (AS-AR-5), the pose class of the intake operator and the `skel.tpose` 5°, the composition's
 // stop message, io's file naming for the export hint, the stage order of `autorig.rig`, the rebind question rule
 // (AR-D8-8), the painted flag's reducer, the flow store and the operator log's comparable arguments.
-import type { CharacterRecord, MeshId } from '@ekza-studio/doc';
+import type { CharacterId, CharacterRecord, MeshId } from '@ekza-studio/doc';
 import { exportFileName, omobaSlug } from '@ekza-studio/io';
 import { describe, expect, it } from 'vitest';
 import {
@@ -12,18 +12,21 @@ import {
   armPoseClass,
   comparableArgs,
   defaultAutoRigFlowState,
+  type EditorApp,
   exportAvatarName,
   exportFileNameOf,
   exportSlugOf,
   firstFix,
   type IntakeReport,
   memoryAutoRigFlowStore,
+  type OperatorResult,
   paintedAfterRun,
   paintTracked,
   RIG_INTERRUPTED,
   rebindUnasked,
   recommendedTarget,
   stageAfter,
+  startMotionTest,
 } from '../../src';
 import { COMPOSITION_INTERRUPTED } from '../../src/operators/builtin/rig/wizard';
 import { A_POSE_LIMIT, poseClassOf } from '../../src/operators/builtin/rig/wizard/intake';
@@ -142,6 +145,42 @@ describe('⑤ export naming (io’s rules, mirrored)', () => {
     expect(exportAvatarName(gltf)).toBe('Cube Lad');
     expect(recommendedTarget(model)).toBe('ekza-vrm');
     expect(recommendedTarget(gltf)).toBe('glb');
+  });
+});
+
+describe('③ the motion test', () => {
+  it('plays once the character’s runtime is there (right after Create Skeleton it is still being built)', async () => {
+    const runs: string[] = [];
+    const listeners = new Set<() => void>();
+    const built: { runtime?: object } = {};
+    const app = {
+      library: { loaded: true, load: () => Promise.resolve(), service: { preview: null } },
+      characters: {
+        get: () => built.runtime,
+        subscribe: (listener: () => void) => {
+          listeners.add(listener);
+          return () => listeners.delete(listener);
+        },
+      },
+      store: { subscribe: () => () => {} },
+    } as unknown as EditorApp;
+    const reports: unknown[] = [];
+    const quiet = (op: string): Promise<OperatorResult<unknown>> => {
+      runs.push(op);
+      return Promise.resolve({ status: 'finished', value: undefined });
+    };
+    const test = startMotionTest({ app, quiet }, 'chr_A' as CharacterId, 'walk', (state) => reports.push(state));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(runs).toEqual([]);
+    expect(listeners.size).toBe(1);
+    built.runtime = {};
+    for (const listener of listeners) listener();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(runs).toEqual(['library.preview']);
+    expect(reports).toEqual([null]);
+    expect(listeners.size).toBe(0);
+    await test.stop();
   });
 });
 

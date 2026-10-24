@@ -17,14 +17,14 @@ keeps the U state behind a small store port and words every outcome itself.
 | `subject.ts` | `progress/index.ts` (`resolveSubject`, copied; see T5c below) | `resolveAutoRigSubject`, `AUTORIG_FLOW_PROFILE`, `flowCharacterId`, `liveSubjectMeshes` |
 | `intake.ts` | `steps/model/flow.ts`, `fixes.ts` | the New question then `file.new` (`freshDocument`), `intakeModel` (Rig & Skin, `autorig.intake` / `autorig.sample`, then `routeIntake`: static → ① with its default parts, VRM / rigged humanoid → ④, rigged other → *Re-rig*, project → its character, its meshes or a choice), `reinspectSubject` (`autorig.inspect`, the file's fields kept, the start pose once), `takeHandedSubject`, `chooseFlowCharacter`, `continueFromSlot`, `discardSlot`, `reRigArgs` |
 | `checks.ts` | `steps/model/checks.ts` | `AUTORIG_FIX_ORDER` (stand up → size → freeze → centre → face), `firstFix`, `transformsUniform` (a module of its own: ①'s footer is on `/autorig`'s first visit) |
-| `fixes.ts` | `steps/model/fixes.ts` | `nextFix`, `fixArgs` (ticked parts measured, the others follow: `with`), `applyFix` (`autorig.fix`, then the report again) |
+| `fixes.ts` | `steps/model/fixes.ts` | `nextFix`, `fixArgs` (ticked parts measured, the others follow: `with`), `applyFix` (`autorig.fix`, then the report again), `AUTORIG_TARGET_HEIGHT` (1.70 m, ①'s Set height field) |
 | `parts.ts` | `steps/model/parts.ts` | `separateMeshes` / `defaultParts` / `meshBounds` (the 1/96 contact grid), `leftOutParts` |
 | `markers.ts` | `steps/markers/enter.ts` | `markerMeshes`, `openMarkers` (`select.objects` + `skel.quickRig.start`; an open session on the same meshes kept), `recordStartPose` / `guessedStartPose` (5° pose class, *From Studio*), `AUTORIG_FINGER_PRESETS` + `chooseFingers` (`skel.quickRig.setPreset`) |
 | `rig.ts` | `steps/rig/run.ts` | `rigRunArgs` (straighten from the start pose, a re-run only while `skel.tpose` is there; rigid parts; `confirm` when nothing was painted since the flow's own bind, AR-D8-8), `runRig` (stages for the progress, the straighten measure, the subject adopted; outcomes `finished` / `confirm-required` / `cancelled` / `interrupted` / `failed`), `rebindSkin` (*Bind again*, Done's rebind; rigid parts again; straighten on request), `cancelRig`, `bindPartsRigidly`, `followRigStages`, `stageAfter`, `weightsKey`, `rebindUnasked` |
 | `straighten.ts` | `steps/rig/stretch.ts` | AR-R4-3's torn-length measure and `watchStraighten(app, character, record)`, `tornNow` |
 | `painted.ts` | `steps/rig/painted.ts`, `slice.ts` | `watchPaintedSinceBind(app, port)`, `paintedAfterRun`, `paintTracked` |
 | `hands.ts` | `steps/rig/hands.ts` | *Adjust joints* → Done: the hands follow their forearms (AR-D7-16) |
-| `motion.ts` | `steps/rig/motion.ts` (the effect) | `startMotionTest(host, character, clip, report)` → `{stop()}`, `MOTION_CLIPS` |
+| `motion.ts` | `steps/rig/motion.ts` (the effect) | `startMotionTest(host, character, clip, report)` → `{stop()}`, `MOTION_CLIPS`; waits for the character's runtime before the first preview (ST-T5B-9) |
 | `library.ts` | `steps/animations/actions.ts` (two calls) | `previewLibraryClip`, `addLibraryClip` (`autorig.clip.add {character, clip, params, replace?}`) |
 | `export.ts` | `steps/export/files.ts`, `enter.ts`, `ExportStep.tsx` | `exportSlugOf` / `exportFileNameOf` (io's `omobaSlug` and `exportFileName`, mirrored; a test holds them equal), `exportAvatarName`, `recommendedTarget`, `prepareExport` (thumbnail, remembered author), `downloadExport` (`autorig.export {character, target, fileName: ''}`), `exportSaved` |
 | `log.ts` | — | `recordAutoRigFlow(host)`: every funnel run in start order with comparable arguments (ids by first appearance, bytes by length, keys sorted), its status and the document runs it caused (`onBeforeDocumentRun`, a composition's inner runs included) |
@@ -51,14 +51,19 @@ motion test lives in `rig/motion.ts`). The goal also names markers / guess and l
 
 - `packages/editor-core/test/autorigFlow/journey.test.ts`: the journey on the production kernel (the editor-core mesh
   test app, `fetch` serving `/samples/` from `fixtures/models` and `/library/` from `apps/web/public/library`) for the
-  **Cube Lad** (T-pose) and **Polybot A-pose**, recorded with `recordAutoRigFlow`, compared with the references
-  `packages/editor-core/test/autorigFlow/logs/{cube-lad,polybot-apose}.json` (`UPDATE_AUTORIG_LOGS=1` rewrites them;
-  then `biome format --write`), plus the history steps, a saved Ekza VRM (`cube-lad.vrm`) and a deterministic re-run.
-- `packages/autorig/test/steps/flowLog.test.ts`: the wizard's own step functions (① `loadSample`, ② `enterMarkers`,
-  ③ `runAutoRig`, ④ `loadManifest` + `addClip`, ⑤ `enterExport`; the motion test, the licence edit and *Download*
-  as their hook / body / effect call them) record **exactly the same logs** from the wizard's funnels.
+  **Cube Lad** (T-pose), **Polybot A-pose** and a **Cube Lad in centimetres** (its node ×100, AR-R5-1's case: ① runs
+  the *Size* fix first), recorded with `recordAutoRigFlow`, compared with the references
+  `packages/editor-core/test/autorigFlow/logs/{cube-lad,polybot-apose,cube-lad-cm}.json` (`UPDATE_AUTORIG_LOGS=1`
+  rewrites them; then `biome format --write`), plus the history steps, a saved Ekza VRM (`cube-lad.vrm`) and a
+  deterministic re-run.
+- `packages/autorig/test/steps/flowLog.test.ts`: the wizard's own step functions (① `loadSample` / `loadFiles` and
+  the report's fix buttons' `applyFix`, ② `enterMarkers`, ③ `runAutoRig`, ④ `loadManifest` + `addClip`, ⑤
+  `enterExport`; the motion test, the licence edit and *Download* as their hook / body / effect call them) record
+  **exactly the same logs** from the wizard's funnels, for all three models.
 
-The recorded sequence (both models; Polybot's `autorig.rig` is `{straighten: true}` and adds `skel.pose.applyAsRest`):
+The recorded sequence of the samples (Polybot's `autorig.rig` is `{straighten: true}` and adds
+`skel.pose.applyAsRest`; the centimetre Cube Lad starts `autorig.intake {bytes, name}`, then `autorig.fix {fix:
+'scale', height: 1.7, meshes}` → `scene.object.transform` and `autorig.inspect`, then the same rows 3–12):
 
 | # | via | operator | document runs |
 |---|---|---|---|
@@ -76,8 +81,10 @@ The recorded sequence (both models; Polybot's `autorig.rig` is `{straighten: tru
 | 12 | run | `autorig.export {character, fileName: '', target: 'ekza-vrm'}` | — |
 
 Halo's J1 (T9) records its *Rig it* recipe over its own host with `recordAutoRigFlow` and compares with these files.
-Neither sample needs a ① fix; the fix path is covered by `applyFix` / `nextFix` in the journey and the wizard's unit
-tests, and the rules by `flow.test.ts`.
+**A race fixed on the way (ST-T5B-9).** Under load (the first gate ran at load average ~97) the motion test right
+after *Auto-rig* was refused with "The character is still loading" — the character's runtime is built after Create
+Skeleton commits — and nothing restarted it, so ③'s character stood still until the next edit. `startMotionTest` now
+waits for the runtime (`app.characters.subscribe`) before its first preview; a unit test holds it.
 
 ## Gate and sizes
 

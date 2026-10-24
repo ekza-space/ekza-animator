@@ -46,6 +46,30 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/** The Cube Lad exported in centimetres: its node scaled ×100 (a 1.7 m body 170 m tall, AR-R5-1's Wang case). */
+function centimetreLad(): Uint8Array {
+  const bytes = new Uint8Array(readFileSync(new URL('fixtures/models/cube-lad.glb', ROOT)));
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const length = view.getUint32(12, true);
+  const json = JSON.parse(new TextDecoder().decode(bytes.subarray(20, 20 + length))) as {
+    nodes: { scale?: number[] }[];
+  };
+  for (const node of json.nodes) node.scale = [100, 100, 100];
+  let text = JSON.stringify(json);
+  while (text.length % 4 !== 0) text += ' ';
+  const chunk = new TextEncoder().encode(text);
+  const rest = bytes.subarray(20 + length);
+  const out = new Uint8Array(20 + chunk.byteLength + rest.byteLength);
+  const outView = new DataView(out.buffer);
+  out.set(bytes.subarray(0, 12));
+  outView.setUint32(8, out.byteLength, true);
+  outView.setUint32(12, chunk.byteLength, true);
+  outView.setUint32(16, 0x4e4f534a, true);
+  out.set(chunk, 20);
+  out.set(rest, 20 + chunk.byteLength);
+  return out;
+}
+
 const labels = (app: EditorApp): string[] => {
   const out: string[] = [];
   while (app.history.canUndo()) out.push(app.history.undo()?.label ?? '?');
@@ -54,17 +78,17 @@ const labels = (app: EditorApp): string[] => {
 };
 
 interface Recorded {
-  readonly model: AutoRigSampleId;
+  readonly model: AutoRigSampleId | 'cube-lad-cm';
   readonly log: readonly AutoRigFlowLogEntry[];
   readonly history: readonly string[];
 }
 
-async function journey(sample: AutoRigSampleId) {
+async function journey(model: AutoRigSampleId | { readonly name: string; readonly bytes: Uint8Array }) {
   const { app, services } = await meshTestApp();
   const log = recordAutoRigFlow(autoRigFlowHost(app));
   try {
     const result = await runAutoRigJourney(log.host, {
-      model: { sample },
+      model: typeof model === 'string' ? { sample: model } : model,
       clips: ['walk'],
       author: 'Tester',
       meta: [{ licensePreset: 'cc0' }],
@@ -122,6 +146,23 @@ describe('Auto-Rig ①–⑤ headless through autorigFlow (AS-ST-5, AS-ST-15)', 
     const rig = run.log.find((entry) => entry.op === 'autorig.rig');
     expect(rig?.args).toMatchObject({ straighten: true });
     expect(rig?.document).toEqual(['skel.quickRig.commit', 'skin.bind', 'skel.pose.applyAsRest']);
+  });
+
+  it('the Cube Lad in centimetres: ① sets its height first (AR-R5-1), then the same rig and export', async () => {
+    const run = await journey({ name: 'cube-lad-cm.glb', bytes: centimetreLad() });
+    expect(run.result.stopped).toBeNull();
+    expect(run.result.fixes).toEqual(['scale']);
+    expect(run.result.motion).toBeNull();
+    expect(run.result.report?.checks.scale).toBe('ok');
+    expect(run.result.export?.saved).toBe(true);
+    expect(run.outside).toEqual([]);
+    const recorded: Recorded = { model: 'cube-lad-cm', log: run.log, history: run.history };
+    expect(recorded).toEqual(reference('cube-lad-cm', recorded));
+    const fix = run.log.find((entry) => entry.op === 'autorig.fix');
+    expect(fix?.args).toEqual({ fix: 'scale', height: 1.7, meshes: ['msh#1'] });
+    expect(run.log.map((entry) => entry.op).indexOf('autorig.inspect')).toBeGreaterThan(
+      run.log.map((entry) => entry.op).indexOf('autorig.fix'),
+    );
   });
 
   it('runs the same journey to the same log twice (deterministic)', async () => {

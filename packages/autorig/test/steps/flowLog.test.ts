@@ -31,7 +31,9 @@ import { addClip, loadManifest } from '../../src/steps/animations/actions';
 import { enterExport, exportCharacter } from '../../src/steps/export/enter';
 import { AUTHOR_KEY } from '../../src/steps/export/author';
 import { enterMarkers } from '../../src/steps/markers/enter';
-import { loadSample } from '../../src/steps/model/flow';
+import { firstFix, transformsUniform } from '../../src/steps/model/checks';
+import { applyFix } from '../../src/steps/model/fixes';
+import { loadFiles, loadSample } from '../../src/steps/model/flow';
 import { flowHost } from '../../src/steps/model/flowHost';
 import { runAutoRig } from '../../src/steps/rig/run';
 
@@ -118,16 +120,28 @@ function wizard(app: EditorApp, run: Run): WizardContext {
   } as unknown as WizardContext;
 }
 
-async function wizardJourney(sample: AutoRigSampleId): Promise<readonly AutoRigFlowLogEntry[]> {
+async function wizardJourney(model: AutoRigSampleId | 'cube-lad-cm'): Promise<readonly AutoRigFlowLogEntry[]> {
   const { app, run, log } = await recordedApp();
   const ctx = wizard(app, run);
-  await loadSample(ctx, sample); // ①
+  // ①: a sample, or a dropped file; then each first fix as the report's buttons run it (Size with its 1.70 m field)
+  if (model === 'cube-lad-cm') {
+    const bytes = centimetreLad();
+    await loadFiles(ctx, [new File([bytes.slice().buffer], 'cube-lad-cm.glb')]);
+  } else await loadSample(ctx, model);
+  for (let i = 0; i < 5; i++) {
+    const report = ctx.session.getState().intake;
+    const fix =
+      report === null ? null : firstFix(report, transformsUniform(ctx, ctx.session.getState().subject.meshes));
+    if (fix === null) break;
+    await applyFix(ctx, fix, fix === 'scale' ? 1.7 : undefined);
+  }
   await enterMarkers(ctx); // ②
   await runAutoRig(ctx); // ③
   expect(ctx.session.getState().step).toBe('rig');
   const character = exportCharacter(ctx);
   if (character === null) throw new Error('no character');
   await new Promise<void>((resolve, reject) => {
+    setTimeout(() => reject(new Error('the motion test did not play')), 20_000);
     // ③'s motion test, as `useMotionTest` starts it; leaving ③ stops it
     const test = startMotionTest(
       { app, quiet: (op, args) => app.runUntyped(op, args) },
@@ -143,6 +157,30 @@ async function wizardJourney(sample: AutoRigSampleId): Promise<readonly AutoRigF
   const downloaded = await downloadExport(flowHost(ctx), character.id, ctx.session.getState().export.target);
   expect(downloaded?.saved).toBe(true);
   return log;
+}
+
+/** The Cube Lad exported in centimetres: its node scaled ×100 (a 1.7 m body 170 m tall, AR-R5-1's Wang case). */
+function centimetreLad(): Uint8Array {
+  const bytes = new Uint8Array(readFileSync(new URL('fixtures/models/cube-lad.glb', ROOT)));
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const length = view.getUint32(12, true);
+  const json = JSON.parse(new TextDecoder().decode(bytes.subarray(20, 20 + length))) as {
+    nodes: { scale?: number[] }[];
+  };
+  for (const node of json.nodes) node.scale = [100, 100, 100];
+  let text = JSON.stringify(json);
+  while (text.length % 4 !== 0) text += ' ';
+  const chunk = new TextEncoder().encode(text);
+  const rest = bytes.subarray(20 + length);
+  const out = new Uint8Array(20 + chunk.byteLength + rest.byteLength);
+  const outView = new DataView(out.buffer);
+  out.set(bytes.subarray(0, 12));
+  outView.setUint32(8, out.byteLength, true);
+  outView.setUint32(12, chunk.byteLength, true);
+  outView.setUint32(16, 0x4e4f534a, true);
+  out.set(chunk, 20);
+  out.set(rest, 20 + chunk.byteLength);
+  return out;
 }
 
 const reference = (model: string): readonly AutoRigFlowLogEntry[] =>
@@ -166,5 +204,16 @@ describe('the wizard issues the autorigFlow operator log (AS-ST-15)', { timeout:
       'autorig.export',
     ]);
     expect(log).toEqual(reference(model));
+  });
+
+  it('a centimetre Cube Lad ①–⑤ (the Size fix first)', async () => {
+    const log = await wizardJourney('cube-lad-cm');
+    expect(log.map((entry) => entry.op).slice(0, 4)).toEqual([
+      'workspace.set',
+      'autorig.intake',
+      'autorig.fix',
+      'autorig.inspect',
+    ]);
+    expect(log).toEqual(reference('cube-lad-cm'));
   });
 });

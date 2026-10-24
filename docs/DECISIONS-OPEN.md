@@ -1233,6 +1233,7 @@ Defaults and owner questions of the touch-first shell ([STUDIO-TOUCH-SPEC](STUDI
 | ST-T5B-6 | Lazy chunk bytes | The first visits are gated and do not grow; the summed lazy-group bytes of `/autorig` grew 12.0 kB because the ~1.2 kB flow-host module is shared by ten step-action groups (counted per group, downloaded once). Not gated | Inlining the host per step would duplicate it instead | T5b |
 | ST-T5B-7 | Finger detail names | `AUTORIG_FINGER_PRESETS` = `mittens` (core21) · `thumb` (standard33, the default) · `all` (full52) · `minimal` (lite17), the names of `HaloHandoffState.fingers` | — | T5b, T2 |
 | ST-T5B-8 | `resolveSubject` until T5c | `autorigFlow/subject.ts` holds the rule; Auto-Rig's `progress/` keeps its copy until T5c moves progress into editor-core and imports it from the flow | Two copies drift if T5c keeps its own | T5c |
+| ST-T5B-9 | The motion test right after rigging | `startMotionTest` waits for the character's runtime (built after Create Skeleton commits) before its first `library.preview`; before, a preview refused with "The character is still loading" was never restarted and ③'s character stood still until the next edit (seen under load in the headless journey). The ① *Size* fix's default height is `AUTORIG_TARGET_HEIGHT` = 1.70 m, as ①'s field | — | T5b |
 
 ## Q. Character contract, defaults chosen (2026-10-24)
 

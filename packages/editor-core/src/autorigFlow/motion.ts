@@ -2,7 +2,8 @@
 // rig is checked the character plays a loop through C12's library preview (`library.preview {character, clip}`,
 // channel source `preview`: no document write, no undo step) — Walk, Sword attack or Dance from the starter pack. C12
 // stops the preview on any document change; while the test runs, the driver starts it again once the change has
-// committed (a committed batch, never a gesture's preview batches). Stopping the test stops the preview it played.
+// committed (a committed batch, never a gesture's preview batches), and a character whose runtime is still being built
+// plays once it is there. Stopping the test stops the preview it played.
 // React-free: the wizard's `useMotionTest` and Halo's *Test with* chip drive it.
 import type { CharacterId } from '@ekza-studio/doc';
 import type { AutoRigFlowHost } from './host';
@@ -34,6 +35,7 @@ export function startMotionTest(
   const { app } = host;
   let alive = true;
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let waiting: (() => void) | null = null;
   const start = async (): Promise<void> => {
     try {
       if (!app.library.loaded) await app.library.load();
@@ -42,6 +44,17 @@ export function startMotionTest(
       return;
     }
     if (!alive) return;
+    // Right after Create Skeleton the character's runtime is still being built ("The character is still loading"):
+    // the test plays once it is there, instead of a refused preview that nothing restarts (T5b, ST-T5B-9)
+    if (app.characters.get(character) === undefined) {
+      waiting ??= app.characters.subscribe(() => {
+        if (app.characters.get(character) === undefined) return;
+        waiting?.();
+        waiting = null;
+        if (alive) void start();
+      });
+      return;
+    }
     const playing = app.library.service.preview;
     if (playing !== null && playing.character === character && playing.clip === clip) return;
     const result = await host.quiet('library.preview', { character, clip });
@@ -62,6 +75,8 @@ export function startMotionTest(
       if (!alive) return;
       alive = false;
       off();
+      waiting?.();
+      waiting = null;
       if (timer !== null) clearTimeout(timer);
       if (app.library.loaded && app.library.service.preview?.character === character) {
         await host.quiet('library.stop');

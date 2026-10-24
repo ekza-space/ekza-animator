@@ -9,7 +9,7 @@
 import type { CharacterId, CharacterVrmMeta } from '@ekza-studio/doc';
 import type { AutoRigExportResult, AutoRigExportTarget, AutoRigFix, AutoRigSampleId, IntakeReport } from '../types';
 import { downloadExport, prepareExport } from './export';
-import { applyFix, nextFix } from './fixes';
+import { AUTORIG_TARGET_HEIGHT, applyFix, nextFix } from './fixes';
 import type { AutoRigFlowHost } from './host';
 import { freshDocument, intakeFileArgs, intakeModel, intakeSampleArgs } from './intake';
 import { addLibraryClip } from './library';
@@ -20,7 +20,7 @@ import { runRig } from './rig';
 export interface AutoRigJourneyInput {
   /** ① a sample (`autorig.sample`), or a file (`autorig.intake`). */
   readonly model: { readonly sample: AutoRigSampleId } | { readonly name: string; readonly bytes: Uint8Array };
-  /** ① the *Size* fix's target height (metres; default the operator's 1.70 m). */
+  /** ① the *Size* fix's target height (metres; default ①'s Set height field, 1.70 m). */
   readonly height?: number;
   /** ② the finger detail; absent = the guess's preset. */
   readonly fingers?: AutoRigFingers;
@@ -81,7 +81,7 @@ export async function runAutoRigJourney(
   for (let fix = nextFix(host); fix !== null; fix = nextFix(host)) {
     if (fixes.length >= MAX_FIXES || fixes.includes(fix)) return stop(1, `the ${fix} fix did not clear its check`);
     fixes.push(fix);
-    const fixed = await applyFix(host, fix, fix === 'scale' ? input.height : undefined);
+    const fixed = await applyFix(host, fix, fix === 'scale' ? (input.height ?? AUTORIG_TARGET_HEIGHT) : undefined);
     if (fixed.status === 'failed') return stop(1, fixed.error);
     report = host.state.get().intake;
   }

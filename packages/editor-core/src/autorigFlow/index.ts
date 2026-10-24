@@ -52,7 +52,7 @@ export {
   takeIntakeReport,
 } from './intake';
 export { AUTORIG_FIX_ORDER, firstFix, transformsUniform } from './checks';
-export { applyFix, type AutoRigFixOutcome, fixArgs, nextFix } from './fixes';
+export { AUTORIG_TARGET_HEIGHT, applyFix, type AutoRigFixOutcome, fixArgs, nextFix } from './fixes';
 export {
   armPoseClass,
   AUTORIG_A_POSE_LIMIT,
