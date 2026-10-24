@@ -196,7 +196,14 @@ interface CharacterLike {
   readonly id: string;
   readonly name: string;
   readonly deleted: unknown;
-  readonly skeleton: string | null;
+  /** An asset character has its rig from the file; a model character its skeleton record (M6b). */
+  readonly source: { readonly kind: 'asset' } | { readonly kind: 'model'; readonly skeleton: string | null };
+}
+
+/** Does the character have a skeleton (an imported rig, or a model character's skeleton record)? */
+function hasSkeleton(character: CharacterLike | null): boolean {
+  if (character === null) return false;
+  return character.source.kind === 'asset' || character.source.skeleton !== null;
 }
 
 function liveCharacters(app: EditorApp): readonly CharacterLike[] {
@@ -247,7 +254,11 @@ function rigRows(app: EditorApp, destination: Destination): { rows: ReadinessRow
       why: `A check of ${destination.name}.`,
       ids: row.ids,
       fix: row.fix === null ? null : { label: row.fix.label, op: row.fix.op, args: row.fix.args },
-      show: null,
+      // Skeleton rows name joints: Show me selects them (§6.2 health dot).
+      show:
+        row.area === 'skeleton' && row.ids.length > 0
+          ? { label: 'Show me', op: 'select.joints', args: { ids: row.ids, mode: 'replace' } }
+          : null,
     });
   }
   return { rows, checked: true };
@@ -312,7 +323,7 @@ export function readiness(app: EditorApp, destinationId: string = 'exploring'): 
     },
     paint: { glyph: glyphOf(0, painted, painted, true), count: 0 },
     rig: {
-      glyph: glyphOf(count('rig'), character !== null, character?.skeleton !== null, rig.checked),
+      glyph: glyphOf(count('rig'), character !== null, hasSkeleton(character), rig.checked),
       count: count('rig'),
     },
     animate: {

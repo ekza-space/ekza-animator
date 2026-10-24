@@ -46,7 +46,7 @@ export const SHEET_SECTIONS: Readonly<Record<SheetId, readonly string[] | null>>
     'undo',
     'autosave',
   ],
-  health: ['problems', 'checks', 'legend'],
+  health: ['legend', 'problems', 'checks'],
   help: ['gestures', 'glyphs', 'shortcuts', 'about', 'licences'],
   about: ['identity', 'licence', 'usage', 'flags', 'thumbnail'],
   library: null,
