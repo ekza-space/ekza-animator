@@ -17,6 +17,10 @@ const DENIED_MODELING = 'modeling and scene editing are not available to agents 
 const DENIED_QUICK_RIG = 'Quick Rig runs through rig_create';
 const DENIED_WEIGHTS = 'weight edits are not available to agents yet';
 const DENIED_EXPORT_SETUP = 'files go through project_export';
+// STUDIO-TOUCH-SPEC §14, §20.3 item 7 (T5a): the touch shell's public wrappers read the user's session; agents call
+// the operators they wrap, so the toolset and its generated reference stay as they are.
+const DENIED_UI_WRAPPER =
+  "a touch-shell command on the user's selection, playhead and copied pose; use pose_set, pose_transfer, pose_ik_target, pose_aim, keys_adjust, keys_retime or clip_make_loop";
 /** The reason an operator without a classification answers `denied_operator` with. */
 export const UNCLASSIFIED_REASON = 'this operator is not classified for agents';
 
@@ -411,6 +415,17 @@ export const OPERATOR_POLICY: Readonly<Record<string, OperatorAgentPolicy>> = nu
   'library.preview': denied(DENIED_USER_STATE),
   'library.stop': denied(DENIED_USER_STATE),
   'library.open': denied(DENIED_USER_STATE),
+  // STUDIO-TOUCH-SPEC §20.3 item 7 (T5a): the UI wrappers (a lazy chunk, `loadUiWrappers`), denied by default
+  'pose.hold': denied(DENIED_UI_WRAPPER),
+  'pose.pasteAt': denied(DENIED_UI_WRAPPER),
+  'pose.placeGoal': denied(DENIED_UI_WRAPPER),
+  'pose.lookAt': denied(DENIED_UI_WRAPPER),
+  'pose.reach': denied(DENIED_UI_WRAPPER),
+  'clip.loop': denied(DENIED_UI_WRAPPER),
+  'key.scaleValues': denied(DENIED_UI_WRAPPER),
+  'key.offsetValues': denied(DENIED_UI_WRAPPER),
+  'key.offsetInLoop': denied(DENIED_UI_WRAPPER),
+  'imagePlane.replace': denied(DENIED_MODELING),
 });
 
 function nullPrototype<T>(entries: Readonly<Record<string, T>>): Readonly<Record<string, T>> {
