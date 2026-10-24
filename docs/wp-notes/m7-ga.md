@@ -222,7 +222,4 @@ loads before the first intake run, and the browser path loads only the worker's.
 | 1 | format, lint, typecheck, deps (23 packages), fixtures (25), licences (178) green; unit tests stopped by a crash of Playwright's own IPC in curve-editor's browser tests (`SyntaxError: Unexpected end of JSON input` in playwright-core); turbo stopped the rest. curve-editor alone: 220 passed |
 | 2 | unit tests: three Halo tests and one editor-core compute-bound test timed out at load ≈ 93; alone: 14 + 26 passed |
 | 3 | every unit test task green (24/24), build, `check:size` green (table above), e2e **470 passed, 99 skipped, 1 failed**: `m2a-01-leg-ik-holds-feet` ("Character 'Polybot' has no runtime yet", a runtime-load timing at load ≈ 45); alone, with `m7-01-intake`: 2 passed |
-
-Unit test counts of the packages this branch touches (run 3): mesh-wasm 12, editor-core (with `test/m7`), io 494,
-headless-tests 232 (with `m7.intake`, 7 tests), editor 677 + 1 skipped, halo, agent-tools, web 110, tooling
-(param-lint green).
+| **4 (final, `a5e7ec2c`)** | **green, exit 0**: format, lint, typecheck, deps (23 packages), fixtures (25), licences (178); unit tests 24/24 tasks — mesh-wasm 12, editor-core 1,824, io 494, headless-tests 232, editor 677 + 1 skipped, mesh-core 982, halo 178, agent-tools 263 + 8 skipped, curve-editor 220 + 3 skipped, web 110, tooling 37 (param-lint included); build; `check:size` (table above); e2e **471 passed, 99 skipped, 0 failed** (`m7-01-intake` included) |
